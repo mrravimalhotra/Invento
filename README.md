@@ -16,19 +16,17 @@ Security) · Tailwind CSS v4 · Recharts · jsPDF.
 
 ## Local setup
 
-1. Create a Supabase project (or use the Supabase CLI's local dev stack —
-   `supabase start`).
-2. Apply the migrations in order, via the Supabase SQL editor or the CLI:
-   ```bash
-   supabase db push
-   # or paste supabase/migrations/0001_init.sql, then 0002_transactions.sql,
-   # then 0003_fixes.sql, into the SQL editor, in that order
-   ```
-3. Copy `.env.example` to `.env.local` and fill in your project's URL and
+Full walkthrough: [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md)
+(project creation, applying the three migrations, Auth configuration,
+bootstrapping the first admin, deploying). Short version:
+
+1. Create a Supabase project, apply `supabase/migrations/*.sql` in order
+   (0001 → 0002 → 0003) via the SQL Editor or `supabase db push`.
+2. Copy `.env.example` to `.env.local` and fill in your project's URL and
    anon key (Project Settings → API).
-4. `npm install`
-5. `npm run dev` — [http://localhost:3000](http://localhost:3000)
-6. Register an account at `/register`, then grant it `system_admin` (the
+3. `npm install`
+4. `npm run dev` — [http://localhost:3000](http://localhost:3000)
+5. Register an account at `/register`, then grant it `system_admin` (the
    User Roles screen is itself admin-only, so the first admin has to be
    bootstrapped outside the app — see the comment at the top of
    `scripts/seed-admin.ts`):
@@ -36,7 +34,7 @@ Security) · Tailwind CSS v4 · Recharts · jsPDF.
    SUPABASE_SERVICE_ROLE_KEY=... NEXT_PUBLIC_SUPABASE_URL=... \
      npx tsx scripts/seed-admin.ts you@example.com
    ```
-7. Sign in and assign roles to other accounts from **User Roles & Access**.
+6. Sign in and assign roles to other accounts from **User Roles & Access**.
 
 ## What's here
 
