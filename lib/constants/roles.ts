@@ -28,6 +28,10 @@ export const MODULE_WRITE_ROLES = {
   purchase: ["system_admin", "inventory_manager"],
   qc_assign: ["system_admin", "inventory_manager", "quality_checker", "qc_reviewer"],
   qc_review: ["system_admin", "quality_checker", "qc_reviewer"],
+  // Mirrors record_wastage()'s own has_any_role check in 0002_transactions.sql —
+  // the only write this module owns (everything else in inventory_ledger is
+  // written by triggers, not by this module's UI).
+  inventory: ["system_admin", "inventory_manager", "quality_checker", "qc_reviewer"],
   mfr: ["system_admin", "mfr_manager"],
   finished_product: ["system_admin", "mfr_manager", "inventory_manager"],
   bmr: ["system_admin", "mfr_manager", "quality_checker", "qc_reviewer"],

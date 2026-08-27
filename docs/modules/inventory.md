@@ -1,0 +1,156 @@
+# Module 7 — Inventory Ledger
+
+Cross-reference: `docs/DESIGN.md` §4.6 (schema), §5 (auto-numbering — n/a,
+ledger rows have no document number), §6 (route map), §8 (UI system), §9
+(known simplifications).
+
+## Role
+
+Write (`inventory` in `MODULE_WRITE_ROLES`): `system_admin`,
+`inventory_manager`, `quality_checker`, `qc_reviewer` — mirrors the
+`has_any_role(...)` check inside `record_wastage()` in
+`0002_transactions.sql`. This module owns exactly one write: recording a
+wastage event. Every other row in `inventory_ledger` is written by
+`SECURITY DEFINER` triggers as a side effect of Purchase / QC / Finished
+Product / Packaging inserts (built by other agents) — this module never
+inserts a ledger row directly (blocked by the `ledger_no_direct_write` RLS
+policy in `0001_init.sql` anyway). Read is open to any signed-in user, per
+the cross-cutting rule in DESIGN.md §3.
+
+## Screens
+
+- **Ledger** — `/inventory` (`app/(dashboard)/inventory/(tabs)/page.tsx`).
+  `DataTable` over `inventory_ledger` joined to `items` (name + code) and
+  `purchase_lines` (batch number, for the batch text search the brief asked
+  for). Columns: date/time, event type (`Badge`, colors already wired for
+  push/pull/wastage), item (name, code, batch as a subline), quantity + unit,
+  department, reference type, and "by" — resolved to a `profiles.full_name`
+  where available, else a shortened user id, else "—". `event_by` is a
+  second query (see Deviations) since it references `auth.users`, not
+  `profiles`, so PostgREST can't embed it. Capped at the 1000 most recent
+  events (see Deviations).
+- **Stock Balance** — `/inventory/balance`
+  (`.../balance/page.tsx`). The as-of-now "current stock on hand" view the
+  baseline never had. Queries `stock_balance` and `items` separately (same
+  pattern as the Dashboard's low-stock panel) and merges by `item_id` in JS,
+  since `stock_balance` is a plain view with no FK metadata for PostgREST to
+  embed through. Shows on-hand per active item with a red "Low stock" badge
+  when `on_hand < low_stock_threshold`, a muted "no threshold set" note when
+  the item has none.
+- **RM Report As On Date** — `/inventory/rm-report`
+  (`.../rm-report/page.tsx`), named to match the legacy report exactly.
+  Queries `purchase_lines` (`active = true`, `created_at <= <asOf>`) joined
+  to `items`. Columns: Item, Batch No., **PQTY** (`quantity`), **SQTY**
+  (`qc_qty + stability_qty + rnd_qty`), **QTY** (`remaining_qty`, the
+  DB-generated column), Unit, Unit Price, **Total** (`remaining_qty ×
+  unit_price`), plus a grand-total footer. Date picker (`rm-report-filter.tsx`,
+  a plain GET form so no `useSearchParams()`/Suspense is needed — auto-submits
+  on change) defaults to today. "Export PDF" (`rm-report-export.tsx`) calls
+  `lib/pdf.ts`'s `downloadPdfTable()` client-side with the same rows the
+  table renders — this is a real gap closed: the RM Report As On Date with a
+  working export button was a "Not Yet Built" item in the requirements
+  review.
+- **Record wastage** — `/inventory/wastage/new`
+  (`app/(dashboard)/inventory/wastage/new/page.tsx` +
+  `wastage-form.tsx`). Item dropdown, dependent batch dropdown (that item's
+  `purchase_lines`, optional — "— none —" default, shows remaining qty per
+  batch), quantity, unit (defaults to the item's unit, editable), reason
+  (required textarea). Submits to `recordWastage` in
+  `lib/actions/inventory.ts`, which re-checks `canWrite(..., "inventory")`
+  and then calls `supabase.rpc("record_wastage", {...})` — the RPC's own
+  role check is the real backstop. The "Record wastage" button lives in the
+  shared tab-strip layout (`(tabs)/layout.tsx`) so it's reachable from all
+  three views, gated client-side by the same `canWrite` check.
+
+## Files
+
+- `lib/actions/inventory.ts` — `recordWastage` (Server Action).
+- `app/(dashboard)/inventory/(tabs)/layout.tsx` — shared `PageHeader` +
+  tab strip + gated "Record wastage" button for the three read views.
+- `app/(dashboard)/inventory/(tabs)/inventory-tabs.tsx` — client tab nav
+  (`usePathname`-based active state).
+- `app/(dashboard)/inventory/(tabs)/page.tsx` — Ledger.
+- `app/(dashboard)/inventory/(tabs)/balance/page.tsx` — Stock Balance.
+- `app/(dashboard)/inventory/(tabs)/rm-report/page.tsx`,
+  `rm-report-filter.tsx`, `rm-report-export.tsx` — RM Report As On Date.
+- `app/(dashboard)/inventory/wastage/new/page.tsx`,
+  `app/(dashboard)/inventory/wastage/wastage-form.tsx` — Record wastage.
+
+The three read views live under an `(tabs)` route group so they share one
+layout/tab-strip without changing their URLs (`/inventory`,
+`/inventory/balance`, `/inventory/rm-report`); `/inventory/wastage/new` sits
+outside that group since it's a form, not a fourth tab.
+
+## Baseline gaps this module closes
+
+Per DESIGN.md §1 and §4.6, matching the second-pass requirements review:
+
+1. **No current-balance / "stock on hand" view.** The baseline had no
+   as-of-now stock screen at all (users summed the raw log by hand). The
+   Stock Balance tab is new, built on the `stock_balance` view.
+2. **No RM Report As On Date with export.** Present in the legacy system by
+   name (PQTY/SQTY/QTY/Price/Total) but listed as "Not Yet Built" — no
+   report and no export button existed. Now built against
+   `purchase_lines.remaining_qty`, with a working `Export PDF` button.
+3. **No wastage event type.** The baseline's ledger (where one existed at
+   all) had no way to record shrinkage/spoilage as its own auditable event.
+   `inventory_ledger.event_type` now includes `'wastage'`, written only via
+   `record_wastage()`, and the Badge component already color-codes it red.
+
+## Deviations / notes for review
+
+- **`event_by` → display name is a second query, not a PostgREST embed.**
+  `inventory_ledger.event_by` references `auth.users(id)`, and
+  `profiles.id` also references `auth.users(id)` — but there is no FK from
+  `inventory_ledger` to `profiles`, so `.select("...profiles(full_name)")`
+  cannot be embedded directly. The Ledger page instead fetches distinct
+  `event_by` ids and queries `profiles` separately, merging in JS. Flagging
+  per the brief's "do that if straightforward, skip if it complicates the
+  query" — this was straightforward enough to include.
+- **Ledger is capped at the 1000 most recent events.** An unbounded
+  "raw log" query against an append-only table that every other module
+  writes to will only grow; `DataTable` paginates client-side but still has
+  to receive the rows first. A footer note tells the user when the cap is
+  hit. Worth revisiting with server-side pagination once the table has real
+  volume — noted here rather than built now, to stay in scope.
+- **RM Report "as of \<date\>" filters which batches are *included*
+  (`created_at <= asOf`), not what each batch's PQTY/SQTY/QTY *were* on that
+  date.** The schema has no historical/point-in-time snapshot of
+  `remaining_qty` — it's a live generated column. So a date in the past
+  shows exactly the batches received by then, but with **today's** current
+  remaining quantities, not a reconstruction of stock as it stood back then.
+  This matches the schema as given (no snapshot table exists) and is
+  consistent with DESIGN.md's non-goals; flagging it explicitly since the
+  report's name ("As On Date") could otherwise imply true historical
+  point-in-time values. **Suggested follow-up** (not built, per the
+  briefing — this is not a schema change I should make unilaterally): a
+  periodic `stock_balance_snapshot` table if true historical
+  reconstruction is ever required.
+- **Schema gap: `record_wastage()`'s `p_reason` is accepted but never
+  persisted.** Reading `0002_transactions.sql` closely:
+  `record_wastage(p_item_id, p_purchase_line_id, p_quantity, p_unit,
+  p_reason)` takes a reason, but its `insert into inventory_ledger` omits
+  it — `inventory_ledger` has no `reason`/`notes` column at all. The Record
+  Wastage form still requires and submits a reason (so the UI's contract
+  with the user is honest, and so nothing needs to change if the column is
+  added later), and `recordWastage()` always passes `p_reason` through, but
+  **the reason is not currently retrievable from the ledger after
+  submission.** Requesting, for the once-only follow-up migration: add
+  `inventory_ledger.reason text` and have `record_wastage()` insert it. I
+  did not add this myself, per the briefing's rule against a second
+  `000N_*.sql` colliding with other agents' migrations.
+- **Stock Balance is not filtered to `category = 'raw'`.** DESIGN.md calls
+  it "the as-of-now equivalent of the legacy 'Raw Material Stock' screen",
+  but the `stock_balance` view and the brief's own column list
+  (`items(name, code, unit, low_stock_threshold)`) don't mention a category
+  filter, and `items.category` now also covers `processed`/`packaging`
+  stock that's equally useful to see on hand. Showing all active items
+  (with a Category column) rather than narrowing to raw materials only —
+  flagging in case Ravi wants it split or filtered on review.
+- **Added `inventory` to `lib/constants/roles.ts`'s `MODULE_WRITE_ROLES`.**
+  Every other module already had its own key there; `inventory` was the one
+  missing entry. Not in the briefing's explicit no-touch list
+  (`nav.ts`/migrations/`components/ui`/`components/shell`), so added it
+  directly, mirroring the existing pattern and the RPC's own role list
+  exactly — flagging in case this collides with another agent's edit to the
+  same file.

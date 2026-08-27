@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Invento v2
 
-## Getting Started
+Ayurvedic inventory & manufacturing ERP for Atharva Nature Healthcare —
+proposed rebuild of `invento-nextgen`, designed against
+`Invento-Modular-Requirements.docx` (v2) and reviewed screen by screen.
 
-First, run the development server:
+**Start here:** [`docs/DESIGN.md`](docs/DESIGN.md) — full architecture,
+database schema, and per-module design. Then [`docs/modules/`](docs/modules)
+— one short doc per screen, meant to be reviewed the same way the Word
+document was, module by module.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Next.js 16 (App Router, TypeScript) · Supabase (Postgres + Auth, Row Level
+Security) · Tailwind CSS v4 · Recharts · jsPDF.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a Supabase project (or use the Supabase CLI's local dev stack —
+   `supabase start`).
+2. Apply the migrations in order, via the Supabase SQL editor or the CLI:
+   ```bash
+   supabase db push
+   # or paste supabase/migrations/0001_init.sql, then 0002_transactions.sql,
+   # then 0003_fixes.sql, into the SQL editor, in that order
+   ```
+3. Copy `.env.example` to `.env.local` and fill in your project's URL and
+   anon key (Project Settings → API).
+4. `npm install`
+5. `npm run dev` — [http://localhost:3000](http://localhost:3000)
+6. Register an account at `/register`, then grant it `system_admin` (the
+   User Roles screen is itself admin-only, so the first admin has to be
+   bootstrapped outside the app — see the comment at the top of
+   `scripts/seed-admin.ts`):
+   ```bash
+   SUPABASE_SERVICE_ROLE_KEY=... NEXT_PUBLIC_SUPABASE_URL=... \
+     npx tsx scripts/seed-admin.ts you@example.com
+   ```
+7. Sign in and assign roles to other accounts from **User Roles & Access**.
 
-## Learn More
+## What's here
 
-To learn more about Next.js, take a look at the following resources:
+All 15 modules from the requirements document, plus auth/roles/profile:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Module | Route |
+|---|---|
+| Login & Registration | `/login`, `/register`, `/forgot-password`, `/reset-password` |
+| Item Type Master | `/item-types` |
+| Item Master | `/items` |
+| Vendor Master | `/vendors` |
+| Purchase | `/purchase` |
+| Quality Control | `/qc` |
+| Inventory Ledger | `/inventory`, `/inventory/balance`, `/inventory/rm-report` |
+| MFR | `/mfr` |
+| Finished Product | `/finished-product` |
+| Batch Manufacturing Record | `/bmr` |
+| Packaging | `/packaging` |
+| Label Printing | `/labels` |
+| Certificate of Analysis | `/coa` |
+| Line Clearance | `/line-clearance` |
+| Environmental Control | `/environmental-control` |
+| SOP / STP Documents | `/documents` |
+| User Roles & Access | `/user-roles` |
+| Dashboard | `/` |
+| Reports | `/reports` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Status
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proposed design + a full working implementation of every module, built for
+review — not yet signed off by Ravi/Atharva module by module. Known
+simplifications and open items are listed in `docs/DESIGN.md` §9, and each
+`docs/modules/*.md` doc calls out anything that agent deviated from the
+spec while building, with why. Nothing here has been run against a live
+Supabase project yet — do the local setup above and page through it before
+treating any module as final.

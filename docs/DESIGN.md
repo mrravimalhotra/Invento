@@ -141,8 +141,9 @@ purchase_lines(
   remaining_qty numeric generated always as
     (quantity - qc_qty - stability_qty - rnd_qty) stored,   -- gap closed, see §7.1
   unit_price numeric, gst_pct numeric,
-  expiry_date date,
-  qc_status text generated always as ('pending') stored     -- superseded by view, see §4.5
+  expiry_date date
+  -- qc_status is NOT a column on this table — it's derived from the most
+  -- recent quality_checks row via the purchase_batch_status view, §4.5.
 )
 ```
 `remaining_qty` is a Postgres generated column — it cannot be out of sync
