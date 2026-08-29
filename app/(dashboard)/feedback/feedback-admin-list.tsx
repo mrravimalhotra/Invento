@@ -45,7 +45,12 @@ export function FeedbackAdminList({ rows }: { rows: FeedbackRow[] }) {
       {filtered.length === 0 ? (
         <p className="p-6 text-sm text-muted">No feedback in this category.</p>
       ) : (
-        filtered.map((row) => <FeedbackAdminRow key={row.id} row={row} />)
+        filtered.map((row) => (
+          // Remount on save (updated_at changes) so the uncontrolled
+          // category/status selects re-initialize from the saved
+          // value instead of keeping whatever was on screen before.
+          <FeedbackAdminRow key={`${row.id}:${row.updated_at ?? ""}`} row={row} />
+        ))
       )}
     </div>
   );
