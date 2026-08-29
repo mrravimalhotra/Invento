@@ -13,12 +13,12 @@ export function Sidebar() {
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-card md:flex">
       <div className="flex h-14 items-center border-b border-border px-5">
         <Image
-          src="/atharva-logo.png"
+          src="/atharva-logo.svg"
           alt="Atharva Nature Healthcare"
-          width={117}
-          height={49}
+          width={1344}
+          height={516}
           priority
-          className="h-8 w-auto"
+          className="h-9 w-auto"
         />
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">

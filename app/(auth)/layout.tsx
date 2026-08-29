@@ -6,12 +6,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <Image
-            src="/atharva-logo.png"
+            src="/atharva-logo.svg"
             alt="Atharva Nature Healthcare"
-            width={117}
-            height={49}
+            width={1344}
+            height={516}
             priority
-            className="h-14 w-auto"
+            className="h-16 w-auto"
           />
           <p className="mt-2 text-sm text-muted">Ayurvedic Inventory &amp; Manufacturing ERP</p>
         </div>
