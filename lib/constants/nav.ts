@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
-  Thermometer, Users, BarChart3, FileText,
+  Thermometer, Users, BarChart3, FileText, MessageSquarePlus,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -52,6 +52,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { href: "/user-roles", label: "User Roles & Access", icon: Users, module: 13 },
       { href: "/reports", label: "Reports", icon: BarChart3, module: 15 },
       { href: "/documents", label: "SOP / STP Documents", icon: FileText, module: 12 },
+      { href: "/feedback", label: "Tester Feedback", icon: MessageSquarePlus, module: 16 },
     ],
   },
 ];
