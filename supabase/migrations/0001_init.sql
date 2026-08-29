@@ -3,6 +3,33 @@
 -- Matches docs/DESIGN.md. Organized by module, in dependency order.
 -- ============================================================
 
+-- --------------------------------------------------------------
+-- Reset: drop everything in the public schema first, so this whole
+-- combined script (0001 + 0002 + 0003) is always safe to re-run from
+-- scratch — a fresh project, or a retry after a previous run errored
+-- partway through and left some objects behind (e.g. 42P07 "relation
+-- already exists" on a second attempt). Supabase keeps the anon/
+-- authenticated/service_role default privileges for the public schema
+-- at the database level, not on the schema object itself, so they
+-- survive this drop and apply automatically to whatever gets created
+-- below — no per-table grants needed.
+--
+-- WARNING: this deletes ALL DATA and objects currently in the public
+-- schema. That's exactly what you want for initial setup or while
+-- iterating pre-launch. Do NOT run this combined file again once the
+-- app has real data you care about — at that point, hand-write a
+-- normal additive migration instead.
+-- --------------------------------------------------------------
+drop schema if exists public cascade;
+create schema public;
+grant usage on schema public to postgres, anon, authenticated, service_role;
+grant all on schema public to postgres, service_role;
+alter default privileges in schema public grant all on tables to postgres, service_role;
+alter default privileges in schema public grant all on functions to postgres, service_role;
+alter default privileges in schema public grant all on sequences to postgres, service_role;
+alter default privileges in schema public grant select, insert, update, delete on tables to anon, authenticated;
+alter default privileges in schema public grant execute on functions to anon, authenticated;
+
 create extension if not exists pgcrypto;
 
 -- ------------------------------------------------------------
