@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updatePassword, type ActionState } from "@/lib/actions/auth";
-import { Field, Input } from "@/components/ui/form";
+import { Field, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 export default function ResetPasswordPage() {
@@ -41,10 +41,9 @@ export default function ResetPasswordPage() {
         </p>
       )}
       <Field label="New password" htmlFor="password" required hint="At least 6 characters.">
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           minLength={6}
           required
@@ -52,10 +51,9 @@ export default function ResetPasswordPage() {
         />
       </Field>
       <Field label="Confirm new password" htmlFor="confirmPassword" required>
-        <Input
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           minLength={6}
           required

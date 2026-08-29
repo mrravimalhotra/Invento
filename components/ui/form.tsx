@@ -1,4 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { Eye, EyeOff } from "lucide-react";
+import { useId, useState } from "react";
 import type { ComponentProps, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 const fieldBase =
@@ -31,6 +35,32 @@ export function Field({
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(fieldBase, className)} {...props} />;
+}
+
+export function PasswordInput({ className, id, ...props }: ComponentProps<"input">) {
+  const [visible, setVisible] = useState(false);
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
+
+  return (
+    <div className="relative">
+      <input
+        id={inputId}
+        type={visible ? "text" : "password"}
+        className={cn(fieldBase, "pr-9", className)}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted hover:text-foreground"
+      >
+        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {

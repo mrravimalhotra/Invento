@@ -3,7 +3,7 @@
 import { useActionState, useRef, useState } from "react";
 import Link from "next/link";
 import { signUp, type ActionState } from "@/lib/actions/auth";
-import { Field, Input } from "@/components/ui/form";
+import { Field, Input, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 export default function RegisterPage() {
@@ -38,10 +38,9 @@ export default function RegisterPage() {
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </Field>
       <Field label="Password" htmlFor="password" required hint="At least 6 characters.">
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           minLength={6}
           required
@@ -49,10 +48,9 @@ export default function RegisterPage() {
         />
       </Field>
       <Field label="Confirm password" htmlFor="confirmPassword" required>
-        <Input
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           minLength={6}
           required

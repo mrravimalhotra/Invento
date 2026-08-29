@@ -4,7 +4,7 @@ import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn, type ActionState } from "@/lib/actions/auth";
-import { Field, Input } from "@/components/ui/form";
+import { Field, Input, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
@@ -36,7 +36,7 @@ function LoginForm() {
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </Field>
       <Field label="Password" htmlFor="password" required>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required />
+        <PasswordInput id="password" name="password" autoComplete="current-password" required />
       </Field>
       <div className="flex justify-end">
         <Link href="/forgot-password" className="text-xs text-brand hover:underline">
