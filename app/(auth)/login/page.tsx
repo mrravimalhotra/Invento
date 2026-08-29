@@ -26,7 +26,8 @@ function LoginForm() {
       <h2 className="text-lg font-semibold">Sign in</h2>
       {registered && (
         <p className="rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
-          Account created — sign in below.
+          Account created. If your project requires email confirmation, check your inbox for a
+          confirmation link before signing in.
         </p>
       )}
       {state?.error && <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{state.error}</p>}
