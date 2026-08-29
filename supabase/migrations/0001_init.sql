@@ -270,9 +270,12 @@ create table public.quality_checks (
   reviewed_at timestamptz,
   review_comments text,
   retest_period_days integer,
-  retest_date date generated always as
-    (case when reviewed_at is not null and retest_period_days is not null
-      then (reviewed_at::date + (retest_period_days || ' days')::interval)::date end) stored,
+  -- Not a generated column: reviewed_at::date is timezone-dependent, which
+  -- Postgres won't allow inside a GENERATED expression ("generation
+  -- expression is not immutable"). Computed instead by
+  -- trg_qc_compute_retest_date below, on the same insert/update that sets
+  -- reviewed_at / retest_period_days.
+  retest_date date,
   created_at timestamptz not null default now(),
   created_by uuid references auth.users(id),
   constraint qc_one_subject check (
@@ -287,6 +290,20 @@ create policy qc_insert on public.quality_checks for insert
 create policy qc_update on public.quality_checks for update
   using (public.has_any_role('system_admin','quality_checker','qc_reviewer'))
   with check (public.has_any_role('system_admin','quality_checker','qc_reviewer'));
+
+create or replace function public.trg_fn_qc_compute_retest_date()
+returns trigger language plpgsql as $$
+begin
+  if new.reviewed_at is not null and new.retest_period_days is not null then
+    new.retest_date := ((new.reviewed_at::date) + (new.retest_period_days || ' days')::interval)::date;
+  else
+    new.retest_date := null;
+  end if;
+  return new;
+end $$;
+create trigger trg_qc_compute_retest_date
+  before insert or update on public.quality_checks
+  for each row execute function public.trg_fn_qc_compute_retest_date();
 
 create view public.purchase_batch_status as
 select pl.id as purchase_line_id,
