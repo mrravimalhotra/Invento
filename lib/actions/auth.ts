@@ -23,10 +23,12 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
 export async function signUp(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
   const fullName = String(formData.get("fullName") || "").trim();
 
   if (!email || !password || !fullName) return { error: "All fields are required." };
   if (password.length < 6) return { error: "Password must be at least 6 characters." };
+  if (password !== confirmPassword) return { error: "Passwords do not match." };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
@@ -63,7 +65,9 @@ export async function requestPasswordReset(_prev: ActionState, formData: FormDat
 // baseline had no equivalent at all. See docs/DESIGN.md §3.
 export async function updatePassword(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
   if (password.length < 6) return { error: "Password must be at least 6 characters." };
+  if (password !== confirmPassword) return { error: "Passwords do not match." };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });

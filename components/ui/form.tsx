@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { ComponentProps, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 const fieldBase =
   "w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand disabled:bg-black/5 disabled:text-muted";
@@ -29,7 +29,7 @@ export function Field({
   );
 }
 
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(fieldBase, className)} {...props} />;
 }
 
