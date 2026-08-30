@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { DEPARTMENTS } from "@/lib/constants/units";
+import { resolveDisplayStatus } from "@/lib/finished-product-status";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -45,13 +46,24 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
   // Belt-and-suspenders: the /packaging/new form only lists approved FP
   // batches, but re-check here since nothing in the schema stops an insert
   // against an unapproved batch (packaging_issues has no status FK gate).
-  const { data: fpBatch } = await supabase
-    .from("finished_product_batches")
-    .select("status")
-    .eq("id", fpBatchId)
-    .maybeSingle();
+  // The approved/rejected verdict lives on the linked quality_checks row,
+  // not on finished_product_batches.status itself (see
+  // lib/finished-product-status.ts) — resolve it the same way the list and
+  // /packaging/new pages do, rather than comparing the raw column, which
+  // would reject every batch.
+  const [{ data: fpBatch }, { data: latestQcRow }] = await Promise.all([
+    supabase.from("finished_product_batches").select("status").eq("id", fpBatchId).maybeSingle(),
+    supabase
+      .from("quality_checks")
+      .select("status, created_at")
+      .eq("finished_product_batch_id", fpBatchId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (!fpBatch) return { error: "Finished product batch not found." };
-  if (fpBatch.status !== "approved") {
+  const displayStatus = resolveDisplayStatus(fpBatch.status, latestQcRow);
+  if (displayStatus !== "approved") {
     return { error: "Packaging can only be issued against an Approved finished product batch." };
   }
 
