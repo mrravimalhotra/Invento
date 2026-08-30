@@ -13,7 +13,7 @@ export type ItemTypeRow = {
 export function ItemTypesTable({ rows }: { rows: ItemTypeRow[] }) {
   const columns: Column<ItemTypeRow>[] = [
     {
-      header: "Description",
+      header: "ItemType",
       accessor: (r) => (
         <Link href={`/item-types/${r.id}`} className="font-medium text-brand hover:underline">
           {r.description}
@@ -26,7 +26,7 @@ export function ItemTypesTable({ rows }: { rows: ItemTypeRow[] }) {
       accessor: (r) => <Badge status={r.active ? "approved" : "not_submitted"}>{r.active ? "Active" : "Inactive"}</Badge>,
     },
     {
-      header: "",
+      header: "Actions",
       accessor: (r) => (
         <Link href={`/item-types/${r.id}`} className="text-sm text-brand hover:underline">
           Edit
