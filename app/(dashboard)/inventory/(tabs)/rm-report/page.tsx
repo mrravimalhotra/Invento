@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
-import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatNumber } from "@/lib/utils";
 import { RmReportFilter } from "./rm-report-filter";
 import { RmReportExport, type RmReportExportRow } from "./rm-report-export";
+import { RmReportTable } from "./rm-report-table";
 
 type PurchaseLineRow = {
   id: string;
@@ -62,17 +62,6 @@ export default async function RmReportPage({
 
   const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
 
-  const columns: Column<RmReportExportRow>[] = [
-    { header: "Item", accessor: (r) => r.item, searchValue: (r) => r.item },
-    { header: "Batch No.", accessor: (r) => r.batchNumber, searchValue: (r) => r.batchNumber },
-    { header: "PQTY", accessor: (r) => formatNumber(r.pqty) },
-    { header: "SQTY", accessor: (r) => formatNumber(r.sqty) },
-    { header: "QTY", accessor: (r) => <span className="font-medium">{formatNumber(r.qty)}</span> },
-    { header: "Unit", accessor: (r) => r.unit },
-    { header: "Unit Price", accessor: (r) => formatNumber(r.unitPrice) },
-    { header: "Total", accessor: (r) => formatNumber(r.total) },
-  ];
-
   return (
     <Card>
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border">
@@ -82,13 +71,7 @@ export default async function RmReportPage({
         </div>
       </div>
       {error && <p className="p-4 text-sm text-red">{error.message}</p>}
-      <DataTable
-        columns={columns}
-        rows={rows}
-        searchPlaceholder="Search item or batch…"
-        emptyLabel={`No purchase batches received on or before ${asOf}.`}
-        pageSize={20}
-      />
+      <RmReportTable rows={rows} asOf={asOf} />
       {rows.length > 0 && (
         <div className="flex justify-end border-t border-border px-4 py-2.5 text-sm font-semibold">
           Grand total: {formatNumber(grandTotal)}

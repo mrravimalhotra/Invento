@@ -4,28 +4,9 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatNumber, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  raw: "Raw material",
-  processed: "Processed",
-  packaging: "Packaging",
-};
-
-type ItemRow = {
-  id: string;
-  item_code: string;
-  name: string;
-  category: string;
-  unit: string | null;
-  active: boolean;
-  low_stock_threshold: string | number | null;
-  item_types: { description: string } | null;
-  on_hand: number;
-};
+import { ItemsTable, type ItemRow } from "./items-table";
 
 export default async function ItemsPage({
   searchParams,
@@ -53,6 +34,7 @@ export default async function ItemsPage({
     // Supabase types this as an array in TS but the FK is many-to-one; take the first.
     item_types: Array.isArray(it.item_types) ? it.item_types[0] ?? null : it.item_types,
     on_hand: balanceMap.get(it.id) ?? 0,
+    hasBalance: balanceMap.has(it.id),
   })) as unknown as ItemRow[];
 
   const canCreate = canWrite(user?.roles ?? [], "items");
@@ -64,37 +46,6 @@ export default async function ItemsPage({
     { key: "processed", label: "Processed" },
   ];
   const active = category && tabs.some((t) => t.key === category) ? category : "all";
-
-  const columns: Column<ItemRow>[] = [
-    {
-      header: "Item code",
-      accessor: (r) => (
-        <Link href={`/items/${r.id}`} className="font-medium text-brand hover:underline">
-          {r.item_code}
-        </Link>
-      ),
-      searchValue: (r) => r.item_code,
-    },
-    { header: "Name", accessor: (r) => r.name, searchValue: (r) => r.name },
-    { header: "Category", accessor: (r) => CATEGORY_LABELS[r.category] ?? r.category },
-    { header: "Type", accessor: (r) => r.item_types?.description ?? "—" },
-    { header: "Unit", accessor: (r) => r.unit ?? "—" },
-    {
-      header: "Stock on hand",
-      accessor: (r) => (balanceMap.has(r.id) ? formatNumber(r.on_hand) : "—"),
-    },
-    {
-      header: "Low stock",
-      accessor: (r) =>
-        r.low_stock_threshold != null && r.on_hand < Number(r.low_stock_threshold) ? (
-          <Badge status="rejected">Low</Badge>
-        ) : null,
-    },
-    {
-      header: "Status",
-      accessor: (r) => <Badge status={r.active ? "approved" : "not_submitted"}>{r.active ? "Active" : "Inactive"}</Badge>,
-    },
-  ];
 
   return (
     <div>
@@ -118,7 +69,7 @@ export default async function ItemsPage({
         ))}
       </div>
       <Card>
-        <DataTable columns={columns} rows={rows} searchPlaceholder="Search items…" emptyLabel="No items yet." />
+        <ItemsTable rows={rows} />
       </Card>
     </div>
   );

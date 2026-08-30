@@ -4,17 +4,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate } from "@/lib/utils";
-
-type LineClearanceRow = {
-  id: string;
-  area: string;
-  batch_reference: string | null;
-  status: "clear" | "not_clear";
-  checked_at: string;
-};
+import { LineClearanceTable, type LineClearanceRow } from "./line-clearance-table";
 
 export default async function LineClearancePage() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
@@ -26,20 +16,6 @@ export default async function LineClearancePage() {
   const rows: LineClearanceRow[] = data ?? [];
   const canCreate = canWrite(user?.roles ?? [], "line_clearance");
 
-  const columns: Column<LineClearanceRow>[] = [
-    { header: "Area", accessor: (r) => <span className="font-medium">{r.area}</span>, searchValue: (r) => r.area },
-    {
-      header: "Batch reference",
-      accessor: (r) => r.batch_reference || "—",
-      searchValue: (r) => r.batch_reference ?? "",
-    },
-    {
-      header: "Status",
-      accessor: (r) => <Badge status={r.status}>{r.status === "clear" ? "Clear" : "Not clear"}</Badge>,
-    },
-    { header: "Checked at", accessor: (r) => formatDate(r.checked_at) },
-  ];
-
   return (
     <div>
       <PageHeader
@@ -48,12 +24,7 @@ export default async function LineClearancePage() {
         action={canCreate ? <LinkButton href="/line-clearance/new">New check</LinkButton> : undefined}
       />
       <Card>
-        <DataTable
-          columns={columns}
-          rows={rows}
-          searchPlaceholder="Search by area or batch reference…"
-          emptyLabel="No line clearance checks recorded yet."
-        />
+        <LineClearanceTable rows={rows} />
       </Card>
     </div>
   );

@@ -1,21 +1,11 @@
-import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
-import { DataTable, type Column } from "@/components/ui/data-table";
 import { LinkButton } from "@/components/ui/button";
-
-type VendorRow = {
-  id: string;
-  vendor_code: string;
-  name: string;
-  mobile: string | null;
-  phone: string | null;
-  email: string | null;
-};
+import { VendorsTable, type VendorRow } from "./vendors-table";
 
 export default async function VendorsPage() {
   const user = await getCurrentUser();
@@ -28,26 +18,6 @@ export default async function VendorsPage() {
 
   const rows = (data ?? []) as VendorRow[];
   const canCreate = canWrite(user?.roles ?? [], "vendors");
-
-  const columns: Column<VendorRow>[] = [
-    {
-      header: "Code",
-      accessor: (r) => <span className="font-mono text-xs">{r.vendor_code}</span>,
-      searchValue: (r) => r.vendor_code,
-    },
-    {
-      header: "Name",
-      accessor: (r) => (
-        <Link href={`/vendors/${r.id}`} className="font-medium text-brand-dark hover:underline">
-          {r.name}
-        </Link>
-      ),
-      searchValue: (r) => r.name,
-    },
-    { header: "Mobile", accessor: (r) => r.mobile ?? "—", searchValue: (r) => r.mobile ?? "" },
-    { header: "Phone", accessor: (r) => r.phone ?? "—", searchValue: (r) => r.phone ?? "" },
-    { header: "Email", accessor: (r) => r.email ?? "—", searchValue: (r) => r.email ?? "" },
-  ];
 
   return (
     <div>
@@ -64,7 +34,7 @@ export default async function VendorsPage() {
       />
       {error && <p className="mb-4 text-sm text-red">{error.message}</p>}
       <Card>
-        <DataTable columns={columns} rows={rows} emptyLabel="No vendors yet." searchPlaceholder="Search vendors…" />
+        <VendorsTable rows={rows} />
       </Card>
     </div>
   );

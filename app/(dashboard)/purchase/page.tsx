@@ -1,13 +1,11 @@
-import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
-import { DataTable, type Column } from "@/components/ui/data-table";
 import { LinkButton } from "@/components/ui/button";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { PurchaseTable, type PurchaseRow } from "./purchase-table";
 
 type LineForTotal = { quantity: string | number; unit_price: string | number | null; gst_pct: string | number | null };
 
@@ -38,30 +36,17 @@ export default async function PurchasePage() {
     .eq("active", true)
     .order("created_at", { ascending: false });
 
-  const rows = ((data ?? []) as unknown as PORow[]).map((po) => ({
-    ...po,
+  const rows: PurchaseRow[] = ((data ?? []) as unknown as PORow[]).map((po) => ({
+    id: po.id,
+    po_number: po.po_number,
+    invoice_number: po.invoice_number,
+    invoice_date: po.invoice_date,
+    vendor: po.vendor,
     lineCount: po.purchase_lines.length,
     totalValue: po.purchase_lines.reduce((sum, l) => sum + lineTotal(l), 0),
   }));
 
   const canCreate = canWrite(user?.roles ?? [], "purchase");
-
-  const columns: Column<(typeof rows)[number]>[] = [
-    {
-      header: "PO number",
-      accessor: (r) => (
-        <Link href={`/purchase/${r.id}`} className="font-mono text-xs font-medium text-brand-dark hover:underline">
-          {r.po_number}
-        </Link>
-      ),
-      searchValue: (r) => r.po_number,
-    },
-    { header: "Vendor", accessor: (r) => r.vendor?.name ?? "—", searchValue: (r) => r.vendor?.name ?? "" },
-    { header: "Invoice #", accessor: (r) => r.invoice_number, searchValue: (r) => r.invoice_number },
-    { header: "Invoice date", accessor: (r) => formatDate(r.invoice_date) },
-    { header: "Lines", accessor: (r) => r.lineCount },
-    { header: "Total value", accessor: (r) => formatNumber(r.totalValue) },
-  ];
 
   return (
     <div>
@@ -78,7 +63,7 @@ export default async function PurchasePage() {
       />
       {error && <p className="mb-4 text-sm text-red">{error.message}</p>}
       <Card>
-        <DataTable columns={columns} rows={rows} emptyLabel="No purchase orders yet." searchPlaceholder="Search purchase orders…" />
+        <PurchaseTable rows={rows} />
       </Card>
     </div>
   );
