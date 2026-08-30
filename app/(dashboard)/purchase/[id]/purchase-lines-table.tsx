@@ -2,6 +2,7 @@
 
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber } from "@/lib/utils";
+import { lineFinancials } from "./line-financials";
 
 export type LineRow = {
   id: string;
@@ -17,19 +18,6 @@ export type LineRow = {
   expiry_date: string;
   item: { item_code: string; name: string } | null;
 };
-
-function lineFinancials(l: LineRow) {
-  const qty = Number(l.quantity) || 0;
-  const price = Number(l.unit_price) || 0;
-  const gst = Number(l.gst_pct) || 0;
-  const base = qty * price;
-  const gstAmount = base * (gst / 100);
-  return {
-    gstAmount,
-    priceInclGst: price * (1 + gst / 100),
-    lineTotal: base + gstAmount,
-  };
-}
 
 export function PurchaseLinesTable({ rows }: { rows: LineRow[] }) {
   const columns: Column<LineRow>[] = [
@@ -69,8 +57,4 @@ export function PurchaseLinesTable({ rows }: { rows: LineRow[] }) {
   ];
 
   return <DataTable columns={columns} rows={rows} emptyLabel="No lines added yet." searchPlaceholder="Search lines…" />;
-}
-
-export function purchaseLineTotal(l: LineRow) {
-  return lineFinancials(l).lineTotal;
 }

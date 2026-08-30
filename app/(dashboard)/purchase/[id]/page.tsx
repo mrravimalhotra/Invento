@@ -6,7 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { PurchaseLineForm, type RawItemOption } from "../purchase-line-form";
-import { PurchaseLinesTable, purchaseLineTotal, type LineRow } from "./purchase-lines-table";
+import { PurchaseLinesTable, type LineRow } from "./purchase-lines-table";
+import { purchaseLineTotal } from "./line-financials";
 
 export default async function PurchaseOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
