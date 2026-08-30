@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 
 export type PurchaseRow = {
   id: string;
@@ -32,5 +32,13 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
     { header: "Total value", accessor: (r) => formatNumber(r.totalValue) },
   ];
 
-  return <DataTable columns={columns} rows={rows} emptyLabel="No purchase orders yet." searchPlaceholder="Search purchase orders…" />;
+  return (
+    <DataTable
+      columns={columns}
+      rows={rows}
+      emptyLabel="No purchase orders yet."
+      searchPlaceholder="Search purchase orders…"
+      isLegacy={(r) => isLegacyCode(r.po_number)}
+    />
+  );
 }

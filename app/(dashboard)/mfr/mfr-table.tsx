@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 
 export type MfrRow = {
   id: string;
@@ -43,5 +43,13 @@ export function MfrTable({ rows }: { rows: MfrRow[] }) {
     },
   ];
 
-  return <DataTable columns={columns} rows={rows} searchPlaceholder="Search MFR code or name…" emptyLabel="No MFR definitions yet." />;
+  return (
+    <DataTable
+      columns={columns}
+      rows={rows}
+      searchPlaceholder="Search MFR code or name…"
+      emptyLabel="No MFR definitions yet."
+      isLegacy={(r) => isLegacyCode(r.code)}
+    />
+  );
 }

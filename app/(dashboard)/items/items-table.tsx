@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, isLegacyCode } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
-  processed: "Processed",
+  processed: "Finished product",
   packaging: "Packaging",
 };
 
@@ -56,5 +56,13 @@ export function ItemsTable({ rows }: { rows: ItemRow[] }) {
     },
   ];
 
-  return <DataTable columns={columns} rows={rows} searchPlaceholder="Search items…" emptyLabel="No items yet." />;
+  return (
+    <DataTable
+      columns={columns}
+      rows={rows}
+      searchPlaceholder="Search items…"
+      emptyLabel="No items yet."
+      isLegacy={(r) => isLegacyCode(r.item_code)}
+    />
+  );
 }

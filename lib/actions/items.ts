@@ -9,10 +9,11 @@ import { redirect } from "next/navigation";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
-// Categories this screen is allowed to create. 'processed' items are
-// created by the Finished Product flow elsewhere (docs/DESIGN.md §4.2 /
-// the task brief) — never offered here.
-const CREATABLE_CATEGORIES = ["raw", "packaging"] as const;
+// Categories this screen is allowed to create/edit. Per FB-0002, 'processed'
+// ("Finished Product") is now a normal, user-selectable category alongside
+// raw material and packaging — it gets its own FP- prefixed item code (see
+// get_next_item_code() in 0007_item_code_fp_and_sample_unit.sql).
+const CREATABLE_CATEGORIES = ["raw", "packaging", "processed"] as const;
 
 function numOrNull(formData: FormData, key: string): number | null | { error: string } {
   const raw = String(formData.get(key) ?? "").trim();
@@ -32,9 +33,14 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
 
   if (!name) return { error: "Name is required." };
   if (!CREATABLE_CATEGORIES.includes(category as (typeof CREATABLE_CATEGORIES)[number])) {
-    return { error: "Category must be Raw Material or Packaging." };
+    return { error: "Category must be Raw Material, Packaging, or Finished Product." };
   }
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
+
+  const default_sample_unit = String(formData.get("default_sample_unit") || "") || null;
+  if (default_sample_unit && !UNITS.includes(default_sample_unit as (typeof UNITS)[number])) {
+    return { error: "Invalid default sample unit." };
+  }
 
   const default_qc_qty = numOrNull(formData, "default_qc_qty");
   if (default_qc_qty && typeof default_qc_qty === "object") return default_qc_qty;
@@ -67,6 +73,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
       default_qc_qty,
       default_stability_qty,
       default_rnd_qty,
+      default_sample_unit,
       low_stock_threshold,
       barcode,
     })
@@ -92,12 +99,18 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   const barcode = String(formData.get("barcode") || "").trim() || null;
   const active = formData.get("active") === "on";
 
-  // Category can only move between raw/packaging here; an item already
-  // 'processed' keeps that category (the field is disabled in the form).
+  // Category can move freely between raw/packaging/processed here — per
+  // FB-0002, 'processed' ("Finished Product") is a normal category now, no
+  // longer locked once set.
   const submittedCategory = String(formData.get("category") || "");
 
   if (!name) return { error: "Name is required." };
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
+
+  const default_sample_unit = String(formData.get("default_sample_unit") || "") || null;
+  if (default_sample_unit && !UNITS.includes(default_sample_unit as (typeof UNITS)[number])) {
+    return { error: "Invalid default sample unit." };
+  }
 
   const default_qc_qty = numOrNull(formData, "default_qc_qty");
   if (default_qc_qty && typeof default_qc_qty === "object") return default_qc_qty;
@@ -121,14 +134,17 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     default_qc_qty,
     default_stability_qty,
     default_rnd_qty,
+    default_sample_unit,
     low_stock_threshold,
     barcode,
     active,
   };
-  // Only allow the raw<->packaging swap; never let a client set category to
-  // 'processed' or move a processed item out of it.
+  // Reject anything outside raw/packaging/processed rather than silently
+  // dropping the field.
   if (CREATABLE_CATEGORIES.includes(submittedCategory as (typeof CREATABLE_CATEGORIES)[number])) {
     update.category = submittedCategory;
+  } else {
+    return { error: "Category must be Raw Material, Packaging, or Finished Product." };
   }
 
   const { error } = await supabase.from("items").update(update).eq("id", id);

@@ -10,7 +10,7 @@ import { formatNumber } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
-  processed: "Processed",
+  processed: "Finished product",
   packaging: "Packaging",
 };
 
@@ -24,7 +24,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
     supabase
       .from("items")
       .select(
-        "id, item_code, name, botanical_alias, category, item_type_id, unit, default_qc_qty, default_stability_qty, default_rnd_qty, low_stock_threshold, barcode, active"
+        "id, item_code, name, botanical_alias, category, item_type_id, unit, default_qc_qty, default_stability_qty, default_rnd_qty, default_sample_unit, low_stock_threshold, barcode, active"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -85,6 +85,7 @@ function ReadOnlyDetails({
     default_qc_qty: string | number | null;
     default_stability_qty: string | number | null;
     default_rnd_qty: string | number | null;
+    default_sample_unit: string | null;
     low_stock_threshold: string | number | null;
     barcode: string | null;
     active: boolean;
@@ -98,6 +99,7 @@ function ReadOnlyDetails({
     ["Default QC qty", formatNumber(item.default_qc_qty)],
     ["Default stability qty", formatNumber(item.default_stability_qty)],
     ["Default R&D qty", formatNumber(item.default_rnd_qty)],
+    ["Default sample unit", item.default_sample_unit ?? "— same as item unit —"],
     ["Low stock threshold", formatNumber(item.low_stock_threshold)],
     ["Barcode", item.barcode ?? "—"],
     ["Status", item.active ? "Active" : "Inactive"],

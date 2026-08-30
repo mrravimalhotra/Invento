@@ -21,10 +21,11 @@ export function NewItemForm({ itemTypes }: { itemTypes: ItemTypeOption[] }) {
         <Field label="Botanical alias" htmlFor="botanical_alias">
           <Input id="botanical_alias" name="botanical_alias" />
         </Field>
-        <Field label="Category" htmlFor="category" required hint="Processed items are created by the Finished Product flow, not here.">
+        <Field label="Category" htmlFor="category" required>
           <Select id="category" name="category" required defaultValue="raw">
             <option value="raw">Raw material</option>
             <option value="packaging">Packaging</option>
+            <option value="processed">Finished product</option>
           </Select>
         </Field>
         <Field label="Item type" htmlFor="item_type_id">
@@ -64,6 +65,20 @@ export function NewItemForm({ itemTypes }: { itemTypes: ItemTypeOption[] }) {
           <Field label="Default R&D qty" htmlFor="default_rnd_qty">
             <Input id="default_rnd_qty" name="default_rnd_qty" type="number" step="any" min="0" />
           </Field>
+          <Field
+            label="Default sample unit"
+            htmlFor="default_sample_unit"
+            hint="Shared by QC / stability / R&D above, e.g. gm when the item's own unit is kg."
+          >
+            <Select id="default_sample_unit" name="default_sample_unit" defaultValue="">
+              <option value="">— same as item unit —</option>
+              {UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the topbar low-stock banner.">
             <Input id="low_stock_threshold" name="low_stock_threshold" type="number" step="any" min="0" />
           </Field>
@@ -98,6 +113,7 @@ export function EditItemForm({
     default_qc_qty: string | number | null;
     default_stability_qty: string | number | null;
     default_rnd_qty: string | number | null;
+    default_sample_unit: string | null;
     low_stock_threshold: string | number | null;
     barcode: string | null;
     active: boolean;
@@ -105,7 +121,6 @@ export function EditItemForm({
 }) {
   const boundAction = updateItem.bind(null, id);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
-  const categoryLocked = item.category === "processed";
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -119,23 +134,12 @@ export function EditItemForm({
         <Field label="Botanical alias" htmlFor="botanical_alias">
           <Input id="botanical_alias" name="botanical_alias" defaultValue={item.botanical_alias ?? ""} />
         </Field>
-        <Field
-          label="Category"
-          htmlFor="category"
-          required
-          hint={categoryLocked ? "Processed items can't be recategorized from this screen." : undefined}
-        >
-          {categoryLocked ? (
-            <>
-              <Input value="Processed" disabled />
-              <input type="hidden" name="category" value="processed" />
-            </>
-          ) : (
-            <Select id="category" name="category" required defaultValue={item.category}>
-              <option value="raw">Raw material</option>
-              <option value="packaging">Packaging</option>
-            </Select>
-          )}
+        <Field label="Category" htmlFor="category" required>
+          <Select id="category" name="category" required defaultValue={item.category}>
+            <option value="raw">Raw material</option>
+            <option value="packaging">Packaging</option>
+            <option value="processed">Finished product</option>
+          </Select>
         </Field>
         <Field label="Item type" htmlFor="item_type_id">
           <Select id="item_type_id" name="item_type_id" defaultValue={item.item_type_id ?? ""}>
@@ -194,6 +198,20 @@ export function EditItemForm({
               min="0"
               defaultValue={item.default_rnd_qty ?? ""}
             />
+          </Field>
+          <Field
+            label="Default sample unit"
+            htmlFor="default_sample_unit"
+            hint="Shared by QC / stability / R&D above, e.g. gm when the item's own unit is kg."
+          >
+            <Select id="default_sample_unit" name="default_sample_unit" defaultValue={item.default_sample_unit ?? ""}>
+              <option value="">— same as item unit —</option>
+              {UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the topbar low-stock banner.">
             <Input

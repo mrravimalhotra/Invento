@@ -43,7 +43,7 @@ export default async function ItemsPage({
     { key: "all", label: "All" },
     { key: "raw", label: "Raw material" },
     { key: "packaging", label: "Packaging" },
-    { key: "processed", label: "Processed" },
+    { key: "processed", label: "Finished product" },
   ];
   const active = category && tabs.some((t) => t.key === category) ? category : "all";
 
@@ -51,7 +51,7 @@ export default async function ItemsPage({
     <div>
       <PageHeader
         title="Item Master"
-        description="Raw materials, processed items, and packaging materials."
+        description="Raw materials, finished products, and packaging materials."
         action={canCreate ? <LinkButton href="/items/new">New item</LinkButton> : undefined}
       />
       <div className="mb-4 flex gap-1.5">

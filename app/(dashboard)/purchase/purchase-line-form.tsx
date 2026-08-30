@@ -16,6 +16,7 @@ export type RawItemOption = {
   default_qc_qty: number | string | null;
   default_stability_qty: number | string | null;
   default_rnd_qty: number | string | null;
+  default_sample_unit: string | null;
 };
 
 const numOrEmpty = (v: number | string | null) => (v === null || v === undefined || v === "" ? "" : String(v));
@@ -31,6 +32,7 @@ export function PurchaseLineForm({
   const formRef = useRef<HTMLFormElement>(null);
 
   const [itemId, setItemId] = useState("");
+  const [sampleUnit, setSampleUnit] = useState<string | null>(null);
   const [batchNumber, setBatchNumber] = useState("");
   const [batchPending, startBatchTransition] = useTransition();
   const [quantity, setQuantity] = useState("");
@@ -50,6 +52,7 @@ export function PurchaseLineForm({
     setQcQty("");
     setStabilityQty("");
     setRndQty("");
+    setSampleUnit(null);
     setUnitPrice("");
     setGstPct("");
     setExpiryDate("");
@@ -77,11 +80,13 @@ export function PurchaseLineForm({
       setQcQty(numOrEmpty(item.default_qc_qty) || "0");
       setStabilityQty(numOrEmpty(item.default_stability_qty) || "0");
       setRndQty(numOrEmpty(item.default_rnd_qty) || "0");
+      setSampleUnit(item.default_sample_unit);
     } else {
       setUnit("");
       setQcQty("");
       setStabilityQty("");
       setRndQty("");
+      setSampleUnit(null);
     }
     setBatchNumber("");
     if (id) {
@@ -146,10 +151,18 @@ export function PurchaseLineForm({
             onChange={(e) => setQuantity(e.target.value)}
           />
         </Field>
-        <Field label="QC qty" htmlFor="qc_qty" hint="Pre-filled from item default.">
+        <Field
+          label="QC qty"
+          htmlFor="qc_qty"
+          hint={sampleUnit ? `In ${unit || "item unit"} — item's sampling default is recorded in ${sampleUnit}.` : "Pre-filled from item default."}
+        >
           <Input id="qc_qty" name="qc_qty" type="number" step="any" min="0" value={qcQty} onChange={(e) => setQcQty(e.target.value)} />
         </Field>
-        <Field label="Stability qty" htmlFor="stability_qty" hint="Pre-filled from item default.">
+        <Field
+          label="Stability qty"
+          htmlFor="stability_qty"
+          hint={sampleUnit ? `In ${unit || "item unit"} — item's sampling default is recorded in ${sampleUnit}.` : "Pre-filled from item default."}
+        >
           <Input
             id="stability_qty"
             name="stability_qty"
@@ -160,10 +173,22 @@ export function PurchaseLineForm({
             onChange={(e) => setStabilityQty(e.target.value)}
           />
         </Field>
-        <Field label="R&D qty" htmlFor="rnd_qty" hint="Pre-filled from item default.">
+        <Field
+          label="R&D qty"
+          htmlFor="rnd_qty"
+          hint={sampleUnit ? `In ${unit || "item unit"} — item's sampling default is recorded in ${sampleUnit}.` : "Pre-filled from item default."}
+        >
           <Input id="rnd_qty" name="rnd_qty" type="number" step="any" min="0" value={rndQty} onChange={(e) => setRndQty(e.target.value)} />
         </Field>
       </div>
+
+      {sampleUnit && (
+        <p className="-mt-2 text-xs text-amber">
+          This item&apos;s default QC / stability / R&amp;D quantities were recorded in <strong>{sampleUnit}</strong>, not{" "}
+          {unit || "the item's unit"}. The quantities above are pre-filled as raw numbers — convert them to {unit || "the line's unit"} by
+          hand before saving.
+        </p>
+      )}
 
       <p className="-mt-2 text-xs text-muted">
         Remaining after sampling (available for production):{" "}

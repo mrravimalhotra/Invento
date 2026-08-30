@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { isLegacyCode } from "@/lib/utils";
 
 export type VendorRow = {
   id: string;
@@ -33,5 +34,13 @@ export function VendorsTable({ rows }: { rows: VendorRow[] }) {
     { header: "Email", accessor: (r) => r.email ?? "—", searchValue: (r) => r.email ?? "" },
   ];
 
-  return <DataTable columns={columns} rows={rows} emptyLabel="No vendors yet." searchPlaceholder="Search vendors…" />;
+  return (
+    <DataTable
+      columns={columns}
+      rows={rows}
+      emptyLabel="No vendors yet."
+      searchPlaceholder="Search vendors…"
+      isLegacy={(r) => isLegacyCode(r.vendor_code)}
+    />
+  );
 }

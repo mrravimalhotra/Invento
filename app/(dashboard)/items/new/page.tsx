@@ -22,7 +22,7 @@ export default async function NewItemPage() {
     <div>
       <PageHeader
         title="New item"
-        description="Item code is generated automatically once you save. Processed items are created by the Finished Product flow, not here."
+        description="Item code is generated automatically once you save (RM- / PKG- / FP- prefixed)."
       />
       <Card className="max-w-3xl">
         <CardBody>

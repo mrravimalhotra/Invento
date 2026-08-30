@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 import { resolveDisplayStatus } from "@/lib/finished-product-status";
 
 export type FpRow = {
@@ -48,6 +48,7 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
       rows={rows}
       searchPlaceholder="Search batch number or MFR…"
       emptyLabel="No finished product batches yet."
+      isLegacy={(r) => isLegacyCode(r.batch_number)}
     />
   );
 }
