@@ -11,14 +11,18 @@ rule in DESIGN.md §3.
 
 ## Screens
 
-- **List** — `/item-types` (`app/(dashboard)/item-types/page.tsx`). `DataTable`
-  with columns Description (links to the edit screen) and Status (Active/Inactive
-  badge). "New item type" button shown only when `canWrite(user.roles,
-  "item_types")`.
-- **New** — `/item-types/new`. Single required field: Description
-  (`item_types.description`, `unique not null` in the schema — a duplicate
-  submit surfaces "An item type with this description already exists."
-  translated from the Postgres `23505` error).
+- **List + Add** — `/item-types` (`app/(dashboard)/item-types/page.tsx`). Two
+  columns when the signed-in user can write this module: an "Add new item
+  type" form (just the Description field — `item_types.description`, `unique
+  not null` in the schema; a duplicate submit surfaces "An item type with
+  this description already exists." translated from the Postgres `23505`
+  error) alongside the `DataTable` with columns ItemType (links to the edit
+  screen), Status (Active/Inactive badge), Created, and Actions (View / Edit
+  link). Redesigned 30 Aug 2026 (per tester feedback FB-0001 and a follow-up
+  request) to put the add form directly on the list page instead of a
+  separate `/new` route — one fewer click/page-round-trip to add an item
+  type. The old `/item-types/new` route was removed; nothing else linked to
+  it.
 - **Edit** — `/item-types/[id]`. Same Description field plus an Active
   checkbox (soft-delete toggle). Read-only view (status line, no form) if the
   signed-in user can't write this module.
@@ -28,8 +32,9 @@ rule in DESIGN.md §3.
 - `lib/actions/item-types.ts` — `createItemType`, `updateItemType` (Server
   Actions; both re-check `canWrite` server-side even though RLS is the real
   backstop, per the briefing).
-- `app/(dashboard)/item-types/page.tsx`, `new/page.tsx`, `[id]/page.tsx`,
-  `item-type-form.tsx` (client form components, `useActionState`).
+- `app/(dashboard)/item-types/page.tsx`, `[id]/page.tsx`, `item-type-form.tsx`
+  (client form components, `useActionState`; `NewItemTypeForm` is rendered
+  inline on `page.tsx`, not on its own route).
 
 ## Deviation from the briefing
 

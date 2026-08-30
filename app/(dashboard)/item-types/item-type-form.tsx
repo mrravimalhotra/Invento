@@ -5,22 +5,19 @@ import { createItemType, updateItemType, type ActionState } from "@/lib/actions/
 import { Field, Input, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 
+// Lives inline on the /item-types list page (see page.tsx) — no separate
+// /new route to navigate to and back from, so there's no "Cancel" link here.
 export function NewItemTypeForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createItemType, undefined);
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-md">
+    <form action={formAction} className="flex flex-col gap-4">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       <Field label="Description" htmlFor="description" required>
         <Input id="description" name="description" required autoFocus />
       </Field>
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Create item type"}
-        </Button>
-        <LinkButton href="/item-types" variant="secondary">
-          Cancel
-        </LinkButton>
-      </div>
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save item type"}
+      </Button>
     </form>
   );
 }
