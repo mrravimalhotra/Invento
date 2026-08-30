@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
+import { latestQcByBatch, resolveDisplayStatus } from "@/lib/finished-product-status";
 import {
   RmStockReport,
   QcRegisterReport,
@@ -31,7 +32,7 @@ export default async function ReportsPage() {
     supabase
       .from("finished_product_batches")
       .select(
-        "batch_number, target_qty, actual_yield_pct, status, finish_date, created_at, mfr:mfr_definitions(name)"
+        "id, batch_number, target_qty, actual_yield_pct, status, finish_date, created_at, mfr:mfr_definitions(name)"
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -52,8 +53,29 @@ export default async function ReportsPage() {
   }));
 
   const qcRows = (qcRes.data ?? []) as unknown as QcRow[];
-  const fpRows = (fpRes.data ?? []) as unknown as FpRow[];
   const purchaseRows = (purchaseRes.data ?? []) as unknown as PurchaseRow[];
+
+  // finished_product_batches.status only ever moves to 'in_process' or
+  // 'submitted_to_qc' from this module's own actions — the approved/rejected
+  // verdict lives on the linked quality_checks row instead (see
+  // lib/finished-product-status.ts). Resolve display status the same way the
+  // Finished Product list does; otherwise every row here would show
+  // "In Process" even for batches long since approved or rejected.
+  const fpBatchRows = (fpRes.data ?? []) as unknown as (FpRow & { id: string })[];
+  const { data: fpQcRows } = fpBatchRows.length
+    ? await supabase
+        .from("quality_checks")
+        .select("finished_product_batch_id, status, created_at")
+        .in(
+          "finished_product_batch_id",
+          fpBatchRows.map((r) => r.id)
+        )
+        .not("finished_product_batch_id", "is", null)
+    : { data: [] };
+  const latestFpQc = latestQcByBatch(
+    (fpQcRows ?? []) as { finished_product_batch_id: string; status: string; created_at: string }[]
+  );
+  const fpRows: FpRow[] = fpBatchRows.map((r) => ({ ...r, status: resolveDisplayStatus(r.status, latestFpQc.get(r.id)) }));
 
   return (
     <div>
