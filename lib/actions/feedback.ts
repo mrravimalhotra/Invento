@@ -10,6 +10,7 @@ export type ActionState = { error?: string; success?: string } | undefined;
 
 export type FeedbackRow = {
   id: string;
+  ticket_number: string;
   page_path: string;
   page_label: string;
   url_path: string;
@@ -43,7 +44,16 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
+
+  // Short, stable identifier a tester or Ravi can reference in chat
+  // ("implement FB-0003") — the uuid id isn't practical to read back.
+  // Generated server-side via RPC, never in JavaScript (see
+  // get_next_po_number/get_next_ar_number etc. for the same convention).
+  const { data: ticketNumber, error: ticketError } = await supabase.rpc("get_next_feedback_ticket");
+  if (ticketError) return { error: ticketError.message };
+
   const { error } = await supabase.from("page_feedback").insert({
+    ticket_number: ticketNumber,
     page_path: parsed.data.pagePath,
     page_label: parsed.data.pageLabel,
     url_path: parsed.data.urlPath,
@@ -63,7 +73,7 @@ export async function listPageFeedback(pagePath: string): Promise<FeedbackRow[]>
   const { data, error } = await supabase
     .from("page_feedback")
     .select(
-      "id, page_path, page_label, url_path, observation, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
+      "id, ticket_number, page_path, page_label, url_path, observation, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
     )
     .eq("page_path", pagePath)
     .order("created_at", { ascending: false });
@@ -76,7 +86,7 @@ export async function listAllFeedback(): Promise<FeedbackRow[]> {
   const { data, error } = await supabase
     .from("page_feedback")
     .select(
-      "id, page_path, page_label, url_path, observation, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
+      "id, ticket_number, page_path, page_label, url_path, observation, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
   if (error) return [];

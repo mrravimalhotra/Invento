@@ -112,6 +112,9 @@ function PageFeedbackInner({
                 <div key={item.id} className="rounded-md border border-border p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-full bg-brand/10 px-2 py-0.5 font-mono text-xs font-semibold text-brand-dark">
+                        {item.ticket_number}
+                      </span>
                       <Badge status={STATUS_BADGE_STYLE[item.status]}>
                         {FEEDBACK_STATUS_LABELS[item.status as keyof typeof FEEDBACK_STATUS_LABELS] ?? item.status}
                       </Badge>
@@ -123,7 +126,7 @@ function PageFeedbackInner({
                       )}
                     </div>
                     <span className="text-xs text-muted">
-                      {item.submitted_by_name} · {formatDate(item.created_at)}
+                      Submitted by {item.submitted_by_name} · {formatDate(item.created_at)}
                     </span>
                   </div>
                   <p className="mt-1.5 text-foreground">{item.observation}</p>

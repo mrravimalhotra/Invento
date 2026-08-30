@@ -301,6 +301,7 @@ get_next_ar_number()               AR-NNN-DDMMYYYY
 get_next_mfr_code()                F-0001
 get_next_fp_batch_number()         FP-0001
 get_next_coa_number()              COA-0001-YYYY   -- new
+get_next_feedback_ticket()         FB-0001         -- new: 0005_feedback_ticket_number.sql
 ```
 
 ## 6. Route map (App Router)

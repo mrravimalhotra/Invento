@@ -15,12 +15,19 @@ export function FeedbackAdminRow({ row }: { row: FeedbackRow }) {
     <form action={formAction} className="grid grid-cols-1 gap-3 border-b border-border p-4 lg:grid-cols-[1fr_260px]">
       <div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+          <span className="rounded-full bg-brand/10 px-2 py-0.5 font-mono font-semibold text-brand-dark">
+            {row.ticket_number}
+          </span>
           <span className="font-semibold text-foreground">{row.page_label}</span>
           <span className="font-mono">{row.url_path}</span>
           <span>·</span>
-          <span>{row.submitted_by_name}</span>
+          <span>
+            Submitted by <span className="text-foreground">{row.submitted_by_name}</span>
+          </span>
           <span>·</span>
-          <span>{formatDate(row.created_at)}</span>
+          <span>
+            Submitted <span className="text-foreground">{formatDate(row.created_at)}</span>
+          </span>
         </div>
         <p className="mt-1.5 text-sm text-foreground">{row.observation}</p>
       </div>
