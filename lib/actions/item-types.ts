@@ -23,7 +23,11 @@ export async function createItemType(_prev: ActionState, formData: FormData): Pr
   }
 
   revalidatePath("/item-types");
-  redirect("/item-types");
+  // No redirect — the add form lives inline on /item-types (see
+  // docs/modules/item-types.md), so staying put and surfacing a success
+  // message lets the person add several item types back-to-back without
+  // a page round-trip.
+  return { success: `New item type "${description}" has been successfully added.` };
 }
 
 export async function updateItemType(

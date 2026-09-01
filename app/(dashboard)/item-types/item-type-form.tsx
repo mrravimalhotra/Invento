@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useActionState } from "react";
 import { createItemType, updateItemType, type ActionState } from "@/lib/actions/item-types";
 import { Field, Input, Checkbox } from "@/components/ui/form";
@@ -9,9 +10,18 @@ import { Button, LinkButton } from "@/components/ui/button";
 // /new route to navigate to and back from, so there's no "Cancel" link here.
 export function NewItemTypeForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createItemType, undefined);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    // Clear the field after a successful add so the person can keep adding
+    // item types back-to-back.
+    if (state?.success) formRef.current?.reset();
+  }, [state]);
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
+      {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
       <Field label="Description" htmlFor="description" required>
         <Input id="description" name="description" required autoFocus />
       </Field>
