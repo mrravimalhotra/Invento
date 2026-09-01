@@ -11,6 +11,7 @@ import { formatDate, formatNumber } from "@/lib/utils";
 import { ApproveForm } from "./approve-form";
 import { EditRecipeForm } from "./edit-recipe-form";
 import { DeleteMfrForm } from "./delete-mfr-form";
+import { ToggleMfrActiveForm } from "./toggle-active-form";
 import type { EditableLine } from "../mfr-line-editor";
 
 export default async function MfrDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +21,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   const { data: def } = await supabase
     .from("mfr_definitions")
     .select(
-      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, items:finished_product_item_id(id, item_code, name, item_types(description))"
+      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, active, items:finished_product_item_id(id, item_code, name, item_types(description))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -115,6 +116,15 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
                 </div>
               </div>
               {!def.approved_by && canEdit && <ApproveForm mfrId={id} />}
+            </div>
+            <div className="flex items-center justify-between gap-3 sm:col-span-2 border-t border-border pt-3">
+              <div>
+                <span className="text-muted">Status</span>
+                <div className="mt-1">
+                  <Badge status={def.active ? "approved" : "not_submitted"}>{def.active ? "Active" : "Inactive"}</Badge>
+                </div>
+              </div>
+              {canEdit && <ToggleMfrActiveForm id={id} active={def.active} />}
             </div>
             {isSystemAdmin && (
               <div className="flex justify-end sm:col-span-2 border-t border-border pt-3">

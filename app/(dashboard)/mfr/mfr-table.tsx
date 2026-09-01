@@ -14,6 +14,7 @@ export type MfrRow = {
   batch_size_unit: string;
   approved_by: string | null;
   approved_at: string | null;
+  active: boolean;
   items: { id: string; item_code: string; item_types: { description: string } | null } | null;
 };
 
@@ -52,6 +53,10 @@ export function MfrTable({ rows }: { rows: MfrRow[] }) {
         ) : (
           <Badge status="not_submitted">Not approved</Badge>
         ),
+    },
+    {
+      header: "Status",
+      accessor: (r) => <Badge status={r.active ? "approved" : "not_submitted"}>{r.active ? "Active" : "Inactive"}</Badge>,
     },
   ];
 

@@ -11,11 +11,12 @@ mirrors the RLS policies `mfr_def_write` / `mfr_lines_write` in
 
 ## Screens
 
-- **List** — `/mfr`. `DataTable` of `mfr_definitions` (active only):
-  code (links to detail), name, version, **Finished product** (linked item's
-  `item_code`, links to `/items/[id]`), item type, batch size, approval
-  (Badge — "Approved by \<name\> on \<date\>" or "Not approved"). "New MFR"
-  gated by `canWrite(user.roles, "mfr")`.
+- **List** — `/mfr`. `DataTable` of `mfr_definitions` (active **and**
+  inactive, as of the deactivate workflow below): code (links to detail),
+  name, version, **Finished product** (linked item's `item_code`, links to
+  `/items/[id]`), item type, batch size, approval (Badge — "Approved by
+  \<name\> on \<date\>" or "Not approved"), Status (Active/Inactive). "New
+  MFR" gated by `canWrite(user.roles, "mfr")`.
 - **New** — `/mfr/new`. Header fields (name, item type dropdown, batch size
   qty/unit) plus a dynamic recipe-line editor (item dropdown — raw-material
   items only, quantity, unit; add/remove rows client-side). **This screen is
@@ -118,19 +119,61 @@ wanted) is its own `deleteItem()` action, subject to its own FK checks.
 An MFR that has produced a `finished_product_batches` row can't be deleted
 — that FK has no `on delete` clause (`RESTRICT`, the default), so it raises
 `23503`, caught and translated to "Can't delete — this MFR has finished
-product batches on file. Remove those first." There's no
-deactivate/soft-delete flow for MFR (`mfr_definitions.active` exists in the
-schema but no screen ever writes it), so unlike Item Master's message this
-one doesn't point at deactivating — same reasoning as `deleteVendor()`'s
-message in `docs/modules/vendors.md`.
+product batches on file. Remove those first." At the time this delete
+feature shipped there was no deactivate/soft-delete flow for MFR yet, so the
+message didn't point at deactivating (unlike Item Master's) — see the
+deactivate workflow below, added shortly after, which fills that gap. The
+delete message is left as-is: an MFR that's actually produced batches still
+can't be deactivated around this restriction (deactivating doesn't remove
+the batch history either), so "remove those first" remains the accurate
+guidance.
+
+## Deactivate / reactivate (1 Sept 2026)
+
+Per a direct follow-up request ("also create deactivate workflow for mfr"),
+adds the write path for `mfr_definitions.active` — a column that has existed
+since `0001_init.sql` and was already **read** in two places (this list's
+recipe-picker equivalent, `finished-product/new/page.tsx`'s MFR selector,
+and — until this change — this list's own now-removed `active=true` filter)
+but had no screen that could ever set it. No new migration is needed; the
+column and its `default true` already exist.
+
+`setMfrActive(id, active)` in `lib/actions/mfr.ts` is gated at
+`canWrite(user.roles, "mfr")` — **deliberately not `system_admin`-only** like
+delete: deactivating is reversible and low-stakes (it just retires a recipe
+from being offered for new production; nothing is removed or made
+inaccessible), so an `mfr_manager` doesn't need an admin's help. No new RLS
+policy was needed either — the existing `mfr_def_update` policy (from
+`0011_mfr_delete_policy.sql`) already covers `system_admin`/`mfr_manager`
+updates, and setting `active` is just an update.
+
+`ToggleMfrActiveForm` (`app/(dashboard)/mfr/[id]/toggle-active-form.tsx`) is
+a single button — "Deactivate MFR" / "Reactivate MFR" depending on current
+state — no two-step confirm, same one-click convention as `ApproveForm`
+(reversible actions don't get the confirm treatment delete does). It's
+rendered on the detail page's Header card in a new Status row (Badge +
+button), next to the existing Approval row.
+
+Because an MFR can now be turned off, the list (`/mfr`) and the detail page
+both needed a companion change so a deactivated MFR doesn't become
+invisible/unreachable — the same dead-end-UX class of bug as the earlier
+swallowed-error fix: `/mfr`'s query dropped its `.eq("active", true)`
+filter (it now lists both, distinguished by the new Status column, same
+pattern as Item Master's list already used), and the detail page now
+fetches and displays `active` regardless of its value. The recipe-picker
+query in `finished-product/new/page.tsx` was **not** changed — it should
+keep filtering to active MFRs only, since offering an inactive recipe for
+new production is exactly what deactivating is meant to prevent.
 
 ## Files
 
 - `lib/actions/mfr.ts` — `createMfrDefinition`, `updateMfrLines`,
-  `approveMfrDefinition` (each re-checks `canWrite(user.roles, "mfr")`
-  server-side), `deleteMfrDefinition` (checks `system_admin` directly, same
-  as the other three master-data deletes).
+  `approveMfrDefinition`, `setMfrActive` (each re-checks
+  `canWrite(user.roles, "mfr")` server-side), `deleteMfrDefinition` (checks
+  `system_admin` directly, same as the other three master-data deletes).
 - `app/(dashboard)/mfr/[id]/delete-mfr-form.tsx` — two-step-confirm Delete UI.
+- `app/(dashboard)/mfr/[id]/toggle-active-form.tsx` — one-click
+  Deactivate/Reactivate UI.
 - `app/(dashboard)/mfr/page.tsx` — list.
 - `app/(dashboard)/mfr/mfr-line-editor.tsx` — shared dynamic recipe-line
   editor (`item_i`/`quantity_i`/`unit_i` fields + `lineCount`), used by both

@@ -215,6 +215,28 @@ export async function deleteMfrDefinition(id: string, _prev: ActionState, _formD
   redirect("/mfr");
 }
 
+// Deactivate/reactivate — the write path for mfr_definitions.active, which
+// existed in the schema since 0001_init.sql and is already READ in two
+// places (the /mfr list's default filter, and finished-product/new's
+// recipe picker) but until now had no screen that could ever set it to
+// false. Same canWrite(roles, "mfr") gate as approve/edit — deliberately
+// NOT restricted to system_admin like deleteMfrDefinition(): deactivating
+// is reversible and much lower-stakes than deleting (it just retires a
+// recipe from being picked for new production; nothing is removed), so an
+// mfr_manager doesn't need an admin's help to do it.
+export async function setMfrActive(id: string, active: boolean, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("mfr_definitions").update({ active }).eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/mfr");
+  revalidatePath(`/mfr/${id}`);
+  return { success: active ? "MFR reactivated." : "MFR deactivated." };
+}
+
 export async function approveMfrDefinition(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in." };
