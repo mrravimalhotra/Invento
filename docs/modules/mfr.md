@@ -94,11 +94,43 @@ carries its own `item_type_id`. The MFR detail/list/report screens read
 item type via the linked item (`items:finished_product_item_id(...,
 item_types(description))`), not the old column.
 
+## Admin-only delete (1 Sept 2026)
+
+Extends the same admin-only-delete pattern used for Item Type Master
+(FB-0004) and Item/Vendor Master to MFR, per a direct follow-up request
+("give admin access to delete mfr as well along with all master data").
+`deleteMfrDefinition()` in `lib/actions/mfr.ts` checks
+`user.roles.includes("system_admin")` directly (not `canWrite()`, which also
+allows `mfr_manager`); `0011_mfr_delete_policy.sql` splits the old single
+`mfr_def_write` RLS policy into insert/update (unchanged roles) plus a
+`system_admin`-only delete policy. `DeleteMfrForm`
+(`app/(dashboard)/mfr/[id]/delete-mfr-form.tsx`), same two-step-confirm
+pattern as the other three, rendered on the detail page's Header card only
+when the signed-in user is `system_admin`.
+
+Deleting an MFR removes all of its recipe lines across every version —
+`mfr_lines.mfr_definition_id` is `on delete cascade` — but **not** its
+linked Finished Product item: `finished_product_item_id` points the other
+way (MFR → item), so the item is left exactly as it was, still listed in
+Item Master, just no longer backed by a recipe. Deleting it separately (if
+wanted) is its own `deleteItem()` action, subject to its own FK checks.
+
+An MFR that has produced a `finished_product_batches` row can't be deleted
+— that FK has no `on delete` clause (`RESTRICT`, the default), so it raises
+`23503`, caught and translated to "Can't delete — this MFR has finished
+product batches on file. Remove those first." There's no
+deactivate/soft-delete flow for MFR (`mfr_definitions.active` exists in the
+schema but no screen ever writes it), so unlike Item Master's message this
+one doesn't point at deactivating — same reasoning as `deleteVendor()`'s
+message in `docs/modules/vendors.md`.
+
 ## Files
 
 - `lib/actions/mfr.ts` — `createMfrDefinition`, `updateMfrLines`,
-  `approveMfrDefinition`. Every action re-checks `canWrite(user.roles,
-  "mfr")` server-side.
+  `approveMfrDefinition` (each re-checks `canWrite(user.roles, "mfr")`
+  server-side), `deleteMfrDefinition` (checks `system_admin` directly, same
+  as the other three master-data deletes).
+- `app/(dashboard)/mfr/[id]/delete-mfr-form.tsx` — two-step-confirm Delete UI.
 - `app/(dashboard)/mfr/page.tsx` — list.
 - `app/(dashboard)/mfr/mfr-line-editor.tsx` — shared dynamic recipe-line
   editor (`item_i`/`quantity_i`/`unit_i` fields + `lineCount`), used by both

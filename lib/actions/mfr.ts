@@ -178,6 +178,43 @@ export async function updateMfrLines(id: string, _prev: ActionState, formData: F
   redirect(`/mfr/${id}`);
 }
 
+// Delete is Admin-only, same convention as deleteItemType()/deleteItem()/
+// deleteVendor() — canWrite() allows system_admin and mfr_manager, but
+// delete is tighter. Matches the mfr_def_delete RLS policy in
+// 0011_mfr_delete_policy.sql. mfr_lines for this definition (all versions)
+// are removed automatically — mfr_lines.mfr_definition_id is `on delete
+// cascade` (0001_init.sql) — so no separate cleanup step is needed here,
+// unlike createMfrDefinition()'s manual multi-insert rollback. The linked
+// Finished Product item (finished_product_item_id) is deliberately left
+// alone: deleting the recipe doesn't delete the item it produces — that's
+// still an independent Item Master record, deletable on its own (subject
+// to its own FK checks) via deleteItem().
+export async function deleteMfrDefinition(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user?.roles?.includes("system_admin")) return { error: "Only System Admin can delete MFR records." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("mfr_definitions").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      // finished_product_batches.mfr_definition_id has no ON DELETE clause
+      // (RESTRICT, the Postgres default) — an MFR that's been used to
+      // produce a batch can't be deleted. There's no deactivate/soft-delete
+      // flow for MFR (mfr_definitions.active exists in the schema but no
+      // screen writes it), so — same as deleteVendor()'s message — this
+      // points at reassignment/removal rather than an "Deactivate it
+      // instead" that would dead-end.
+      return {
+        error: "Can't delete — this MFR has finished product batches on file. Remove those first.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/mfr");
+  redirect("/mfr");
+}
+
 export async function approveMfrDefinition(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in." };

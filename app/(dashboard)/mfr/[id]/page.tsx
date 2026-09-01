@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { ApproveForm } from "./approve-form";
 import { EditRecipeForm } from "./edit-recipe-form";
+import { DeleteMfrForm } from "./delete-mfr-form";
 import type { EditableLine } from "../mfr-line-editor";
 
 export default async function MfrDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,6 +41,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   ]);
 
   const canEdit = canWrite(user?.roles ?? [], "mfr");
+  const isSystemAdmin = (user?.roles ?? []).includes("system_admin");
   const finishedProduct = def.items as unknown as {
     id: string;
     item_code: string;
@@ -114,6 +116,11 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
               </div>
               {!def.approved_by && canEdit && <ApproveForm mfrId={id} />}
             </div>
+            {isSystemAdmin && (
+              <div className="flex justify-end sm:col-span-2 border-t border-border pt-3">
+                <DeleteMfrForm id={id} code={def.code} name={def.name} />
+              </div>
+            )}
           </CardBody>
         </Card>
 
