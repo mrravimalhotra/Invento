@@ -115,10 +115,22 @@ nothing serialized the two, so two people entering a purchase line for the
 same item on the same day could compute and save the same batch number,
 silently duplicating a GMP-critical traceability field.
 
-`0013_batch_number_integrity.sql` adds a `unique (item_id, batch_number)`
-constraint on `purchase_lines` as the real backstop — any future collision
-now raises `23505` instead of writing a silent duplicate.
-`createPurchaseLine()` wraps the get-number/insert pair in a retry loop (up
-to 3 attempts): on a `23505` it calls `get_next_batch_number()` again
-(which now accounts for whichever request won the race) and retries the
-insert, only surfacing an error to the user if all attempts collide.
+`0013_batch_number_integrity.sql` adds a **partial** unique index on
+`(item_id, batch_number)` — `where batch_number not like 'LEG-%'` — as the
+real backstop, so any future app-generated collision raises `23505`
+instead of writing a silent duplicate. `createPurchaseLine()` wraps the
+get-number/insert pair in a retry loop (up to 3 attempts): on a `23505` it
+calls `get_next_batch_number()` again (which now accounts for whichever
+request won the race) and retries the insert, only surfacing an error to
+the user if all attempts collide.
+
+The index is scoped to exclude `LEG-` prefixed batch numbers on purpose: a
+first attempt at a table-wide constraint failed to apply against
+production because legacy batch numbers are free text with no uniqueness
+guarantee, and at least one real collision already exists there (two
+genuinely different 2016 purchase lines, `LEG-PR-40`, six months apart).
+Fixing that retroactively would mean deleting a row with a linked
+`inventory_ledger` entry — real transaction history, and a change to that
+item's current computed stock-on-hand — not worth it for a race that only
+ever affects new, app-generated codes. Legacy data is left exactly as
+imported.
