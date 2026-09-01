@@ -11,6 +11,7 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
@@ -99,15 +100,29 @@ export function Select({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
+  // Listbox coordinates for the portal below (viewport-relative, since the
+  // listbox is rendered position:fixed straight onto <body> — see comment
+  // there for why).
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  function updateCoords() {
+    const el = containerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setCoords({ top: r.bottom + 4, left: r.left, width: r.width });
+  }
+
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideContainer = containerRef.current?.contains(target);
+      const insideList = listRef.current?.contains(target);
+      if (!insideContainer && !insideList) {
         setOpen(false);
         setQuery("");
       }
@@ -115,6 +130,22 @@ export function Select({
     document.addEventListener("mousedown", onDocMouseDown);
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, []);
+
+  // Keep the portal-rendered listbox glued to its trigger while open — it's
+  // position:fixed (viewport-relative), so unlike the old in-flow
+  // position:absolute it does NOT move automatically when an ancestor
+  // scrolls (e.g. a table wrapped in overflow-x-auto — see the listbox
+  // comment below) or the window resizes.
+  useEffect(() => {
+    if (!open) return;
+    updateCoords();
+    window.addEventListener("scroll", updateCoords, true);
+    window.addEventListener("resize", updateCoords);
+    return () => {
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords);
+    };
+  }, [open]);
 
   const visibleOptions = useMemo(() => {
     const base = hideLegacy ? options.filter((o) => !o.legacy) : options;
@@ -148,6 +179,7 @@ export function Select({
 
   function openList() {
     if (disabled) return;
+    updateCoords();
     setOpen(true);
     setQuery("");
     setHighlight(Math.max(0, options.findIndex((o) => o.value === currentValue)));
@@ -224,38 +256,51 @@ export function Select({
         <ChevronsUpDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-muted" />
       </div>
 
-      {open && (
-        <ul
-          ref={listRef}
-          id={id ? `${id}-listbox` : undefined}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-white py-1 text-sm shadow-lg"
-        >
-          {visibleOptions.length === 0 && <li className="px-3 py-2 text-muted">No matches</li>}
-          {visibleOptions.map((o, i) => (
-            <li
-              key={o.value}
-              role="option"
-              aria-selected={o.value === currentValue}
-              onMouseDown={(e) => {
-                // Prevent the input's onBlur/outside-click handler from
-                // closing the list before the click registers.
-                e.preventDefault();
-                if (!o.disabled) commit(o.value);
-              }}
-              onMouseEnter={() => setHighlight(i)}
-              className={cn(
-                "flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5",
-                i === safeHighlight && "bg-brand/10",
-                o.disabled && "cursor-not-allowed text-muted"
-              )}
-            >
-              <span>{o.label}</span>
-              {o.value === currentValue && <Check className="h-3.5 w-3.5 text-brand-dark" />}
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* Rendered via a portal straight onto <body>, position:fixed at
+          `coords` (computed from the trigger's own bounding rect above),
+          rather than position:absolute in normal flow. A ~40-picker sweep
+          found several of these inside a table wrapped in
+          `overflow-x-auto` (MFR recipe lines, FP compose's RM batch pick)
+          — an absolutely-positioned descendant gets silently clipped by
+          that ancestor's overflow, so the list was rendering but never
+          visible. Portaling to <body> escapes that ancestor entirely; the
+          scroll/resize listeners above keep it glued to the trigger. */}
+      {open &&
+        coords &&
+        createPortal(
+          <ul
+            ref={listRef}
+            id={id ? `${id}-listbox` : undefined}
+            role="listbox"
+            style={{ position: "fixed", top: coords.top, left: coords.left, width: coords.width }}
+            className="z-50 max-h-56 overflow-auto rounded-md border border-border bg-white py-1 text-sm shadow-lg"
+          >
+            {visibleOptions.length === 0 && <li className="px-3 py-2 text-muted">No matches</li>}
+            {visibleOptions.map((o, i) => (
+              <li
+                key={o.value}
+                role="option"
+                aria-selected={o.value === currentValue}
+                onMouseDown={(e) => {
+                  // Prevent the input's onBlur/outside-click handler from
+                  // closing the list before the click registers.
+                  e.preventDefault();
+                  if (!o.disabled) commit(o.value);
+                }}
+                onMouseEnter={() => setHighlight(i)}
+                className={cn(
+                  "flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5",
+                  i === safeHighlight && "bg-brand/10",
+                  o.disabled && "cursor-not-allowed text-muted"
+                )}
+              >
+                <span>{o.label}</span>
+                {o.value === currentValue && <Check className="h-3.5 w-3.5 text-brand-dark" />}
+              </li>
+            ))}
+          </ul>,
+          document.body
+        )}
     </div>
   );
 }

@@ -437,6 +437,18 @@ module's own review doc under `docs/modules/`)
   dropdown in the app) and which server queries had to widen their
   `select()` to include the item/vendor code needed to classify a row as
   legacy in the first place.
+- **`Select`'s dropdown list renders through a `document.body` portal**,
+  position:fixed at coordinates tracked off the trigger's own bounding
+  rect (1 Sept 2026 bug fix, found during full app verification). It
+  started as a plain `position: absolute` child of the trigger; that's
+  invisible-but-present for any picker that lives inside a table wrapped
+  in `overflow-x-auto` (MFR's recipe-line item/unit pickers, Finished
+  Product compose's RM batch pick) — the browser clips an absolutely
+  positioned descendant to its scrolling ancestor's bounds, so the list
+  was there in the DOM (arrow-key navigation and screen readers still
+  worked) but never visible to a mouse user. Portaling to `<body>` escapes
+  that clipping entirely; scroll/resize listeners keep it glued to the
+  trigger while open.
 
 ## 9. Known simplifications in this pass (flag for review, not silent)
 
