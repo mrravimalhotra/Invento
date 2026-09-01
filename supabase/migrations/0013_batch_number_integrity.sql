@@ -12,22 +12,35 @@
 -- same day can both compute the same batch number and both save it —
 -- silently duplicating a GMP-critical traceability field.
 --
--- This can't retroactively fix a duplicate that may already exist, but it
--- turns any FUTURE collision into a loud, visible constraint violation
--- (23505) instead of a silent duplicate — which lib/actions/purchase.ts
--- now catches and retries (the retry recomputes the batch number, which by
--- then accounts for the row the other request just inserted).
+-- REVISED after the first attempt at a plain `unique (item_id,
+-- batch_number)` failed to apply: it found a real, legitimate collision —
+-- item 2e7da1cc-.../batch 'LEG-PR-40' — two genuinely different legacy
+-- purchase lines (different POs, six months apart, different quantities)
+-- that just happen to share the same free-text legacy batch code. That's
+-- expected: legacy batch numbers are free text carried over from the old
+-- SQL Server app with no uniqueness guarantee, and each already has a
+-- linked inventory_ledger "push" row from the original import (on delete
+-- restrict), so deleting either to force a full-table constraint through
+-- would both very likely fail on that FK and, if forced anyway, would
+-- quietly reduce that item's *current* computed stock-on-hand — a live
+-- data change, not a historical cleanup. Not worth it for a code-quality
+-- fix, and not necessary: the race this migration actually needs to close
+-- only affects NEW, app-generated batch numbers (from get_next_batch_
+-- number(), never 'LEG-' prefixed) — legacy numbers are written once at
+-- import time and never again.
 --
--- ⚠ RISK NOTE FOR RAVI: this ADD CONSTRAINT scans the full existing
--- purchase_lines table and will FAIL to apply if any (item_id,
--- batch_number) pair is already duplicated today — legacy batch numbers
--- are free text carried over from the old SQL Server app and were only
--- spot-checked for uniqueness on a small staging sample, not the full
--- production dataset (see claude/data-gap-analysis.md). If this statement
--- errors out, nothing is changed (the whole migration rolls back) — stop
--- and tell Claude the exact error rather than editing/deleting rows
--- yourself; existing data is never modified to force this through.
+-- So this is a PARTIAL unique index instead of a table-wide constraint:
+-- it only applies to batch numbers that don't start with 'LEG-', which
+-- covers every future app-generated batch number while leaving all
+-- historical legacy data (including any other such collisions that may
+-- exist among the ~92,000 legacy rows, unchecked and untouched) alone.
+-- Turns any FUTURE app-side collision into a loud, visible constraint
+-- violation (23505) instead of a silent duplicate — which
+-- lib/actions/purchase.ts now catches and retries (the retry recomputes
+-- the batch number, which by then accounts for the row the other request
+-- just inserted).
 -- ============================================================
 
-alter table public.purchase_lines
-  add constraint purchase_lines_item_batch_unique unique (item_id, batch_number);
+create unique index purchase_lines_item_batch_unique
+  on public.purchase_lines (item_id, batch_number)
+  where batch_number not like 'LEG-%';
