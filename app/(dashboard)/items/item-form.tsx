@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
-import { createItem, updateItem, type ActionState } from "@/lib/actions/items";
+import { createItem, updateItem, deleteItem, type ActionState } from "@/lib/actions/items";
 import { Field, Input, Select, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { UNITS } from "@/lib/constants/units";
@@ -235,6 +236,44 @@ export function EditItemForm({
         <LinkButton href="/items" variant="secondary">
           Back to list
         </LinkButton>
+      </div>
+    </form>
+  );
+}
+
+// Delete is restricted to system_admin — see deleteItem() in
+// lib/actions/items.ts. Rendered only when the caller passes isSystemAdmin,
+// itself computed from the signed-in user's roles in [id]/page.tsx
+// (canWrite() alone is too permissive for this gate). Same two-step-confirm
+// pattern as DeleteItemTypeForm in item-types/item-type-form.tsx.
+export function DeleteItemForm({ id, name }: { id: string; name: string }) {
+  const boundAction = deleteItem.bind(null, id);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [confirming, setConfirming] = useState(false);
+
+  if (!confirming) {
+    return (
+      <div className="flex flex-col gap-2">
+        {state?.error && <p className="text-sm text-red">{state.error}</p>}
+        <Button type="button" variant="danger" onClick={() => setConfirming(true)}>
+          Delete item
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3 rounded border border-red/30 p-3">
+      <p className="text-sm">
+        Delete <strong>{name}</strong>? This can&apos;t be undone.
+      </p>
+      <div className="flex gap-2">
+        <Button type="submit" variant="danger" disabled={pending}>
+          {pending ? "Deleting…" : "Yes, delete"}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setConfirming(false)} disabled={pending}>
+          Cancel
+        </Button>
       </div>
     </form>
   );

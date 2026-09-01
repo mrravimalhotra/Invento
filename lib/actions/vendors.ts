@@ -90,3 +90,25 @@ export async function updateVendor(
   revalidatePath(`/vendors/${id}`);
   return { success: "Vendor updated." };
 }
+
+export async function deleteVendor(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  // Delete is intentionally gated tighter than create/update — canWrite()
+  // allows system_admin and inventory_manager, but delete is Admin-only,
+  // same convention as deleteItemType() / deleteItem() (FB-0004 and the
+  // follow-up "delete access for all master data" request). Matches the
+  // vendors_delete RLS policy in 0009_master_data_delete_policy.sql.
+  const user = await getCurrentUser();
+  if (!user?.roles?.includes("system_admin")) return { error: "Only System Admin can delete vendors." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("vendors").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      return { error: "Can't delete — this vendor has purchase orders on file. Reassign or remove those first." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/vendors");
+  redirect("/vendors");
+}

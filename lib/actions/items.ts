@@ -163,3 +163,28 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   revalidatePath(`/items/${id}`);
   return { success: "Item saved." };
 }
+
+export async function deleteItem(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  // Delete is intentionally gated tighter than create/update — canWrite()
+  // allows system_admin, inventory_manager and mfr_manager, but delete is
+  // Admin-only, same convention as deleteItemType() in
+  // lib/actions/item-types.ts (FB-0004). Matches the items_delete RLS
+  // policy in 0009_master_data_delete_policy.sql.
+  const user = await getCurrentUser();
+  if (!user?.roles?.includes("system_admin")) return { error: "Only System Admin can delete items." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("items").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        error:
+          "Can't delete — this item has purchase, QC, inventory, or production records on file. Deactivate it instead.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/items");
+  redirect("/items");
+}

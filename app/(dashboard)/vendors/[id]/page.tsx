@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
-import { VendorForm } from "../vendor-form";
+import { VendorForm, DeleteVendorForm } from "../vendor-form";
 
 export default async function VendorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,6 +20,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
   if (!vendor) notFound();
 
   const canEdit = canWrite(user?.roles ?? [], "vendors");
+  const isSystemAdmin = (user?.roles ?? []).includes("system_admin");
 
   return (
     <div>
@@ -27,7 +28,10 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
       <Card className="max-w-xl">
         <CardBody>
           {canEdit ? (
-            <VendorForm vendor={vendor} />
+            <div className="flex flex-col gap-6">
+              <VendorForm vendor={vendor} />
+              {isSystemAdmin && <DeleteVendorForm id={vendor.id} name={vendor.name} />}
+            </div>
           ) : (
             <dl className="grid gap-3 text-sm">
               <div className="flex justify-between">

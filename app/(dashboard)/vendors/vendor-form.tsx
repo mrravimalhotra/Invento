@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
-import { createVendor, updateVendor, type ActionState } from "@/lib/actions/vendors";
+import { createVendor, updateVendor, deleteVendor, type ActionState } from "@/lib/actions/vendors";
 import { Field, Input } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 
@@ -52,6 +53,44 @@ export function VendorForm({ vendor }: { vendor?: Vendor }) {
         <LinkButton href="/vendors" variant="secondary">
           Cancel
         </LinkButton>
+      </div>
+    </form>
+  );
+}
+
+// Delete is restricted to system_admin — see deleteVendor() in
+// lib/actions/vendors.ts. Rendered only when the caller passes
+// isSystemAdmin, itself computed from the signed-in user's roles in
+// [id]/page.tsx (canWrite() alone is too permissive for this gate). Same
+// two-step-confirm pattern as DeleteItemTypeForm / DeleteItemForm.
+export function DeleteVendorForm({ id, name }: { id: string; name: string }) {
+  const boundAction = deleteVendor.bind(null, id);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [confirming, setConfirming] = useState(false);
+
+  if (!confirming) {
+    return (
+      <div className="flex flex-col gap-2">
+        {state?.error && <p className="text-sm text-red">{state.error}</p>}
+        <Button type="button" variant="danger" onClick={() => setConfirming(true)}>
+          Delete vendor
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3 rounded border border-red/30 p-3">
+      <p className="text-sm">
+        Delete <strong>{name}</strong>? This can&apos;t be undone.
+      </p>
+      <div className="flex gap-2">
+        <Button type="submit" variant="danger" disabled={pending}>
+          {pending ? "Deleting…" : "Yes, delete"}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setConfirming(false)} disabled={pending}>
+          Cancel
+        </Button>
       </div>
     </form>
   );

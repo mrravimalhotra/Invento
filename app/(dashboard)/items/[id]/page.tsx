@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
-import { EditItemForm } from "../item-form";
+import { EditItemForm, DeleteItemForm } from "../item-form";
 import { Barcode } from "../barcode";
 import { formatNumber } from "@/lib/utils";
 
@@ -42,6 +42,7 @@ export default async function ItemDetailPage({
   if (!item) notFound();
 
   const readOnly = !canWrite(user.roles, "items");
+  const isSystemAdmin = user.roles.includes("system_admin");
   const onHand = balance?.on_hand != null ? Number(balance.on_hand) : 0;
   const isLow = item.low_stock_threshold != null && onHand < Number(item.low_stock_threshold);
 
@@ -71,7 +72,10 @@ export default async function ItemDetailPage({
             {readOnly ? (
               <ReadOnlyDetails item={item} />
             ) : (
-              <EditItemForm id={item.id} itemTypes={itemTypes ?? []} item={item} />
+              <div className="flex flex-col gap-6">
+                <EditItemForm id={item.id} itemTypes={itemTypes ?? []} item={item} />
+                {isSystemAdmin && <DeleteItemForm id={item.id} name={item.name} />}
+              </div>
             )}
           </CardBody>
         </Card>

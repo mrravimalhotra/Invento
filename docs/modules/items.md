@@ -36,7 +36,10 @@ Read is open to any signed-in user.
   `0007_item_code_fp_and_sample_unit.sql`, codes are 5-digit and 3-way:
   `RM-00001` (raw), `PKG-00001` (packaging), `FP-00001` (processed/finished
   product, its own sequence).
-- **Detail/Edit** — `/items/[id]`. Same fields, all editable, plus:
+- **Detail/Edit** — `/items/[id]`. Same fields, all editable, plus (as of
+  the "delete access for all master data" follow-up to FB-0004,
+  system_admin only) a two-step-confirm Delete control below the edit
+  form, and:
   - A read-only "Stock on hand" stat card computed from `stock_balance.on_hand`.
   - A read-only "Low stock" stat (Yes/No).
   - A read-only "Item code" stat (the field is never editable after
@@ -101,6 +104,26 @@ rows, effectively invisible. `/items` now orders by `created_at` descending
 (newest first) instead, and the list gained a "Created" column
 (`items-table.tsx`, same `formatDate` pattern as Item Type Master) so the
 sort order is visible, not just implicit.
+
+## Admin-only delete (1 Sep 2026)
+
+Extends FB-0004's item-type delete pattern to Item Master, per a direct
+follow-up request ("provide delete access for all master data including
+vendor, item etc to admin"). `deleteItem()` in `lib/actions/items.ts`
+checks `user.roles.includes("system_admin")` directly rather than
+`canWrite()` (which also allows `inventory_manager`/`mfr_manager`), and
+`0009_master_data_delete_policy.sql` splits the old single `items_write`
+RLS policy into insert/update (unchanged roles) plus a `system_admin`-only
+delete policy, keeping the app check and RLS backstop in agreement.
+
+Items are referenced by `purchase_lines`, `quality_checks`,
+`inventory_ledger`, `mfr_lines`, `finished_product_components`,
+`bmr_weighment_lines` and `packaging_issues` (all `ON DELETE RESTRICT`, the
+Postgres default), so in practice only an item with zero transaction
+history can be deleted — anything else raises `23503`, caught and
+translated to "Can't delete — this item has purchase, QC, inventory, or
+production records on file. Deactivate it instead," pointing at the
+existing Active toggle rather than a dead end.
 
 ## Gap closed
 
