@@ -87,6 +87,10 @@ export function DeleteItemTypeForm({ id, description }: { id: string; descriptio
       <p className="text-sm">
         Delete <strong>{description}</strong>? This can&apos;t be undone.
       </p>
+      {/* See the matching fix + comment in items/item-form.tsx's
+          DeleteItemForm — this branch had the same bug: a blocked delete
+          failed silently since state.error was never rendered here. */}
+      {state?.error && <p className="text-sm text-red">{state.error}</p>}
       <div className="flex gap-2">
         <Button type="submit" variant="danger" disabled={pending}>
           {pending ? "Deleting…" : "Yes, delete"}

@@ -281,6 +281,11 @@ export function DeleteItemForm({ id, name }: { id: string; name: string }) {
       <p className="text-sm">
         Delete <strong>{name}</strong>? This can&apos;t be undone.
       </p>
+      {/* Bug found via live testing (1 Sep 2026): this branch never rendered
+          state.error, so a blocked delete (FK violation) failed silently —
+          the form just snapped back to "Yes, delete" with no explanation.
+          Confirmed live against a Finished Product item linked to an MFR. */}
+      {state?.error && <p className="text-sm text-red">{state.error}</p>}
       <div className="flex gap-2">
         <Button type="submit" variant="danger" disabled={pending}>
           {pending ? "Deleting…" : "Yes, delete"}
