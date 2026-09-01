@@ -16,42 +16,81 @@ type Vendor = {
   email: string | null;
 };
 
-export function VendorForm({ vendor }: { vendor?: Vendor }) {
-  const action = vendor ? updateVendor.bind(null, vendor.id) : createVendor;
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(action, undefined);
+// Lives inline on the /vendors list page (see page.tsx) — no separate /new
+// route to navigate to and back from, matching the same "add form and list
+// share the page" pattern already used by Item Type Master. `nextVendorCode`
+// is a preview only: peek_next_vendor_code() (0012_peek_next_codes.sql)
+// reads the sequence without consuming it, so it can go stale if someone
+// else creates a vendor in the same moment — the code actually assigned on
+// save always comes from get_next_vendor_code() (nextval) inside
+// createVendor() itself.
+export function NewVendorForm({ nextVendorCode }: { nextVendorCode: string }) {
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(createVendor, undefined);
+
+  return (
+    <form action={formAction} className="grid gap-4">
+      {state?.error && <p className="text-sm text-red">{state.error}</p>}
+      <Field label="Vendor code" hint="Auto-generated — assigned exactly when you save.">
+        <Input value={nextVendorCode} readOnly disabled />
+      </Field>
+      <Field label="Name" htmlFor="name" required>
+        <Input id="name" name="name" required autoFocus />
+      </Field>
+      <Field label="Address" htmlFor="address">
+        <Input id="address" name="address" />
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Mobile" htmlFor="mobile">
+          <Input id="mobile" name="mobile" />
+        </Field>
+        <Field label="Phone" htmlFor="phone">
+          <Input id="phone" name="phone" />
+        </Field>
+      </div>
+      <Field label="Email" htmlFor="email">
+        <Input id="email" name="email" type="email" />
+      </Field>
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save vendor"}
+      </Button>
+    </form>
+  );
+}
+
+export function EditVendorForm({ vendor }: { vendor: Vendor }) {
+  const boundAction = updateVendor.bind(null, vendor.id);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="grid gap-4">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
-      {vendor && (
-        <Field label="Vendor code">
-          <Input value={vendor.vendor_code} readOnly disabled />
-        </Field>
-      )}
+      <Field label="Vendor code">
+        <Input value={vendor.vendor_code} readOnly disabled />
+      </Field>
       <Field label="Name" htmlFor="name" required>
-        <Input id="name" name="name" defaultValue={vendor?.name} required />
+        <Input id="name" name="name" defaultValue={vendor.name} required />
       </Field>
       <Field label="Address" htmlFor="address">
-        <Input id="address" name="address" defaultValue={vendor?.address ?? ""} />
+        <Input id="address" name="address" defaultValue={vendor.address ?? ""} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Mobile" htmlFor="mobile">
-          <Input id="mobile" name="mobile" defaultValue={vendor?.mobile ?? ""} />
+          <Input id="mobile" name="mobile" defaultValue={vendor.mobile ?? ""} />
         </Field>
         <Field label="Phone" htmlFor="phone">
-          <Input id="phone" name="phone" defaultValue={vendor?.phone ?? ""} />
+          <Input id="phone" name="phone" defaultValue={vendor.phone ?? ""} />
         </Field>
       </div>
       <Field label="Email" htmlFor="email">
-        <Input id="email" name="email" type="email" defaultValue={vendor?.email ?? ""} />
+        <Input id="email" name="email" type="email" defaultValue={vendor.email ?? ""} />
       </Field>
       <div className="flex gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : vendor ? "Save changes" : "Create vendor"}
+          {pending ? "Saving…" : "Save changes"}
         </Button>
         <LinkButton href="/vendors" variant="secondary">
-          Cancel
+          Back to list
         </LinkButton>
       </div>
     </form>

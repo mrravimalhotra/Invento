@@ -44,22 +44,26 @@ export async function createVendor(_prev: ActionState, formData: FormData): Prom
   const { data: vendorCode, error: codeError } = await supabase.rpc("get_next_vendor_code");
   if (codeError) return { error: codeError.message };
 
-  const { data, error } = await supabase
-    .from("vendors")
-    .insert({
-      vendor_code: vendorCode,
-      name: parsed.data.name,
-      address: parsed.data.address || null,
-      mobile: parsed.data.mobile || null,
-      phone: parsed.data.phone || null,
-      email: parsed.data.email || null,
-    })
-    .select("id")
-    .single();
+  const { error } = await supabase.from("vendors").insert({
+    vendor_code: vendorCode,
+    name: parsed.data.name,
+    address: parsed.data.address || null,
+    mobile: parsed.data.mobile || null,
+    phone: parsed.data.phone || null,
+    email: parsed.data.email || null,
+  });
   if (error) return { error: error.message };
 
   revalidatePath("/vendors");
-  redirect(`/vendors/${data.id}`);
+  // Redirects back to the list (not the new vendor's detail page) — the
+  // Add-vendor form lives inline on /vendors now (see vendor-form.tsx's
+  // NewVendorForm), so save-and-stay-on-this-screen is the point: the
+  // admin can see the new row appear and the next code preview refresh,
+  // ready to add another one right away. ?created= carries the vendor
+  // code (not the id — there's no detail-page navigation to key off of
+  // here) so the list page can find the row and show a one-time success
+  // banner, same mechanic as FB-0005's item ?created=1.
+  redirect(`/vendors?created=${encodeURIComponent(vendorCode)}`);
 }
 
 export async function updateVendor(

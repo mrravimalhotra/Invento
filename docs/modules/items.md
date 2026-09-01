@@ -21,21 +21,45 @@ Read is open to any signed-in user.
   blocking core CRUD. "New item" button shown only when `canWrite(user.roles,
   "items")`. Also carries the shared "Hide legacy data" toggle (see FB-0003
   below).
-- **New** — `/items/new`. Fields: Name (required), Botanical alias,
-  Category (select: Raw material / Packaging **only**, as of the MFR/Finished
-  Product link change below — see that section for why "Finished product" was
+- **New** — `/items/new`. Fields: Item code (read-only preview — see
+  "Next-code preview" below), Name (required), Botanical alias, Category
+  (select: Raw material / Packaging **only**, as of the MFR/Finished Product
+  link change below — see that section for why "Finished product" was
   removed here), Item type (dropdown of `item_types`, active ones), Unit
   (dropdown from `lib/constants/units.ts` `UNITS`), Default QC/Stability/R&D
   qty (numeric, optional), Default sample unit (dropdown, optional — see
   FB-0002 note below), Low stock threshold (numeric, optional), Barcode (free
-  text, optional, unique). `item_code` is **not** shown on this screen — it
-  doesn't exist yet: the Server Action calls `supabase.rpc("get_next_item_code",
-  { p_category })` at insert time (never generated client-side, per the
-  briefing), then redirects to the new item's detail page where the generated
-  code is visible. As of `0007_item_code_fp_and_sample_unit.sql`, codes are
-  5-digit and 3-way: `RM-00001` (raw), `PKG-00001` (packaging), `FP-00001`
+  text, optional, unique). The real `item_code` doesn't exist until save —
+  the Server Action calls `supabase.rpc("get_next_item_code", { p_category })`
+  at insert time (never generated client-side, per the briefing), then
+  redirects to the new item's detail page where the generated code is shown
+  for real. As of `0007_item_code_fp_and_sample_unit.sql`, codes are 5-digit
+  and 3-way: `RM-00001` (raw), `PKG-00001` (packaging), `FP-00001`
   (processed/finished product, its own sequence, now only ever assigned via
   MFR — see below).
+
+## Next-code preview (1 Sept 2026)
+
+Per a direct request ("while adding new Item, next assigned Item Code
+should be visible e.g. RM-00005") — same idea as the matching change on
+Vendor Master (`docs/modules/vendors.md`). A new SQL function,
+`peek_next_item_code(p_category)` (`0012_peek_next_codes.sql`), reads the
+relevant `item_code_seq_*` sequence's current state (`last_value`/
+`is_called`) without calling `nextval()`, so a preview can be shown without
+burning a real code number. Since Category is a client-side choice on this
+form (Raw material vs Packaging — both are still creatable, see above),
+`items/new/page.tsx` fetches **both** previews up front
+(`peek_next_item_code('raw')` and `peek_next_item_code('packaging')`) and
+passes them to `NewItemForm` as `nextCodes: { raw, packaging }`; the
+Category `<Select>` there is now a controlled input (`useState`) so
+switching it swaps which preview the read-only "Item code" field shows,
+entirely client-side — no extra round trip per keystroke/selection.
+
+Same caveat as the vendor version: this is a preview, not a reservation.
+The code actually written on save always comes from
+`get_next_item_code()` (`nextval`) inside `createItem()`, so it's correct
+and unique even if the preview had gone stale (someone else created an
+item of the same category in between).
 - **Detail/Edit** — `/items/[id]`. Same fields, all editable, plus (as of
   the "delete access for all master data" follow-up to FB-0004,
   system_admin only) a two-step-confirm Delete control below the edit

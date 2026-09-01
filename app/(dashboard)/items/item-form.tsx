@@ -9,13 +9,26 @@ import { UNITS } from "@/lib/constants/units";
 
 type ItemTypeOption = { id: string; description: string };
 
-export function NewItemForm({ itemTypes }: { itemTypes: ItemTypeOption[] }) {
+// Preview-only, e.g. { raw: "RM-00005", packaging: "PKG-00012" } — fetched
+// once server-side (peek_next_item_code(), a non-consuming read of the
+// sequence) and switched between client-side as Category changes, so
+// picking a category never needs a round trip. The code actually assigned
+// on save still comes from get_next_item_code() (nextval) inside
+// createItem() — this is just what it WILL be if no one else creates an
+// item in between.
+type NextItemCodes = { raw: string; packaging: string };
+
+export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOption[]; nextCodes: NextItemCodes }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createItem, undefined);
+  const [category, setCategory] = useState<"raw" | "packaging">("raw");
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Item code" htmlFor="item_code_preview" hint="Auto-generated — assigned exactly when you save.">
+          <Input id="item_code_preview" value={nextCodes[category]} readOnly disabled />
+        </Field>
         <Field label="Name" htmlFor="name" required>
           <Input id="name" name="name" required autoFocus />
         </Field>
@@ -28,7 +41,13 @@ export function NewItemForm({ itemTypes }: { itemTypes: ItemTypeOption[] }) {
           required
           hint="Finished products are created from MFR → New MFR, not here."
         >
-          <Select id="category" name="category" required defaultValue="raw">
+          <Select
+            id="category"
+            name="category"
+            required
+            value={category}
+            onChange={(e) => setCategory(e.target.value as "raw" | "packaging")}
+          >
             <option value="raw">Raw material</option>
             <option value="packaging">Packaging</option>
           </Select>

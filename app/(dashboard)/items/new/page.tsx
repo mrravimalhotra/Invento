@@ -12,11 +12,15 @@ export default async function NewItemPage() {
   if (!canWrite(user.roles, "items")) redirect("/items");
 
   const supabase = await createClient();
-  const { data: itemTypes } = await supabase
-    .from("item_types")
-    .select("id, description")
-    .eq("active", true)
-    .order("description", { ascending: true });
+  const [{ data: itemTypes }, { data: nextRaw }, { data: nextPkg }] = await Promise.all([
+    supabase.from("item_types").select("id, description").eq("active", true).order("description", { ascending: true }),
+    // peek_next_item_code() reads the sequence without consuming it (see
+    // 0012_peek_next_codes.sql) — fetching both raw/packaging previews up
+    // front lets the Category select switch between them client-side with
+    // no round trip.
+    supabase.rpc("peek_next_item_code", { p_category: "raw" }),
+    supabase.rpc("peek_next_item_code", { p_category: "packaging" }),
+  ]);
 
   return (
     <div>
@@ -26,7 +30,10 @@ export default async function NewItemPage() {
       />
       <Card className="max-w-3xl">
         <CardBody>
-          <NewItemForm itemTypes={itemTypes ?? []} />
+          <NewItemForm
+            itemTypes={itemTypes ?? []}
+            nextCodes={{ raw: nextRaw ?? "RM-…", packaging: nextPkg ?? "PKG-…" }}
+          />
         </CardBody>
       </Card>
     </div>
