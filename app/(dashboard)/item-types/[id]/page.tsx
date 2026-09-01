@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
-import { EditItemTypeForm } from "../item-type-form";
+import { EditItemTypeForm, DeleteItemTypeForm } from "../item-type-form";
 
 export default async function EditItemTypePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +21,7 @@ export default async function EditItemTypePage({ params }: { params: Promise<{ i
   if (!itemType) notFound();
 
   const readOnly = !canWrite(user.roles, "item_types");
+  const isSystemAdmin = user.roles.includes("system_admin");
 
   return (
     <div>
@@ -32,7 +33,10 @@ export default async function EditItemTypePage({ params }: { params: Promise<{ i
               Status: {itemType.active ? "Active" : "Inactive"}
             </p>
           ) : (
-            <EditItemTypeForm id={itemType.id} defaultDescription={itemType.description} defaultActive={itemType.active} />
+            <div className="flex flex-col gap-6">
+              <EditItemTypeForm id={itemType.id} defaultDescription={itemType.description} defaultActive={itemType.active} />
+              {isSystemAdmin && <DeleteItemTypeForm id={itemType.id} description={itemType.description} />}
+            </div>
           )}
         </CardBody>
       </Card>

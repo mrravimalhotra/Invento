@@ -53,3 +53,29 @@ export async function updateItemType(
   revalidatePath(`/item-types/${id}`);
   redirect("/item-types");
 }
+
+export async function deleteItemType(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  // FB-0004: delete is intentionally gated tighter than the other item-type
+  // actions — canWrite() allows system_admin, inventory_manager and
+  // mfr_manager, but the ticket specifically asked for Admin-only delete, so
+  // this checks the role directly. Matches the item_types_delete RLS policy
+  // in 0008_item_type_delete_policy.sql (app check is UI-affordance only,
+  // RLS is the real backstop).
+  const user = await getCurrentUser();
+  if (!user?.roles?.includes("system_admin")) return { error: "Only System Admin can delete item types." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("item_types").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        error:
+          "Can't delete — one or more items in Item Master still use this item type. Reassign or remove those items first, or deactivate this item type instead.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/item-types");
+  redirect("/item-types");
+}
