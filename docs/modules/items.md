@@ -22,20 +22,20 @@ Read is open to any signed-in user.
   "items")`. Also carries the shared "Hide legacy data" toggle (see FB-0003
   below).
 - **New** — `/items/new`. Fields: Name (required), Botanical alias,
-  Category (select: Raw material / Packaging / Finished product — as of
-  FB-0002, `processed` is a normal creatable category, not something only
-  the Finished Product flow can set), Item type (dropdown of `item_types`,
-  active ones), Unit (dropdown from `lib/constants/units.ts` `UNITS`),
-  Default QC/Stability/R&D qty (numeric, optional), Default sample unit
-  (dropdown, optional — see FB-0002 note below), Low stock threshold
-  (numeric, optional), Barcode (free text, optional, unique). `item_code` is
-  **not** shown on this screen — it doesn't exist yet: the Server Action
-  calls `supabase.rpc("get_next_item_code", { p_category })` at insert time
-  (never generated client-side, per the briefing), then redirects to the new
-  item's detail page where the generated code is visible. As of
-  `0007_item_code_fp_and_sample_unit.sql`, codes are 5-digit and 3-way:
-  `RM-00001` (raw), `PKG-00001` (packaging), `FP-00001` (processed/finished
-  product, its own sequence).
+  Category (select: Raw material / Packaging **only**, as of the MFR/Finished
+  Product link change below — see that section for why "Finished product" was
+  removed here), Item type (dropdown of `item_types`, active ones), Unit
+  (dropdown from `lib/constants/units.ts` `UNITS`), Default QC/Stability/R&D
+  qty (numeric, optional), Default sample unit (dropdown, optional — see
+  FB-0002 note below), Low stock threshold (numeric, optional), Barcode (free
+  text, optional, unique). `item_code` is **not** shown on this screen — it
+  doesn't exist yet: the Server Action calls `supabase.rpc("get_next_item_code",
+  { p_category })` at insert time (never generated client-side, per the
+  briefing), then redirects to the new item's detail page where the generated
+  code is visible. As of `0007_item_code_fp_and_sample_unit.sql`, codes are
+  5-digit and 3-way: `RM-00001` (raw), `PKG-00001` (packaging), `FP-00001`
+  (processed/finished product, its own sequence, now only ever assigned via
+  MFR — see below).
 - **Detail/Edit** — `/items/[id]`. Same fields, all editable, plus (as of
   the "delete access for all master data" follow-up to FB-0004,
   system_admin only) a two-step-confirm Delete control below the edit
@@ -44,9 +44,12 @@ Read is open to any signed-in user.
   - A read-only "Low stock" stat (Yes/No).
   - A read-only "Item code" stat (the field is never editable after
     creation).
-  - Category is a free Raw material / Packaging / Finished product select —
-    as of FB-0002 there's no longer a locked state; any item can move
-    between all three.
+  - Category is a Raw material / Packaging select for those two categories —
+    freely movable between them, same as FB-0002. For an item whose category
+    is already `processed`, Category instead renders as a locked, disabled
+    "Finished product" field (see MFR/Finished Product link section below);
+    `updateItem` also enforces this server-side regardless of what the form
+    submits.
   - A Barcode panel: if the item has a `barcode` value, it's rendered as an
     inline Code128 (Set B) SVG generated in `app/(dashboard)/items/barcode.tsx`
     (no external service/library, per DESIGN.md §9) with the human-readable
@@ -119,11 +122,45 @@ delete policy, keeping the app check and RLS backstop in agreement.
 Items are referenced by `purchase_lines`, `quality_checks`,
 `inventory_ledger`, `mfr_lines`, `finished_product_components`,
 `bmr_weighment_lines` and `packaging_issues` (all `ON DELETE RESTRICT`, the
-Postgres default), so in practice only an item with zero transaction
-history can be deleted — anything else raises `23503`, caught and
-translated to "Can't delete — this item has purchase, QC, inventory, or
-production records on file. Deactivate it instead," pointing at the
-existing Active toggle rather than a dead end.
+Postgres default) — and, as of the MFR/Finished Product link above,
+`mfr_definitions.finished_product_item_id` for `processed` items — so in
+practice only an item with zero transaction history and no linked MFR can
+be deleted — anything else raises `23503`, caught and translated to "Can't
+delete — this item has purchase, QC, inventory, production, or MFR records
+on file. Deactivate it instead," pointing at the existing Active toggle
+rather than a dead end.
+
+## MFR/Finished Product link — Finished product removed from Item Master (1 Sep 2026)
+
+Per a direct architectural request ("MFR is formula for finished product,
+let MFR screen be entry point for Finished Product master list creation
+... Remove access to create Finished product master list from Item
+Master"): `items.category = 'processed'` ("Finished product") can no longer
+be created or set from this screen at all. `CREATABLE_CATEGORIES` in
+`lib/actions/items.ts` is now `["raw", "packaging"]`; `createItem` rejects
+`category=processed` with "Finished Product items are created from the MFR
+screen, not here — go to MFR → New MFR." (checked server-side, not just
+hidden from the New-item select), and `updateItem` never lets an existing
+raw/packaging item be promoted into `processed`, nor an existing `processed`
+item be demoted out of it — it pre-fetches the item's current category and
+forces `update.category` back to `processed` if that's what's already on
+file, regardless of what the form submits.
+
+A Finished Product item now only ever comes into existence as a side effect
+of creating an MFR recipe (`createMfrDefinition()` in `lib/actions/mfr.ts` —
+see `docs/modules/mfr.md`'s "MFR ↔ Finished Product item link" section for
+the full mechanics and the new `mfr_definitions.finished_product_item_id`
+column added by `0010_mfr_finished_product_link.sql`). This supersedes the
+FB-0002 behavior described above, where `processed` was a normal
+Item-Master-creatable category alongside Raw material/Packaging — that is no
+longer true for *creation*; existing `processed` items (including ones
+created directly through Item Master before this change) are still fully
+visible and editable here, just with Category locked.
+
+`deleteItem()`'s foreign-key-violation message was also extended to mention
+MFR records (an item linked to an MFR via `finished_product_item_id` can't
+be deleted while that MFR exists), matching the "or MFR" addition already
+reflected in the Files/Referenced-by note below.
 
 ## Gap closed
 

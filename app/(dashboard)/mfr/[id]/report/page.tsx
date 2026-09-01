@@ -15,7 +15,7 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
   const { data: def } = await supabase
     .from("mfr_definitions")
     .select(
-      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, item_types(description)"
+      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, items:finished_product_item_id(item_code, item_types(description))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -35,7 +35,8 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
 
   type LineRow = { id: string; quantity: string | number; unit: string; items: { item_code: string; name: string } | null };
   const lineRows = (lines ?? []) as unknown as LineRow[];
-  const itemType = (def.item_types as unknown as { description: string } | null)?.description ?? "—";
+  const finishedProduct = def.items as unknown as { item_code: string; item_types: { description: string } | null } | null;
+  const itemType = finishedProduct?.item_types?.description ?? "—";
   const approvedByName = approverProfile?.data?.full_name ?? null;
 
   const pdfData: MfrPdfData = {
@@ -44,6 +45,7 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
     version: def.version,
     batchSizeQty: def.batch_size_qty,
     batchSizeUnit: def.batch_size_unit,
+    finishedProductCode: finishedProduct?.item_code ?? null,
     itemType,
     approvedByName,
     approvedAt: def.approved_at ? formatDate(def.approved_at) : null,
@@ -84,6 +86,9 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
           <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
             <p>
               <span className="text-muted">Product name:</span> {def.name}
+            </p>
+            <p>
+              <span className="text-muted">Finished product code:</span> {finishedProduct?.item_code ?? "—"}
             </p>
             <p>
               <span className="text-muted">Item type:</span> {itemType}

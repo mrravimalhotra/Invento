@@ -20,11 +20,18 @@ export function NewMfrForm({
     <form action={formAction} className="flex flex-col gap-6">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
 
+      <div className="rounded-md border border-border bg-black/[0.02] p-3 text-sm text-muted">
+        Creating this MFR also creates its Finished Product master entry (an
+        auto-numbered <code>FP-</code> item, same as this recipe&apos;s Name) —
+        Item Master no longer has its own way to add a Finished Product
+        directly.
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Name" htmlFor="name" required>
+        <Field label="Name" htmlFor="name" required hint="Also becomes the Finished Product item's name.">
           <Input id="name" name="name" required autoFocus />
         </Field>
-        <Field label="Item type" htmlFor="item_type_id">
+        <Field label="Item type" htmlFor="item_type_id" hint="Set on the Finished Product item.">
           <Select id="item_type_id" name="item_type_id" defaultValue="">
             <option value="">—</option>
             {itemTypes.map((t) => (
@@ -37,7 +44,12 @@ export function NewMfrForm({
         <Field label="Batch size quantity" htmlFor="batch_size_qty" required>
           <Input id="batch_size_qty" name="batch_size_qty" type="number" step="any" min="0" required />
         </Field>
-        <Field label="Batch size unit" htmlFor="batch_size_unit" required>
+        <Field
+          label="Batch size unit"
+          htmlFor="batch_size_unit"
+          required
+          hint="Also becomes the Finished Product item's stocking unit."
+        >
           <Select id="batch_size_unit" name="batch_size_unit" defaultValue="" required>
             <option value="">Select unit…</option>
             {UNITS.map((u) => (

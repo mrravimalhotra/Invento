@@ -33,6 +33,19 @@ function parseLines(formData: FormData): LineInput[] | { error: string } {
   return lines;
 }
 
+// Every MFR is the recipe for exactly one Finished Product — per the
+// "MFR screen be entry point for Finished Product master list creation"
+// request, creating the MFR now also creates that item's Item Master
+// entry (FP- coded, same numbering as Raw material/Packaging), instead of
+// requiring a separate trip through Item Master. Item Master no longer
+// offers "Finished product" as a create-able category at all (see
+// CREATABLE_CATEGORIES in lib/actions/items.ts) — this screen is the only
+// way a Finished Product item comes into existence from here on.
+//
+// Three inserts (item → mfr_definitions → mfr_lines), each with
+// best-effort cleanup of what came before it on failure, since the
+// Supabase client doesn't give us a real multi-statement transaction —
+// same pattern this action already used for the definition+lines pair.
 export async function createMfrDefinition(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get("name") || "").trim();
   const batchSizeQty = Number(formData.get("batch_size_qty"));
@@ -54,8 +67,34 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
 
   const supabase = await createClient();
+
+  const { data: itemCode, error: itemCodeError } = await supabase.rpc("get_next_item_code", {
+    p_category: "processed",
+  });
+  if (itemCodeError || !itemCode) {
+    return { error: itemCodeError?.message || "Could not generate a Finished Product item code." };
+  }
+
+  const { data: item, error: itemError } = await supabase
+    .from("items")
+    .insert({
+      item_code: itemCode,
+      name,
+      category: "processed",
+      item_type_id: itemTypeId,
+      unit: batchSizeUnit,
+    })
+    .select("id")
+    .single();
+  if (itemError || !item) {
+    return { error: itemError?.message || "Could not create the Finished Product item." };
+  }
+
   const { data: code, error: codeError } = await supabase.rpc("get_next_mfr_code");
-  if (codeError || !code) return { error: codeError?.message || "Could not generate an MFR code." };
+  if (codeError || !code) {
+    await supabase.from("items").delete().eq("id", item.id);
+    return { error: codeError?.message || "Could not generate an MFR code." };
+  }
 
   const { data: def, error: defError } = await supabase
     .from("mfr_definitions")
@@ -64,11 +103,14 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
       name,
       batch_size_qty: batchSizeQty,
       batch_size_unit: batchSizeUnit,
-      item_type_id: itemTypeId,
+      finished_product_item_id: item.id,
     })
     .select("id")
     .single();
-  if (defError || !def) return { error: defError?.message || "Could not create the MFR definition." };
+  if (defError || !def) {
+    await supabase.from("items").delete().eq("id", item.id);
+    return { error: defError?.message || "Could not create the MFR definition." };
+  }
 
   const { error: linesError } = await supabase.from("mfr_lines").insert(
     lines.map((l) => ({
@@ -80,12 +122,15 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
     }))
   );
   if (linesError) {
-    // Best-effort cleanup so a failed recipe insert doesn't leave a headerless definition behind.
+    // Best-effort cleanup so a failed recipe insert doesn't leave a headerless
+    // definition — or its linked Finished Product item — behind.
     await supabase.from("mfr_definitions").delete().eq("id", def.id);
+    await supabase.from("items").delete().eq("id", item.id);
     return { error: linesError.message };
   }
 
   revalidatePath("/mfr");
+  revalidatePath("/items");
   redirect(`/mfr/${def.id}`);
 }
 

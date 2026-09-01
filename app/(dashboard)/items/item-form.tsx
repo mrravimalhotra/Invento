@@ -22,11 +22,15 @@ export function NewItemForm({ itemTypes }: { itemTypes: ItemTypeOption[] }) {
         <Field label="Botanical alias" htmlFor="botanical_alias">
           <Input id="botanical_alias" name="botanical_alias" />
         </Field>
-        <Field label="Category" htmlFor="category" required>
+        <Field
+          label="Category"
+          htmlFor="category"
+          required
+          hint="Finished products are created from MFR → New MFR, not here."
+        >
           <Select id="category" name="category" required defaultValue="raw">
             <option value="raw">Raw material</option>
             <option value="packaging">Packaging</option>
-            <option value="processed">Finished product</option>
           </Select>
         </Field>
         <Field label="Item type" htmlFor="item_type_id">
@@ -135,13 +139,23 @@ export function EditItemForm({
         <Field label="Botanical alias" htmlFor="botanical_alias">
           <Input id="botanical_alias" name="botanical_alias" defaultValue={item.botanical_alias ?? ""} />
         </Field>
-        <Field label="Category" htmlFor="category" required>
-          <Select id="category" name="category" required defaultValue={item.category}>
-            <option value="raw">Raw material</option>
-            <option value="packaging">Packaging</option>
-            <option value="processed">Finished product</option>
-          </Select>
-        </Field>
+        {item.category === "processed" ? (
+          <Field
+            label="Category"
+            htmlFor="category"
+            hint="Set once, from MFR, when this Finished Product item was created — locked from here on."
+          >
+            <Input id="category" value="Finished product" readOnly disabled />
+            <input type="hidden" name="category" value="processed" />
+          </Field>
+        ) : (
+          <Field label="Category" htmlFor="category" required>
+            <Select id="category" name="category" required defaultValue={item.category}>
+              <option value="raw">Raw material</option>
+              <option value="packaging">Packaging</option>
+            </Select>
+          </Field>
+        )}
         <Field label="Item type" htmlFor="item_type_id">
           <Select id="item_type_id" name="item_type_id" defaultValue={item.item_type_id ?? ""}>
             <option value="">— none —</option>

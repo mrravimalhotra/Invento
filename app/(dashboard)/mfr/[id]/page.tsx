@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -18,7 +19,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   const { data: def } = await supabase
     .from("mfr_definitions")
     .select(
-      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, item_types(description)"
+      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, items:finished_product_item_id(id, item_code, name, item_types(description))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -39,7 +40,13 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   ]);
 
   const canEdit = canWrite(user?.roles ?? [], "mfr");
-  const itemType = (def.item_types as unknown as { description: string } | null)?.description;
+  const finishedProduct = def.items as unknown as {
+    id: string;
+    item_code: string;
+    name: string;
+    item_types: { description: string } | null;
+  } | null;
+  const itemType = finishedProduct?.item_types?.description;
 
   type LineRow = { id: string; quantity: string | number; unit: string; items: { id: string; item_code: string; name: string; unit: string | null } | null };
   const lineRows = (lines ?? []) as unknown as LineRow[];
@@ -54,7 +61,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
     <div>
       <PageHeader
         title={`${def.code} · ${def.name}`}
-        description={`Version ${def.version} · ${itemType ?? "No item type set"}`}
+        description={`Version ${def.version} · ${finishedProduct ? finishedProduct.item_code : "No Finished Product item linked"}`}
         action={<LinkButton href={`/mfr/${id}/report`}>Print MFR</LinkButton>}
       />
 
@@ -74,6 +81,18 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
               <span className="text-muted">Batch size</span>
               <span className="sm:block sm:mt-1 font-medium">
                 {formatNumber(def.batch_size_qty)} {def.batch_size_unit}
+              </span>
+            </div>
+            <div className="flex justify-between sm:block">
+              <span className="text-muted">Finished product</span>
+              <span className="sm:block sm:mt-1 font-medium">
+                {finishedProduct ? (
+                  <Link href={`/items/${finishedProduct.id}`} className="text-brand hover:underline">
+                    {finishedProduct.item_code} · {finishedProduct.name}
+                  </Link>
+                ) : (
+                  "— (created before this MFR/item link existed)"
+                )}
               </span>
             </div>
             <div className="flex justify-between sm:block">

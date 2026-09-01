@@ -9,11 +9,15 @@ import { redirect } from "next/navigation";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
-// Categories this screen is allowed to create/edit. Per FB-0002, 'processed'
-// ("Finished Product") is now a normal, user-selectable category alongside
-// raw material and packaging — it gets its own FP- prefixed item code (see
-// get_next_item_code() in 0007_item_code_fp_and_sample_unit.sql).
-const CREATABLE_CATEGORIES = ["raw", "packaging", "processed"] as const;
+// Categories this screen is allowed to create/edit directly. 'processed'
+// ("Finished Product") is deliberately NOT here — per the "MFR screen be
+// entry point for Finished Product master list creation" request, a
+// Finished Product item can now only come into existence alongside an MFR
+// recipe (createMfrDefinition() in lib/actions/mfr.ts creates both
+// together). This screen still lists and edits existing 'processed' items
+// (including ones created before this change), it just can't create new
+// ones or promote a raw/packaging item into one.
+const CREATABLE_CATEGORIES = ["raw", "packaging"] as const;
 
 function numOrNull(formData: FormData, key: string): number | null | { error: string } {
   const raw = String(formData.get(key) ?? "").trim();
@@ -33,7 +37,12 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
 
   if (!name) return { error: "Name is required." };
   if (!CREATABLE_CATEGORIES.includes(category as (typeof CREATABLE_CATEGORIES)[number])) {
-    return { error: "Category must be Raw Material, Packaging, or Finished Product." };
+    return {
+      error:
+        category === "processed"
+          ? "Finished Product items are created from the MFR screen, not here — go to MFR → New MFR."
+          : "Category must be Raw Material or Packaging.",
+    };
   }
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
@@ -103,9 +112,14 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   const barcode = String(formData.get("barcode") || "").trim() || null;
   const active = formData.get("active") === "on";
 
-  // Category can move freely between raw/packaging/processed here — per
-  // FB-0002, 'processed' ("Finished Product") is a normal category now, no
-  // longer locked once set.
+  // Category is only free to move between raw <-> packaging here.
+  // 'processed' ("Finished Product") is a one-way, MFR-only door: an item
+  // that's already 'processed' stays 'processed' (its detail page renders
+  // Category as fixed, not a select, once it's linked to an MFR the same
+  // way an item can't be deleted out from under one — see deleteItem()),
+  // and a raw/packaging item can't be promoted into 'processed' from here,
+  // since that would recreate an FP item with no MFR behind it. See
+  // CREATABLE_CATEGORIES above for why 'processed' creation moved to MFR.
   const submittedCategory = String(formData.get("category") || "");
 
   if (!name) return { error: "Name is required." };
@@ -130,6 +144,13 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
 
   const supabase = await createClient();
 
+  const { data: existing, error: existingError } = await supabase
+    .from("items")
+    .select("category")
+    .eq("id", id)
+    .single();
+  if (existingError || !existing) return { error: existingError?.message || "Item not found." };
+
   const update: Record<string, unknown> = {
     name,
     botanical_alias,
@@ -143,12 +164,17 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     barcode,
     active,
   };
-  // Reject anything outside raw/packaging/processed rather than silently
-  // dropping the field.
-  if (CREATABLE_CATEGORIES.includes(submittedCategory as (typeof CREATABLE_CATEGORIES)[number])) {
+  if (existing.category === "processed") {
+    // Locked — see the comment above. The edit form doesn't render an
+    // editable Category field for these, so this is a defensive backstop,
+    // not the primary guard.
+    update.category = "processed";
+  } else if (CREATABLE_CATEGORIES.includes(submittedCategory as (typeof CREATABLE_CATEGORIES)[number])) {
     update.category = submittedCategory;
+  } else if (submittedCategory === "processed") {
+    return { error: "Finished Product items are created from the MFR screen, not here — go to MFR → New MFR." };
   } else {
-    return { error: "Category must be Raw Material, Packaging, or Finished Product." };
+    return { error: "Category must be Raw Material or Packaging." };
   }
 
   const { error } = await supabase.from("items").update(update).eq("id", id);
@@ -179,7 +205,7 @@ export async function deleteItem(id: string, _prev: ActionState, _formData: Form
     if (error.code === "23503") {
       return {
         error:
-          "Can't delete — this item has purchase, QC, inventory, or production records on file. Deactivate it instead.",
+          "Can't delete — this item has purchase, QC, inventory, production, or MFR records on file. Deactivate it instead.",
       };
     }
     return { error: error.message };

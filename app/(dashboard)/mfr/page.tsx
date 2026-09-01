@@ -11,7 +11,7 @@ export default async function MfrListPage() {
   const { data } = await supabase
     .from("mfr_definitions")
     .select(
-      "id, code, name, version, batch_size_qty, batch_size_unit, approved_by, approved_at, item_types(description)"
+      "id, code, name, version, batch_size_qty, batch_size_unit, approved_by, approved_at, items:finished_product_item_id(id, item_code, item_types(description))"
     )
     .eq("active", true)
     .order("code", { ascending: true });

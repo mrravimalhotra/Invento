@@ -14,7 +14,7 @@ export type MfrRow = {
   batch_size_unit: string;
   approved_by: string | null;
   approved_at: string | null;
-  item_types: { description: string } | null;
+  items: { id: string; item_code: string; item_types: { description: string } | null } | null;
 };
 
 export function MfrTable({ rows }: { rows: MfrRow[] }) {
@@ -30,7 +30,19 @@ export function MfrTable({ rows }: { rows: MfrRow[] }) {
     },
     { header: "Name", accessor: (r) => r.name, searchValue: (r) => r.name },
     { header: "Version", accessor: (r) => `v${r.version}` },
-    { header: "Item type", accessor: (r) => r.item_types?.description ?? "—" },
+    {
+      header: "Finished product",
+      accessor: (r) =>
+        r.items ? (
+          <Link href={`/items/${r.items.id}`} className="text-brand hover:underline">
+            {r.items.item_code}
+          </Link>
+        ) : (
+          "—"
+        ),
+      searchValue: (r) => r.items?.item_code ?? "",
+    },
+    { header: "Item type", accessor: (r) => r.items?.item_types?.description ?? "—" },
     { header: "Batch size", accessor: (r) => `${formatNumber(r.batch_size_qty)} ${r.batch_size_unit}` },
     {
       header: "Approval",

@@ -11,6 +11,7 @@ export type MfrPdfData = {
   version: number;
   batchSizeQty: string | number;
   batchSizeUnit: string;
+  finishedProductCode: string | null;
   itemType: string;
   approvedByName: string | null;
   approvedAt: string | null;
@@ -25,8 +26,9 @@ export function MfrPdfButton({ data }: { data: MfrPdfData }) {
     doc.setFontSize(9);
     doc.setTextColor(20, 20, 20);
     doc.text(`Product name: ${data.name}`, 14, startY);
-    doc.text(`Batch size: ${data.batchSizeQty} ${data.batchSizeUnit}`, 14, startY + 6);
-    doc.text(`Item type: ${data.itemType}`, 14, startY + 12);
+    doc.text(`Finished product code: ${data.finishedProductCode ?? "—"}`, 14, startY + 6);
+    doc.text(`Batch size: ${data.batchSizeQty} ${data.batchSizeUnit}`, 14, startY + 12);
+    doc.text(`Item type: ${data.itemType}`, 14, startY + 18);
     doc.text(
       data.approvedByName ? `Approved by: ${data.approvedByName} on ${data.approvedAt}` : "Approval: Not approved",
       120,
@@ -34,7 +36,7 @@ export function MfrPdfButton({ data }: { data: MfrPdfData }) {
     );
 
     autoTable(doc, {
-      startY: startY + 20,
+      startY: startY + 26,
       head: [["#", "Item", "Quantity", "Unit"]],
       body: data.lines.map((l, i) => [String(i + 1), l.itemLabel, String(l.quantity), l.unit]),
       headStyles: { fillColor: [31, 111, 78], textColor: 255, fontSize: 9 },
@@ -43,7 +45,7 @@ export function MfrPdfButton({ data }: { data: MfrPdfData }) {
     });
 
     const finalY =
-      (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? startY + 40;
+      (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? startY + 46;
     const sigY = finalY + 20;
     const labels = ["Prepared by", "Checked by", "Approved by"];
     labels.forEach((label, i) => {
