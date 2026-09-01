@@ -137,3 +137,12 @@ From a full-app audit (`claude/known-issues.md`):
 before, so a legacy raw material couldn't be told apart from a v2 one in
 that specific picker. The batch selects on both forms already had
 `batch_number`.
+
+## Bug fix: row-cap truncation on weighment-line item picker (1 Sept 2026)
+
+Same root cause as `docs/modules/purchase.md`'s "Bug fix" section: the
+weighment-line item query (`bmr/[id]/page.tsx`) had no row limit and
+ordered by `name`. Fixed the same way as every other query in this sweep —
+now orders by `created_at descending` — so a growing `items` table can't
+silently push new raw/processed materials past a server-side row cap
+before this picker ever sees them.

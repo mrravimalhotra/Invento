@@ -231,3 +231,14 @@ From a full-app audit (`claude/known-issues.md`) plus a tester ticket:
   Also applied to the Finished Product picker on `/finished-product/new`
   (`mfr_definitions.code` does carry a `LEG-` prefix for some real
   production MFRs, e.g. `LEG-F-FP001`).
+
+## Bug fix: new raw materials missing from recipe-line picker (1 Sept 2026)
+
+Same root cause and fix as `docs/modules/purchase.md`'s "Bug fix" section
+(reported by Ravi as "same with new MFR screen"): `mfr/new/page.tsx`'s and
+`mfr/[id]/page.tsx`'s raw-items queries had no row limit and were ordered
+by `item_code` ascending, so a server-side default row cap combined with
+legacy codes sorting first was silently excluding newly created raw
+materials from the recipe-line item picker. Both now order by `created_at
+descending`, matching the FB-0006 precedent. See `claude/known-issues.md`
+for the full list of queries fixed in this pass.

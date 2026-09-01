@@ -183,3 +183,20 @@ comboboxes app-wide now (DESIGN.md §8); both mark `data-legacy` from
 `item_code` / `batch_number`, already selected by
 `app/(dashboard)/inventory/wastage/new/page.tsx` — no query changes
 needed.
+
+## Bug fix: row-cap truncation on Stock Balance and Wastage pickers (1 Sept 2026)
+
+Same root cause as `docs/modules/purchase.md`'s "Bug fix" section, found
+during the sweep it triggered: `inventory/(tabs)/balance/page.tsx`'s items
+query and `inventory/wastage/new/page.tsx`'s item and purchase-line
+queries had no row limit. Stock Balance ordered by `name` (not
+`item_code`, so not as deterministically legacy-biased as the Purchase/MFR
+pickers, but still capped once the item count grows past the server-side
+default), and Wastage's batch dropdown ordered by `batch_number` ascending
+— legacy batch numbers (`LEG-...`) sort first among ~92,000+ purchase
+lines, so newly received batches could be silently excluded the same way
+newly created items were. All three now order by `created_at descending`,
+matching the FB-0006 precedent. **Display-order change, flagged for
+review:** Stock Balance previously listed items alphabetically by name; it
+now lists newest-created first (`StockBalanceTable`/`DataTable` render in
+query order, no client-side re-sort).

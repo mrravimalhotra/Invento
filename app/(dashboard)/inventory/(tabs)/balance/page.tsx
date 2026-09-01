@@ -19,7 +19,7 @@ export default async function StockBalancePage() {
       .from("items")
       .select("id, item_code, name, unit, low_stock_threshold, category")
       .eq("active", true)
-      .order("name", { ascending: true })
+      .order("created_at", { ascending: false })
       .returns<ItemRow[]>(),
     supabase.from("stock_balance").select("item_id, on_hand"),
   ]);

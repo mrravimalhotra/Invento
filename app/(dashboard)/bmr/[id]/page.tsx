@@ -52,7 +52,7 @@ export default async function BmrDetailPage({ params }: { params: Promise<{ id: 
       .select("id, name, item_code, unit")
       .eq("active", true)
       .in("category", ["raw", "processed"])
-      .order("name"),
+      .order("created_at", { ascending: false }),
     fp
       ? supabase
           .from("mfr_lines")

@@ -44,7 +44,7 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
       .select("id, item_code, name, unit, default_qc_qty, default_stability_qty, default_rnd_qty, default_sample_unit")
       .eq("category", "raw")
       .eq("active", true)
-      .order("item_code"),
+      .order("created_at", { ascending: false }),
   ]);
 
   const lineRows = (lines ?? []) as unknown as LineRow[];

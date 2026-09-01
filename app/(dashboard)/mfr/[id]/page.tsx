@@ -35,7 +35,12 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
       .eq("mfr_definition_id", id)
       .eq("version", def.version)
       .order("id"),
-    supabase.from("items").select("id, item_code, name, unit").eq("category", "raw").eq("active", true).order("item_code"),
+    supabase
+      .from("items")
+      .select("id, item_code, name, unit")
+      .eq("category", "raw")
+      .eq("active", true)
+      .order("created_at", { ascending: false }),
     def.approved_by
       ? supabase.from("profiles").select("full_name").eq("id", def.approved_by).maybeSingle()
       : Promise.resolve({ data: null }),

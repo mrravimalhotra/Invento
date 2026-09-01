@@ -123,3 +123,17 @@ gap during review.
   Component)
 - `app/(dashboard)/reports/report-section.tsx` — reusable report card:
   DataTable + date-range filter + Download PDF (Client Component)
+
+## Bug fix: RM Stock report row-cap truncation (1 Sept 2026)
+
+Same root cause as `docs/modules/purchase.md`'s "Bug fix" section: the RM
+Stock report's `items` query had no row limit and was ordered by
+`item_code` ascending, so a server-side default row cap could silently
+drop newly created raw materials from the report entirely once the legacy
+row count filled the cap. Now ordered by `created_at descending` (newest
+first), matching the FB-0006 precedent used elsewhere. **Display-order
+change, flagged for review:** this report's rows were previously shown
+sorted by item code; they now display newest-created first, since the
+`RmStockReport` table renders rows in the order the query returns them
+with no client-side re-sort. Functionally correct (all raw materials are
+now included) but the row order on screen has changed.

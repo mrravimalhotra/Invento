@@ -24,7 +24,7 @@ export default async function NewPackagingIssuePage() {
       .select("id, item_code, name, unit")
       .eq("active", true)
       .eq("category", "packaging")
-      .order("name"),
+      .order("created_at", { ascending: false }),
   ]);
 
   // finished_product_batches.status only ever moves to 'in_process' or

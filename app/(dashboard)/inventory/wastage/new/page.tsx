@@ -17,12 +17,12 @@ export default async function NewWastagePage() {
       .from("items")
       .select("id, name, item_code, unit")
       .eq("active", true)
-      .order("name", { ascending: true }),
+      .order("created_at", { ascending: false }),
     supabase
       .from("purchase_lines")
       .select("id, item_id, batch_number, remaining_qty, unit")
       .eq("active", true)
-      .order("batch_number", { ascending: true }),
+      .order("created_at", { ascending: false }),
   ]);
 
   return (

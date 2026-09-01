@@ -114,3 +114,12 @@ wasn't selected before, so there was no way to tell a legacy packaging
 item apart from a v2 one. The dropdown label now also shows the item code
 (`RM-00006 — Ashwagandha Powder` style), matching every other item picker
 in the app instead of name-only.
+
+## Bug fix: row-cap truncation, applied preemptively (1 Sept 2026)
+
+Not separately reported, but found during the sweep triggered by the
+Purchase/MFR item-picker bug (see `docs/modules/purchase.md`'s "Bug fix"
+section and `claude/known-issues.md`): the packaging-items query
+(`packaging/new/page.tsx`) had the same unbounded-query-plus-name-order
+shape, just with a much smaller table so lower practical risk today. Fixed
+the same way for consistency — orders by `created_at descending` now.

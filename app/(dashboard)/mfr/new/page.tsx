@@ -17,7 +17,7 @@ export default async function NewMfrPage() {
       .select("id, item_code, name, unit")
       .eq("category", "raw")
       .eq("active", true)
-      .order("item_code"),
+      .order("created_at", { ascending: false }),
     // Non-consuming preview (0012_peek_next_codes.sql), same pattern as the
     // Item/Vendor next-code previews — per FB-0010 ("while creating MFR,
     // next auto generated FP code should be visible").

@@ -146,3 +146,25 @@ Both pickers' options are also marked `data-legacy` from `vendor_code` /
 [search] functionality if legacy item flag is set to hidden") is covered
 too — no server query changes needed here, both already selected the code
 column.
+
+## Bug fix: new raw materials missing from item picker (1 Sept 2026)
+
+Reported by Ravi with a screenshot: newly-created raw materials weren't
+appearing in the Purchase "Add line" item combobox at all — not even by
+searching. Root cause: `purchase/[id]/page.tsx`'s raw-items query had no
+`.limit()`/`.range()`, and PostgREST/Supabase silently caps an unbounded
+`select()` at a server-side default row count. The query was ordered by
+`item_code` ascending, and legacy codes (`LEG-RM-...`) sort alphabetically
+before v2 codes (`RM-...`) — with ~2,000+ raw materials on file, the cap
+was very likely being filled entirely by legacy rows before the query ever
+reached a `RM-`-prefixed item, so every item created after the legacy
+import was invisible to this picker regardless of search term (the combobox
+only searches what the server actually returned).
+
+Fixed by switching the query's order to `created_at descending` — same
+pattern already established for the Items list page (FB-0006) — so newly
+created items are always among the rows returned, capped or not. This is a
+pre-existing bug that predates this session's combobox/legacy-toggle work;
+it only surfaced now because the new searchable pickers made testing with
+freshly-created items more direct. See `claude/known-issues.md` for the
+full sweep of every query with this same shape.

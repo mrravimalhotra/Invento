@@ -21,7 +21,7 @@ export default async function ReportsPage() {
       .select("id, item_code, name, unit, low_stock_threshold, created_at")
       .eq("category", "raw")
       .eq("active", true)
-      .order("item_code", { ascending: true }),
+      .order("created_at", { ascending: false }),
     supabase.from("stock_balance").select("item_id, on_hand"),
     supabase
       .from("quality_checks")
