@@ -33,3 +33,10 @@ RLS. Read is open to any signed-in user.
   DESIGN.md §9's explicit note that this is the "minimum viable version
   (linkable, versioned file, not a workflow engine)"; Open Question 3 (full
   structured SOP/STP workflow) is still open.
+
+## Fixes (1 Sept 2026)
+
+From a full-app audit (`claude/known-issues.md`): `createDocument`
+redirected on success with no confirmation at all, unlike the create flows
+elsewhere in the app. Now redirects to `/documents?created=1`; the list
+shows a one-time "New document has been successfully added" banner.

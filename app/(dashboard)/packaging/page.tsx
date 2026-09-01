@@ -8,7 +8,12 @@ import { formatDate, formatNumber } from "@/lib/utils";
 import { PackagingExportButton } from "./packaging-export-button";
 import { PackagingTable, type PackagingRow } from "./packaging-table";
 
-export default async function PackagingListPage() {
+export default async function PackagingListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ created?: string }>;
+}) {
+  const { created } = await searchParams;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   const { data } = await supabase
     .from("packaging_issues")
@@ -42,6 +47,11 @@ export default async function PackagingListPage() {
           </div>
         }
       />
+      {created === "1" && (
+        <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
+          New packaging issue has been successfully added.
+        </p>
+      )}
       <Card>
         <PackagingTable rows={rows} />
       </Card>

@@ -24,3 +24,10 @@ Write gated to `system_admin`, `quality_checker`, `qc_reviewer`,
 (`lib/constants/roles.ts` already carries this exact role list, matching the
 inline check specified for this module) and by RLS on the table itself. Read
 is open to any signed-in user, per the cross-cutting rule.
+
+## Fixes (1 Sept 2026)
+
+From a full-app audit (`claude/known-issues.md`): `createLineClearanceCheck`
+redirected on success with no confirmation at all, unlike the create flows
+elsewhere in the app. Now redirects to `/line-clearance?created=1`; the list
+shows a one-time "New check has been successfully added" banner.

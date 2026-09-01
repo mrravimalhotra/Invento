@@ -105,3 +105,20 @@ rest of the module's access rule.
   financial (invoice) figures, distinct from the stock-availability fix
   above. Worth confirming with Ravi/Atharva that this matches the legacy
   "total value" meaning on the PO list.
+
+## Batch number race fix (1 Sept 2026)
+
+Found during a full-app integrity audit (`claude/known-issues.md`):
+`get_next_batch_number()` computes the next number from a `count(*)` query,
+then `createPurchaseLine()` inserts the row as a separate round trip —
+nothing serialized the two, so two people entering a purchase line for the
+same item on the same day could compute and save the same batch number,
+silently duplicating a GMP-critical traceability field.
+
+`0013_batch_number_integrity.sql` adds a `unique (item_id, batch_number)`
+constraint on `purchase_lines` as the real backstop — any future collision
+now raises `23505` instead of writing a silent duplicate.
+`createPurchaseLine()` wraps the get-number/insert pair in a retry loop (up
+to 3 attempts): on a `23505` it calls `get_next_batch_number()` again
+(which now accounts for whichever request won the race) and retries the
+insert, only surfacing an error to the user if all attempts collide.

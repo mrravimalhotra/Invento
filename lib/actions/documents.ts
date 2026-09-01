@@ -37,5 +37,5 @@ export async function createDocument(_prev: ActionState, formData: FormData): Pr
   if (error) return { error: error.message };
 
   revalidatePath("/documents");
-  redirect("/documents");
+  redirect("/documents?created=1");
 }

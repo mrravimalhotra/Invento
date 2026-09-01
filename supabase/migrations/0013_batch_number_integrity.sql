@@ -1,0 +1,33 @@
+-- ============================================================
+-- Backstop for a race condition in purchase-line batch numbering, found
+-- during a full-app integrity audit (1 Sept 2026, see
+-- claude/known-issues.md).
+--
+-- get_next_batch_number(p_item_id) computes the next number with
+-- `select count(*)+1 from purchase_lines where item_id=... and
+-- to_char(created_at,'YY')=...` (0001_init.sql). The app then inserts the
+-- purchase_lines row in a SEPARATE round trip (createPurchaseLine, added
+-- alongside this migration to retry on conflict). Nothing serializes the
+-- two calls: two people entering a purchase line for the same item on the
+-- same day can both compute the same batch number and both save it —
+-- silently duplicating a GMP-critical traceability field.
+--
+-- This can't retroactively fix a duplicate that may already exist, but it
+-- turns any FUTURE collision into a loud, visible constraint violation
+-- (23505) instead of a silent duplicate — which lib/actions/purchase.ts
+-- now catches and retries (the retry recomputes the batch number, which by
+-- then accounts for the row the other request just inserted).
+--
+-- ⚠ RISK NOTE FOR RAVI: this ADD CONSTRAINT scans the full existing
+-- purchase_lines table and will FAIL to apply if any (item_id,
+-- batch_number) pair is already duplicated today — legacy batch numbers
+-- are free text carried over from the old SQL Server app and were only
+-- spot-checked for uniqueness on a small staging sample, not the full
+-- production dataset (see claude/data-gap-analysis.md). If this statement
+-- errors out, nothing is changed (the whole migration rolls back) — stop
+-- and tell Claude the exact error rather than editing/deleting rows
+-- yourself; existing data is never modified to force this through.
+-- ============================================================
+
+alter table public.purchase_lines
+  add constraint purchase_lines_item_batch_unique unique (item_id, batch_number);

@@ -193,6 +193,13 @@ export async function submitFinishedProductToQc(
           "Your role can manage this batch but current access rules don't let it create the QC record — ask an Inventory Manager, Quality Checker, QC Reviewer, or System Admin to submit this batch to QC.",
       };
     }
+    if (qcError.code === "23505") {
+      // quality_checks_fp_batch_unique (0015_qc_duplicate_backstop.sql) —
+      // backstop for the status-check-above-then-insert race: someone else
+      // already submitted this same batch to QC between our check and this
+      // insert.
+      return { error: "This batch has already been submitted to QC." };
+    }
     return { error: qcError.message };
   }
 

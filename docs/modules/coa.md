@@ -29,6 +29,13 @@ Environmental Control are separate modules, not built here).
   `approved` server-side (not just trusting the dropdown was built from a
   correctly-filtered list), returning an error otherwise.
 
+## Fixes (1 Sept 2026)
+
+From a full-app audit (`claude/known-issues.md`): `createCoaRecord`
+redirected on success with no confirmation at all, unlike the create flows
+elsewhere in the app. Now redirects to `/coa?created=1`; the list shows a
+one-time "New COA has been successfully added" banner.
+
 ## Files
 
 - `lib/actions/coa.ts` — `createCoaRecord`.

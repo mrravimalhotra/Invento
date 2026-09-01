@@ -6,7 +6,12 @@ import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { DocumentsTable, type DocumentRow } from "./documents-table";
 
-export default async function DocumentsPage() {
+export default async function DocumentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ created?: string }>;
+}) {
+  const { created } = await searchParams;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   const { data } = await supabase
     .from("documents")
@@ -24,6 +29,11 @@ export default async function DocumentsPage() {
         description="Standard Operating Procedures and Standard Testing Procedures — linked documents, versioned by revision number. Search by SOP or STP to filter by type."
         action={canCreate ? <LinkButton href="/documents/new">New document</LinkButton> : undefined}
       />
+      {created === "1" && (
+        <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
+          New document has been successfully added.
+        </p>
+      )}
       <Card>
         <DocumentsTable rows={rows} />
       </Card>

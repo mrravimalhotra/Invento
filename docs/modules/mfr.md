@@ -195,3 +195,29 @@ new production is exactly what deactivating is meant to prevent.
   `approved_by` references `auth.users` directly and PostgREST can't embed
   across schemas — same approach used for `approved_by`/`reviewed_by`
   elsewhere in the app.
+
+## Integrity fixes + FB-0010 (1 Sept 2026)
+
+From a full-app audit (`claude/known-issues.md`) plus a tester ticket:
+
+- **Stale delete-blocked message.** `deleteMfrDefinition()`'s FK-violation
+  message used to say "Remove those first" and claim no deactivate flow
+  existed — both written before the deactivate workflow above shipped later
+  the same day. Now says "Deactivate it instead," matching Item Master's
+  equivalent message.
+- **Concurrency guards, app-level (no schema change).** `updateMfrLines()`
+  now does its `mfr_definitions.version` bump as an optimistic-locked
+  update (`.eq("version", <version just read>)`) *before* inserting the new
+  `mfr_lines`, not after — a losing concurrent editor now gets a clear "was
+  edited by someone else" error with none of its lines inserted, instead of
+  two edits silently interleaving under the same version number. If the
+  lines insert itself then fails, the version bump is rolled back rather
+  than left pointing at a version with zero lines. `approveMfrDefinition()`
+  similarly requires `approved_by is null` in the update's own `where`
+  clause, so a second concurrent Approve click now loses cleanly instead of
+  silently overwriting the first approver's identity.
+- **FB-0010** ("while creating MFR, next auto generated FP code should be
+  visible"): `/mfr/new` now shows a read-only "Finished Product item code"
+  preview via `peek_next_item_code('processed')` — same non-consuming
+  preview function and pattern as the Vendor/Item next-code previews (see
+  `docs/modules/vendors.md`).

@@ -41,5 +41,5 @@ export async function createCoaRecord(_prev: ActionState, formData: FormData): P
   if (error) return { error: error.message };
 
   revalidatePath("/coa");
-  redirect("/coa");
+  redirect("/coa?created=1");
 }

@@ -32,5 +32,5 @@ export async function createLineClearanceCheck(
   if (error) return { error: error.message };
 
   revalidatePath("/line-clearance");
-  redirect("/line-clearance");
+  redirect("/line-clearance?created=1");
 }

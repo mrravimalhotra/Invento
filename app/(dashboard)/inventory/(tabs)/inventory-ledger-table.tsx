@@ -12,10 +12,16 @@ export type LedgerRow = {
   unit: string | null;
   department: string | null;
   reference_type: string | null;
+  reference_id: string | null;
   event_by: string | null;
   items: { name: string; item_code: string } | null;
   purchase_lines: { batch_number: string } | null;
   eventByName: string | null;
+  // FB-0013 ("Batch should be visible in inventory ledger") — the Finished
+  // Product batch a 'finished_product'/'packaging' event relates to,
+  // resolved server-side via reference_id (see page.tsx). Distinct from
+  // purchase_lines.batch_number above, which is the raw-material batch.
+  fpBatchNumber: string | null;
 };
 
 function formatEventAt(iso: string) {
@@ -51,10 +57,11 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
           {r.purchase_lines?.batch_number && (
             <div className="text-xs text-muted">Batch {r.purchase_lines.batch_number}</div>
           )}
+          {r.fpBatchNumber && <div className="text-xs text-muted">FP batch {r.fpBatchNumber}</div>}
         </div>
       ),
       searchValue: (r) =>
-        `${r.items?.name ?? ""} ${r.items?.item_code ?? ""} ${r.purchase_lines?.batch_number ?? ""}`,
+        `${r.items?.name ?? ""} ${r.items?.item_code ?? ""} ${r.purchase_lines?.batch_number ?? ""} ${r.fpBatchNumber ?? ""}`,
     },
     {
       header: "Quantity",

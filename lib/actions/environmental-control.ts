@@ -36,5 +36,5 @@ export async function createEnvironmentalReading(
   if (error) return { error: error.message };
 
   revalidatePath("/environmental-control");
-  redirect("/environmental-control");
+  redirect("/environmental-control?created=1");
 }

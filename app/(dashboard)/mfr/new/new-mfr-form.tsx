@@ -10,9 +10,11 @@ import { MfrLineEditor, type RawItemOption } from "../mfr-line-editor";
 export function NewMfrForm({
   itemTypes,
   rawItems,
+  nextFpCode,
 }: {
   itemTypes: { id: string; description: string }[];
   rawItems: RawItemOption[];
+  nextFpCode: string;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createMfrDefinition, undefined);
 
@@ -28,6 +30,9 @@ export function NewMfrForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Finished Product item code" hint="Auto-generated — assigned exactly when you save.">
+          <Input value={nextFpCode} readOnly disabled />
+        </Field>
         <Field label="Name" htmlFor="name" required hint="Also becomes the Finished Product item's name.">
           <Input id="name" name="name" required autoFocus />
         </Field>

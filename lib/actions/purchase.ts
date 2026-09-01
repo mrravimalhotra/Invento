@@ -127,29 +127,52 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
 
   // batch_number is always generated here via the RPC, never trusted from
   // the client and never generated in JS (AGENT_BRIEFING.md).
-  const { data: batchNumber, error: batchError } = await supabase.rpc("get_next_batch_number", {
-    p_item_id: item_id,
-  });
-  if (batchError) return { error: batchError.message };
+  //
+  // get_next_batch_number() computes the next number from a count() query,
+  // then this insert happens as a separate round trip — nothing serializes
+  // the two, so two concurrent purchase-line entries for the same item/year
+  // can compute and try to insert the same number. purchase_lines_item_
+  // batch_unique (0013_batch_number_integrity.sql) turns that collision
+  // into a 23505 instead of a silent duplicate; retry a few times, since a
+  // fresh call to get_next_batch_number() will now account for whichever
+  // request won the race.
+  let error: { code?: string; message: string } | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: batchNumber, error: batchError } = await supabase.rpc("get_next_batch_number", {
+      p_item_id: item_id,
+    });
+    if (batchError) return { error: batchError.message };
 
-  // remaining_qty is a DB-generated column (quantity - qc_qty - stability_qty
-  // - rnd_qty) — not set here. Inserting this row fires
-  // trg_purchase_line_push (0002_transactions.sql), which pushes remaining_qty
-  // — never the full quantity — onto the inventory ledger automatically.
-  const { error } = await supabase.from("purchase_lines").insert({
-    purchase_order_id,
-    item_id,
-    batch_number: batchNumber,
-    quantity,
-    unit,
-    qc_qty,
-    stability_qty,
-    rnd_qty,
-    unit_price: unit_price ?? null,
-    gst_pct: gst_pct ?? null,
-    expiry_date,
-  });
-  if (error) return { error: error.message };
+    // remaining_qty is a DB-generated column (quantity - qc_qty -
+    // stability_qty - rnd_qty) — not set here. Inserting this row fires
+    // trg_purchase_line_push (0002_transactions.sql), which pushes
+    // remaining_qty — never the full quantity — onto the inventory ledger
+    // automatically.
+    const insertResult = await supabase.from("purchase_lines").insert({
+      purchase_order_id,
+      item_id,
+      batch_number: batchNumber,
+      quantity,
+      unit,
+      qc_qty,
+      stability_qty,
+      rnd_qty,
+      unit_price: unit_price ?? null,
+      gst_pct: gst_pct ?? null,
+      expiry_date,
+    });
+    error = insertResult.error;
+    if (!error || error.code !== "23505") break;
+  }
+  if (error) {
+    if (error.code === "23505") {
+      return {
+        error:
+          "Another purchase line for this item was saved at the same moment and took the next batch number — please try saving again.",
+      };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath(`/purchase/${purchase_order_id}`);
   revalidatePath("/purchase");

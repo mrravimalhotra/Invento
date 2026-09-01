@@ -101,6 +101,22 @@ inline-array workaround was needed — both screens call `canWrite(user.roles,
 reconciles the roles file knows the keys were already present (added by
 another agent before this module was built) and don't need to be re-added.
 
+## Integrity fixes (1 Sept 2026)
+
+From a full-app audit (`claude/known-issues.md`):
+
+- **Duplicate-submission race backstop.** `createQualityCheck()` checked
+  `purchase_batch_status` and only inserted if still `not_submitted` — two
+  concurrent submissions against the same batch could both pass that check.
+  `0015_qc_duplicate_backstop.sql` adds `unique (purchase_line_id)` on
+  `quality_checks` (NULLs — i.e. finished-product-side rows — are
+  unaffected); the action now translates the resulting `23505` into "This
+  batch already has a QC record submitted against it" instead of a raw
+  Postgres error.
+- **Unbounded list query.** `/qc` fetched every `quality_checks` row with
+  no limit, unlike the Inventory Ledger tab. Now capped at 1,000 (`QC_LIMIT`
+  in `page.tsx`), same pattern as `LEDGER_LIMIT`.
+
 ## Files
 
 - `lib/actions/qc.ts` — `createQualityCheck`, `reviewQualityCheck`.

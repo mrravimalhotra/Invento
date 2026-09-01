@@ -65,7 +65,16 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
     })
     .select("id")
     .single();
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "23505") {
+      // quality_checks_purchase_line_unique (0015_qc_duplicate_backstop.sql)
+      // — backstop for the check-above-then-insert race: someone else's
+      // submission against this same batch landed between our check and
+      // this insert.
+      return { error: "This batch already has a QC record submitted against it." };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/qc");
   redirect(`/qc/${inserted.id}`);

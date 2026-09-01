@@ -79,5 +79,5 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
   if (error) return { error: error.message };
 
   revalidatePath("/packaging");
-  redirect("/packaging");
+  redirect("/packaging?created=1");
 }

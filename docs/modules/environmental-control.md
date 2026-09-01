@@ -22,3 +22,18 @@ Write gated to `system_admin`, `quality_checker`, `qc_reviewer`,
 `mfr_manager` — enforced via `canWrite(user.roles, "environmental_control")`
 (role list already present in `lib/constants/roles.ts`, matching this
 module's inline check spec) and by RLS. Read is open to any signed-in user.
+
+## Fixes (1 Sept 2026)
+
+From a full-app audit (`claude/known-issues.md`): `createEnvironmentalReading`
+redirected on success with no confirmation at all, unlike the create flows
+elsewhere in the app. Now redirects to `/environmental-control?created=1`;
+the list shows a one-time "New reading has been successfully added" banner.
+
+**Not fixed this pass, flagged for a product decision:** readings still
+have no min/max range validation, and the table still doesn't flag an
+out-of-range excursion (the seeded test data included one specifically to
+exercise this, per `claude/data-gap-analysis.md`) — building real
+threshold/excursion detection needs area-specific acceptable ranges defined
+first, which don't exist anywhere in the schema today. Left as a follow-up
+rather than guessing at thresholds.

@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 
 export type PackagingRow = {
   id: string;
@@ -47,6 +47,7 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
       rows={rows}
       searchPlaceholder="Search by FP batch or packaging item…"
       emptyLabel="No packaging issues yet."
+      isLegacy={(r) => isLegacyCode(r.finished_product_batches?.batch_number)}
     />
   );
 }

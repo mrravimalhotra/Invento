@@ -83,3 +83,23 @@ present, not added by this module).
   `bmr_weighment_lines` and `finished_product_components` carry
   `check_batch_qc_approved()`), so no Postgres-exception handling was needed
   here beyond the FP-status re-check described above.
+
+## Fixes (1 Sept 2026)
+
+From a full-app audit (`claude/known-issues.md`):
+
+- **Success confirmation.** `createPackagingIssue` now redirects to
+  `/packaging?created=1`; the list shows a one-time "New packaging issue has
+  been successfully added" banner — previously it redirected with no
+  confirmation at all, unlike the create flows elsewhere in the app.
+- **"Hide legacy data" (FB-0003) reached Packaging.** It asked for the
+  toggle "across app" but Packaging was missed — 22 real `packaging_issues`
+  rows tied to `LEG-FP-*` batches (per `claude/data-gap-analysis.md`) had no
+  way to be hidden. `PackagingTable` now passes `isLegacy` (keyed off the
+  linked FP batch's `LEG-` prefix) to `DataTable`, same as Items/Vendors/
+  Purchase/MFR/Finished Product.
+- **Quantity columns had no database-level check.** `unit_count` and
+  `packaging_qty_used` relied entirely on Server Action validation.
+  `0016_quantity_check_constraints.sql` adds `not valid` CHECK constraints
+  requiring both `> 0` — enforced on all new writes without needing to
+  validate/reject any existing row first.

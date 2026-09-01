@@ -6,6 +6,12 @@ import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QcTable, type QcListRow } from "./qc-table";
 
+// Unbounded before this — as AR records accumulate over years this page's
+// full-table fetch would slow down with no server-side filter to fall back
+// on (only client search over whatever got fetched). Same cap pattern as
+// the Inventory Ledger tab (LEDGER_LIMIT there).
+const QC_LIMIT = 1000;
+
 export default async function QcListPage() {
   const user = await getCurrentUser();
   const supabase = await createClient();
@@ -15,7 +21,8 @@ export default async function QcListPage() {
     .select(
       "id, ar_number, status, sample_qty, sample_unit, retest_date, items(item_code, name), purchase_lines(batch_number), finished_product_batches(batch_number)"
     )
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(QC_LIMIT);
 
   const rows = (data ?? []) as unknown as QcListRow[];
 

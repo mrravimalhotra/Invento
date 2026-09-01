@@ -28,7 +28,17 @@ export async function createBmrRecord(_prev: ActionState, formData: FormData): P
     .insert({ finished_product_batch_id: fpBatchId })
     .select("id")
     .single();
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "23505") {
+      // bmr_records_one_per_batch — /bmr/new already filters out batches
+      // that already have a BMR, but that's a page-load-time check, not a
+      // lock: two tabs (or a double-submit) against the same batch can
+      // both pass it. Translate the raw constraint-violation text instead
+      // of letting it reach the user.
+      return { error: "This finished product batch already has a BMR record." };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/bmr");
   redirect(`/bmr/${data.id}`);

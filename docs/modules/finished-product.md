@@ -136,6 +136,21 @@ allowed to edit) — recommend adding `mfr_manager` to `qc_insert` in a
 follow-up migration if `mfr_manager` is meant to be able to submit FP
 batches to QC end-to-end.
 
+## Integrity fixes (1 Sept 2026)
+
+Found during a full-app audit (`claude/known-issues.md`): `submitFinishedProductToQc()`
+checked the batch's `status` and only inserted a `quality_checks` row if
+still `in_process` — two concurrent submissions of the same batch could
+both pass that check and both insert. `0015_qc_duplicate_backstop.sql`
+(see `docs/modules/qc.md`) adds `unique (finished_product_batch_id)` on
+`quality_checks`; this action now translates the resulting `23505` into
+"This batch has already been submitted to QC" instead of a raw Postgres
+error. Also closed: `finished_product_batches` previously used a single
+`for all` RLS policy for insert/update/delete — `0014_fp_bmr_delete_policy.sql`
+splits it so delete is `system_admin`-only, matching the other master-data
+tables (there's still no delete UI here; this closes a direct-API-call gap
+only).
+
 ## Files
 
 - `lib/actions/finished-product.ts` — `createFinishedProductBatch`,

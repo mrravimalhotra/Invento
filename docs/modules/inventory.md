@@ -154,3 +154,24 @@ Per DESIGN.md §1 and §4.6, matching the second-pass requirements review:
   directly, mirroring the existing pattern and the RPC's own role list
   exactly — flagging in case this collides with another agent's edit to the
   same file.
+
+## FB-0013 — Finished Product batch visibility (1 Sept 2026)
+
+"Batch should be visible in inventory ledger." The ledger already showed a
+raw-material batch (`Batch <n>`, via `purchase_lines.batch_number`) under
+the Item column, but only for events tied to a purchase line — a
+`finished_product` pull (MFR component consumption) or a `packaging` pull
+has no `purchase_line_id` context of its own; its batch context is the
+*Finished Product* batch, reachable only via `inventory_ledger`'s untyped
+`reference_id` column (no real FK PostgREST can embed — see
+`claude/known-issues.md`).
+
+Rather than a schema change, `page.tsx` resolves it with two extra targeted
+lookups, same pattern already used there for `event_by` → `profiles`
+display names: `finished_product` rows' `reference_id` points straight at
+`finished_product_batches.id`; `packaging` rows' `reference_id` points at
+`packaging_issues.id`, one hop further to the batch via its own FK. Both are
+merged into a `fpBatchNumber` field and shown as a second "FP batch <n>"
+line under the Item column, alongside (not replacing) the existing
+raw-material batch line — a single event can have both a RM batch (what was
+consumed) and an FP batch (what it was consumed for).

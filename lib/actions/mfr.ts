@@ -156,6 +156,28 @@ export async function updateMfrLines(id: string, _prev: ActionState, formData: F
   if (defError || !def) return { error: defError?.message || "MFR definition not found." };
 
   const newVersion = def.version + 1;
+
+  // Optimistic lock, and deliberately done *before* inserting any lines:
+  // only bump the header if version is still what we just read. Two
+  // concurrent edits both reading version=1 would otherwise both insert
+  // lines tagged version=2 and both "succeed," silently interleaving two
+  // different recipes under one version number. Checking first means a
+  // losing writer's lines are never inserted at all, instead of left behind
+  // as an orphaned half-write next to the winner's.
+  const { data: updated, error: updateError } = await supabase
+    .from("mfr_definitions")
+    .update({ version: newVersion, approved_by: null, approved_at: null })
+    .eq("id", id)
+    .eq("version", def.version)
+    .select("id");
+  if (updateError) return { error: updateError.message };
+  if (!updated || updated.length === 0) {
+    return {
+      error:
+        "This recipe was edited by someone else while you were working on it. Please reopen this MFR to see the current recipe, then re-apply your changes.",
+    };
+  }
+
   const { error: linesError } = await supabase.from("mfr_lines").insert(
     lines.map((l) => ({
       mfr_definition_id: id,
@@ -165,13 +187,19 @@ export async function updateMfrLines(id: string, _prev: ActionState, formData: F
       unit: l.unit,
     }))
   );
-  if (linesError) return { error: linesError.message };
-
-  const { error: updateError } = await supabase
-    .from("mfr_definitions")
-    .update({ version: newVersion, approved_by: null, approved_at: null })
-    .eq("id", id);
-  if (updateError) return { error: updateError.message };
+  if (linesError) {
+    // We already bumped the header to newVersion, but the lines that should
+    // back it failed to insert — revert the header rather than leaving
+    // mfr_definitions.version pointing at a version with zero mfr_lines
+    // rows (the detail page would render an empty recipe with no
+    // indication anything went wrong).
+    await supabase
+      .from("mfr_definitions")
+      .update({ version: def.version })
+      .eq("id", id)
+      .eq("version", newVersion);
+    return { error: linesError.message };
+  }
 
   revalidatePath(`/mfr/${id}`);
   revalidatePath("/mfr");
@@ -199,13 +227,13 @@ export async function deleteMfrDefinition(id: string, _prev: ActionState, _formD
     if (error.code === "23503") {
       // finished_product_batches.mfr_definition_id has no ON DELETE clause
       // (RESTRICT, the Postgres default) — an MFR that's been used to
-      // produce a batch can't be deleted. There's no deactivate/soft-delete
-      // flow for MFR (mfr_definitions.active exists in the schema but no
-      // screen writes it), so — same as deleteVendor()'s message — this
-      // points at reassignment/removal rather than an "Deactivate it
-      // instead" that would dead-end.
+      // produce a batch can't be deleted. setMfrActive() below now gives
+      // this a real fallback, so point at it the same way deleteItem()
+      // points at its Active toggle, instead of a dead-end "remove those
+      // first."
       return {
-        error: "Can't delete — this MFR has finished product batches on file. Remove those first.",
+        error:
+          "Can't delete — this MFR has finished product batches on file. Deactivate it instead.",
       };
     }
     return { error: error.message };
@@ -251,11 +279,20 @@ export async function approveMfrDefinition(id: string, _prev: ActionState, _form
   if (defError || !def) return { error: defError?.message || "MFR definition not found." };
   if (def.approved_by) return { error: "This MFR is already approved." };
 
-  const { error } = await supabase
+  // Optimistic lock: the check above and this update are two separate round
+  // trips, so two people clicking Approve on the same still-unapproved MFR
+  // within the same moment could otherwise both pass the check and the
+  // second approval would silently overwrite the first approver's identity
+  // with no error. Requiring approved_by to still be null here means the
+  // loser gets a clear "already approved" instead.
+  const { data: updated, error } = await supabase
     .from("mfr_definitions")
     .update({ approved_by: user.id, approved_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .is("approved_by", null)
+    .select("id");
   if (error) return { error: error.message };
+  if (!updated || updated.length === 0) return { error: "This MFR is already approved." };
 
   revalidatePath(`/mfr/${id}`);
   revalidatePath("/mfr");

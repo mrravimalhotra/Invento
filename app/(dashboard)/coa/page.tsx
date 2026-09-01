@@ -6,7 +6,12 @@ import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CoaTable, type CoaRow } from "./coa-table";
 
-export default async function CoaListPage() {
+export default async function CoaListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ created?: string }>;
+}) {
+  const { created } = await searchParams;
   const user = await getCurrentUser();
   const supabase = await createClient();
 
@@ -26,6 +31,11 @@ export default async function CoaListPage() {
         description="Issued COAs, linked to the underlying Approved quality check — DESIGN.md §4.12."
         action={canWrite(user?.roles ?? [], "coa") ? <LinkButton href="/coa/new">New COA</LinkButton> : null}
       />
+      {created === "1" && (
+        <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
+          New COA has been successfully added.
+        </p>
+      )}
       <Card>
         <CoaTable rows={rows} />
       </Card>

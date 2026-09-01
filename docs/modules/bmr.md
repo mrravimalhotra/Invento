@@ -109,3 +109,20 @@ not added by this module).
 - Weighment lines' item dropdown is scoped to `category in ('raw',
   'processed')`, excluding `packaging` — the printed BMR's weighing table is
   for formula ingredients, not pack material (that's Packaging's job).
+
+## Integrity fixes (1 Sept 2026)
+
+From a full-app audit (`claude/known-issues.md`):
+
+- **Raw Postgres error on double-submit.** `/bmr/new` already filters out
+  batches that already have a BMR, but that's a page-load-time check, not a
+  lock — two tabs or a double-click against the same batch could surface
+  `duplicate key value violates unique constraint "bmr_records_one_per_
+  batch"` verbatim. `createBmrRecord()` now catches `23505` and returns
+  "This finished product batch already has a BMR record."
+- **`bmr_records` was deletable by any of its write roles**, not just
+  `system_admin` — it used a single `for all` RLS policy for
+  insert/update/delete. `0014_fp_bmr_delete_policy.sql` splits it so delete
+  is `system_admin`-only, matching the other master-data/record tables
+  (there's still no delete UI here; this closes a direct-API-call gap
+  only).
