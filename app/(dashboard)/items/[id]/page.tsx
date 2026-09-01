@@ -14,8 +14,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   packaging: "Packaging",
 };
 
-export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ItemDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ created?: string }>;
+}) {
   const { id } = await params;
+  const { created } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -44,6 +51,12 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
         title={item.name}
         description={`${item.item_code} · ${CATEGORY_LABELS[item.category] ?? item.category}${readOnly ? " · Read-only — you don't have write access to Item Master." : ""}`}
       />
+
+      {created === "1" && (
+        <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
+          New item &quot;{item.name}&quot; ({item.item_code}) has been successfully added.
+        </p>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <StatCard label="Stock on hand" value={`${formatNumber(onHand)}${item.unit ? ` ${item.unit}` : ""}`} />

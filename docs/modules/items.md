@@ -76,6 +76,32 @@ conversion system is a reasonable follow-up but is a separate, larger
 change (new table + `purchase_lines` schema + inventory-ledger review), not
 bundled into this pass.
 
+## FB-0005 (1 Sep 2026) — Success message on new item
+
+`createItem` redirects on success (unlike `updateItem`, which stays on the
+same page), so a same-page `useActionState` success message doesn't work
+here — the confirmation has to travel via the URL. `createItem` now
+redirects to `/items/${id}?created=1` instead of `/items/${id}`, and
+`[id]/page.tsx` reads `created` from `searchParams` and renders a one-time
+banner: `New item "{name}" ({item_code}) has been successfully added.`
+Refreshing or revisiting the detail page later drops the query param (the
+link on `/items` and elsewhere doesn't carry it), so the banner only shows
+right after creation, same one-shot feel as the item-type success message.
+
+## FB-0006 (1 Sep 2026) — Newly created items were hard to find
+
+`DataTable` (`components/ui/data-table.tsx`) fetches all matching rows
+unbounded and slices 15/page client-side, so sort order alone determines
+what's visible without searching or paging deep. The list was sorted
+alphabetically by `item_code`, and ASCII order puts legacy-imported codes
+(prefixed `LEG-`) ahead of app-generated `RM-`/`PKG-` codes (`FP-` sorts
+before `LEG-`, but `RM-`/`PKG-` sort after it) — so a newly created Raw
+material or Packaging item landed on some late page behind ~1000 legacy
+rows, effectively invisible. `/items` now orders by `created_at` descending
+(newest first) instead, and the list gained a "Created" column
+(`items-table.tsx`, same `formatDate` pattern as Item Type Master) so the
+sort order is visible, not just implicit.
+
 ## Gap closed
 
 `default_qc_qty` / `default_stability_qty` / `default_rnd_qty` are fully

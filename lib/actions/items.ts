@@ -88,7 +88,11 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   }
 
   revalidatePath("/items");
-  redirect(`/items/${inserted.id}`);
+  // FB-0005: ?created=1 flags the detail page to show a one-time success
+  // banner — createItem redirects (unlike updateItem, which stays on the
+  // same page and can just return {success}), so the confirmation has to
+  // travel via the URL instead of component state.
+  redirect(`/items/${inserted.id}?created=1`);
 }
 
 export async function updateItem(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {

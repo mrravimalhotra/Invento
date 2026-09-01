@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatNumber, formatDate, isLegacyCode } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
@@ -22,6 +22,7 @@ export type ItemRow = {
   item_types: { description: string } | null;
   on_hand: number;
   hasBalance: boolean;
+  created_at: string;
 };
 
 export function ItemsTable({ rows }: { rows: ItemRow[] }) {
@@ -53,6 +54,10 @@ export function ItemsTable({ rows }: { rows: ItemRow[] }) {
     {
       header: "Status",
       accessor: (r) => <Badge status={r.active ? "approved" : "not_submitted"}>{r.active ? "Active" : "Inactive"}</Badge>,
+    },
+    {
+      header: "Created",
+      accessor: (r) => <span className="text-muted">{formatDate(r.created_at)}</span>,
     },
   ];
 

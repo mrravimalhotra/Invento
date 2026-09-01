@@ -16,10 +16,16 @@ export default async function ItemsPage({
   const { category } = await searchParams;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
 
+  // FB-0006: sort newest-first by created_at rather than alphabetically by
+  // item_code. Alphabetical order buried freshly-created Raw material/
+  // Packaging items (RM-/PKG-) behind ~1000 legacy-imported rows (prefixed
+  // LEG-, which sorts before RM/PKG but after FP alphabetically), pushing
+  // new items past DataTable's client-side 15-rows/page slice — a newly
+  // added item was effectively invisible without searching or paging deep.
   let query = supabase
     .from("items")
-    .select("id, item_code, name, category, unit, active, low_stock_threshold, item_types(description)")
-    .order("item_code", { ascending: true });
+    .select("id, item_code, name, category, unit, active, low_stock_threshold, item_types(description), created_at")
+    .order("created_at", { ascending: false });
   if (category && category !== "all") query = query.eq("category", category);
 
   const [{ data: itemsData }, { data: balances }] = await Promise.all([
