@@ -5,7 +5,7 @@ import { recordWastage, type ActionState } from "@/lib/actions/inventory";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { UNITS } from "@/lib/constants/units";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, isLegacyCode } from "@/lib/utils";
 
 type ItemOption = { id: string; name: string; item_code: string; unit: string | null };
 type PurchaseLineOption = {
@@ -46,7 +46,7 @@ export function WastageForm({
         >
           <option value="">Select an item…</option>
           {items.map((it) => (
-            <option key={it.id} value={it.id}>
+            <option key={it.id} value={it.id} data-legacy={isLegacyCode(it.item_code) ? "1" : undefined}>
               {it.name} ({it.item_code})
             </option>
           ))}
@@ -61,7 +61,7 @@ export function WastageForm({
         <Select id="purchaseLineId" name="purchaseLineId" defaultValue="" disabled={!itemId}>
           <option value="">— none —</option>
           {batchesForItem.map((pl) => (
-            <option key={pl.id} value={pl.id}>
+            <option key={pl.id} value={pl.id} data-legacy={isLegacyCode(pl.batch_number) ? "1" : undefined}>
               {pl.batch_number} (remaining {formatNumber(pl.remaining_qty)} {pl.unit})
             </option>
           ))}

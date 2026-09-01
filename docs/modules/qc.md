@@ -124,3 +124,11 @@ From a full-app audit (`claude/known-issues.md`):
 - `app/(dashboard)/qc/new/page.tsx` + `qc-assign-form.tsx` — assign step.
 - `app/(dashboard)/qc/[id]/page.tsx` + `qc-review-form.tsx` — review step /
   read-only view.
+
+## Searchable, legacy-aware item/batch pickers (1 Sept 2026)
+
+`qc-assign-form.tsx`'s Item and Batch selects are searchable comboboxes
+app-wide now (DESIGN.md §8); both mark `data-legacy` (item from
+`items.item_code`, batch from `purchase_lines.batch_number`), so "Hide
+legacy data" hides legacy raw materials/batches from these two dropdowns —
+both already selected the codes needed, no query changes.

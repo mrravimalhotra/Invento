@@ -5,13 +5,14 @@ import { createPackagingIssue, type ActionState } from "@/lib/actions/packaging"
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { DEPARTMENTS } from "@/lib/constants/units";
+import { isLegacyCode } from "@/lib/utils";
 
 export function PackagingForm({
   fpBatches,
   packagingItems,
 }: {
   fpBatches: { id: string; batch_number: string }[];
-  packagingItems: { id: string; name: string; unit: string | null }[];
+  packagingItems: { id: string; item_code: string; name: string; unit: string | null }[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createPackagingIssue, undefined);
 
@@ -30,7 +31,7 @@ export function PackagingForm({
             Select…
           </option>
           {fpBatches.map((b) => (
-            <option key={b.id} value={b.id}>
+            <option key={b.id} value={b.id} data-legacy={isLegacyCode(b.batch_number) ? "1" : undefined}>
               {b.batch_number}
             </option>
           ))}
@@ -78,8 +79,8 @@ export function PackagingForm({
               Select…
             </option>
             {packagingItems.map((it) => (
-              <option key={it.id} value={it.id}>
-                {it.name}
+              <option key={it.id} value={it.id} data-legacy={isLegacyCode(it.item_code) ? "1" : undefined}>
+                {it.item_code} — {it.name}
               </option>
             ))}
           </Select>

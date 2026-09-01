@@ -7,7 +7,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { WeighmentLineForm, ObservationForm, SignOffPanel } from "../bmr-forms";
 
-type ItemRow = { id: string; name: string; unit: string | null };
+type ItemRow = { id: string; name: string; item_code: string; unit: string | null };
 type ApprovedBatch = { id: string; batch_number: string; expiry_date: string | null; item_id: string };
 
 export default async function BmrDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -47,7 +47,12 @@ export default async function BmrDetailPage({ params }: { params: Promise<{ id: 
       .select("id, step_label, reading, recorded_by, recorded_at")
       .eq("bmr_record_id", id)
       .order("recorded_at", { ascending: true }),
-    supabase.from("items").select("id, name, unit").eq("active", true).in("category", ["raw", "processed"]).order("name"),
+    supabase
+      .from("items")
+      .select("id, name, item_code, unit")
+      .eq("active", true)
+      .in("category", ["raw", "processed"])
+      .order("name"),
     fp
       ? supabase
           .from("mfr_lines")

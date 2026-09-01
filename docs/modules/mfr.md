@@ -221,3 +221,13 @@ From a full-app audit (`claude/known-issues.md`) plus a tester ticket:
   preview via `peek_next_item_code('processed')` — same non-consuming
   preview function and pattern as the Vendor/Item next-code previews (see
   `docs/modules/vendors.md`).
+- **FB-0011** ("War Material should be serachable and autocomplete. If
+  Legacy items are hidden, they should not be visible in Item drop down.")
+  — the recipe-line item picker (`mfr-line-editor.tsx`, used by both
+  `/mfr/new` and the edit form) is a searchable combobox app-wide now (see
+  DESIGN.md §8) and its options carry `data-legacy` from `item_code`, so
+  turning on "Hide legacy data" hides legacy raw materials from the list —
+  both server queries already selected `item_code`, no widening needed.
+  Also applied to the Finished Product picker on `/finished-product/new`
+  (`mfr_definitions.code` does carry a `LEG-` prefix for some real
+  production MFRs, e.g. `LEG-F-FP001`).

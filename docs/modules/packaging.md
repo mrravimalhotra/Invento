@@ -103,3 +103,14 @@ From a full-app audit (`claude/known-issues.md`):
   `0016_quantity_check_constraints.sql` adds `not valid` CHECK constraints
   requiring both `> 0` — enforced on all new writes without needing to
   validate/reject any existing row first.
+
+## Searchable, legacy-aware pickers (1 Sept 2026)
+
+`packaging-form.tsx`'s FP batch and Packaging item selects are searchable
+comboboxes app-wide now (DESIGN.md §8), both marked `data-legacy`. The
+packaging item picker's server query (`app/(dashboard)/packaging/new/page.tsx`)
+had to widen from `select("id, name, unit")` to include `item_code` — it
+wasn't selected before, so there was no way to tell a legacy packaging
+item apart from a v2 one. The dropdown label now also shows the item code
+(`RM-00006 — Ashwagandha Powder` style), matching every other item picker
+in the app instead of name-only.

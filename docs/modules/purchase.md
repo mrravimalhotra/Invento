@@ -134,3 +134,15 @@ Fixing that retroactively would mean deleting a row with a linked
 item's current computed stock-on-hand — not worth it for a race that only
 ever affects new, app-generated codes. Legacy data is left exactly as
 imported.
+
+## FB-0007 / FB-0009: searchable dropdowns, legacy-aware (1 Sept 2026)
+
+"in vendor text box, should be serach functionality..." / "add serach &
+autocomplete functionality in item drop down." Both close for free —
+`Select` (`purchase-order-form.tsx`'s vendor picker, `purchase-line-form.tsx`'s
+item picker) is now a type-to-filter combobox app-wide, see DESIGN.md §8.
+Both pickers' options are also marked `data-legacy` from `vendor_code` /
+`item_code` respectively, so FB-0008 ("legacy items should not come to
+[search] functionality if legacy item flag is set to hidden") is covered
+too — no server query changes needed here, both already selected the code
+column.

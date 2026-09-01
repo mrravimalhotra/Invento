@@ -15,6 +15,7 @@ export type FeedbackRow = {
   page_label: string;
   url_path: string;
   observation: string;
+  submitted_by: string | null;
   submitted_by_name: string;
   category: string | null;
   status: string;
@@ -72,8 +73,10 @@ export async function listPageFeedback(pagePath: string): Promise<FeedbackRow[]>
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("page_feedback")
+    // submitted_by included (not previously selected) so the widget can
+    // show Edit/Delete only on the current tester's own tickets — FB-0012.
     .select(
-      "id, ticket_number, page_path, page_label, url_path, observation, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
+      "id, ticket_number, page_path, page_label, url_path, observation, submitted_by, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
     )
     .eq("page_path", pagePath)
     .order("created_at", { ascending: false });
@@ -81,12 +84,69 @@ export async function listPageFeedback(pagePath: string): Promise<FeedbackRow[]>
   return data ?? [];
 }
 
+// FB-0012 (1 Sept 2026): "there should be option to edit/delete the
+// feedback throughout the app" — a tester can fix or retract their own
+// observation text, but only while it's still 'new' (not yet triaged) —
+// see 0017_feedback_owner_crud.sql for why. This never touches
+// category/status/claude_notes — those stay admin-only via triageFeedback().
+const updateOwnSchema = z.object({
+  observation: z.string().trim().min(5, "Please describe the observation in a bit more detail."),
+});
+
+export async function updateOwnFeedback(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in to edit feedback." };
+
+  const parsed = updateOwnSchema.safeParse({ observation: String(formData.get("observation") || "") });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const supabase = await createClient();
+  // RLS (page_feedback_owner_update) is the real backstop — this WHERE
+  // clause just makes the "not yours / already triaged" case return zero
+  // rows instead of a generic RLS error, so we can show a clear message.
+  const { data, error } = await supabase
+    .from("page_feedback")
+    .update({ observation: parsed.data.observation, updated_at: new Date().toISOString(), updated_by: user.id })
+    .eq("id", id)
+    .eq("submitted_by", user.id)
+    .eq("status", "new")
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) {
+    return { error: "This ticket has already been reviewed and can no longer be edited." };
+  }
+
+  revalidatePath("/feedback");
+  return { success: "Updated." };
+}
+
+export async function deleteOwnFeedback(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in to delete feedback." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("page_feedback")
+    .delete()
+    .eq("id", id)
+    .eq("submitted_by", user.id)
+    .eq("status", "new")
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) {
+    return { error: "This ticket has already been reviewed and can no longer be deleted." };
+  }
+
+  revalidatePath("/feedback");
+  return { success: "Deleted." };
+}
+
 export async function listAllFeedback(): Promise<FeedbackRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("page_feedback")
     .select(
-      "id, ticket_number, page_path, page_label, url_path, observation, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
+      "id, ticket_number, page_path, page_label, url_path, observation, submitted_by, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
   if (error) return [];

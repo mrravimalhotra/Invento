@@ -409,6 +409,34 @@ module's own review doc under `docs/modules/`)
   role check (client-side hide, server-side RLS enforces for real).
 - Every form screen: Server Action, optimistic-free (redirect + revalidate
   on success), Zod schema shared between client validation and the action.
+- **`Select` is a searchable combobox, not a native dropdown** (1 Sept
+  2026 — Ravi: "all drop downs should have a search functionality to type
+  and autocomplete through out the app," explicitly including short
+  fixed-option ones, not just long item/vendor/batch pickers). Every
+  existing `<Select>` call site upgraded automatically — same props
+  (children as plain `<option>`, `name`/`id`/`value`/`defaultValue`/
+  `onChange`/`required`/`disabled`), see `components/ui/combobox.tsx`. A
+  real native `<select>` is kept underneath, visually hidden, so FormData
+  submission, `required` validation, and existing `onChange` handlers all
+  keep working with zero call-site changes.
+- **"Hide legacy data" is now a single app-wide preference**, not a
+  per-table one (1 Sept 2026 — Ravi: "add option to hide legacy records in
+  main dashboard. If hidden, legacy records should be hidden through out
+  the app including all pages and drop downs"). `lib/hooks/use-hide-legacy.ts`
+  is the one place that reads/writes the shared `localStorage` key
+  (`invento_hide_legacy_data`, unchanged from FB-0003); `DataTable`'s
+  per-list checkbox, the Dashboard's `HideLegacyToggle`, and every
+  legacy-aware `Select` all read the same hook. A `<Select>`'s options opt
+  into legacy filtering per-option, not automatically — the caller marks
+  the ones sourced from item/vendor/batch/MFR codes with
+  `data-legacy={isLegacyCode(code) ? "1" : undefined}`; a status/category/
+  unit/role `<Select>` that never carries that marker is filtered by
+  nothing and just gets the free type-to-filter behavior. See
+  `claude/known-issues.md` and each module doc's "1 Sept 2026" section for
+  which pickers got the marker (every item/vendor/batch/MFR-definition
+  dropdown in the app) and which server queries had to widen their
+  `select()` to include the item/vendor code needed to classify a row as
+  legacy in the first place.
 
 ## 9. Known simplifications in this pass (flag for review, not silent)
 

@@ -1,0 +1,261 @@
+"use client";
+
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from "react";
+import { ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
+
+type OptionInfo = {
+  value: string;
+  label: string;
+  disabled: boolean;
+  // FB-0007/0008/0009/0011 (1 Sept 2026): a caller marks an <option> as
+  // legacy-imported data with `data-legacy="1"` (see isLegacyCode() call
+  // sites in the item/vendor/batch/MFR pickers) rather than this component
+  // trying to infer it — Select has no idea what an arbitrary option's
+  // value/label mean for the many non-legacy-aware dropdowns in the app
+  // (status, category, unit, role, ...).
+  legacy: boolean;
+};
+
+function optionsFromChildren(children: ReactNode): OptionInfo[] {
+  const options: OptionInfo[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    const el = child as ReactElement<Record<string, unknown>>;
+    if (el.type !== "option") return;
+    const props = el.props;
+    const rawValue = props.value;
+    const value = rawValue === undefined || rawValue === null ? "" : String(rawValue);
+    const label = typeof props.children === "string" ? props.children : String(props.children ?? value);
+    options.push({
+      value,
+      label,
+      disabled: Boolean(props.disabled),
+      legacy: props["data-legacy"] === "1" || props["data-legacy"] === true,
+    });
+  });
+  return options;
+}
+
+/**
+ * Every dropdown in the app should be searchable/type-to-filter (per Ravi,
+ * 1 Sept 2026 — "all drop downs should have a search functionality...
+ * throughout the app", explicitly including short fixed-option ones, not
+ * just long data-driven lists). Rather than build a parallel component and
+ * touch 40+ call sites, this *is* the app's <Select> now: same props
+ * (children as plain <option> elements, name/id/value/defaultValue/
+ * onChange/required/disabled/className), so every existing usage upgrades
+ * automatically.
+ *
+ * A real (visually hidden but focusable/validatable) native <select> is
+ * kept in sync underneath the visible combobox UI:
+ * - FormData submission (Server Action <form action={...}> calls) keeps
+ *   working with zero changes, since the thing actually inside the <form>
+ *   is still a native <select name="...">.
+ * - `required` still triggers native browser validation on submit.
+ * - Existing `onChange={(e) => ... e.target.value}` handlers keep firing:
+ *   picking an option sets the hidden select's value via the native
+ *   property setter and dispatches a real "change" event, which React's
+ *   synthetic event system picks up the same as a user interacting with a
+ *   real <select> would.
+ */
+export function Select({
+  className,
+  children,
+  value,
+  defaultValue,
+  onChange,
+  disabled,
+  required,
+  name,
+  id,
+  ...rest
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  const options = useMemo(() => optionsFromChildren(children), [children]);
+  const [hideLegacy] = useHideLegacy();
+
+  const isControlled = value !== undefined;
+  const toStr = (v: typeof value) => (v === undefined || v === null ? "" : String(Array.isArray(v) ? v[0] : v));
+
+  const [internalValue, setInternalValue] = useState<string>(() =>
+    isControlled ? toStr(value) : defaultValue !== undefined ? toStr(defaultValue) : (options[0]?.value ?? "")
+  );
+  // No effect needed to keep this synced with a controlled `value` prop —
+  // currentValue below reads the live prop directly every render when
+  // controlled; internalValue only matters in the uncontrolled case.
+  const currentValue = isControlled ? toStr(value) : internalValue;
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    function onDocMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, []);
+
+  const visibleOptions = useMemo(() => {
+    const base = hideLegacy ? options.filter((o) => !o.legacy) : options;
+    if (!query.trim()) return base;
+    const q = query.trim().toLowerCase();
+    return base.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, hideLegacy, query]);
+
+  // If the currently-selected value would be hidden by the legacy filter,
+  // still show its real label in the closed input (never hide the user's
+  // own existing selection just because a toggle changed) — it just won't
+  // reappear in the open dropdown's list.
+  const selectedOption = options.find((o) => o.value === currentValue);
+
+  // Derived, not stored: clamp render-time instead of syncing via an effect
+  // (visibleOptions can shrink — e.g. the legacy filter toggling on, or a
+  // search query narrowing the list — out from under a stale index).
+  const safeHighlight = Math.min(highlight, Math.max(0, visibleOptions.length - 1));
+
+  function commit(newValue: string) {
+    if (!isControlled) setInternalValue(newValue);
+    setOpen(false);
+    setQuery("");
+    const select = selectRef.current;
+    if (select) {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set;
+      setter?.call(select, newValue);
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  function openList() {
+    if (disabled) return;
+    setOpen(true);
+    setQuery("");
+    setHighlight(Math.max(0, options.findIndex((o) => o.value === currentValue)));
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Real, form-submittable select — visually hidden, not display:none,
+          so native `required` validation still targets a rendered element. */}
+      <select
+        ref={selectRef}
+        name={name}
+        id={id}
+        required={required}
+        disabled={disabled}
+        defaultValue={currentValue}
+        onChange={onChange}
+        aria-hidden="true"
+        tabIndex={-1}
+        className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+        {...rest}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value} disabled={o.disabled}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={id ? `${id}-listbox` : undefined}
+          aria-autocomplete="list"
+          autoComplete="off"
+          disabled={disabled}
+          value={open ? query : (selectedOption?.label ?? "")}
+          placeholder={selectedOption?.label ?? "Select…"}
+          onFocus={openList}
+          onClick={openList}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            setHighlight(0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              if (!open) return openList();
+              setHighlight((h) => Math.min(visibleOptions.length - 1, h + 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setHighlight((h) => Math.max(0, h - 1));
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              const opt = visibleOptions[safeHighlight];
+              if (opt && !opt.disabled) commit(opt.value);
+            } else if (e.key === "Escape") {
+              setOpen(false);
+              setQuery("");
+            } else if (e.key === "Tab") {
+              setOpen(false);
+              setQuery("");
+            }
+          }}
+          className={cn(
+            "w-full rounded-md border border-border bg-white px-3 py-2 pr-8 text-sm outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand disabled:bg-black/5 disabled:text-muted",
+            className
+          )}
+        />
+        <ChevronsUpDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-muted" />
+      </div>
+
+      {open && (
+        <ul
+          ref={listRef}
+          id={id ? `${id}-listbox` : undefined}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-white py-1 text-sm shadow-lg"
+        >
+          {visibleOptions.length === 0 && <li className="px-3 py-2 text-muted">No matches</li>}
+          {visibleOptions.map((o, i) => (
+            <li
+              key={o.value}
+              role="option"
+              aria-selected={o.value === currentValue}
+              onMouseDown={(e) => {
+                // Prevent the input's onBlur/outside-click handler from
+                // closing the list before the click registers.
+                e.preventDefault();
+                if (!o.disabled) commit(o.value);
+              }}
+              onMouseEnter={() => setHighlight(i)}
+              className={cn(
+                "flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5",
+                i === safeHighlight && "bg-brand/10",
+                o.disabled && "cursor-not-allowed text-muted"
+              )}
+            >
+              <span>{o.label}</span>
+              {o.value === currentValue && <Check className="h-3.5 w-3.5 text-brand-dark" />}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

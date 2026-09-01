@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { createFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Select } from "@/components/ui/form";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 
 export type ComposeCandidate = {
   purchaseLineId: string;
@@ -82,7 +82,11 @@ export function ComposeForm({
                   ) : (
                     <Select name={`purchase_line_id_${i}`} defaultValue={line.candidates[0].purchaseLineId} required>
                       {line.candidates.map((c) => (
-                        <option key={c.purchaseLineId} value={c.purchaseLineId}>
+                        <option
+                          key={c.purchaseLineId}
+                          value={c.purchaseLineId}
+                          data-legacy={isLegacyCode(c.batchNumber) ? "1" : undefined}
+                        >
                           {c.batchNumber} · exp {formatDate(c.expiryDate)} · {formatNumber(c.remainingQty)} avail.
                         </option>
                       ))}

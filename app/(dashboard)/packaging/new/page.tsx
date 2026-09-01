@@ -19,7 +19,12 @@ export default async function NewPackagingIssuePage() {
       .select("id, batch_number, status")
       .eq("active", true)
       .order("batch_number", { ascending: false }),
-    supabase.from("items").select("id, name, unit").eq("active", true).eq("category", "packaging").order("name"),
+    supabase
+      .from("items")
+      .select("id, item_code, name, unit")
+      .eq("active", true)
+      .eq("category", "packaging")
+      .order("name"),
   ]);
 
   // finished_product_batches.status only ever moves to 'in_process' or

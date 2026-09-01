@@ -126,3 +126,14 @@ From a full-app audit (`claude/known-issues.md`):
   is `system_admin`-only, matching the other master-data/record tables
   (there's still no delete UI here; this closes a direct-API-call gap
   only).
+
+## Searchable, legacy-aware pickers (1 Sept 2026)
+
+`bmr-forms.tsx`'s FP batch select (`NewBmrForm`) and its Item/Batch selects
+(`WeighmentLineForm`) are searchable comboboxes app-wide now (DESIGN.md
+§8), all marked `data-legacy`. The weighment-line item query
+(`app/(dashboard)/bmr/[id]/page.tsx`) had to widen from
+`select("id, name, unit")` to include `item_code` — it wasn't selected
+before, so a legacy raw material couldn't be told apart from a v2 one in
+that specific picker. The batch selects on both forms already had
+`batch_number`.

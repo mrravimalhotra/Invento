@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { createCoaRecord, type ActionState } from "@/lib/actions/coa";
 import { Field, Select, Input } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
+import { isLegacyCode } from "@/lib/utils";
 
 export type ApprovedQc = {
   id: string;
@@ -28,8 +29,9 @@ export function CoaForm({ approvedChecks }: { approvedChecks: ApprovedQc[] }) {
           {approvedChecks.map((qc) => {
             const batch = qc.purchase_lines?.batch_number ?? qc.finished_product_batches?.batch_number ?? "—";
             const item = qc.items ? `${qc.items.item_code} — ${qc.items.name}` : "";
+            const legacy = isLegacyCode(qc.items?.item_code) || isLegacyCode(batch);
             return (
-              <option key={qc.id} value={qc.id}>
+              <option key={qc.id} value={qc.id} data-legacy={legacy ? "1" : undefined}>
                 {qc.ar_number} · {item} · Batch {batch}
               </option>
             );

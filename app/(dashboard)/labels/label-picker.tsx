@@ -5,7 +5,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 import { downloadLabelPdf, type LabelField, type LabelType } from "./generate-label-pdf";
 
 export type RmRecord = {
@@ -146,7 +146,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
               <Select id="record" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
                 <option value="">Select a batch…</option>
                 {rmRecords.map((r) => (
-                  <option key={r.id} value={r.id}>
+                  <option key={r.id} value={r.id} data-legacy={isLegacyCode(r.batchNumber) ? "1" : undefined}>
                     {r.batchNumber} · {r.itemName}
                   </option>
                 ))}
@@ -157,7 +157,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
               <Select id="record" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
                 <option value="">Select a batch…</option>
                 {fpRecords.map((r) => (
-                  <option key={r.id} value={r.id}>
+                  <option key={r.id} value={r.id} data-legacy={isLegacyCode(r.batchNumber) ? "1" : undefined}>
                     {r.batchNumber} · {r.productName}
                   </option>
                 ))}

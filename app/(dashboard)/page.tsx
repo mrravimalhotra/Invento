@@ -6,6 +6,7 @@ import { DashboardCharts } from "./charts";
 import { formatDate } from "@/lib/utils";
 import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
+import { HideLegacyToggle } from "@/components/ui/hide-legacy-toggle";
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -65,7 +66,11 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" description="Live from the same tables every other module writes to — no separate reporting layer." />
+      <PageHeader
+        title="Dashboard"
+        description="Live from the same tables every other module writes to — no separate reporting layer."
+        action={<HideLegacyToggle />}
+      />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Raw materials" value={itemCount ?? 0} href="/items" />

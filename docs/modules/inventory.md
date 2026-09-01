@@ -175,3 +175,11 @@ merged into a `fpBatchNumber` field and shown as a second "FP batch <n>"
 line under the Item column, alongside (not replacing) the existing
 raw-material batch line — a single event can have both a RM batch (what was
 consumed) and an FP batch (what it was consumed for).
+
+## Searchable, legacy-aware pickers (1 Sept 2026)
+
+`wastage-form.tsx`'s Item and Batch (purchase line) selects are searchable
+comboboxes app-wide now (DESIGN.md §8); both mark `data-legacy` from
+`item_code` / `batch_number`, already selected by
+`app/(dashboard)/inventory/wastage/new/page.tsx` — no query changes
+needed.

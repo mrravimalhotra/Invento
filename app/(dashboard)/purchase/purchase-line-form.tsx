@@ -6,7 +6,7 @@ import { createPurchaseLine, previewBatchNumber, type ActionState } from "@/lib/
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { UNITS } from "@/lib/constants/units";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, isLegacyCode } from "@/lib/utils";
 
 export type RawItemOption = {
   id: string;
@@ -117,7 +117,7 @@ export function PurchaseLineForm({
           <Select id="item_id" name="item_id" required value={itemId} onChange={(e) => handleItemChange(e.target.value)}>
             <option value="">Select item…</option>
             {items.map((i) => (
-              <option key={i.id} value={i.id}>
+              <option key={i.id} value={i.id} data-legacy={isLegacyCode(i.item_code) ? "1" : undefined}>
                 {i.item_code} — {i.name}
               </option>
             ))}

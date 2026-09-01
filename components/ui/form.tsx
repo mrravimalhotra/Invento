@@ -3,7 +3,13 @@
 import { cn } from "@/lib/utils";
 import { Eye, EyeOff } from "lucide-react";
 import { useId, useState } from "react";
-import type { ComponentProps, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { ComponentProps, InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+
+// Re-exported so every existing `import { Select } from "@/components/ui/form"`
+// keeps working unchanged. Implementation moved to combobox.tsx 1 Sept 2026
+// (Ravi: "all drop downs should have a search functionality to type and
+// autocomplete through out the app") — see that file for why.
+export { Select } from "@/components/ui/combobox";
 
 const fieldBase =
   "w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand disabled:bg-black/5 disabled:text-muted";
@@ -65,14 +71,6 @@ export function PasswordInput({ className, id, ...props }: ComponentProps<"input
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={cn(fieldBase, className)} {...props} />;
-}
-
-export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select className={cn(fieldBase, "bg-white", className)} {...props}>
-      {children}
-    </select>
-  );
 }
 
 export function Checkbox({ label, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {

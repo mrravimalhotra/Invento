@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { createQualityCheck, type ActionState } from "@/lib/actions/qc";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
+import { isLegacyCode } from "@/lib/utils";
 
 export type PendingLine = {
   id: string;
@@ -19,11 +20,16 @@ export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createQualityCheck, undefined);
 
   const items = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { label: string; legacy: boolean }>();
     for (const l of lines) {
-      if (!map.has(l.item_id)) map.set(l.item_id, l.items ? `${l.items.item_code} — ${l.items.name}` : l.item_id);
+      if (!map.has(l.item_id)) {
+        map.set(l.item_id, {
+          label: l.items ? `${l.items.item_code} — ${l.items.name}` : l.item_id,
+          legacy: isLegacyCode(l.items?.item_code),
+        });
+      }
     }
-    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+    return Array.from(map.entries()).map(([id, v]) => ({ id, ...v }));
   }, [lines]);
 
   const [itemId, setItemId] = useState("");
@@ -58,7 +64,7 @@ export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
         <Select id="item_id" value={itemId} onChange={(e) => handleItemChange(e.target.value)} required>
           <option value="">Select item…</option>
           {items.map((it) => (
-            <option key={it.id} value={it.id}>
+            <option key={it.id} value={it.id} data-legacy={it.legacy ? "1" : undefined}>
               {it.label}
             </option>
           ))}
@@ -79,7 +85,7 @@ export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
         >
           <option value="">Select batch…</option>
           {batchesForItem.map((l) => (
-            <option key={l.id} value={l.id}>
+            <option key={l.id} value={l.id} data-legacy={isLegacyCode(l.batch_number) ? "1" : undefined}>
               {l.batch_number}
             </option>
           ))}

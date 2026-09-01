@@ -5,6 +5,7 @@ import { Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus } from "lucide-react";
 import { UNITS } from "@/lib/constants/units";
+import { isLegacyCode } from "@/lib/utils";
 
 export type RawItemOption = { id: string; item_code: string; name: string; unit: string | null };
 
@@ -65,7 +66,7 @@ export function MfrLineEditor({
                   >
                     <option value="">Select item…</option>
                     {rawItems.map((it) => (
-                      <option key={it.id} value={it.id}>
+                      <option key={it.id} value={it.id} data-legacy={isLegacyCode(it.item_code) ? "1" : undefined}>
                         {it.item_code} · {it.name}
                       </option>
                     ))}

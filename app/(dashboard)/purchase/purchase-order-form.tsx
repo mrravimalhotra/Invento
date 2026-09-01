@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { createPurchaseOrder, type ActionState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
+import { isLegacyCode } from "@/lib/utils";
 
 type VendorOption = { id: string; vendor_code: string; name: string };
 
@@ -19,7 +20,7 @@ export function PurchaseOrderForm({ vendors }: { vendors: VendorOption[] }) {
             Select vendor…
           </option>
           {vendors.map((v) => (
-            <option key={v.id} value={v.id}>
+            <option key={v.id} value={v.id} data-legacy={isLegacyCode(v.vendor_code) ? "1" : undefined}>
               {v.vendor_code} — {v.name}
             </option>
           ))}

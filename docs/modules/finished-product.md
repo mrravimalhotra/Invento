@@ -163,3 +163,16 @@ only).
   lookup + scaling) + `compose-form.tsx`.
 - `app/(dashboard)/finished-product/[id]/page.tsx`,
   `complete-batch-form.tsx`, `submit-to-qc-form.tsx`.
+
+## Searchable, legacy-aware pickers (1 Sept 2026)
+
+`step1-form.tsx`'s MFR select and `compose-form.tsx`'s per-line RM batch
+selects are searchable comboboxes app-wide now (DESIGN.md §8), both marked
+`data-legacy` (from `mfr_definitions.code` and each candidate's
+`batch_number` respectively — both already selected, no query changes).
+The RM batch selects are FIFO-defaulted to the oldest QC-approved
+candidate; if that default happens to be a legacy batch and "Hide legacy
+data" is on, the picker still shows it as the current selection (the
+filter only hides legacy rows from the *open* dropdown list, never a
+value already chosen) — it just won't be offered again if the line is
+re-picked.

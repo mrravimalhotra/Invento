@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { UNITS } from "@/lib/constants/units";
+import { isLegacyCode } from "@/lib/utils";
 
 type MfrOption = {
   id: string;
@@ -39,7 +40,7 @@ export function Step1Form({ mfrDefinitions }: { mfrDefinitions: MfrOption[] }) {
         >
           <option value="">Select MFR…</option>
           {mfrDefinitions.map((m) => (
-            <option key={m.id} value={m.id}>
+            <option key={m.id} value={m.id} data-legacy={isLegacyCode(m.code) ? "1" : undefined}>
               {m.code} · {m.name} (v{m.version})
             </option>
           ))}

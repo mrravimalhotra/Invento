@@ -12,7 +12,7 @@ import {
 } from "@/lib/actions/bmr";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils";
+import { formatDate, isLegacyCode } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // New BMR
@@ -28,7 +28,7 @@ export function NewBmrForm({ batches }: { batches: { id: string; batch_number: s
             Select a batch…
           </option>
           {batches.map((b) => (
-            <option key={b.id} value={b.id}>
+            <option key={b.id} value={b.id} data-legacy={isLegacyCode(b.batch_number) ? "1" : undefined}>
               {b.batch_number}
             </option>
           ))}
@@ -64,7 +64,7 @@ export function WeighmentLineForm({
   standardQtyByItem,
 }: {
   bmrRecordId: string;
-  items: { id: string; name: string; unit: string | null }[];
+  items: { id: string; name: string; item_code: string; unit: string | null }[];
   batchesByItem: Record<string, WeighmentBatchOption[]>;
   defaultBatchByItem: Record<string, string>;
   standardQtyByItem: Record<string, number>;
@@ -105,7 +105,7 @@ export function WeighmentLineForm({
         >
           {items.length === 0 && <option value="">No items on this batch&apos;s formula</option>}
           {items.map((it) => (
-            <option key={it.id} value={it.id}>
+            <option key={it.id} value={it.id} data-legacy={isLegacyCode(it.item_code) ? "1" : undefined}>
               {it.name}
             </option>
           ))}
@@ -117,7 +117,7 @@ export function WeighmentLineForm({
             Select…
           </option>
           {batchOptions.map((b) => (
-            <option key={b.id} value={b.id}>
+            <option key={b.id} value={b.id} data-legacy={isLegacyCode(b.batch_number) ? "1" : undefined}>
               {b.batch_number}
               {b.expiry_date ? ` (exp ${formatDate(b.expiry_date)})` : ""}
             </option>

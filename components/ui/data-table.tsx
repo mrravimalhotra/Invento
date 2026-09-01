@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/form";
 import { Search } from "lucide-react";
+import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 
 export type Column<T> = {
   header: string;
@@ -10,12 +11,6 @@ export type Column<T> = {
   sortValue?: (row: T) => string | number;
   searchValue?: (row: T) => string;
 };
-
-// FB-0003: a single "Hide legacy data" toggle, shared across every table
-// that opts in via `isLegacy`, so the choice made on one list page (e.g.
-// Item Master) carries over to the others (Vendors, Purchase, MFR,
-// Finished Product) instead of resetting per page.
-const HIDE_LEGACY_STORAGE_KEY = "invento_hide_legacy_data";
 
 export function DataTable<T>({
   columns,
@@ -36,31 +31,14 @@ export function DataTable<T>({
 }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [hideLegacy, setHideLegacy] = useState(false);
-
-  useEffect(() => {
-    if (!isLegacy) return;
-    try {
-      // One-shot read of a per-viewer preference on mount, not a
-      // synchronization loop — matches the pattern already used in
-      // purchase-line-form.tsx.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setHideLegacy(window.localStorage.getItem(HIDE_LEGACY_STORAGE_KEY) === "1");
-    } catch {
-      // localStorage unavailable (private browsing, etc.) — default stays off.
-    }
-    // Only read on mount; isLegacy identity changes every render (inline arrow fns).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Shared app-wide preference (lib/hooks/use-hide-legacy.ts) — also
+  // readable/writable from the Dashboard's toggle and from every
+  // legacy-aware <Select> combobox, all reading the same localStorage key.
+  const [hideLegacy, setHideLegacyPreference] = useHideLegacy();
 
   function toggleHideLegacy(next: boolean) {
-    setHideLegacy(next);
+    setHideLegacyPreference(next);
     setPage(0);
-    try {
-      window.localStorage.setItem(HIDE_LEGACY_STORAGE_KEY, next ? "1" : "0");
-    } catch {
-      // Best-effort persistence only.
-    }
   }
 
   const legacyFiltered = useMemo(() => {

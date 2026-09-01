@@ -41,3 +41,9 @@ one-time "New COA has been successfully added" banner.
 - `lib/actions/coa.ts` — `createCoaRecord`.
 - `app/(dashboard)/coa/page.tsx` — list.
 - `app/(dashboard)/coa/new/page.tsx` + `coa-form.tsx` — create form.
+
+## Searchable, legacy-aware picker (1 Sept 2026)
+
+`coa-form.tsx`'s Approved-quality-check select is a searchable combobox
+app-wide now (DESIGN.md §8), marked `data-legacy` from either the QC's
+linked item code or its batch number (both already selected).

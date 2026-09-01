@@ -68,3 +68,10 @@ wrote). Gated only behind sign-in, same as every other dashboard route via
   `total_units` when `net_qty` is null.
 - No Server Action / `lib/actions/labels.ts` — this module only reads
   existing tables and calls jsPDF client-side; there's no write to gate.
+
+## Searchable, legacy-aware pickers (1 Sept 2026)
+
+`label-picker.tsx`'s Purchase batch and Finished product batch selects are
+searchable comboboxes app-wide now (DESIGN.md §8), both marked
+`data-legacy` from `batchNumber` (already present on both record types —
+no query changes).

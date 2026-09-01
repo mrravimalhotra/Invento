@@ -15,7 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Topbar user={user} />
         <main className="flex-1 overflow-x-hidden p-6">
           {children}
-          <PageFeedback />
+          <PageFeedback currentUserId={user.id} />
         </main>
       </div>
     </div>
