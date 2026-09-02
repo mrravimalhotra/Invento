@@ -158,3 +158,16 @@ alongside the existing item fields.
 never pushed to `inventory_ledger` in the first place (FB-0018,
 `docs/modules/purchase.md`), so offering it here would let a QC sample be
 "pulled" from stock that never existed.
+
+## Batch picker filtered to raw material only (2 Sept 2026)
+
+Purchase gained a Packaging Item purchase path this pass, deliberately
+without QC/Stability/R&D capture (`docs/modules/purchase.md`, "Packaging
+items are now purchasable"). Without a filter here, every packaging
+purchase line would have shown up as "awaiting QC" forever, since nothing
+ever creates a `quality_checks` row for one. `qc/new/page.tsx`'s query now
+embeds `items!inner(..., category)` and adds `.eq("items.category",
+"raw")`, so only raw-material batches are ever offered for QC assignment —
+this was always the implicit intent (QC has never applied to packaging),
+just never enforced because packaging had no purchase path to test it
+against before now.

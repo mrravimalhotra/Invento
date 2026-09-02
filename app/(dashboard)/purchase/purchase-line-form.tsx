@@ -14,6 +14,7 @@ export type RawItemOption = {
   item_code: string;
   name: string;
   unit: string | null;
+  category: string;
   default_qc_qty: number | string | null;
   default_stability_qty: number | string | null;
   default_rnd_qty: number | string | null;
@@ -31,6 +32,16 @@ export function PurchaseLineForm({
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createPurchaseLine, undefined);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Purchase type: which of the two purchasable categories this line is
+  // for. Packaging items never go through QC/Stability/R&D sampling (that
+  // only ever applied to raw material), so the whole sampling block below
+  // is hidden — not just left blank — when "packaging" is selected; the
+  // item dropdown is filtered to match so the two lists (~3,500 raw items
+  // vs ~80 packaging items) never get mixed together.
+  const [category, setCategory] = useState<"raw" | "packaging">("raw");
+  const categoryItems = items.filter((i) => i.category === category);
+  const isRaw = category === "raw";
 
   const [itemId, setItemId] = useState("");
   // FB-0017 (2 Sept 2026): the unit QC/Stability/R&D quantity are entered
@@ -77,23 +88,27 @@ export function PurchaseLineForm({
 
   function handleItemChange(id: string) {
     setItemId(id);
-    const item = items.find((i) => i.id === id);
-    // Pre-fill QC / Stability / R&D from the item's defaults — the actual
-    // fix for the Automatic Sampling Deduction gap (DESIGN.md §7.1). Still
-    // editable/overridable below.
+    const item = categoryItems.find((i) => i.id === id);
     if (item) {
       const lineUnit = item.unit ?? "";
       setUnit(lineUnit);
-      setQcQty(numOrEmpty(item.default_qc_qty) || "0");
-      setStabilityQty(numOrEmpty(item.default_stability_qty) || "0");
-      setRndQty(numOrEmpty(item.default_rnd_qty) || "0");
-      // Default the sample unit to the item's own default — but only if
-      // it's actually convertible into this line's unit (same guard as
-      // the dropdown's own option list below); falls back to the line
-      // unit itself otherwise, never a silently-wrong default.
-      const itemDefault = item.default_sample_unit;
-      const validDefault = itemDefault && compatibleUnits(lineUnit).some((u) => u === itemDefault);
-      setSampleUnit(validDefault ? (itemDefault as string) : lineUnit);
+      // Packaging items skip QC/Stability/R&D sampling entirely (never
+      // captured, never shown) — only pre-fill these for raw material.
+      if (isRaw) {
+        // Pre-fill QC / Stability / R&D from the item's defaults — the
+        // actual fix for the Automatic Sampling Deduction gap (DESIGN.md
+        // §7.1). Still editable/overridable below.
+        setQcQty(numOrEmpty(item.default_qc_qty) || "0");
+        setStabilityQty(numOrEmpty(item.default_stability_qty) || "0");
+        setRndQty(numOrEmpty(item.default_rnd_qty) || "0");
+        // Default the sample unit to the item's own default — but only if
+        // it's actually convertible into this line's unit (same guard as
+        // the dropdown's own option list below); falls back to the line
+        // unit itself otherwise, never a silently-wrong default.
+        const itemDefault = item.default_sample_unit;
+        const validDefault = itemDefault && compatibleUnits(lineUnit).some((u) => u === itemDefault);
+        setSampleUnit(validDefault ? (itemDefault as string) : lineUnit);
+      }
     } else {
       setUnit("");
       setQcQty("");
@@ -108,6 +123,21 @@ export function PurchaseLineForm({
         setBatchNumber(res.batchNumber ?? "");
       });
     }
+  }
+
+  function handleCategoryChange(next: "raw" | "packaging") {
+    setCategory(next);
+    // Switching category invalidates whatever item/batch/sampling state was
+    // picked against the old list — reset everything item-dependent rather
+    // than leaving a stale selection from the other category sitting in
+    // hidden form state.
+    setItemId("");
+    setUnit("");
+    setQcQty("");
+    setStabilityQty("");
+    setRndQty("");
+    setSampleUnit("");
+    setBatchNumber("");
   }
 
   function handleUnitChange(newUnit: string) {
@@ -139,10 +169,23 @@ export function PurchaseLineForm({
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
 
       <div className="grid gap-4 sm:grid-cols-4">
+        <Field label="Purchase type" htmlFor="purchase_category" required>
+          <Select
+            id="purchase_category"
+            value={category}
+            onChange={(e) => handleCategoryChange(e.target.value as "raw" | "packaging")}
+          >
+            <option value="raw">Raw Material</option>
+            <option value="packaging">Packaging Item</option>
+          </Select>
+        </Field>
+      </div>
+
+      <div className={`grid gap-4 ${isRaw ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <Field label="Item" htmlFor="item_id" required>
           <Select id="item_id" name="item_id" required value={itemId} onChange={(e) => handleItemChange(e.target.value)}>
             <option value="">Select item…</option>
-            {items.map((i) => (
+            {categoryItems.map((i) => (
               <option key={i.id} value={i.id} data-legacy={isLegacyCode(i.item_code) ? "1" : undefined}>
                 {i.item_code} — {i.name}
               </option>
@@ -162,23 +205,25 @@ export function PurchaseLineForm({
             ))}
           </Select>
         </Field>
-        <Field
-          label="Sample unit"
-          htmlFor="sample_unit"
-          hint="For QC/Stability/R&D qty below — converted to the line unit above on save."
-        >
-          <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
-            <option value="">Select…</option>
-            {(unit ? compatibleUnits(unit) : UNITS).map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {isRaw && (
+          <Field
+            label="Sample unit"
+            htmlFor="sample_unit"
+            hint="For QC/Stability/R&D qty below — converted to the line unit above on save."
+          >
+            <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
+              <option value="">Select…</option>
+              {(unit ? compatibleUnits(unit) : UNITS).map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className={`grid gap-4 ${isRaw ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <Field label="Quantity received" htmlFor="quantity" required>
           <Input
             id="quantity"
@@ -191,6 +236,8 @@ export function PurchaseLineForm({
             onChange={(e) => setQuantity(e.target.value)}
           />
         </Field>
+        {isRaw && (
+          <>
         <Field
           label="QC qty"
           htmlFor="qc_qty"
@@ -220,21 +267,25 @@ export function PurchaseLineForm({
         >
           <Input id="rnd_qty" name="rnd_qty" type="number" step="any" min="0" value={rndQty} onChange={(e) => setRndQty(e.target.value)} />
         </Field>
+          </>
+        )}
       </div>
 
-      {sampleUnitDiffers && (
+      {isRaw && sampleUnitDiffers && (
         <p className="-mt-2 text-xs text-muted">
           QC / Stability / R&amp;D quantities above are in <strong>{sampleUnit}</strong> — converted to <strong>{unit}</strong>{" "}
           automatically when you save.
         </p>
       )}
 
-      <p className="-mt-2 text-xs text-muted">
-        Remaining after sampling (available for production):{" "}
-        <strong className="text-foreground">
-          {formatNumber(remainingPreview)} {unit}
-        </strong>
-      </p>
+      {isRaw && (
+        <p className="-mt-2 text-xs text-muted">
+          Remaining after sampling (available for production):{" "}
+          <strong className="text-foreground">
+            {formatNumber(remainingPreview)} {unit}
+          </strong>
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Unit price" htmlFor="unit_price">
@@ -298,6 +349,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
   const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
 
   const unit = line.unit;
+  const isRaw = line.item?.category !== "packaging";
   const [sampleUnit, setSampleUnit] = useState(unit);
   const [quantity, setQuantity] = useState(String(line.quantity));
   const [qcQty, setQcQty] = useState(String(line.qc_qty));
@@ -329,7 +381,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
     <form action={formAction} className="grid gap-4">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className={`grid gap-4 ${isRaw ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <Field label="Item">
           <Input value={`${line.item?.item_code ?? ""} — ${line.item?.name ?? ""}`} readOnly disabled />
         </Field>
@@ -339,22 +391,24 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         <Field label="Unit" hint="Can't be changed here — delete and re-add the line if the unit itself was wrong.">
           <Input value={unit} readOnly disabled />
         </Field>
-        <Field
-          label="Sample unit"
-          htmlFor="sample_unit"
-          hint="For QC/Stability/R&D qty below — converted to the line unit above on save."
-        >
-          <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
-            {compatibleUnits(unit).map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {isRaw && (
+          <Field
+            label="Sample unit"
+            htmlFor="sample_unit"
+            hint="For QC/Stability/R&D qty below — converted to the line unit above on save."
+          >
+            <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
+              {compatibleUnits(unit).map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className={`grid gap-4 ${isRaw ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <Field label="Quantity received" htmlFor="quantity" required>
           <Input
             id="quantity"
@@ -367,6 +421,8 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
             onChange={(e) => setQuantity(e.target.value)}
           />
         </Field>
+        {isRaw && (
+          <>
         <Field label="QC qty" htmlFor="qc_qty" hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}>
           <Input id="qc_qty" name="qc_qty" type="number" step="any" min="0" value={qcQty} onChange={(e) => setQcQty(e.target.value)} />
         </Field>
@@ -388,21 +444,25 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         <Field label="R&D qty" htmlFor="rnd_qty" hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}>
           <Input id="rnd_qty" name="rnd_qty" type="number" step="any" min="0" value={rndQty} onChange={(e) => setRndQty(e.target.value)} />
         </Field>
+          </>
+        )}
       </div>
 
-      {sampleUnitDiffers && (
+      {isRaw && sampleUnitDiffers && (
         <p className="-mt-2 text-xs text-muted">
           QC / Stability / R&amp;D quantities above are in <strong>{sampleUnit}</strong> — converted to <strong>{unit}</strong>{" "}
           automatically when you save.
         </p>
       )}
 
-      <p className="-mt-2 text-xs text-muted">
-        Remaining after sampling (available for production):{" "}
-        <strong className="text-foreground">
-          {formatNumber(remainingPreview)} {unit}
-        </strong>
-      </p>
+      {isRaw && (
+        <p className="-mt-2 text-xs text-muted">
+          Remaining after sampling (available for production):{" "}
+          <strong className="text-foreground">
+            {formatNumber(remainingPreview)} {unit}
+          </strong>
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Unit price" htmlFor="unit_price">

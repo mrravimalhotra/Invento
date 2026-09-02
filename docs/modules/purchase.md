@@ -368,3 +368,67 @@ whole-PO); any UI for browsing a PO's push/reopen history beyond the
 Status card's single "submitted on <date>" line (`submitted_at`/
 `reopened_at` are on record in the schema if a fuller audit view is
 wanted later).
+
+## Packaging items are now purchasable — Raw Material / Packaging Item toggle (2 Sept 2026)
+
+"In Purchase Screen - there should be option to choose Purchase Raw
+Material or Packaging Item. For Packaging Item, no need to capture QC,
+R&D or Stability Sample." Until this change, `/purchase` only ever
+fetched `category = 'raw'` items — there was genuinely no way to buy more
+packaging stock through the app. Packaging items only ever got inventory
+from the legacy import's opening balances; Packaging Issue
+(`/packaging/new`) has always only *consumed* existing stock, generically
+by `item_id` (not tied to a specific purchase batch/FIFO the way
+Finished Product's RM consumption is), so it needed no change here at
+all — the moment packaging purchase lines exist, Packaging Issue and the
+Wastage form (`/inventory/wastage/new`, which already fetched *all*
+items/lines unfiltered by category) both pick them up automatically.
+
+**Add-line / Edit-line forms** (`purchase-line-form.tsx`): a new "Purchase
+type" `<Select>` (Raw Material / Packaging Item, defaults to Raw
+Material) filters the Item dropdown to that category — the ~3,500 raw
+items and ~80 packaging items are never mixed in one list. Switching it
+resets item/batch/unit/sampling state, since a stale selection from the
+other category shouldn't survive the switch. When Packaging Item is
+selected, the QC qty / Stability qty / R&D qty / Sample unit fields (and
+the "remaining after sampling" preview, which doesn't apply — packaging
+is never sampled) are not rendered at all, not just hidden-but-submitted:
+`createPurchaseLine()`/`updatePurchaseLine()` already default
+`qc_qty`/`stability_qty`/`rnd_qty` to 0 and `sample_unit` to the line's
+own unit when the form doesn't send them (pre-existing fallback logic,
+`lib/actions/purchase.ts`), so no server-side change was needed for the
+capture side — `remaining_qty` for a packaging line is simply the full
+quantity received. `EditPurchaseLineForm` reads the same
+`line.item.category` (now selected alongside `item_code`/`name` on both
+the lines and items queries in `[id]/page.tsx`) so re-opening a packaging
+line for edit doesn't offer sampling fields either.
+
+**Batch number prefix** (`0023_packaging_purchase_batch_prefix.sql`):
+`get_next_batch_number()` had the `'RM-'` prefix hard-coded regardless of
+item category — a packaging purchase would otherwise have been assigned
+a batch number like `RM-01/26`, wrong and inconsistent with the
+`RM-`/`PKG-`/`FP-` item-code convention (`get_next_item_code()`,
+`0007_item_code_fp_and_sample_unit.sql`). Rewritten to look up the item's
+category and prefix `PKG-` for packaging, `RM-` otherwise. Pure function
+replace, no data change — `purchase_lines_item_batch_unique`
+(`0013_batch_number_integrity.sql`) is keyed on `(item_id, batch_number)`
+regardless of prefix, so this doesn't touch that constraint or the
+per-item/year counting logic, only the label.
+
+**Consequential fix, found while scoping this (not separately
+requested):** QC's "New Assign Record" picker (`/qc/new`) lists every
+purchase line whose `purchase_batch_status.qc_status = 'not_submitted'`
+— with no category filter, every packaging purchase line would have sat
+there forever as "awaiting QC" (nothing ever creates a `quality_checks`
+row for a packaging line), which is both misleading and would let
+someone accidentally pull a QC sample from packaging stock — directly
+contradicting "no need to capture QC... for Packaging Item." Fixed in
+the same change: the query's `items` embed is now `items!inner(...,
+category)` with `.eq("items.category", "raw")`, so only raw-material
+batches are ever offered for QC assignment — matching what has always
+implicitly been true (QC only ever applied to raw material) but was
+never enforced, because packaging had no purchase path to test it
+against until now.
+
+See `docs/DESIGN.md` §4.4 and the Seventh-pass entry in
+`claude/known-issues.md` for the destructive-vs-additive framing.

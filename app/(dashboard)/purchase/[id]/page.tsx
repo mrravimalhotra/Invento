@@ -42,14 +42,20 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
     supabase
       .from("purchase_lines")
       .select(
-        "id, batch_number, quantity, unit, qc_qty, stability_qty, rnd_qty, remaining_qty, unit_price, gst_pct, expiry_date, item:items(item_code, name)"
+        "id, batch_number, quantity, unit, qc_qty, stability_qty, rnd_qty, remaining_qty, unit_price, gst_pct, expiry_date, item:items(item_code, name, category)"
       )
       .eq("purchase_order_id", id)
       .order("created_at"),
+    // Raw material AND packaging items are both purchasable here (processed/
+    // Finished Product items are not — those come from MFR + Finished
+    // Product batches, never a purchase line). `category` rides along so
+    // the client can offer a Raw Material / Packaging Item toggle and hide
+    // QC/Stability/R&D sample capture for packaging lines, which never go
+    // through QC.
     supabase
       .from("items")
-      .select("id, item_code, name, unit, default_qc_qty, default_stability_qty, default_rnd_qty, default_sample_unit")
-      .eq("category", "raw")
+      .select("id, item_code, name, unit, category, default_qc_qty, default_stability_qty, default_rnd_qty, default_sample_unit")
+      .in("category", ["raw", "packaging"])
       .eq("active", true)
       .order("created_at", { ascending: false }),
   ]);

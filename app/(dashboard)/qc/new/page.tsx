@@ -25,15 +25,26 @@ export default async function NewQualityCheckPage() {
   // inventory in the first place (0019_purchase_submit_workflow.sql), so
   // offering it here would let a sample be "pulled" from stock that never
   // existed.
+  //
+  // Raw material only (2 Sept 2026): Packaging Item was added as a second
+  // purchasable category on the Purchase screen, deliberately without
+  // QC/Stability/R&D sample capture — packaging has never gone through QC
+  // in this app. Without this filter, every packaging purchase line would
+  // sit here forever as "awaiting QC" (nothing ever creates a quality_checks
+  // row for it), which is misleading and would let someone accidentally
+  // pull a QC sample from packaging stock. `items!inner(...)` (rather than
+  // the previous unqualified embed) is required for `.eq("items.category",
+  // ...)` to actually filter the joined table in PostgREST.
   const { data: lines } = openIds.length
     ? await supabase
         .from("purchase_lines")
         .select(
-          "id, batch_number, qc_qty, unit, expiry_date, item_id, items(item_code, name, default_sample_unit), purchase_orders!inner(status)"
+          "id, batch_number, qc_qty, unit, expiry_date, item_id, items!inner(item_code, name, default_sample_unit, category), purchase_orders!inner(status)"
         )
         .in("id", openIds)
         .eq("active", true)
         .eq("purchase_orders.status", "submitted")
+        .eq("items.category", "raw")
         .order("batch_number")
     : { data: [] as PendingLine[] };
 

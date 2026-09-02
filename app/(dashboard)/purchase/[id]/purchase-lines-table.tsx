@@ -20,7 +20,7 @@ export type LineRow = {
   unit_price: string | null;
   gst_pct: string | null;
   expiry_date: string;
-  item: { item_code: string; name: string } | null;
+  item: { item_code: string; name: string; category: string } | null;
 };
 
 // FB-0018: Edit/Delete only rendered while the parent PO is still draft —
