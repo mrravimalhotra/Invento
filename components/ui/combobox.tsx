@@ -196,6 +196,30 @@ export function Select({
     }
   }
 
+  // Bug found live (2 Sept 2026, Purchase's Unit/Sample unit fields): the
+  // hidden native <select> below only had its DOM value set inside
+  // commit() — i.e. only when a user clicked/keyboard-selected an option
+  // through THIS component's own dropdown. A caller that sets a
+  // controlled `value` prop programmatically (e.g. Purchase auto-filling
+  // Unit/Sample unit the moment an item is picked, never going through
+  // this component's commit()) left the hidden select's real DOM value
+  // stuck on its stale/initial one — `defaultValue` only applies once, at
+  // mount, and React never re-applies it. The visible combobox looked
+  // correctly filled in, but the invisible native <select> the browser's
+  // own `required` constraint validation checks was still empty, so
+  // clicking Submit silently failed with "Please select an item in the
+  // list." and never even reached the Server Action. Keep the hidden
+  // select's DOM value synced to currentValue on every change, covering
+  // both this case and the ordinary commit() case (already redundant
+  // there, but harmless) — no change event dispatched here, since this
+  // effect is a RESULT of currentValue changing, not the source of one.
+  useEffect(() => {
+    const select = selectRef.current;
+    if (!select || select.value === currentValue) return;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set;
+    setter?.call(select, currentValue);
+  }, [currentValue]);
+
   function openList() {
     if (disabled) return;
     updateCoords();

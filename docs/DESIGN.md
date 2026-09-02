@@ -461,6 +461,24 @@ module's own review doc under `docs/modules/`)
   Packaging, Labels, COA, Finished Product). `childrenToText()` now
   concatenates every string/number leaf directly, preserving whatever
   separator text already sits in the JSX source.
+- **`Select`'s hidden native `<select>` now stays synced to `currentValue`
+  on every change, not just when the user picks an option through this
+  component's own dropdown** (2 Sept 2026 bug fix, found live on
+  Purchase's Unit/Sample unit fields right after FB-0017 shipped). The
+  hidden select's DOM value was previously only ever updated inside
+  `commit()` — i.e. only by a click/keyboard selection made through this
+  exact combobox. A caller driving a controlled `value` prop
+  programmatically (Purchase auto-filling Unit/Sample unit the instant an
+  item is picked, never touching that field's own dropdown) left the
+  hidden select's real DOM value stuck on its stale initial one —
+  `defaultValue` only applies once, at mount, and React never re-applies
+  it on a later prop change. The visible combobox looked correctly
+  filled in, but the invisible native `<select>` the browser's own
+  `required` validation actually checks was still empty, so clicking
+  Submit silently failed client-side ("Please select an item in the
+  list.") without ever reaching the Server Action. A `useEffect` now
+  keeps the hidden select's DOM value in sync with `currentValue`
+  whenever it changes, regardless of how it changed.
 
 ## 9. Known simplifications in this pass (flag for review, not silent)
 
