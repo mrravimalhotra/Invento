@@ -70,7 +70,10 @@ export default async function BmrDetailPage({ params }: { params: Promise<{ id: 
   const itemIds = items.map((i) => i.id);
 
   const [{ data: approvedStatusRows }, { data: candidateBatches }] = await Promise.all([
-    supabase.from("purchase_batch_status").select("purchase_line_id, qc_status").eq("qc_status", "approved"),
+    supabase
+      .from("purchase_batch_status")
+      .select("purchase_line_id, qc_status, retest_date")
+      .eq("qc_status", "approved"),
     itemIds.length
       ? supabase
           .from("purchase_lines")
@@ -81,7 +84,18 @@ export default async function BmrDetailPage({ params }: { params: Promise<{ id: 
       : Promise.resolve({ data: [] as ApprovedBatch[] }),
   ]);
 
-  const approvedIds = new Set((approvedStatusRows ?? []).map((r) => r.purchase_line_id));
+  // "Only QC Approved batches can be used for making finished product"
+  // (3 Sept 2026) — a batch due for retest (retest_date <= today) no longer
+  // counts as usable here either, even though status is still 'approved'.
+  // Mirrors check_batch_qc_approved() (0026_qc_retest_consumption_gate.sql),
+  // the real DB-level enforcement; this is just so the picker never offers
+  // a batch the insert would reject.
+  const today = new Date().toISOString().slice(0, 10);
+  const approvedIds = new Set(
+    (approvedStatusRows ?? [])
+      .filter((r) => !r.retest_date || r.retest_date > today)
+      .map((r) => r.purchase_line_id)
+  );
   const batchesByItem: Record<string, ApprovedBatch[]> = {};
   for (const b of (candidateBatches ?? []) as ApprovedBatch[]) {
     if (!approvedIds.has(b.id)) continue;

@@ -1,7 +1,9 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatNumber } from "@/lib/utils";
+import { BATCH_QC_LABELS } from "@/lib/batch-qc-status";
 import type { RmReportExportRow } from "./rm-report-export";
 
 export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf: string }) {
@@ -14,6 +16,11 @@ export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf:
     { header: "Unit", accessor: (r) => r.unit },
     { header: "Unit Price", accessor: (r) => formatNumber(r.unitPrice) },
     { header: "Total", accessor: (r) => formatNumber(r.total) },
+    {
+      header: "QC Status",
+      accessor: (r) => <Badge status={r.qcState}>{BATCH_QC_LABELS[r.qcState]}</Badge>,
+      searchValue: (r) => BATCH_QC_LABELS[r.qcState],
+    },
   ];
 
   return (

@@ -341,3 +341,15 @@ data" is on, the picker still shows it as the current selection (the
 filter only hides legacy rows from the *open* dropdown list, never a
 value already chosen) — it just won't be offered again if the line is
 re-picked.
+
+## Retest-due batches now blocked from composition (3 Sept 2026)
+
+"Only QC Approved batches can be used for making finished product"
+(Ravi) — a batch whose retest date has passed no longer counts as usable
+in the compose-step FIFO candidate list, even though `quality_checks.
+status` is still `approved`. Enforced at the DB level
+(`0026_qc_retest_consumption_gate.sql`, shared with BMR weighment) and
+mirrored in `getCandidateBatches()` (`compose/page.tsx`) so a retest-due
+batch is never offered as a candidate to begin with. Full writeup in
+`docs/modules/inventory.md`, "'Only QC Approved batches...' — retest-due
+batches now blocked."

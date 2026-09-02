@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { downloadPdfTable } from "@/lib/pdf";
 import { Download } from "lucide-react";
+import { BATCH_QC_LABELS, type BatchQcState } from "@/lib/batch-qc-status";
 
 export type RmReportExportRow = {
   item: string;
@@ -13,13 +14,14 @@ export type RmReportExportRow = {
   unit: string;
   unitPrice: number;
   total: number;
+  qcState: BatchQcState;
 };
 
 export function RmReportExport({ asOf, rows }: { asOf: string; rows: RmReportExportRow[] }) {
   function handleExport() {
     downloadPdfTable({
       title: `RM Report As On Date — ${asOf}`,
-      columns: ["Item", "Batch No.", "PQTY", "SQTY", "QTY", "Unit", "Unit Price", "Total"],
+      columns: ["Item", "Batch No.", "PQTY", "SQTY", "QTY", "Unit", "Unit Price", "Total", "QC Status"],
       rows: rows.map((r) => [
         r.item,
         r.batchNumber,
@@ -29,6 +31,7 @@ export function RmReportExport({ asOf, rows }: { asOf: string; rows: RmReportExp
         r.unit,
         r.unitPrice.toFixed(2),
         r.total.toFixed(2),
+        BATCH_QC_LABELS[r.qcState],
       ]),
       filename: `rm-report-as-on-${asOf}.pdf`,
     });

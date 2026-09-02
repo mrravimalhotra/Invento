@@ -226,3 +226,83 @@ actually became stock. Stock Balance (ledger-derived via `stock_balance`)
 and the Dashboard's low-stock/on-hand widgets needed no change — they were
 already correct by construction, since a draft line simply has no ledger
 rows to sum yet.
+
+## QC Status column on the RM Report (3 Sept 2026)
+
+Direct request from Ravi: "In inventory ledger, stock should clearly
+suggest QC Pending, QC Passed, Awaiting Retest etc — New batch awaiting QC
+should be QC Pending, QC Approved batch will be QC Approved and Batch
+where Retest Date has come should be marked Awaiting Retest. Only QC
+Approved batches can be used for making finished product."
+
+Scoped with Ravi via `AskUserQuestion` before building: neither existing
+per-something view was a clean fit for a per-*batch* QC status — the main
+Ledger tab is per-*event* (the same batch appears on many push/pull rows),
+Stock Balance is per-*item* (one item can have several batches in
+different QC states at once, so a single status there would be
+misleading). **"RM Report As On Date" is the one view that's already one
+row per batch**, so the new "QC Status" column was added there, not to
+the other two tabs (Ravi's explicit choice — not a leftover gap).
+
+- **`lib/batch-qc-status.ts`** (new, shared) — `computeBatchQcState(qc_status,
+  retest_date)` collapses `purchase_batch_status`'s `qc_status` (`'not_
+  submitted' | 'submitted' | 'approved' | 'rejected'`) plus `retest_date`
+  into one of four display states: `qc_pending` (no AR yet, or one
+  submitted but not yet reviewed — both read as "not usable yet," matching
+  the two states Ravi named together as "QC Pending"), `approved`,
+  `awaiting_retest` (`qc_status = 'approved'` but `retest_date <= today` —
+  same condition the QC list's "Due for retest" card already uses),
+  `rejected`. `BATCH_QC_LABELS` maps each to its display string ("QC
+  Pending" / "QC Approved" / "Awaiting Retest" / "QC Rejected").
+- **`rm-report/page.tsx`** — two-step lookup against `purchase_batch_status`
+  (same pattern as every other place in this app that reads that view),
+  computes each row's `qcState`, passed through to both the on-screen
+  table and the PDF export (new "QC Status" column in both).
+- **Badge colors** (`components/ui/badge.tsx`): `qc_pending` reuses the
+  neutral grey `not_submitted` already uses; `approved`/`rejected` reuse
+  their existing colors; `awaiting_retest` gets the same amber as
+  `submitted`/`pending` — this app's established convention for "a
+  genuine attention/overdue signal," matching the QC list's "Due for
+  retest" card.
+- **Consequential fix, found while adding this column**: the RM Report's
+  purchase-lines query had never actually been filtered to raw material
+  despite its name — a Packaging Item purchase line (Seventh pass) would
+  show up here too. Harmless before this column existed; with a QC Status
+  column now added, every packaging batch would have shown as permanently
+  "QC Pending" forever (packaging never goes through QC in this app),
+  which is actively misleading rather than just incomplete. Fixed with
+  the same `items!inner(..., category)` + `.eq("items.category", "raw")`
+  filter already used on the QC/Labels/FP-compose pickers for the same
+  reason.
+
+## "Only QC Approved batches can be used for making finished product" — retest-due batches now blocked, not just labeled (3 Sept 2026)
+
+The second half of the same request, confirmed with Ravi via
+`AskUserQuestion` as a real enforcement change rather than just the label
+above: previously, `check_batch_qc_approved()` (the DB trigger gating both
+Finished Product composition and BMR weighment, `0001_init.sql`) only
+checked `qc_status = 'approved'` — it never looked at `retest_date`, so a
+batch sitting in "Awaiting Retest" was still silently fully consumable.
+
+- **`0026_qc_retest_consumption_gate.sql`** — extends
+  `check_batch_qc_approved()` to also reject when `retest_date is not null
+  and retest_date <= current_date`, with its own distinct exception
+  message. `trg_fp_component_qc_gate` (`finished_product_components`) and
+  `trg_bmr_weighment_qc_gate` (`bmr_weighment_lines`) both already point at
+  this one function by name, so a single `create or replace` closes the
+  gap identically for Finished Product composition and BMR weighment —
+  no trigger definitions needed to change.
+- **UI-side candidate filtering** (defense in depth, not the real
+  enforcement): `finished-product/new/compose/page.tsx`'s
+  `getCandidateBatches()` and `bmr/[id]/page.tsx`'s approved-batch lookup
+  both now also fetch `retest_date` and exclude a batch once it's due,
+  the same condition the migration enforces — so the picker never *offers*
+  a batch the insert would reject with a raw DB error; the DB trigger
+  remains the actual authority either way.
+
+See `docs/modules/qc.md`, "Retest workflow," for how `retest_date` itself
+gets computed, and `docs/modules/finished-product.md` /
+`docs/modules/bmr.md` for the consuming side of this change.
+
+Verification: `npx tsc --noEmit`, `npx eslint` on every touched file, and
+`npx next build` (all 42 routes) all clean.

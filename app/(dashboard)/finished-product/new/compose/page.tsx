@@ -42,17 +42,32 @@ async function getCandidateBatches(
 
   const lineIds = lines.map((l) => l.id);
   const [{ data: statuses }, { data: balance }] = await Promise.all([
-    supabase.from("purchase_batch_status").select("purchase_line_id, qc_status").in("purchase_line_id", lineIds),
+    supabase
+      .from("purchase_batch_status")
+      .select("purchase_line_id, qc_status, retest_date")
+      .in("purchase_line_id", lineIds),
     supabase.from("stock_balance").select("on_hand").eq("item_id", itemId).maybeSingle(),
   ]);
 
   const onHand = Number(balance?.on_hand ?? 0);
   if (onHand <= 0) return [];
 
-  const statusByLine = new Map((statuses ?? []).map((s) => [s.purchase_line_id, s.qc_status]));
+  const statusByLine = new Map((statuses ?? []).map((s) => [s.purchase_line_id, s]));
 
+  // "Only QC Approved batches can be used for making finished product"
+  // (3 Sept 2026) — a batch whose retest date has passed no longer counts
+  // as usable, even though quality_checks.status is still 'approved'. This
+  // mirrors check_batch_qc_approved() (0026_qc_retest_consumption_gate.sql),
+  // which is the real, DB-level enforcement; filtering here is purely so
+  // the picker never *offers* a batch that insert would reject anyway.
+  const today = new Date().toISOString().slice(0, 10);
   return lines
-    .filter((l) => statusByLine.get(l.id) === "approved")
+    .filter((l) => {
+      const status = statusByLine.get(l.id);
+      if (status?.qc_status !== "approved") return false;
+      if (status.retest_date && status.retest_date <= today) return false;
+      return true;
+    })
     .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))
     .map((l) => ({
       purchaseLineId: l.id,

@@ -156,3 +156,14 @@ ordered by `name`. Fixed the same way as every other query in this sweep —
 now orders by `created_at descending` — so a growing `items` table can't
 silently push new raw/processed materials past a server-side row cap
 before this picker ever sees them.
+
+## Retest-due batches now blocked from weighment (3 Sept 2026)
+
+"Only QC Approved batches can be used for making finished product"
+(Ravi) — a batch whose retest date has passed no longer counts as usable
+for weighment, even though `quality_checks.status` is still `approved`.
+Enforced at the DB level (`0026_qc_retest_consumption_gate.sql`, shared
+with Finished Product composition) and mirrored in the candidate-batch
+lookup here (`bmr/[id]/page.tsx`) so a retest-due batch is never offered
+in the picker to begin with. Full writeup in `docs/modules/inventory.md`,
+"'Only QC Approved batches...' — retest-due batches now blocked."

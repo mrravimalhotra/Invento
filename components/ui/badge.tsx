@@ -13,6 +13,14 @@ const STATUS_STYLES: Record<string, string> = {
   push: "bg-brand-light text-brand-dark",
   pull: "bg-amber-bg text-amber",
   wastage: "bg-red-bg text-red",
+  // Batch QC status (lib/batch-qc-status.ts), used on the RM Report's QC
+  // Status column — "qc_pending"/"approved"/"rejected" reuse the styles
+  // above (same meaning); "awaiting_retest" gets the same amber as
+  // submitted/pending, matching this app's convention of amber for a
+  // genuine attention/overdue signal (e.g. the QC list's "Due for retest"
+  // card) rather than a routine next step.
+  qc_pending: "bg-black/5 text-muted",
+  awaiting_retest: "bg-amber-bg text-amber",
 };
 
 export function Badge({ status, children }: { status?: string; children: React.ReactNode }) {
