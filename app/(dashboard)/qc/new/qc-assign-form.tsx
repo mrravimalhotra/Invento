@@ -5,6 +5,7 @@ import { createQualityCheck, type ActionState } from "@/lib/actions/qc";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { isLegacyCode } from "@/lib/utils";
+import { compatibleUnits, convertUnit } from "@/lib/constants/units";
 
 export type PendingLine = {
   id: string;
@@ -13,7 +14,7 @@ export type PendingLine = {
   unit: string | null;
   expiry_date: string | null;
   item_id: string;
-  items: { item_code: string; name: string } | null;
+  items: { item_code: string; name: string; default_sample_unit: string | null } | null;
 };
 
 export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
@@ -48,11 +49,27 @@ export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
     setExpiryDate("");
   }
 
+  // FB-0021 ("sample quantity and Sample unit should be auto populated
+  // from defaults given at the time of raw material creation"): the
+  // purchase line's own qc_qty is still the authoritative recorded
+  // amount for this specific batch (already converted into the line's
+  // unit at purchase time, FB-0017) — but shown here re-expressed in the
+  // item's own default_sample_unit when that's compatible with the line's
+  // unit, same "validDefault" convention Purchase's Add-line form uses,
+  // rather than always falling back to the line's own (often larger, e.g.
+  // "kg") unit.
   function handleBatchChange(nextLineId: string) {
     setPurchaseLineId(nextLineId);
     const line = lines.find((l) => l.id === nextLineId);
-    setSampleQty(line?.qc_qty !== null && line?.qc_qty !== undefined ? String(line.qc_qty) : "");
-    setSampleUnit(line?.unit ?? "");
+    const lineUnit = line?.unit ?? "";
+    const itemDefault = line?.items?.default_sample_unit ?? null;
+    const validDefault = !!itemDefault && !!lineUnit && compatibleUnits(lineUnit).some((u) => u === itemDefault);
+    const displayUnit = validDefault ? (itemDefault as string) : lineUnit;
+
+    const rawQty = line?.qc_qty !== null && line?.qc_qty !== undefined ? Number(line.qc_qty) : null;
+    const converted = rawQty !== null && lineUnit ? convertUnit(rawQty, lineUnit, displayUnit) : null;
+    setSampleQty(converted !== null ? String(converted) : rawQty !== null ? String(rawQty) : "");
+    setSampleUnit(displayUnit);
     setExpiryDate(line?.expiry_date ?? "");
   }
 

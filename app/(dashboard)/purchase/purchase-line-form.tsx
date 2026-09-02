@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useActionState } from "react";
-import { createPurchaseLine, previewBatchNumber, type ActionState } from "@/lib/actions/purchase";
+import { createPurchaseLine, updatePurchaseLine, previewBatchNumber, type ActionState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { UNITS, compatibleUnits, convertUnit } from "@/lib/constants/units";
 import { formatNumber, isLegacyCode } from "@/lib/utils";
+import type { LineRow } from "./[id]/purchase-lines-table";
 
 export type RawItemOption = {
   id: string;
@@ -277,6 +278,177 @@ export function PurchaseLineForm({
       <div>
         <Button type="submit" disabled={pending}>
           {pending ? "Adding…" : "Add line"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// FB-0018: edits an existing draft-PO line. Deliberately narrower than
+// PurchaseLineForm above — Item, Batch number, and Unit are shown
+// read-only (see updatePurchaseLine's own comment in lib/actions/
+// purchase.ts for why: batch numbers are per item/year, and unit is a
+// label on already-stored numbers, not something safe to relabel without
+// converting the stored values). Sample unit still defaults to the
+// line's own unit (its qc/stability/rnd values are already stored
+// converted into that unit — there's no original "as entered" sample
+// unit kept on record), and can still be changed to re-enter/re-convert.
+export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: () => void }) {
+  const boundAction = updatePurchaseLine.bind(null, line.id);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+
+  const unit = line.unit;
+  const [sampleUnit, setSampleUnit] = useState(unit);
+  const [quantity, setQuantity] = useState(String(line.quantity));
+  const [qcQty, setQcQty] = useState(String(line.qc_qty));
+  const [stabilityQty, setStabilityQty] = useState(String(line.stability_qty));
+  const [rndQty, setRndQty] = useState(String(line.rnd_qty));
+  const [unitPrice, setUnitPrice] = useState(line.unit_price ?? "");
+  const [gstPct, setGstPct] = useState(line.gst_pct ?? "");
+  const [expiryDate, setExpiryDate] = useState(line.expiry_date);
+
+  useEffect(() => {
+    if (state?.success) onDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  const qty = Number(quantity) || 0;
+  const price = Number(unitPrice) || 0;
+  const gst = Number(gstPct) || 0;
+  const baseAmount = qty * price;
+  const gstAmount = baseAmount * (gst / 100);
+  const priceInclGst = price * (1 + gst / 100);
+  const lineTotal = baseAmount + gstAmount;
+  const sampleUnitDiffers = sampleUnit !== unit;
+  const qcConverted = convertUnit(Number(qcQty) || 0, sampleUnit, unit) ?? (Number(qcQty) || 0);
+  const stabilityConverted = convertUnit(Number(stabilityQty) || 0, sampleUnit, unit) ?? (Number(stabilityQty) || 0);
+  const rndConverted = convertUnit(Number(rndQty) || 0, sampleUnit, unit) ?? (Number(rndQty) || 0);
+  const remainingPreview = qty - qcConverted - stabilityConverted - rndConverted;
+
+  return (
+    <form action={formAction} className="grid gap-4">
+      {state?.error && <p className="text-sm text-red">{state.error}</p>}
+
+      <div className="grid gap-4 sm:grid-cols-4">
+        <Field label="Item">
+          <Input value={`${line.item?.item_code ?? ""} — ${line.item?.name ?? ""}`} readOnly disabled />
+        </Field>
+        <Field label="Batch number">
+          <Input value={line.batch_number} readOnly disabled />
+        </Field>
+        <Field label="Unit" hint="Can't be changed here — delete and re-add the line if the unit itself was wrong.">
+          <Input value={unit} readOnly disabled />
+        </Field>
+        <Field
+          label="Sample unit"
+          htmlFor="sample_unit"
+          hint="For QC/Stability/R&D qty below — converted to the line unit above on save."
+        >
+          <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
+            {compatibleUnits(unit).map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-4">
+        <Field label="Quantity received" htmlFor="quantity" required>
+          <Input
+            id="quantity"
+            name="quantity"
+            type="number"
+            step="any"
+            min="0"
+            required
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+        </Field>
+        <Field label="QC qty" htmlFor="qc_qty" hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}>
+          <Input id="qc_qty" name="qc_qty" type="number" step="any" min="0" value={qcQty} onChange={(e) => setQcQty(e.target.value)} />
+        </Field>
+        <Field
+          label="Stability qty"
+          htmlFor="stability_qty"
+          hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : undefined}
+        >
+          <Input
+            id="stability_qty"
+            name="stability_qty"
+            type="number"
+            step="any"
+            min="0"
+            value={stabilityQty}
+            onChange={(e) => setStabilityQty(e.target.value)}
+          />
+        </Field>
+        <Field label="R&D qty" htmlFor="rnd_qty" hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}>
+          <Input id="rnd_qty" name="rnd_qty" type="number" step="any" min="0" value={rndQty} onChange={(e) => setRndQty(e.target.value)} />
+        </Field>
+      </div>
+
+      {sampleUnitDiffers && (
+        <p className="-mt-2 text-xs text-muted">
+          QC / Stability / R&amp;D quantities above are in <strong>{sampleUnit}</strong> — converted to <strong>{unit}</strong>{" "}
+          automatically when you save.
+        </p>
+      )}
+
+      <p className="-mt-2 text-xs text-muted">
+        Remaining after sampling (available for production):{" "}
+        <strong className="text-foreground">
+          {formatNumber(remainingPreview)} {unit}
+        </strong>
+      </p>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Unit price" htmlFor="unit_price">
+          <Input
+            id="unit_price"
+            name="unit_price"
+            type="number"
+            step="any"
+            min="0"
+            value={unitPrice}
+            onChange={(e) => setUnitPrice(e.target.value)}
+          />
+        </Field>
+        <Field label="GST %" htmlFor="gst_pct">
+          <Input id="gst_pct" name="gst_pct" type="number" step="any" min="0" value={gstPct} onChange={(e) => setGstPct(e.target.value)} />
+        </Field>
+        <Field label="Expiry date" htmlFor="expiry_date" required>
+          <Input
+            id="expiry_date"
+            name="expiry_date"
+            type="date"
+            required
+            value={expiryDate}
+            onChange={(e) => setExpiryDate(e.target.value)}
+          />
+        </Field>
+      </div>
+
+      <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-3">
+        <span>
+          GST amount: <strong>{formatNumber(gstAmount)}</strong>
+        </span>
+        <span>
+          Price incl. GST: <strong>{formatNumber(priceInclGst)}</strong>
+        </span>
+        <span>
+          Line total: <strong>{formatNumber(lineTotal)}</strong>
+        </span>
+      </div>
+
+      <div className="flex gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save changes"}
+        </Button>
+        <Button type="button" variant="secondary" onClick={onDone} disabled={pending}>
+          Cancel
         </Button>
       </div>
     </form>

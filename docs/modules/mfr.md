@@ -242,3 +242,15 @@ legacy codes sorting first was silently excluding newly created raw
 materials from the recipe-line item picker. Both now order by `created_at
 descending`, matching the FB-0006 precedent. See `claude/known-issues.md`
 for the full list of queries fixed in this pass.
+
+## FB-0020: recipe line unit auto-populated from item default (2 Sept 2026)
+
+"once Raw material is selected, its default unit from item master should
+automatically be populated in mfr Recipe screen." `mfr-line-editor.tsx`
+already did this on a row's *first* item pick (`unit: line.unit ||
+item?.unit || ""` — only filled if the row's unit was still empty), but
+switching the item on an already-filled row left the previous item's unit
+stuck. Now the newly-picked item's own `unit` always wins when it has one
+(`unit: item?.unit || line.unit || ""`), falling back to whatever was
+there only if the new item has no unit set — still overridable by hand
+afterward either way.

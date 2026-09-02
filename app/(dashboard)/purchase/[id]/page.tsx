@@ -3,11 +3,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { PurchaseLineForm, type RawItemOption } from "../purchase-line-form";
-import { DeletePurchaseOrderForm } from "../purchase-order-form";
-import { PurchaseLinesTable, type LineRow } from "./purchase-lines-table";
+import type { RawItemOption } from "../purchase-line-form";
+import { DeletePurchaseOrderForm, SubmitPurchaseOrderForm, ReopenPurchaseOrderForm } from "../purchase-order-form";
+import { PurchaseLinesSection } from "./purchase-lines-section";
+import type { LineRow } from "./purchase-lines-table";
 import { purchaseLineTotal } from "./line-financials";
 
 export default async function PurchaseOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,7 +18,9 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
 
   const { data: poRaw } = await supabase
     .from("purchase_orders")
-    .select("id, po_number, invoice_number, invoice_date, created_at, vendor:vendors(id, vendor_code, name)")
+    .select(
+      "id, po_number, invoice_number, invoice_date, created_at, status, submitted_at, reopened_at, vendor:vendors(id, vendor_code, name)"
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -29,6 +32,9 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
     invoice_number: string;
     invoice_date: string;
     created_at: string;
+    status: "draft" | "submitted";
+    submitted_at: string | null;
+    reopened_at: string | null;
     vendor: { id: string; vendor_code: string; name: string } | null;
   };
 
@@ -51,6 +57,11 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
   const lineRows = (lines ?? []) as unknown as LineRow[];
   const canEdit = canWrite(user?.roles ?? [], "purchase");
   const isSystemAdmin = (user?.roles ?? []).includes("system_admin");
+  const isDraft = po.status === "draft";
+  // FB-0018: lines are only addable/editable/deletable while the PO is
+  // still draft — once Final Submitted, System Admin has to Reopen it
+  // first (which reverses the inventory it pushed).
+  const canEditLines = canEdit && isDraft;
   const totalValue = lineRows.reduce((sum, l) => sum + purchaseLineTotal(l), 0);
 
   return (
@@ -62,7 +73,12 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
         )}`}
       />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-4">
+        <Card className="p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Status</p>
+          <p className="mt-1.5 text-2xl font-semibold text-foreground">{isDraft ? "Draft" : "Submitted"}</p>
+          {!isDraft && po.submitted_at && <p className="mt-0.5 text-xs text-muted">on {formatDate(po.submitted_at)}</p>}
+        </Card>
         <Card className="p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted">Lines</p>
           <p className="mt-1.5 text-2xl font-semibold text-foreground">{lineRows.length}</p>
@@ -77,25 +93,18 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
         </Card>
       </div>
 
-      {isSystemAdmin && (
-        <div className="mb-6 flex justify-end">
-          <DeletePurchaseOrderForm id={po.id} poNumber={po.po_number} />
-        </div>
-      )}
+      <div className="mb-6 flex flex-wrap items-start justify-end gap-3">
+        {canEdit && isDraft && lineRows.length > 0 && <SubmitPurchaseOrderForm id={po.id} />}
+        {isSystemAdmin && !isDraft && <ReopenPurchaseOrderForm id={po.id} />}
+        {isSystemAdmin && <DeletePurchaseOrderForm id={po.id} poNumber={po.po_number} />}
+      </div>
 
-      <Card className="mb-6">
-        <CardHeader title="Purchase lines" />
-        <PurchaseLinesTable rows={lineRows} />
-      </Card>
-
-      {canEdit && (
-        <Card>
-          <CardHeader title="Add line" />
-          <CardBody>
-            <PurchaseLineForm purchaseOrderId={po.id} items={(rawItems ?? []) as RawItemOption[]} />
-          </CardBody>
-        </Card>
-      )}
+      <PurchaseLinesSection
+        purchaseOrderId={po.id}
+        rows={lineRows}
+        items={(rawItems ?? []) as RawItemOption[]}
+        canEditLines={canEditLines}
+      />
     </div>
   );
 }

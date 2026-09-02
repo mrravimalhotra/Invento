@@ -266,3 +266,105 @@ actual use case — a mistaken entry) can ever be deleted.
 Delete UI: `DeletePurchaseOrderForm` (two-step-confirm, same pattern as
 `DeleteItemForm`/`DeleteMfrForm`), rendered admin-only above the Purchase
 lines table on the PO detail page.
+
+**Scope limitation found live 2 Sept 2026, resolved by FB-0018 below (new
+POs only):** before FB-0018, every purchase line pushed to
+`inventory_ledger` the instant it was inserted (§7.1), so in practice a PO
+could only ever be deleted before any line was added to it at all — see
+"Fourth pass" in `claude/known-issues.md`. Since FB-0018 defers that push
+until Final Submit, a **draft** PO now has zero ledger rows behind any of
+its lines and deletes cleanly, no matter how many lines it has, right up
+until it's submitted. A PO that predates FB-0018, or that has since been
+Final Submitted, still correctly can't be deleted once it has genuine
+downstream activity — that's unchanged and is the intended behavior, not
+a bug.
+
+## FB-0018: draft → Final Submit workflow (2 Sept 2026)
+
+"there should be a final submit button post which the record should be
+committed. Before that all users should have access to review/edit
+entered record." The architecturally significant one — scoped with Ravi
+via four explicit decisions before any code was written: (1) a draft PO's
+lines defer touching inventory entirely, rather than pushing immediately
+and reconciling later; (2) once submitted, only `system_admin` can Reopen
+(not any write-role user); (3) Final Submit is whole-PO, not per-line; (4)
+three smaller tickets found in the same pass (FB-0019/0020/0021) were
+folded into this same delivery. Full mechanism: `docs/DESIGN.md` §7.5 and
+§4.4; this section covers the app-level pieces.
+
+**New in `purchase_orders`:** `status` (`'draft' | 'submitted'`,
+`0019_purchase_submit_workflow.sql`), `submitted_at`/`submitted_by`,
+`reopened_at`/`reopened_by`. **New in `purchase_lines`:** `pushed_at`
+(null until this specific line has actually reached `inventory_ledger`).
+Every purchase order/line that existed before this migration was
+explicitly backfilled to `submitted`/pushed as of its own real
+`created_at`/ledger `event_at` — nothing about historical stock changed,
+only purchase orders created after the migration start as `draft`.
+
+**Line-level review/edit, while draft:**
+- `PurchaseLinesSection` (new, `app/(dashboard)/purchase/[id]/`) lifts
+  "which line is being edited" above both the lines table and the
+  Add-line form — clicking Edit on a row swaps the Add-line form for a
+  pre-filled `EditPurchaseLineForm` (new component in
+  `purchase-line-form.tsx`) in the same spot; Cancel or a successful save
+  swaps it back.
+- `updatePurchaseLine()`/`deletePurchaseLine()` (`lib/actions/purchase.ts`),
+  same write-role gate as `createPurchaseLine` (`system_admin`,
+  `inventory_manager`), both refuse with "Reopen it first" once the
+  parent PO's status isn't `draft` — checked server-side via an embedded
+  `purchase_orders!inner(status)` select, not just hidden in the UI.
+  `updatePurchaseLine` deliberately does **not** allow changing Item,
+  Batch number, or Unit: batch numbers are per item/year (changing the
+  item after one's been generated would need to silently regenerate it),
+  and Quantity/QC/Stability/R&D are stored as plain numbers against
+  `unit` — relabeling it without converting the stored values would
+  silently mislabel real data. Delete UI is a compact two-step-confirm
+  button per row (`DeleteLineButton` in `purchase-lines-table.tsx`) — a
+  native `confirm()` dialog was deliberately avoided (it blocks this
+  session's own browser-automation verification tooling, see
+  `claude/feedback-status.md` Notes), same reasoning as every other
+  delete in the app.
+
+**Final Submit / Reopen:** `submitPurchaseOrder()`/`reopenPurchaseOrder()`
+(`lib/actions/purchase.ts`) call two new `security definer` RPCs
+(`submit_purchase_order`/`reopen_purchase_order`, since clients can't
+write `inventory_ledger` directly — `ledger_no_direct_write`,
+`0001_init.sql`). Submit pushes every not-yet-pushed line's
+`remaining_qty` in one transaction and flips the PO to `submitted`;
+Reopen (system_admin-only, both in the RPC's own role check and the
+Server Action) reverses whatever was pushed with a compensating `'pull'`
+ledger entry for the **exact** quantity the matching `'push'` row
+recorded (read back from the ledger itself, so it's correct even if a
+line gets edited between submits) — the original row is never deleted or
+edited, `inventory_ledger` stays a true audit trail — then clears
+`pushed_at` so a later resubmit re-pushes whatever the (possibly-edited)
+lines say at that time. UI: `SubmitPurchaseOrderForm` (one-click, no
+confirm — Reopen is the built-in undo) shown to any write-role user once
+the PO is draft and has at least one line; `ReopenPurchaseOrderForm`
+(two-step-confirm — reversing committed inventory is a bigger action)
+shown to `system_admin` only once submitted. Both live on the PO detail
+page next to the existing Delete button; a Status card and a Status
+column on the `/purchase` list (Draft/Submitted) make the state visible
+at a glance.
+
+**Downstream pickers filtered to submitted-only:** since a draft line's
+stock was never pushed, QC's "New Assign Record" batch picker (`/qc/new`)
+and the Wastage form's batch picker (`/inventory/wastage/new`) both now
+require `purchase_orders.status = 'submitted'` — otherwise a sample pull
+or wastage event could be recorded against a batch that was never
+actually on hand. Finished Product's FIFO candidates and BMR's
+weighment-line picker were already restricted to QC-Approved batches,
+which transitively requires having gone through the (now submitted-only)
+QC picker, so neither needed a direct change — verified, not assumed. The
+RM Stock report (`/inventory/rm-report`, an "as of a date" export of
+`remaining_qty`) got the same filter for the same reason it did on the
+QC/Wastage pickers. The Purchase Register report (`/reports`) and the
+Labels page were deliberately left unfiltered — both are transaction
+logs/print aids, not stock-availability claims, so a draft line appearing
+there isn't a correctness bug.
+
+Not built this pass, out of scope: a per-line submit/lock (Ravi chose
+whole-PO); any UI for browsing a PO's push/reopen history beyond the
+Status card's single "submitted on <date>" line (`submitted_at`/
+`reopened_at` are on record in the schema if a fuller audit view is
+wanted later).

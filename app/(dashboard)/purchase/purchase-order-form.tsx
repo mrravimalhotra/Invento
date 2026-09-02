@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useActionState } from "react";
-import { createPurchaseOrder, deletePurchaseOrder, type ActionState } from "@/lib/actions/purchase";
+import { createPurchaseOrder, deletePurchaseOrder, submitPurchaseOrder, reopenPurchaseOrder, type ActionState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { isLegacyCode } from "@/lib/utils";
@@ -78,6 +78,70 @@ export function DeletePurchaseOrderForm({ id, poNumber }: { id: string; poNumber
       <div className="flex gap-2">
         <Button type="submit" variant="danger" disabled={pending}>
           {pending ? "Deleting…" : "Yes, delete"}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setConfirming(false)} disabled={pending}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// FB-0018 ("final submit button post which the record should be
+// committed"): one-click, no two-step confirm — matches the Approve/
+// Deactivate convention elsewhere (MFR's ToggleMfrActiveForm), since
+// Reopen below is the built-in undo path rather than a second dialog
+// here. Only shown while the PO is still draft and canEditLines (write
+// role) is true — see page.tsx.
+export function SubmitPurchaseOrderForm({ id }: { id: string }) {
+  const boundAction = submitPurchaseOrder.bind(null, id);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+
+  return (
+    <form action={formAction} className="flex flex-col items-end gap-2">
+      {state?.error && <p className="text-sm text-red">{state.error}</p>}
+      <Button type="submit" disabled={pending}>
+        {pending ? "Submitting…" : "Final submit"}
+      </Button>
+    </form>
+  );
+}
+
+// Reversing already-committed inventory is a bigger action than editing a
+// draft line, so — unlike Submit — this keeps a two-step confirm and is
+// system_admin-only (reopenPurchaseOrder() enforces the same server-side).
+export function ReopenPurchaseOrderForm({ id }: { id: string }) {
+  const boundAction = reopenPurchaseOrder.bind(null, id);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    // One-shot reaction to a successful reopen, not a sync loop — same
+    // accepted pattern as purchase-line-form.tsx's post-submit reset.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (state?.success) setConfirming(false);
+  }, [state]);
+
+  if (!confirming) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        {state?.error && <p className="text-sm text-red">{state.error}</p>}
+        <Button type="button" variant="secondary" onClick={() => setConfirming(true)}>
+          Reopen for edit
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="flex flex-col items-end gap-2 rounded border border-border p-3">
+      <p className="text-sm">
+        Reopen this purchase order? The inventory it already pushed will be reversed until it&apos;s submitted again.
+      </p>
+      {state?.error && <p className="text-sm text-red">{state.error}</p>}
+      <div className="flex gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Reopening…" : "Yes, reopen"}
         </Button>
         <Button type="button" variant="secondary" onClick={() => setConfirming(false)} disabled={pending}>
           Cancel

@@ -60,7 +60,13 @@ export function MfrLineEditor({
                     value={line.itemId}
                     onChange={(e) => {
                       const item = rawItems.find((it) => it.id === e.target.value);
-                      updateLine(i, { itemId: e.target.value, unit: line.unit || item?.unit || "" });
+                      // FB-0020 ("once Raw material is selected, its
+                      // default unit from item master should automatically
+                      // be populated"): the item's own unit always wins
+                      // when it has one, even if this row already had a
+                      // different unit from a previously-picked item —
+                      // still overridable by hand afterward.
+                      updateLine(i, { itemId: e.target.value, unit: item?.unit || line.unit || "" });
                     }}
                     required={i === 0}
                   >

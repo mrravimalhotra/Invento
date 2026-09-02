@@ -200,3 +200,29 @@ matching the FB-0006 precedent. **Display-order change, flagged for
 review:** Stock Balance previously listed items alphabetically by name; it
 now lists newest-created first (`StockBalanceTable`/`DataTable` render in
 query order, no client-side re-sort).
+
+## FB-0019: legacy-hide should also apply to the Inventory Ledger (2 Sept 2026)
+
+"when legacy rows are hidden, legacy stock should not be visibile in the
+ledger." The Ledger (`/inventory`, `InventoryLedgerTable`) had no
+`isLegacy` predicate wired up at all — every other list in the app already
+reads the shared "Hide legacy data" preference
+(`lib/hooks/use-hide-legacy.ts`) via `DataTable`'s `isLegacy` prop, this
+one was just missed. Fixed: a ledger event now counts as legacy if the
+item it moved is a legacy code, or the batch involved (raw-material batch
+via `purchase_lines.batch_number`, or Finished Product batch via the
+existing FB-0013 `fpBatchNumber` lookup) is a legacy batch number. Same
+one shared preference, no new toggle.
+
+## FB-0018 (Purchase): Wastage's batch picker and the RM Stock report filtered to submitted purchase orders
+
+`inventory/wastage/new/page.tsx`'s purchase-line picker and
+`inventory/(tabs)/rm-report/page.tsx`'s "as of a date" export both now
+require `purchase_orders.status = 'submitted'` — a still-draft PO's line
+was never pushed to `inventory_ledger` (FB-0018,
+`docs/modules/purchase.md`), so including it here would let wastage be
+recorded against, or a stock report claim as on-hand, a batch that never
+actually became stock. Stock Balance (ledger-derived via `stock_balance`)
+and the Dashboard's low-stock/on-hand widgets needed no change — they were
+already correct by construction, since a draft line simply has no ledger
+rows to sum yet.

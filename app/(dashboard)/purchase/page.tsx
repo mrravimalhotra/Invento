@@ -14,6 +14,7 @@ type PORow = {
   po_number: string;
   invoice_number: string;
   invoice_date: string;
+  status: "draft" | "submitted";
   vendor: { name: string } | null;
   purchase_lines: LineForTotal[];
 };
@@ -31,7 +32,7 @@ export default async function PurchasePage() {
   const { data, error } = await supabase
     .from("purchase_orders")
     .select(
-      "id, po_number, invoice_number, invoice_date, vendor:vendors(name), purchase_lines(quantity, unit_price, gst_pct)"
+      "id, po_number, invoice_number, invoice_date, status, vendor:vendors(name), purchase_lines(quantity, unit_price, gst_pct)"
     )
     .eq("active", true)
     .order("created_at", { ascending: false });
@@ -41,6 +42,7 @@ export default async function PurchasePage() {
     po_number: po.po_number,
     invoice_number: po.invoice_number,
     invoice_date: po.invoice_date,
+    status: po.status,
     vendor: po.vendor,
     lineCount: po.purchase_lines.length,
     totalValue: po.purchase_lines.reduce((sum, l) => sum + lineTotal(l), 0),

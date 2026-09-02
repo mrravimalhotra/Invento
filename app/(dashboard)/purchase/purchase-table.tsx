@@ -12,6 +12,7 @@ export type PurchaseRow = {
   vendor: { name: string } | null;
   lineCount: number;
   totalValue: number;
+  status: "draft" | "submitted";
 };
 
 export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
@@ -30,6 +31,20 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
     { header: "Invoice date", accessor: (r) => formatDate(r.invoice_date) },
     { header: "Lines", accessor: (r) => r.lineCount },
     { header: "Total value", accessor: (r) => formatNumber(r.totalValue) },
+    {
+      header: "Status",
+      accessor: (r) => (
+        <span
+          className={
+            r.status === "draft"
+              ? "rounded-full bg-black/5 px-2 py-0.5 text-xs font-medium text-muted"
+              : "rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand-dark"
+          }
+        >
+          {r.status === "draft" ? "Draft" : "Submitted"}
+        </span>
+      ),
+    },
   ];
 
   return (

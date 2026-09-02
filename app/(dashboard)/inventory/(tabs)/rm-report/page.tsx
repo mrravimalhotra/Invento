@@ -18,6 +18,7 @@ type PurchaseLineRow = {
   expiry_date: string | null;
   created_at: string;
   items: { name: string; item_code: string } | null;
+  purchase_orders: { status: string } | null;
 };
 
 function todayIso() {
@@ -33,12 +34,17 @@ export default async function RmReportPage({
   const asOf = asOfParam && /^\d{4}-\d{2}-\d{2}$/.test(asOfParam) ? asOfParam : todayIso();
 
   const supabase = await createClient();
+  // FB-0018: a draft (not yet Final Submitted) line's remaining_qty has
+  // never actually reached stock (0019_purchase_submit_workflow.sql) — an
+  // "as of" stock report would overstate what's really on hand if it
+  // included those, so this is filtered to submitted purchase orders only.
   const { data, error } = await supabase
     .from("purchase_lines")
     .select(
-      "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, remaining_qty, unit, unit_price, expiry_date, created_at, items(name, item_code)"
+      "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, remaining_qty, unit, unit_price, expiry_date, created_at, items(name, item_code), purchase_orders!inner(status)"
     )
     .eq("active", true)
+    .eq("purchase_orders.status", "submitted")
     .lte("created_at", `${asOf}T23:59:59.999`)
     .order("created_at", { ascending: false })
     .returns<PurchaseLineRow[]>();

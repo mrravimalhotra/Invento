@@ -20,12 +20,20 @@ export default async function NewQualityCheckPage() {
 
   const openIds = (openStatuses ?? []).map((s) => s.purchase_line_id).filter((id): id is string => !!id);
 
+  // FB-0018: a batch can only be pulled for QC once its purchase order has
+  // actually been Final Submitted — a draft line was never pushed to
+  // inventory in the first place (0019_purchase_submit_workflow.sql), so
+  // offering it here would let a sample be "pulled" from stock that never
+  // existed.
   const { data: lines } = openIds.length
     ? await supabase
         .from("purchase_lines")
-        .select("id, batch_number, qc_qty, unit, expiry_date, item_id, items(item_code, name)")
+        .select(
+          "id, batch_number, qc_qty, unit, expiry_date, item_id, items(item_code, name, default_sample_unit), purchase_orders!inner(status)"
+        )
         .in("id", openIds)
         .eq("active", true)
+        .eq("purchase_orders.status", "submitted")
         .order("batch_number")
     : { data: [] as PendingLine[] };
 

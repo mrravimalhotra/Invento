@@ -18,10 +18,15 @@ export default async function NewWastagePage() {
       .select("id, name, item_code, unit")
       .eq("active", true)
       .order("created_at", { ascending: false }),
+    // FB-0018: a draft line was never pushed to inventory (see
+    // 0019_purchase_submit_workflow.sql) — offering it here would let
+    // wastage be recorded against a batch that never actually became
+    // stock.
     supabase
       .from("purchase_lines")
-      .select("id, item_id, batch_number, remaining_qty, unit")
+      .select("id, item_id, batch_number, remaining_qty, unit, purchase_orders!inner(status)")
       .eq("active", true)
+      .eq("purchase_orders.status", "submitted")
       .order("created_at", { ascending: false }),
   ]);
 

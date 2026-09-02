@@ -132,3 +132,29 @@ app-wide now (DESIGN.md §8); both mark `data-legacy` (item from
 `items.item_code`, batch from `purchase_lines.batch_number`), so "Hide
 legacy data" hides legacy raw materials/batches from these two dropdowns —
 both already selected the codes needed, no query changes.
+
+## FB-0021: sample qty/unit auto-populated from item defaults (2 Sept 2026)
+
+"in QC, sample quantity and Sample unit should be auto populated from
+defaulsgive [defaults given] at the time of raw material creation." The
+picker already pre-filled Sample quantity from the purchase line's own
+`qc_qty` on batch pick (that's still the authoritative recorded amount for
+this specific batch — already converted at purchase time into the line's
+`unit`, FB-0017) but Sample unit was always set to that same (often
+larger, e.g. `kg`) line unit, losing the item's own smaller
+`default_sample_unit` context entirely. `handleBatchChange()` in
+`qc-assign-form.tsx` now re-expresses the sample quantity in the item's
+`default_sample_unit` when it's compatible with the line's unit (same
+`compatibleUnits()`/"validDefault" convention as Purchase's Add-line
+form), converting via `convertUnit()` — falls back to the line's own unit,
+unconverted, when the item has no default or it isn't compatible.
+`qc/new/page.tsx`'s query widened to select `items(..., default_sample_unit)`
+alongside the existing item fields.
+
+## FB-0018 (Purchase): batch picker filtered to submitted purchase orders
+
+`qc/new/page.tsx`'s pending-batches query now also requires
+`purchase_orders.status = 'submitted'` — a batch on a still-draft PO was
+never pushed to `inventory_ledger` in the first place (FB-0018,
+`docs/modules/purchase.md`), so offering it here would let a QC sample be
+"pulled" from stock that never existed.

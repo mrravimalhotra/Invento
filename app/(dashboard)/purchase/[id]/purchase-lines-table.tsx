@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { useActionState } from "react";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { lineFinancials } from "./line-financials";
+import { deletePurchaseLine, type ActionState } from "@/lib/actions/purchase";
 
 export type LineRow = {
   id: string;
@@ -19,7 +23,52 @@ export type LineRow = {
   item: { item_code: string; name: string } | null;
 };
 
-export function PurchaseLinesTable({ rows }: { rows: LineRow[] }) {
+// FB-0018: Edit/Delete only rendered while the parent PO is still draft —
+// once submitted, a line can only be changed after System Admin reopens
+// the PO. `onEdit` lifts the picked row up to PurchaseLinesSection, which
+// swaps the Add-line form for EditPurchaseLineForm; delete is small enough
+// to be fully self-contained here.
+function DeleteLineButton({ id }: { id: string }) {
+  const boundAction = deletePurchaseLine.bind(null, id);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [confirming, setConfirming] = useState(false);
+
+  if (!confirming) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        {state?.error && <p className="text-xs text-red">{state.error}</p>}
+        <Button type="button" variant="danger" size="sm" onClick={() => setConfirming(true)}>
+          Delete
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="flex flex-col items-end gap-1">
+      {state?.error && <p className="text-xs text-red">{state.error}</p>}
+      <p className="text-xs">Delete this line?</p>
+      <div className="flex gap-1">
+        <Button type="submit" variant="danger" size="sm" disabled={pending}>
+          {pending ? "…" : "Yes"}
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function PurchaseLinesTable({
+  rows,
+  editable,
+  onEdit,
+}: {
+  rows: LineRow[];
+  editable?: boolean;
+  onEdit?: (id: string) => void;
+}) {
   const columns: Column<LineRow>[] = [
     {
       header: "Item",
@@ -55,6 +104,20 @@ export function PurchaseLinesTable({ rows }: { rows: LineRow[] }) {
     { header: "Line total", accessor: (r) => formatNumber(lineFinancials(r).lineTotal) },
     { header: "Expiry", accessor: (r) => formatDate(r.expiry_date) },
   ];
+
+  if (editable) {
+    columns.push({
+      header: "Actions",
+      accessor: (r) => (
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => onEdit?.(r.id)}>
+            Edit
+          </Button>
+          <DeleteLineButton id={r.id} />
+        </div>
+      ),
+    });
+  }
 
   return <DataTable columns={columns} rows={rows} emptyLabel="No lines added yet." searchPlaceholder="Search lines…" />;
 }

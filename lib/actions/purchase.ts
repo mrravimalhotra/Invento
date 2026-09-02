@@ -96,6 +96,21 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
 
+  const purchaseOrderIdRaw = String(formData.get("purchase_order_id") || "");
+  const supabaseStatusCheck = await createClient();
+  // FB-0018: a submitted PO is locked — lines can only be added while
+  // still draft. The Add-line form is already hidden once submitted
+  // (app/(dashboard)/purchase/[id]/page.tsx), this is the server-side
+  // enforcement in case of a direct POST.
+  const { data: poForStatus } = await supabaseStatusCheck
+    .from("purchase_orders")
+    .select("status")
+    .eq("id", purchaseOrderIdRaw)
+    .maybeSingle();
+  if (poForStatus && poForStatus.status !== "draft") {
+    return { error: "Can't add a line — this purchase order has been submitted. Reopen it first." };
+  }
+
   const unitPriceRaw = formData.get("unit_price");
   const gstPctRaw = formData.get("gst_pct");
 
@@ -230,4 +245,180 @@ export async function deletePurchaseOrder(id: string, _prev: ActionState, _formD
 
   revalidatePath("/purchase");
   redirect("/purchase");
+}
+
+// ------------------------------------------------------------
+// Edit / delete a single line (FB-0018: "all users should have access to
+// review/edit entered record" before Final Submit)
+// ------------------------------------------------------------
+
+// Deliberately narrower than createPurchaseLine's fields: item_id and
+// batch_number are NOT editable here. Changing the item after a batch
+// number has already been generated against it (get_next_batch_number()
+// is per item/year) would either leave a stale batch number or require
+// silently regenerating one — safer to have the user delete and re-add
+// the line if the item itself was wrong. `unit` is also fixed: quantity/
+// qc_qty/stability_qty/rnd_qty are stored as plain numbers against that
+// unit, so relabeling it without converting the stored values would
+// silently mislabel real data.
+const updateLineSchema = z.object({
+  quantity: z.coerce.number().positive("Quantity must be greater than zero."),
+  sample_unit: z.string().trim().min(1, "Sample unit is required."),
+  qc_qty: z.coerce.number().min(0, "QC quantity can't be negative.").default(0),
+  stability_qty: z.coerce.number().min(0, "Stability quantity can't be negative.").default(0),
+  rnd_qty: z.coerce.number().min(0, "R&D quantity can't be negative.").default(0),
+  unit_price: z.coerce.number().min(0, "Unit price can't be negative.").optional(),
+  gst_pct: z.coerce.number().min(0, "GST % can't be negative.").optional(),
+  expiry_date: z.string().trim().min(1, "Expiry date is required."),
+});
+
+type LineWithPoStatus = { unit: string; purchase_order_id: string; purchase_orders: { status: string } | null };
+
+export async function updatePurchaseLine(lineId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+
+  const { data: current, error: fetchError } = await supabase
+    .from("purchase_lines")
+    .select("unit, purchase_order_id, purchase_orders!inner(status)")
+    .eq("id", lineId)
+    .maybeSingle();
+  if (fetchError) return { error: fetchError.message };
+  if (!current) return { error: "Purchase line not found." };
+  const line = current as unknown as LineWithPoStatus;
+  if (line.purchase_orders?.status !== "draft") {
+    return { error: "Can't edit — this purchase order has been submitted. Reopen it first." };
+  }
+  const unit = line.unit;
+
+  const unitPriceRaw = formData.get("unit_price");
+  const gstPctRaw = formData.get("gst_pct");
+  const parsed = updateLineSchema.safeParse({
+    quantity: String(formData.get("quantity") || ""),
+    sample_unit: String(formData.get("sample_unit") || unit),
+    qc_qty: String(formData.get("qc_qty") || "0"),
+    stability_qty: String(formData.get("stability_qty") || "0"),
+    rnd_qty: String(formData.get("rnd_qty") || "0"),
+    unit_price: unitPriceRaw ? String(unitPriceRaw) : undefined,
+    gst_pct: gstPctRaw ? String(gstPctRaw) : undefined,
+    expiry_date: String(formData.get("expiry_date") || ""),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const {
+    quantity,
+    sample_unit,
+    qc_qty: qcQtyRaw,
+    stability_qty: stabilityQtyRaw,
+    rnd_qty: rndQtyRaw,
+    unit_price,
+    gst_pct,
+    expiry_date,
+  } = parsed.data;
+
+  const qc_qty = convertUnit(qcQtyRaw, sample_unit, unit);
+  const stability_qty = convertUnit(stabilityQtyRaw, sample_unit, unit);
+  const rnd_qty = convertUnit(rndQtyRaw, sample_unit, unit);
+  if (qc_qty === null || stability_qty === null || rnd_qty === null) {
+    return { error: `Sample unit "${sample_unit}" can't be converted to the line unit "${unit}" — pick a compatible unit.` };
+  }
+  if (qc_qty + stability_qty + rnd_qty > quantity) {
+    return { error: "QC + Stability + R&D quantity cannot exceed the received quantity." };
+  }
+
+  const { error } = await supabase
+    .from("purchase_lines")
+    .update({
+      quantity,
+      qc_qty,
+      stability_qty,
+      rnd_qty,
+      unit_price: unit_price ?? null,
+      gst_pct: gst_pct ?? null,
+      expiry_date,
+    })
+    .eq("id", lineId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/purchase/${line.purchase_order_id}`);
+  revalidatePath("/purchase");
+  return { success: "Line updated." };
+}
+
+export async function deletePurchaseLine(lineId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+
+  const { data: current, error: fetchError } = await supabase
+    .from("purchase_lines")
+    .select("purchase_order_id, purchase_orders!inner(status)")
+    .eq("id", lineId)
+    .maybeSingle();
+  if (fetchError) return { error: fetchError.message };
+  if (!current) return { error: "Purchase line not found." };
+  const line = current as unknown as { purchase_order_id: string; purchase_orders: { status: string } | null };
+  if (line.purchase_orders?.status !== "draft") {
+    return { error: "Can't delete — this purchase order has been submitted. Reopen it first." };
+  }
+
+  // A draft line was never pushed to inventory_ledger (FB-0018 — pushing
+  // only happens at Final Submit), so this delete can't hit the FK
+  // violation deletePurchaseOrder() above has to translate into a
+  // friendly message. It's still handled defensively in case something
+  // else came to reference the line while it sat in draft (e.g. it was
+  // submitted, reopened, and something raced in between).
+  const { error } = await supabase.from("purchase_lines").delete().eq("id", lineId);
+  if (error) {
+    if (error.code === "23503") {
+      return { error: "Can't delete — this line has QC, production, or inventory records on file." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath(`/purchase/${line.purchase_order_id}`);
+  revalidatePath("/purchase");
+  return { success: "Line deleted." };
+}
+
+// ------------------------------------------------------------
+// Final Submit / Reopen (FB-0018)
+// ------------------------------------------------------------
+
+// Pushing to inventory_ledger happens entirely inside submit_purchase_
+// order() (0019_purchase_submit_workflow.sql) — SECURITY DEFINER, since
+// clients can't write inventory_ledger directly (ledger_no_direct_write,
+// 0001_init.sql). Same write-role gate as createPurchaseLine/
+// createPurchaseOrder (system_admin, inventory_manager); the RPC repeats
+// the role check itself server-side as defense in depth.
+export async function submitPurchaseOrder(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("submit_purchase_order", { p_po_id: id });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/purchase/${id}`);
+  revalidatePath("/purchase");
+  return { success: "Purchase order submitted — inventory has been updated." };
+}
+
+// Admin-only, matching deletePurchaseOrder()'s convention — reversing
+// already-committed inventory is a materially bigger action than editing
+// a still-draft line, so it's gated tighter than plain write access.
+export async function reopenPurchaseOrder(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user?.roles?.includes("system_admin")) return { error: "Only System Admin can reopen a submitted purchase order." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("reopen_purchase_order", { p_po_id: id });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/purchase/${id}`);
+  revalidatePath("/purchase");
+  return { success: "Purchase order reopened for editing — inventory pushed by it has been reversed." };
 }

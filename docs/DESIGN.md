@@ -132,7 +132,12 @@ one — one item list, one barcode field, one low-stock threshold, everywhere.
 
 ### 4.4 Purchase
 ```
-purchase_orders(po_number text unique, vendor_id, invoice_number, invoice_date)
+purchase_orders(
+  po_number text unique, vendor_id, invoice_number, invoice_date,
+  status text check (status in ('draft','submitted')) default 'draft',  -- §7.5
+  submitted_at timestamptz, submitted_by uuid,
+  reopened_at timestamptz, reopened_by uuid
+)
 purchase_lines(
   purchase_order_id, item_id,
   batch_number text,                        -- RM-NN/YY, auto
@@ -141,7 +146,10 @@ purchase_lines(
   remaining_qty numeric generated always as
     (quantity - qc_qty - stability_qty - rnd_qty) stored,   -- gap closed, see §7.1
   unit_price numeric, gst_pct numeric,
-  expiry_date date
+  expiry_date date,
+  pushed_at timestamptz    -- §7.5: set once this line's remaining_qty has
+                            -- actually reached inventory_ledger; null again
+                            -- after a Reopen, until the next Final Submit
   -- qc_status is NOT a column on this table — it's derived from the most
   -- recent quality_checks row via the purchase_batch_status view, §4.5.
 )
@@ -388,6 +396,54 @@ inserted tagged with that version (column added in migration:
 `mfr_lines.version`). `finished_product_batches.mfr_version` freezes which
 version a given FP batch was actually built under, closing the baseline's
 "no record of which MFR version was used" gap.
+
+### 7.5 Purchase draft → Final Submit workflow (FB-0018, 2 Sept 2026)
+`purchase_orders.status` (`'draft' | 'submitted'`, migration
+`0019_purchase_submit_workflow.sql`) — a PO starts life as `draft`: its
+lines can be freely added/edited/deleted by any write-role user (same
+`system_admin`/`inventory_manager` set as before) and **do not push
+anything to `inventory_ledger`**. Only Final Submit (`submit_purchase_
+order()`, a `security definer` RPC) pushes every not-yet-pushed line's
+`remaining_qty` at once and flips the PO to `submitted`; from then on its
+lines are locked to normal users. `system_admin` alone can Reopen a
+submitted PO (`reopen_purchase_order()`), which reverses whatever it
+pushed with a compensating `'pull'` ledger entry for the exact quantity
+originally pushed (read back from the ledger row itself, never by
+deleting/editing it — the ledger is an audit trail) and puts it back in
+`draft` for further editing and a later resubmit.
+
+`purchase_lines.pushed_at` tracks push state per line rather than
+inferring it from ledger-row existence, so submit/reopen are idempotent
+and exact. The old unconditional `trg_purchase_line_push` (§7.1 above,
+fired on every line insert) is dropped by this migration — pushing now
+happens exclusively inside `submit_purchase_order()`.
+
+Every existing purchase order/line at the time this migration ran predates
+the feature and was explicitly backfilled to `submitted`/pushed (from its
+own real `created_at`/ledger `event_at`) — nothing about historical data or
+already-computed stock changed; only purchase orders created after this
+migration start as `draft`.
+
+Because a draft line's stock never entered the ledger, every downstream
+picker that lets a user pull/consume against a specific batch (QC assign,
+Wastage) now also filters to `purchase_orders.status = 'submitted'` —
+otherwise a sample or wastage event could be recorded against a batch that
+was never actually on hand. Finished Product's FIFO candidates (§7.3) and
+BMR's weighment-line batch picker were already filtered to QC-Approved
+batches only, which transitively requires having gone through the (now
+submitted-only) QC picker, so neither needed a direct change. The RM Stock
+report (an "as of a date" export of `remaining_qty`) got the same filter,
+for the same reason; the Purchase Register report and Labels page are pure
+transaction logs, not stock-availability claims, and were deliberately
+left unfiltered.
+
+One resolved side effect: `deletePurchaseOrder()` (FB-0015) can now
+cleanly delete a PO that's still in draft, since none of its lines have
+any ledger row yet — the "only works before any line exists" limitation
+noted for FB-0015 (`claude/known-issues.md`) no longer applies to
+newly-created purchase orders going forward, only to POs that were
+already submitted before this feature existed or have since been
+submitted themselves.
 
 ## 8. UI system (see also Figma-less "component spec" per screen in each
 module's own review doc under `docs/modules/`)

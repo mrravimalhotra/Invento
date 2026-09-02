@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, isLegacyCode } from "@/lib/utils";
 
 export type LedgerRow = {
   id: string;
@@ -94,6 +94,15 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
         searchPlaceholder="Search item, batch, event type, reference…"
         emptyLabel="No ledger events yet."
         pageSize={20}
+        // FB-0019 ("when legacy rows are hidden, legacy stock should not be
+        // visibile in the ledger") — a ledger event is legacy if the item
+        // itself is a legacy code, or the batch it moved (raw-material or
+        // Finished Product) is a legacy batch number. Same app-wide
+        // "Hide legacy data" preference every other list already reads
+        // (lib/hooks/use-hide-legacy.ts), not a separate toggle.
+        isLegacy={(r) =>
+          isLegacyCode(r.items?.item_code) || isLegacyCode(r.purchase_lines?.batch_number) || isLegacyCode(r.fpBatchNumber)
+        }
       />
       {rows.length === ledgerLimit && (
         <p className="border-t border-border px-4 py-2 text-xs text-muted">
