@@ -5,8 +5,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/utils";
+import { materialsSummary } from "@/lib/packaging-materials";
 import { PackagingExportButton } from "./packaging-export-button";
-import { PackagingTable, materialsSummary, type PackagingRow } from "./packaging-table";
+import { PackagingTable, type PackagingRow } from "./packaging-table";
 
 export default async function PackagingListPage({
   searchParams,
