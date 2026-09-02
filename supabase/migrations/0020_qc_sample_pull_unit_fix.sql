@@ -136,31 +136,45 @@ end $$;
 --    entry, not a rewrite of history. event_by is left null: this runs as
 --    a migration, not inside an authenticated request, so auth.uid() has
 --    nothing to resolve.
+--
+--    Identifies the bad row by its actual characteristics (item, batch,
+--    event_type/quantity/unit, reference_type) rather than its own `id` —
+--    an earlier version of this migration mistakenly matched on
+--    `inventory_ledger.id = <value>` using a value that was actually the
+--    row's `reference_id` (the linked quality_checks.id), never its own
+--    `id`, which was never queried. That guard silently matched nothing,
+--    so the correction insert ran but affected zero rows (Postgres
+--    reports this identically to a real no-op insert — "Success. No rows
+--    returned" either way, which is what made the mistake easy to miss
+--    live). Fixed here to match on content rather than an unverified id,
+--    and confirmed live 2 Sept 2026: this produced exactly the expected
+--    single row, and Jatamansi's Stock Balance read back as 17.2 kg / OK
+--    immediately after.
 -- ------------------------------------------------------------
 insert into public.inventory_ledger
   (event_type, item_id, purchase_line_id, quantity, unit, reference_type, reference_id, event_by)
 select
   'push',
-  i.id,
-  '1bfc6a85-4e61-4c1e-8c49-66e54bc35a60'::uuid,
+  bad.item_id,
+  bad.purchase_line_id,
   49.95,
   'kg',
   'qc',
-  '8bf46f6a-afa5-4ebe-96e6-0226c5f03eae'::uuid,
+  bad.reference_id,
   null
-from public.items i
+from public.inventory_ledger bad
+join public.items i on i.id = bad.item_id
 where i.item_code = 'RM-00002'
-  and exists (
-    select 1 from public.inventory_ledger bad
-    where bad.id = '8bf46f6a-afa5-4ebe-96e6-0226c5f03eae'::uuid
-      and bad.quantity = 50 and bad.unit = 'gm'
-  )
+  and bad.event_type = 'pull'
+  and bad.quantity = 50
+  and bad.unit = 'gm'
+  and bad.reference_type = 'qc'
   and not exists (
     -- Idempotency guard: never double-apply this specific correction if
     -- the migration is somehow run twice.
     select 1 from public.inventory_ledger existing
-    where existing.item_id = i.id
+    where existing.item_id = bad.item_id
       and existing.quantity = 49.95
       and existing.unit = 'kg'
-      and existing.reference_id = '8bf46f6a-afa5-4ebe-96e6-0226c5f03eae'::uuid
+      and existing.reference_id = bad.reference_id
   );
