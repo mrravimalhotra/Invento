@@ -79,6 +79,41 @@ legacy field set: `wt_total_rm`, `wastage`, `total_units`, `net_qty`,
 (`wt_total_rm - wastage`, and yield % from those two) — the form never
 computes them; they're simply displayed after the save round-trips.
 
+**Partially superseded 2 Sept 2026 — see "Wastage / Total units / Net
+quantity removed" below.** `wastage`, `total_units`, and `net_qty` are no
+longer fields on this form; `wt_total_rm`, `finish_date`, `expiry_month`,
+and `qc_sample_qty` (now alongside Stability/R&D, see above) are still
+here exactly as described.
+
+## Wastage / Total units / Net quantity removed from Complete Batch (2 Sept 2026)
+
+Per direct request (screenshot of the Complete Batch form with Wastage,
+Total units, and Net quantity highlighted): those three fields are removed
+from `complete-batch-form.tsx`. `Total weight of RM used` stays — it's
+still the only input `net_weight`/`actual_yield_pct` are generated from.
+
+Same non-destructive-edit fix as `updateItem()` (see "Sampling & stock
+defaults removed" above): `completeFinishedProductBatch()` no longer reads
+or writes `wastage`/`total_units`/`net_qty` at all, rather than reading
+empty values from a form that no longer sends them. This mattered more
+here than it did for Item Master — `wastage` used to default to `0` when
+its field was empty (`wastage ? Number(wastage) : 0`), so leaving that
+read/write path in place would have actively zeroed out every batch's
+`wastage` (and thus visibly changed its generated `net_weight`) on its
+very next save, not just silently dropped a value. Existing batches that
+already have these three fields set keep them untouched; the columns
+themselves and `net_weight`/`actual_yield_pct`'s generated-column
+definition are unchanged — no migration.
+
+One consequence worth flagging: since `wastage` can no longer be entered
+anywhere on this screen, a batch completed after this change has
+`net_weight` always equal to `wt_total_rm` (wastage stays whatever it
+was — `null` for a new batch) unless something else sets `wastage` later.
+If wastage still needs recording somewhere, that's a separate, open
+question — not guessed at here, same reasoning as the Finished Product
+Stability/R&D gap flagged above before it was scoped out with you
+directly.
+
 ## Stability qty / R&D qty added to Complete Batch (2 Sept 2026)
 
 Raw Material / Packaging has captured QC + Stability + R&D quantity

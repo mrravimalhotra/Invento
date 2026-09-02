@@ -112,9 +112,6 @@ export async function completeFinishedProductBatch(
   if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Not authorized." };
 
   const wtTotalRm = formData.get("wt_total_rm");
-  const wastage = formData.get("wastage");
-  const totalUnits = formData.get("total_units");
-  const netQty = formData.get("net_qty");
   const finishDate = String(formData.get("finish_date") || "");
   const expiryMonth = String(formData.get("expiry_month") || "");
   const qcSampleQtyRaw = formData.get("qc_sample_qty");
@@ -155,13 +152,22 @@ export async function completeFinishedProductBatch(
     };
   }
 
+  // wastage / total_units / net_qty are deliberately NOT in this update
+  // object (2 Sept 2026 — removed from the Complete Batch form). Same
+  // non-destructive fix as updateItem() in lib/actions/items.ts: reading
+  // an empty value from a form that no longer sends these fields and
+  // writing it back would silently wipe wastage/total_units/net_qty on
+  // every future save of an existing batch (wastage in particular used
+  // to default to 0 when absent, which would have been actively wrong,
+  // not just a no-op). Leaving them out of `update` entirely means a
+  // batch that already had these values keeps them untouched;
+  // net_weight/actual_yield_pct (generated from wt_total_rm - wastage)
+  // simply stop moving with wastage for any batch completed after this
+  // change, since there's no longer a field to set it from.
   const { error } = await supabase
     .from("finished_product_batches")
     .update({
       wt_total_rm: wtTotalRm ? Number(wtTotalRm) : null,
-      wastage: wastage ? Number(wastage) : 0,
-      total_units: totalUnits ? Number(totalUnits) : null,
-      net_qty: netQty ? Number(netQty) : null,
       finish_date: finishDate || null,
       expiry_month: expiryMonth || null,
       qc_sample_qty: qcSampleQty,
