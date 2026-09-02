@@ -24,6 +24,23 @@ export type LedgerRow = {
   fpBatchNumber: string | null;
 };
 
+// Inventory Ledger redesign, Phase 1 (claude/inventory-ledger-redesign.md)
+// — 0028_ledger_sample_pull_fix.sql added three new reference_type values
+// (qc_sample/stability_sample/rnd_sample) alongside the existing ones.
+// The old rendering (`className="capitalize"` over the raw column value)
+// only capitalizes the first letter, so an underscored value would have
+// shown as "Qc_sample" rather than a real label — fixed with an explicit
+// map instead of trying to out-clever CSS for every future value too.
+const REFERENCE_TYPE_LABELS: Record<string, string> = {
+  purchase: "Purchase",
+  qc: "QC",
+  qc_sample: "QC Sample",
+  stability_sample: "Stability Sample",
+  rnd_sample: "R&D Sample",
+  finished_product: "Finished Product",
+  packaging: "Packaging",
+};
+
 function formatEventAt(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {
     year: "numeric",
@@ -77,7 +94,8 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
     },
     {
       header: "Reference",
-      accessor: (r) => (r.reference_type ? <span className="capitalize">{r.reference_type}</span> : "—"),
+      accessor: (r) =>
+        r.reference_type ? (REFERENCE_TYPE_LABELS[r.reference_type] ?? r.reference_type) : "—",
       searchValue: (r) => r.reference_type ?? "",
     },
     {

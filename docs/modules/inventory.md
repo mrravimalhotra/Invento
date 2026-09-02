@@ -306,3 +306,122 @@ gets computed, and `docs/modules/finished-product.md` /
 
 Verification: `npx tsc --noEmit`, `npx eslint` on every touched file, and
 `npx next build` (all 42 routes) all clean.
+
+## Inventory Ledger redesign, Phase 1: QC/Stability/R&D sample double-count fix (3 Sept 2026)
+
+Ravi: "help me think and re-design inventory page Ledger page... Raw
+Material Items available for creating finished product batch would be
+purchase - QC Sample - R&D Sample - Stability Sample - Wastage." Digging
+into the current ledger mechanics to answer that turned up three real
+data-integrity gaps, written up in full in the Invento project doc
+`claude/inventory-ledger-redesign.md` (ledger mechanics, all three gaps,
+design options, and the scope decisions below, each confirmed with Ravi
+via `AskUserQuestion`). This entry covers Phase 1 of 4 — the one gap that
+was silently corrupting `stock_balance` today, not just a UI/reporting
+limitation like the other two (Phase 2: live per-batch remaining qty;
+Phase 3: Finished Product as a real, ledger-tracked item; Phase 4: the
+Ledger/Stock Position UI redesign itself — none built yet).
+
+**The bug.** The real push path is `submit_purchase_order()`
+(`0019_purchase_submit_workflow.sql`) — **not**
+`trg_fn_purchase_line_push()`/`trg_purchase_line_push`
+(`0002_transactions.sql`): 0019 explicitly dropped that trigger ("Stop
+pushing to inventory the instant a line is inserted... The function is
+left in place (unused) rather than dropped") once Purchase got its
+draft/submit workflow, and nothing has called it since. An early draft of
+this fix edited the dead trigger function instead — it would have shipped
+looking correct while changing nothing for a real purchase. Caught by
+actually replaying every migration (0001→0028) against a scratch local
+Postgres 16, seeding real rows, and calling the real RPCs
+(`submit_purchase_order`/`reopen_purchase_order`, a `quality_checks`
+insert, two retests) rather than trusting inspection alone — see
+"Verification" below.
+
+`submit_purchase_order()` pushes `remaining_qty` (quantity already net of
+`qc_qty`/`stability_qty`/`rnd_qty`) once per line, at submit, excluding
+the sample amounts from stock from submission onward.
+`trg_fn_qc_sample_pull()` then pulls that same amount a second time
+whenever a `quality_checks` row is created against the batch — once at
+initial QC assignment (`sample_qty` defaults from `qc_qty`) and again at
+*every* retest (`sample_qty = stability_qty`, per
+`0025_qc_retest_workflow.sql`'s own note that no trigger change was
+needed for retests to fire it — that note is exactly why this compounds).
+Net effect on `stock_balance`: `qc_qty` double-subtracted as soon as QC
+happens once; `stability_qty` double-subtracted, and then subtracted
+again per additional retest. `rnd_qty` has the opposite gap — excluded at
+submit, never pulled anywhere, so it never appears on the ledger at all.
+
+**The fix — `0028_ledger_sample_pull_fix.sql`.**
+
+- Reservation now happens once, at submit: `submit_purchase_order()`
+  pushes the FULL `quantity` of every line it submits (was
+  `remaining_qty`), then inserts three separately labeled `pull` events
+  in the same transaction for `qc_qty`/`stability_qty`/`rnd_qty` (each
+  only if > 0), tagged with new `reference_type` values
+  `qc_sample`/`stability_sample`/`rnd_sample` (widened onto the existing
+  check constraint — `qc` is kept, not replaced, so the historical rows
+  the old trigger already wrote stay exactly as they are; the ledger is
+  append-only and never edited, same principle as 0020's
+  compensating-entry approach).
+- `reopen_purchase_order()` now reverses those three new pulls too (a
+  compensating `push` of whatever was pulled, read back from the ledger
+  row itself, same as its existing purchase-push reversal), not just the
+  purchase push — otherwise a reopen-then-resubmit would re-pull the
+  sample amounts a second time, since resubmit re-runs for any line
+  `reopen_purchase_order()` clears `pushed_at` on. A pre-existing,
+  old-style `qc`-tagged pull (a real QC/retest event that already
+  happened) is deliberately left alone by Reopen either way — that
+  represents actual lab consumption, not a provisional reservation, and
+  reopening the purchase record was never meant to un-sample it.
+- `trg_fn_qc_sample_pull()` is retired to a no-op. QC/retest record
+  creation no longer moves stock at all — the reservation already
+  happened at submit. The dead trigger function itself
+  (`trg_fn_purchase_line_push`) is left exactly as 0019 left it —
+  untouched, unused, on purpose.
+- An idempotent backfill (`do $$ ... $$` block, active AND already-
+  submitted lines only — a still-draft line has no stock effect at all
+  today, FB-0018, and must stay that way) recomputes each purchase
+  line's actual current ledger state fresh on every run and inserts only
+  the gap needed to reach the corrected target: a compensating push to
+  bring the *net* push (push minus pull, not a raw sum — a line that's
+  been reopened/resubmitted, old-style or new, already has offsetting
+  rows a raw sum would double-count) up to the full `quantity` (plus, for
+  a batch that went through more than one old-style retest, an extra
+  compensating push for every over-pull beyond the first `stability_qty`
+  — the second half of the same bug), and a labeled sample pull for
+  `qc_qty`/`stability_qty`/`rnd_qty` only where one isn't already
+  reserved — checking for EITHER an old-style `qc`-tagged pull (a real
+  QC/retest event) OR a new-style `qc_sample`/`stability_sample` pull
+  already on the ledger (this line already went through the fixed
+  `submit_purchase_order()`, or a prior run of this same backfill).
+  Verified safe to run more than once: a second run computes zero gap
+  everywhere and inserts nothing.
+- `InventoryLedgerTable`'s Reference column previously rendered the raw
+  `reference_type` string through `className="capitalize"` (fine for
+  single words like "Purchase"/"Packaging", but would have shown the new
+  values as "Qc_sample" etc.) — replaced with an explicit
+  `REFERENCE_TYPE_LABELS` map ("QC Sample" / "Stability Sample" / "R&D
+  Sample" / etc.) so this ships legible, not just functional.
+
+**Scope decisions, all confirmed with Ravi via `AskUserQuestion` before
+building:** fix the double-count now rather than defer it (this phase);
+Finished Product tracking (Phase 3) will make finished products real,
+ledger-tracked `items` rather than just summing `packaged_qty` directly,
+with stock available "at QC approval" rather than "at packaging", and
+nothing consuming/dispatching FP stock yet (no such flow exists in the
+app today); per-batch remaining quantity (Phase 2) will be a maintained
+column kept current by a trigger, not computed on read.
+
+Verification: `npx tsc --noEmit`, `npx eslint` on every touched file, and
+`npx next build` (all 42 routes), all clean — plus, for the migration
+itself, something none of the earlier migrations this session had done:
+replaying all 28 migrations end to end against a scratch local Postgres
+16 (a minimal `auth` schema shim for `auth.users`/`auth.uid()`, since this
+schema is normally Supabase-managed), then exercising the real RPCs
+against seeded data — `submit_purchase_order`, a `quality_checks` insert,
+two retests, `reopen_purchase_order`, resubmit, and the backfill block
+run twice — checking `stock_balance.on_hand` at every step. That's what
+caught both real bugs described above (the dead-trigger mistake and the
+backfill's double-insert-on-rerun bug) before either shipped; a
+`next build` pass alone would have caught neither, since both are pure
+SQL/data-flow issues with no TypeScript surface.
