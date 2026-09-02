@@ -38,8 +38,7 @@ type QualityCheckFetch = {
 type FpBatchFetch = {
   id: string;
   batch_number: string;
-  net_qty: string | number | null;
-  total_units: string | number | null;
+  batch_yield: string | number | null;
   unit: string;
   finish_date: string | null;
   expiry_month: string | null;
@@ -64,7 +63,7 @@ export default async function LabelsPage() {
     supabase
       .from("finished_product_batches")
       .select(
-        "id, batch_number, net_qty, total_units, unit, finish_date, expiry_month, status, mfr_definition:mfr_definitions(name)"
+        "id, batch_number, batch_yield, unit, finish_date, expiry_month, status, mfr_definition:mfr_definitions(name)"
       )
       .eq("active", true)
       .order("created_at", { ascending: false }),
@@ -105,7 +104,7 @@ export default async function LabelsPage() {
     id: b.id,
     productName: b.mfr_definition?.[0]?.name ?? "—",
     batchNumber: b.batch_number,
-    quantity: b.net_qty !== null ? Number(b.net_qty) : b.total_units !== null ? Number(b.total_units) : null,
+    quantity: b.batch_yield !== null ? Number(b.batch_yield) : null,
     unit: b.unit,
     finishDate: b.finish_date,
     expiryMonth: b.expiry_month,

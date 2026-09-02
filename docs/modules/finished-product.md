@@ -114,6 +114,68 @@ question — not guessed at here, same reasoning as the Finished Product
 Stability/R&D gap flagged above before it was scoped out with you
 directly.
 
+**Fully superseded 2 Sept 2026 — see "Batch Yield replaces Total weight of
+RM used" below.** `wt_total_rm` and `net_weight` are both gone entirely
+(dropped from the database, not just the form); the "consequence worth
+flagging" paragraph above no longer applies since there's no `net_weight`
+left to be affected by `wastage` either way.
+
+## Batch Yield replaces Total weight of RM used / net_weight (2 Sept 2026)
+
+Per direct request: *"Total Weight of RM used is incorrect and should be
+removed from app and database... after each new batch is created, Batch
+Yield needs to be entered manually basis on how much Finished Product has
+been created. The unit will be same as of unit of Finished product item."*
+Confirmed explicitly OK to drop real data before proceeding — this
+environment is test data, not live ("we are working on test data so its ok
+to drop any data available. we are in testing phase and not live").
+
+This is the one genuinely destructive migration in this run of changes.
+Before making it, live data was checked first (per the working agreement:
+flag before deleting): 7 legacy-imported batches (`LEG-FP-304`,
+`LEG-FP-205`, `LEG-FP-195`, `LEG-FP-192`, `LEG-FP-199`, `LEG-FP-231`,
+`LEG-FP-259`) had real `wt_total_rm` values (30 kg, 125 kg, 69.6 kg, etc.)
+that this migration permanently deletes — confirmed acceptable given the
+above.
+
+`0022_fp_batch_yield.sql`:
+- Drops `net_weight` and `actual_yield_pct` first (both **generated**
+  columns computed from `wt_total_rm`/`wastage` — Postgres can't drop a
+  column that a generated column still depends on), then drops
+  `wt_total_rm` itself. `net_weight` is not replaced — there's no longer a
+  coherent "RM weight in, minus wastage" concept once `wt_total_rm` is
+  gone, and nothing asked for one; the Batch header card's "Net weight
+  (generated)" row is now "Batch yield" instead, a plain (non-generated)
+  value.
+- Adds `batch_yield numeric` — manually entered on the Complete Batch
+  form, same unit as the batch's own `unit` (i.e. the Finished Product
+  item's unit), replacing the "Total weight of RM used" field 1:1 in the
+  form's layout.
+- Re-adds `actual_yield_pct` as a **generated** column with a new,
+  simpler formula: `batch_yield / target_qty * 100` instead of the old
+  `(wt_total_rm - wastage) / wt_total_rm * 100`. Same column name and
+  type, so every existing reader (finished-product list, Reports, this
+  detail page) needed no code change at all — they just now show a more
+  directly meaningful percentage ("how much came out vs. how much was
+  targeted") automatically.
+- `submitFinishedProductToQc()`'s pre-submission check ("Complete the
+  batch... before submitting to QC") now requires `batch_yield` instead of
+  `wt_total_rm`.
+- Also drops `net_qty`, per a same-thread follow-up ("remove net_qty if
+  unused") — but it was **not** actually unused: `app/(dashboard)/labels/page.tsx`
+  was still reading `net_qty` (falling back to `total_units`) as the
+  printed quantity on Finished Product labels, a real consumer that
+  `0010`'s form removal had silently broken going forward (any batch
+  completed after `0010` would have printed a blank label quantity) — this
+  went unnoticed until this migration's impact check caught it. Fixed in
+  the same change: `labels/page.tsx` now reads `batch_yield` instead,
+  which is exactly the value Labels actually needs. Lesson applied: before
+  dropping *any* column, grep the whole app, not just the module it looks
+  like it belongs to.
+- `wastage` and `total_units` are similarly unused (since `0010`) but
+  weren't named in either request, so they're left in the database
+  untouched — a follow-up if the same cleanup is wanted for those too.
+
 ## Stability qty / R&D qty added to Complete Batch (2 Sept 2026)
 
 Raw Material / Packaging has captured QC + Stability + R&D quantity

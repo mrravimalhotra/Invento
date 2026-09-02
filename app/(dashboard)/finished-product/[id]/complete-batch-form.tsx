@@ -9,7 +9,7 @@ import { compatibleUnits, convertUnit } from "@/lib/constants/units";
 import { formatNumber } from "@/lib/utils";
 
 type Defaults = {
-  wt_total_rm: string | number | null;
+  batch_yield: string | number | null;
   finish_date: string | null;
   expiry_month: string | null;
   qc_sample_qty: string | number | null;
@@ -46,8 +46,8 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label={`Total weight of RM used (${unit})`} htmlFor="wt_total_rm">
-          <Input id="wt_total_rm" name="wt_total_rm" type="number" step="any" min="0" defaultValue={defaults.wt_total_rm ?? ""} />
+        <Field label={`Batch yield (${unit})`} htmlFor="batch_yield" hint="How much Finished Product this batch actually produced.">
+          <Input id="batch_yield" name="batch_yield" type="number" step="any" min="0" defaultValue={defaults.batch_yield ?? ""} />
         </Field>
         <Field label="Finish date" htmlFor="finish_date">
           <Input id="finish_date" name="finish_date" type="date" defaultValue={defaults.finish_date ?? ""} />

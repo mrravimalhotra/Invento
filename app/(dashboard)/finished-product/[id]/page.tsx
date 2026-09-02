@@ -18,7 +18,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
   const { data: batch } = await supabase
     .from("finished_product_batches")
     .select(
-      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, wt_total_rm, net_weight, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, expiry_date, mfr_definitions(id, code, name)"
+      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, expiry_date, mfr_definitions(id, code, name)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -85,8 +85,8 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
               <p className="mt-1 font-medium">{formatDate(batch.expiry_date)}</p>
             </div>
             <div>
-              <span className="text-muted">Net weight (generated)</span>
-              <p className="mt-1 font-medium">{batch.net_weight != null ? `${formatNumber(batch.net_weight)} ${batch.unit}` : "—"}</p>
+              <span className="text-muted">Batch yield</span>
+              <p className="mt-1 font-medium">{batch.batch_yield != null ? `${formatNumber(batch.batch_yield)} ${batch.unit}` : "—"}</p>
             </div>
             <div>
               <span className="text-muted">Actual yield % (generated)</span>
@@ -169,14 +169,13 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
             <CardHeader title="Complete batch" />
             <CardBody>
               <p className="mb-4 text-xs text-muted">
-                net_weight and actual_yield_pct above are computed by the database from Total weight of RM used —
-                they are not editable directly.
+                Actual yield % above is computed by the database from Batch yield — it is not editable directly.
               </p>
               <CompleteBatchForm
                 batchId={id}
                 unit={batch.unit}
                 defaults={{
-                  wt_total_rm: batch.wt_total_rm,
+                  batch_yield: batch.batch_yield,
                   finish_date: batch.finish_date,
                   expiry_month: batch.expiry_month,
                   qc_sample_qty: batch.qc_sample_qty,

@@ -237,6 +237,20 @@ Good screen; `status` plus a QC record keyed to this table (reusing
 migration) gives FP its own approval gate, matching the corrected finding
 that the legacy system *does* gate FP on approval.
 
+**Schema block above is historical as of `0022_fp_batch_yield.sql` (2 Sept
+2026)** — `wt_total_rm`, `wastage`, `net_weight`, `total_units`, and
+`net_qty` no longer exist on `finished_product_batches`; `wastage` and
+`total_units` were left as unused/orphaned columns by the app (0010), and
+`wt_total_rm`/`net_weight`/`net_qty` were dropped outright (a deliberate,
+explicitly-approved exception to "prefer additive/nullable migrations,"
+made only because this environment held test data, not live data). In
+their place: `batch_yield numeric` (manually entered, same unit as the
+batch), and `actual_yield_pct numeric generated always as (case when
+target_qty > 0 and batch_yield is not null then round(batch_yield /
+target_qty * 100, 2) end) stored` — same column name/type as before, new
+formula. See `docs/modules/finished-product.md` ("Batch Yield replaces
+Total weight of RM used / net_weight") for the full reasoning.
+
 ### 4.9 Batch Manufacturing Record (BMR)
 ```
 bmr_records(finished_product_batch_id, prepared_by, checked_by, approved_by, prepared_at, checked_at, approved_at)

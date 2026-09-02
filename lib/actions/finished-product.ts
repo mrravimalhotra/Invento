@@ -100,9 +100,10 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   redirect(`/finished-product/${batch.id}`);
 }
 
-// "Complete batch" — the full yield/wastage field set from the legacy Creation Finish
-// Good screen (gap fix vs. the old baseline's bare "Quantity" field). net_weight and
-// actual_yield_pct are DB-generated columns; we never compute them client-side.
+// "Complete batch". As of 0022_fp_batch_yield.sql (2 Sept 2026), Batch Yield
+// is entered here manually (same unit as the batch's own `unit`, i.e. the
+// Finished Product item's unit) — actual_yield_pct is a DB-generated column
+// (batch_yield / target_qty * 100); we never compute it client-side.
 export async function completeFinishedProductBatch(
   id: string,
   _prev: ActionState,
@@ -111,7 +112,7 @@ export async function completeFinishedProductBatch(
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Not authorized." };
 
-  const wtTotalRm = formData.get("wt_total_rm");
+  const batchYield = formData.get("batch_yield");
   const finishDate = String(formData.get("finish_date") || "");
   const expiryMonth = String(formData.get("expiry_month") || "");
   const qcSampleQtyRaw = formData.get("qc_sample_qty");
@@ -167,7 +168,7 @@ export async function completeFinishedProductBatch(
   const { error } = await supabase
     .from("finished_product_batches")
     .update({
-      wt_total_rm: wtTotalRm ? Number(wtTotalRm) : null,
+      batch_yield: batchYield ? Number(batchYield) : null,
       finish_date: finishDate || null,
       expiry_month: expiryMonth || null,
       qc_sample_qty: qcSampleQty,
@@ -201,13 +202,13 @@ export async function submitFinishedProductToQc(
   const supabase = await createClient();
   const { data: batch, error: fetchError } = await supabase
     .from("finished_product_batches")
-    .select("status, wt_total_rm, finish_date, qc_sample_qty, unit, expiry_date")
+    .select("status, batch_yield, finish_date, qc_sample_qty, unit, expiry_date")
     .eq("id", id)
     .maybeSingle();
   if (fetchError || !batch) return { error: fetchError?.message || "Batch not found." };
   if (batch.status !== "in_process") return { error: "Only an in-process batch can be submitted to QC." };
-  if (!batch.wt_total_rm || !batch.finish_date) {
-    return { error: "Complete the batch (total weight, wastage, finish date) before submitting to QC." };
+  if (!batch.batch_yield || !batch.finish_date) {
+    return { error: "Complete the batch (batch yield, finish date) before submitting to QC." };
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
