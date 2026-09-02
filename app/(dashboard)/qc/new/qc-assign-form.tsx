@@ -40,6 +40,8 @@ export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
   const [expiryDate, setExpiryDate] = useState("");
 
   const batchesForItem = useMemo(() => lines.filter((l) => l.item_id === itemId), [lines, itemId]);
+  const currentLine = useMemo(() => lines.find((l) => l.id === purchaseLineId), [lines, purchaseLineId]);
+  const lineUnit = currentLine?.unit ?? "";
 
   function handleItemChange(nextItemId: string) {
     setItemId(nextItemId);
@@ -121,8 +123,25 @@ export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
             onChange={(e) => setSampleQty(e.target.value)}
           />
         </Field>
-        <Field label="Sample unit" htmlFor="sample_unit">
-          <Input id="sample_unit" name="sample_unit" value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)} />
+        <Field
+          label="Sample unit"
+          htmlFor="sample_unit"
+          hint="Converted to this batch's own unit when the sample is pulled from stock."
+        >
+          <Select
+            id="sample_unit"
+            name="sample_unit"
+            value={sampleUnit}
+            onChange={(e) => setSampleUnit(e.target.value)}
+            disabled={!lineUnit}
+          >
+            <option value="">Select…</option>
+            {(lineUnit ? compatibleUnits(lineUnit) : []).map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </Select>
         </Field>
       </div>
 
