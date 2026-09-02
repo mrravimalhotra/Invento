@@ -267,6 +267,15 @@ status is `approved`/`rejected`, writes that status onto
 pattern of doing this kind of sync in the database rather than in every
 reader. Once added, `resolveDisplayStatus` becomes redundant but harmless.
 
+**Done — Inventory Ledger redesign, Phase 3 (3 Sept 2026,
+`0030_finished_product_ledger.sql`).** That trigger now exists
+(`trg_qc_review_finished_product`) and `finished_product_batches.status`
+is authoritative going forward; it was added alongside the new Finished
+Product ledger push described below, since both hook the exact same
+`quality_checks` transition. `resolveDisplayStatus`/`latestQcByBatch` were
+kept in place rather than removed — see `docs/modules/inventory.md`'s
+Phase 3 section for the full writeup.
+
 ### RLS gap found while building this (flag for reconciliation)
 
 `MODULE_WRITE_ROLES.finished_product` is `[system_admin, mfr_manager,
@@ -370,3 +379,19 @@ specific constraint violation into a plain-language form error ("Not
 enough of that batch remaining — refresh and pick another batch or a
 smaller quantity"), the same pattern already used for the QC-Approved
 gate error just above it in the code.
+
+## Inventory Ledger redesign, Phase 3: FP stock becomes a real, ledger-tracked item at QC approval (3 Sept 2026)
+
+Approving a batch's QC record (`/qc/[id]`) now pushes `batch_yield` onto
+`inventory_ledger` against the MFR's linked `items` row and pulls the
+three sample quantities, so "available finished product" is computable
+the same way raw material and packaging stock already are — nothing on
+this module's own screens changed to make that happen (the push lives in
+`0030_finished_product_ledger.sql`, triggered off `quality_checks`, not
+off anything in `lib/actions/finished-product.ts`). The one change here
+is `completeFinishedProductBatch()` now translates the new
+`fp_batch_yield_not_negative` constraint (QC + stability + R&D sample
+quantities exceeding the entered batch yield) into a plain-language form
+error, same pattern as the two constraint translations just above. Full
+writeup, including the `finished_product_batches.status` sync this same
+migration adds, in `docs/modules/inventory.md`'s Phase 3 section.

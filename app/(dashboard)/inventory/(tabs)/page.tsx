@@ -45,9 +45,28 @@ export default async function InventoryLedgerPage() {
   // more targeted lookups rather than a schema change: 'finished_product'
   // rows point straight at finished_product_batches.id; 'packaging' rows
   // point at packaging_issues.id, one hop further to the batch.
+  //
+  // Phase 3 (0030_finished_product_ledger.sql) adds a fourth source of FP
+  // batch context: 'fp_yield' rows (the batch's own output push) always
+  // point straight at finished_product_batches.id, same shape as
+  // 'finished_product'. qc_sample/stability_sample/rnd_sample are trickier
+  // — Phase 1 already uses those same reference_type values for
+  // purchase-line-context pulls (reference_id there is a purchase_line
+  // id), so a bare reference_type check can't tell the two apart. The real
+  // purchase_line_id column (embedded above as purchase_lines) is what
+  // distinguishes them: Phase 3's trigger never sets it, so an FP-context
+  // sample row always has purchase_lines === null while an RM-context one
+  // always has it populated.
   const fpBatchByLedgerId = new Map<string, string>();
   const fpDirectIds = ledgerRows
-    .filter((r) => r.reference_type === "finished_product" && r.reference_id)
+    .filter(
+      (r) =>
+        r.reference_id &&
+        (r.reference_type === "finished_product" ||
+          r.reference_type === "fp_yield" ||
+          ((r.reference_type === "qc_sample" || r.reference_type === "stability_sample" || r.reference_type === "rnd_sample") &&
+            !r.purchase_lines))
+    )
     .map((r) => r.reference_id as string);
   const packagingIds = ledgerRows
     .filter((r) => r.reference_type === "packaging" && r.reference_id)

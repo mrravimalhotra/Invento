@@ -183,7 +183,17 @@ export async function completeFinishedProductBatch(
       rnd_qty: rndQty,
     })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) {
+    // Phase 3 (0030_finished_product_ledger.sql) — fp_batch_yield_not_negative:
+    // this is the one screen where batch_yield and the three sample
+    // quantities are all set together, so it's the one place this new
+    // constraint can actually be hit (mirrors Phase 2's live_remaining_not_negative
+    // translation in lib/actions/inventory.ts).
+    if (error.message.includes("fp_batch_yield_not_negative")) {
+      return { error: "QC + stability + R&D sample quantities can't exceed the batch yield — reduce one of the sample amounts." };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath(`/finished-product/${id}`);
   revalidatePath("/finished-product");

@@ -510,3 +510,101 @@ against data seeded *before* migration 0029 ran (a submitted line with
 real pre-existing FP consumption and wastage), confirming it computed the
 correct starting value from scratch. `npx tsc --noEmit`, `npx eslint` on
 every touched file, and `npx next build` (all 42 routes) all clean.
+
+## Inventory Ledger redesign, Phase 3: Finished Product as a real, ledger-tracked item (3 Sept 2026)
+
+Third of four phases scoped in `claude/inventory-ledger-redesign.md`
+(Gap 3). Scoped via `AskUserQuestion`: "available finished product"
+should be Full — real items on the same ledger raw material and
+packaging already use, not just summing `packaged_qty` — with stock
+becoming available *at QC approval*, not at packaging, and (confirmed)
+nothing yet consumes or dispatches FP stock, so no consumption side was
+built.
+
+**Most of the "real item" infrastructure already existed.** Every MFR
+already gets its own `items` row (`category = 'processed'`, an
+FP-00001-style code) via `mfr_definitions.finished_product_item_id`,
+added by `0010_mfr_finished_product_link.sql` and created automatically
+by `createMfrDefinition()`. What was actually missing: nothing ever
+pushed to `inventory_ledger` when a batch was produced and approved.
+
+**The fix — `0030_finished_product_ledger.sql`.** A trigger on
+`quality_checks`, `AFTER UPDATE`, scoped to the Finished-Product-batch
+transition (`new.finished_product_batch_id is not null and old.status =
+'submitted' and new.status in ('approved', 'rejected')`) —
+`reviewQualityCheck()` (`lib/actions/qc.ts`) is the one place that
+transition ever happens, for both raw-material and FP batches alike
+(`qc_one_subject` guarantees exactly one of `purchase_line_id`/
+`finished_product_batch_id` is set per row). `SECURITY DEFINER`, because
+the QC-review write role (`system_admin, quality_checker, qc_reviewer`)
+and the finished-product write role (`system_admin, mfr_manager,
+inventory_manager`) don't overlap for non-admins — confirmed by an
+RLS-enforced test (a `qc_reviewer`-only user, no FP role, real
+`row_security = on`) that a QC reviewer approving a batch correctly
+still pushes the ledger rows despite lacking `UPDATE` on
+`finished_product_batches` or `INSERT` on `inventory_ledger` directly.
+
+On approval, the trigger pushes the full `batch_yield` ("how much
+Finished Product has been created," entered at Complete Batch —
+`0022_fp_batch_yield.sql`) as a new `fp_yield` reference_type (distinct
+from `finished_product`, which already means something else — RM pulled
+*for* FP composition), then pulls `qc_sample_qty`/`stability_qty`/
+`rnd_qty` (captured the same screen) as `qc_sample`/`stability_sample`/
+`rnd_sample` — reusing Phase 1's reference_type values as-is, since a QC
+sample is a QC sample whether it came from a purchase batch or a
+production batch. On rejection, no ledger rows are pushed at all.
+
+**A second, previously-flagged gap closed by the same hook:**
+`lib/finished-product-status.ts` had carried a comment since it was
+written that `finished_product_batches.status` should really be
+DB-trigger-synced from `quality_checks` rather than computed at read
+time. The same trigger now does that sync unconditionally (both branches
+of the `WHEN` — approved or rejected), before the ledger-specific logic
+even runs. `resolveDisplayStatus()`/`latestQcByBatch()` are left in place
+as harmless defense-in-depth (comment updated to say so) rather than
+ripped out across every caller — for any batch touched after 0030, the
+two now agree by construction.
+
+**Graceful, not blocking, in two cases** neither of which should ever
+happen via the app but the trigger doesn't assume it's the only caller:
+an MFR whose `finished_product_item_id` is null (a legacy row predating
+0010) skips the ledger push but still syncs status; a null or zero
+`batch_yield` does the same. Neither raises an error — a QC reviewer is
+never blocked from approving a real batch by a data gap on its recipe.
+
+**A new `fp_batch_yield_not_negative` check constraint** (`not valid`,
+same idiom as Phase 2's `live_remaining_not_negative`) rejects a
+`batch_yield`/sample-quantity combination where the three samples exceed
+the yield — nothing enforced this for Finished Product before.
+`completeFinishedProductBatch()` (`lib/actions/finished-product.ts`, the
+one screen where all four values are set together) translates it into a
+plain-language form error.
+
+**FB-0013 extended** (`app/(dashboard)/inventory/(tabs)/page.tsx`) to
+resolve FP batch context for the new rows: `fp_yield` always points
+straight at `finished_product_batches.id`, same shape as
+`finished_product`. `qc_sample`/`stability_sample`/`rnd_sample` are
+trickier, since Phase 1 already uses those exact reference_type values
+for purchase-line-context pulls — a bare reference_type check can't tell
+the two apart. Disambiguated using the real `purchase_line_id` column
+(embedded as `purchase_lines`): Phase 3's trigger never sets it, so an
+FP-context sample row always has `purchase_lines === null` while an
+RM-context one always has it populated. `REFERENCE_TYPE_LABELS`
+(`inventory-ledger-table.tsx`) gained an `fp_yield` → "FP Batch Yield"
+entry.
+
+Verified the same way as Phases 1 and 2: replayed all 30 migrations
+against a scratch local Postgres, then exercised the real flow —
+approve an FP batch's QC record and confirm exactly the expected four
+`inventory_ledger` rows, `finished_product_batches.status` synced to
+`approved`, and `stock_balance.on_hand` matching `batch_yield -
+qc_sample_qty - stability_qty - rnd_qty` exactly. Separately verified:
+rejection (status syncs, zero ledger rows); both graceful-skip paths
+(unlinked MFR, null batch_yield — status still syncs, no error, no
+push); the backfill against data seeded to look pre-existing (trigger
+disabled, then the backfill block run by hand) correctly syncing status
+and pushing the four rows; backfill idempotency on a second run (no
+duplicates); the new check constraint correctly rejecting an
+over-sampled update; and the RLS/`SECURITY DEFINER` boundary described
+above. `npx tsc --noEmit`, `npx eslint` on every touched file, and `npx
+next build` (all 42 routes, no new routes added) all clean.

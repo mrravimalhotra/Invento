@@ -31,6 +31,13 @@ export type LedgerRow = {
 // only capitalizes the first letter, so an underscored value would have
 // shown as "Qc_sample" rather than a real label — fixed with an explicit
 // map instead of trying to out-clever CSS for every future value too.
+//
+// Phase 3 (0030_finished_product_ledger.sql) adds 'fp_yield' — the push of
+// a Finished Product batch's own output at QC approval. qc_sample/
+// stability_sample/rnd_sample are reused as-is for the FP-context pulls
+// captured on the same screen (Complete Batch) — a QC sample is a QC
+// sample whether it came from a purchase batch or a production batch, so
+// no separate labels are needed for those.
 const REFERENCE_TYPE_LABELS: Record<string, string> = {
   purchase: "Purchase",
   qc: "QC",
@@ -39,6 +46,7 @@ const REFERENCE_TYPE_LABELS: Record<string, string> = {
   rnd_sample: "R&D Sample",
   finished_product: "Finished Product",
   packaging: "Packaging",
+  fp_yield: "FP Batch Yield",
 };
 
 function formatEventAt(iso: string) {

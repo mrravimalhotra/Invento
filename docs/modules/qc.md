@@ -358,3 +358,19 @@ date nothing downstream needed.
 
 Verification: `npx tsc --noEmit`, `npx eslint`, and `npx next build` (all
 42 routes) all clean.
+
+## Approving a Finished Product batch now has ledger/status side effects (Inventory Ledger redesign, Phase 3 — 3 Sept 2026)
+
+`reviewQualityCheck()` itself is unchanged, but for an AR record whose
+`finished_product_batch_id` is set, setting its status to
+`approved`/`rejected` now fires a new DB trigger
+(`trg_qc_review_finished_product`, `0030_finished_product_ledger.sql`):
+it syncs `finished_product_batches.status` to match (closing a
+previously-flagged read-time-only gap — see `docs/modules/finished-
+product.md`), and on approval also pushes the batch's `batch_yield` and
+pulls its three sample quantities onto `inventory_ledger`, the same way
+`0002_transactions.sql`'s existing triggers already do for RM QC records.
+This is DB-level, `SECURITY DEFINER` — a `quality_checker`/`qc_reviewer`
+approving a batch does not need any Finished Product write role for it
+to take effect. Full writeup in `docs/modules/inventory.md`'s Phase 3
+section.
