@@ -89,10 +89,6 @@ const lineSchema = z.object({
   rnd_qty: z.coerce.number().min(0, "R&D quantity can't be negative.").default(0),
   unit_price: z.coerce.number().min(0, "Unit price can't be negative.").optional(),
   gst_pct: z.coerce.number().min(0, "GST % can't be negative.").optional(),
-  // Required for raw material, not applicable to packaging (2 Sept 2026) —
-  // checked by hand below once the item's real category is known, rather
-  // than here, since a packaging line never sends this field at all.
-  expiry_date: z.string().trim().optional(),
 });
 
 export async function createPurchaseLine(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -100,22 +96,16 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
 
   const purchaseOrderIdRaw = String(formData.get("purchase_order_id") || "");
-  const itemIdRaw = String(formData.get("item_id") || "");
   const supabaseStatusCheck = await createClient();
   // FB-0018: a submitted PO is locked — lines can only be added while
   // still draft. The Add-line form is already hidden once submitted
   // (app/(dashboard)/purchase/[id]/page.tsx), this is the server-side
   // enforcement in case of a direct POST.
-  //
-  // Re-Test date (2 Sept 2026): required for raw material, not applicable
-  // to packaging — the item's real category is looked up here (not
-  // trusted from any client-submitted category field) so the requirement
-  // is enforced against the actual item, not whatever the form happened
-  // to render.
-  const [{ data: poForStatus }, { data: itemForCategory }] = await Promise.all([
-    supabaseStatusCheck.from("purchase_orders").select("status").eq("id", purchaseOrderIdRaw).maybeSingle(),
-    itemIdRaw ? supabaseStatusCheck.from("items").select("category").eq("id", itemIdRaw).maybeSingle() : Promise.resolve({ data: null }),
-  ]);
+  const { data: poForStatus } = await supabaseStatusCheck
+    .from("purchase_orders")
+    .select("status")
+    .eq("id", purchaseOrderIdRaw)
+    .maybeSingle();
   if (poForStatus && poForStatus.status !== "draft") {
     return { error: "Can't add a line — this purchase order has been submitted. Reopen it first." };
   }
@@ -134,7 +124,6 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
     rnd_qty: String(formData.get("rnd_qty") || "0"),
     unit_price: unitPriceRaw ? String(unitPriceRaw) : undefined,
     gst_pct: gstPctRaw ? String(gstPctRaw) : undefined,
-    expiry_date: String(formData.get("expiry_date") || ""),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -149,13 +138,7 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
     rnd_qty: rndQtyRaw,
     unit_price,
     gst_pct,
-    expiry_date,
   } = parsed.data;
-
-  const isPackaging = itemForCategory?.category === "packaging";
-  if (!isPackaging && !expiry_date) {
-    return { error: "Re-Test date is required for raw material." };
-  }
 
   // Convert the sampling quantities from whatever unit they were entered
   // in down to the line's own `unit` — this is what actually gets stored
@@ -207,7 +190,15 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
       rnd_qty,
       unit_price: unit_price ?? null,
       gst_pct: gst_pct ?? null,
-      expiry_date: expiry_date || null,
+      // Re-Test Date (2 Sept 2026 – 3 Sept 2026): purchase_lines.expiry_date
+      // is no longer collected here at all. It was a hand-typed, purely
+      // informational field that never actually drove the retest workflow
+      // (quality_checks.retest_date, computed from retest_period_days at QC
+      // approval time, already does that — see 0025_qc_retest_workflow.sql /
+      // Eighth pass Part B) — Ravi asked for the redundant manual entry to
+      // be removed now that the real, automatic mechanism is in place.
+      // Column left in place (nullable since 0024) for the existing
+      // historical values already on file; new lines simply leave it null.
     });
     error = insertResult.error;
     if (!error || error.code !== "23505") break;
@@ -283,16 +274,12 @@ const updateLineSchema = z.object({
   rnd_qty: z.coerce.number().min(0, "R&D quantity can't be negative.").default(0),
   unit_price: z.coerce.number().min(0, "Unit price can't be negative.").optional(),
   gst_pct: z.coerce.number().min(0, "GST % can't be negative.").optional(),
-  // Required for raw material, not applicable to packaging — see the same
-  // note on lineSchema above.
-  expiry_date: z.string().trim().optional(),
 });
 
 type LineWithPoStatus = {
   unit: string;
   purchase_order_id: string;
   purchase_orders: { status: string } | null;
-  item: { category: string } | null;
 };
 
 export async function updatePurchaseLine(lineId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -303,7 +290,7 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
 
   const { data: current, error: fetchError } = await supabase
     .from("purchase_lines")
-    .select("unit, purchase_order_id, purchase_orders!inner(status), item:items(category)")
+    .select("unit, purchase_order_id, purchase_orders!inner(status)")
     .eq("id", lineId)
     .maybeSingle();
   if (fetchError) return { error: fetchError.message };
@@ -313,7 +300,6 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
     return { error: "Can't edit — this purchase order has been submitted. Reopen it first." };
   }
   const unit = line.unit;
-  const isPackaging = line.item?.category === "packaging";
 
   const unitPriceRaw = formData.get("unit_price");
   const gstPctRaw = formData.get("gst_pct");
@@ -325,7 +311,6 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
     rnd_qty: String(formData.get("rnd_qty") || "0"),
     unit_price: unitPriceRaw ? String(unitPriceRaw) : undefined,
     gst_pct: gstPctRaw ? String(gstPctRaw) : undefined,
-    expiry_date: String(formData.get("expiry_date") || ""),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -337,12 +322,7 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
     rnd_qty: rndQtyRaw,
     unit_price,
     gst_pct,
-    expiry_date,
   } = parsed.data;
-
-  if (!isPackaging && !expiry_date) {
-    return { error: "Re-Test date is required for raw material." };
-  }
 
   const qc_qty = convertUnit(qcQtyRaw, sample_unit, unit);
   const stability_qty = convertUnit(stabilityQtyRaw, sample_unit, unit);
@@ -363,7 +343,9 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
       rnd_qty,
       unit_price: unit_price ?? null,
       gst_pct: gst_pct ?? null,
-      expiry_date: expiry_date || null,
+      // expiry_date (Re-Test Date) is no longer editable here — see the
+      // matching comment in createPurchaseLine above. An existing line's
+      // stored value (if any) is simply left as-is by this update.
     })
     .eq("id", lineId);
   if (error) return { error: error.message };

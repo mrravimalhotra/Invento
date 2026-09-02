@@ -17,8 +17,18 @@ type Candidate = {
 // design spec names (purchase_batch_status for QC status, stock_balance for on-hand),
 // rather than PostgREST's automatic FK embedding (purchase_batch_status is a view with
 // no declared FK for it to detect). Candidates are QC-Approved batches of this item with
-// item-level stock still on hand, ordered by expiry date then receipt order — the UI
-// below pre-selects the first (FIFO) result but lets the user override.
+// item-level stock still on hand, ordered by receipt date (oldest first) — the UI below
+// pre-selects the first (FIFO) result but lets the user override.
+//
+// Ordering changed 3 Sept 2026 from "expiry date then receipt order" to receipt order
+// alone: purchase_lines.expiry_date ("Re-Test Date" on the Purchase screen) is no longer
+// collected at all (Ravi: the QC-computed quality_checks.retest_date, set automatically
+// from Retest period + review date, is the one real retest mechanism — see
+// lib/actions/purchase.ts) — every batch received going forward has expiry_date = null,
+// and sorting nulls first would have inverted FIFO into "newest batch picked first."
+// Receipt date is also the more literally correct FIFO key regardless (first *in*, not
+// soonest to expire) — existing batches that do carry a historical expiry_date are
+// unaffected by this change, they just no longer take priority over it.
 async function getCandidateBatches(
   supabase: Awaited<ReturnType<typeof createClient>>,
   itemId: string
@@ -43,11 +53,7 @@ async function getCandidateBatches(
 
   return lines
     .filter((l) => statusByLine.get(l.id) === "approved")
-    .sort((a, b) => {
-      const byExpiry = (a.expiry_date ?? "").localeCompare(b.expiry_date ?? "");
-      if (byExpiry !== 0) return byExpiry;
-      return (a.created_at ?? "").localeCompare(b.created_at ?? "");
-    })
+    .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))
     .map((l) => ({
       purchaseLineId: l.id,
       batchNumber: l.batch_number,
@@ -122,7 +128,7 @@ export default async function ComposeFinishedProductPage({
     <div>
       <PageHeader
         title="Calculate composition"
-        description={`Step 2 of 2 — ${def!.code} · ${def!.name}, scaled to ${targetQty} ${unit}. Each ingredient defaults to its oldest QC-Approved batch (FIFO by re-test date); override any row before submitting.`}
+        description={`Step 2 of 2 — ${def!.code} · ${def!.name}, scaled to ${targetQty} ${unit}. Each ingredient defaults to its oldest received QC-Approved batch (FIFO); override any row before submitting.`}
       />
       <Card>
         <CardBody>

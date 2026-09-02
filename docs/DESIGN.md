@@ -398,10 +398,17 @@ from purchase_lines pl
 join purchase_batch_status pbs using (purchase_line_id)
 left join stock_balance sb on sb.item_id = pl.item_id
 where pl.item_id = $1 and pbs.qc_status = 'approved' and coalesce(sb.on_hand,0) > 0
-order by pl.expiry_date asc, pl.created_at asc;   -- FIFO by expiry, then receipt order
+order by pl.created_at asc;   -- FIFO by receipt order
 ```
 The UI pre-selects the first row instead of the baseline's unordered
 dropdown; the user can still override, but the default is FIFO.
+
+(Originally `order by pl.expiry_date asc, pl.created_at asc`, changed 3
+Sept 2026 — `purchase_lines.expiry_date` is no longer collected at
+purchase time at all, see `docs/modules/purchase.md`, "Re-Test Date
+manual entry removed," so ordering by it would sort every new batch
+first via `null`-as-empty-string. Receipt order is also the more
+literally correct FIFO key either way.)
 
 ### 7.4 MFR versioning
 Editing a definition's lines does not update `mfr_lines` in place — it

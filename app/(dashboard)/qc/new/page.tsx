@@ -51,7 +51,7 @@ export default async function NewQualityCheckPage({
     ? await supabase
         .from("purchase_lines")
         .select(
-          "id, batch_number, qc_qty, unit, expiry_date, item_id, items!inner(item_code, name, default_sample_unit, category), purchase_orders!inner(status)"
+          "id, batch_number, qc_qty, unit, item_id, items!inner(item_code, name, default_sample_unit, category), purchase_orders!inner(status)"
         )
         .in("id", openIds)
         .eq("active", true)

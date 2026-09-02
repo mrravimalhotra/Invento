@@ -508,3 +508,63 @@ propagate to every other place `purchase_lines.expiry_date` is displayed
 weighment batch picker, FP-compose's RM batch picker, the Purchase
 Register report, and the Finished Product detail page's composition
 table all now say "Re-Test Date"/"re-test" instead of "Expiry"/"exp").
+
+## Re-Test Date manual entry removed (3 Sept 2026)
+
+Direct request from Ravi: "As now we are using retest period at while
+doing QC — Lets remove Expiry Date from QC screen and Related re-test
+date from Purchase screen. Retest Date should be calculated by adding
+retest period (days) into today's date as already being done in app.
+Should not be manually selected." — see `docs/modules/qc.md`'s matching
+entry for the QC-screen half of this change.
+
+The "Now built" note directly above already established that this
+module's own Re-Test Date field (`purchase_lines.expiry_date`, hand-typed
+at receipt time) was never actually load-bearing for the retest
+workflow — `quality_checks.retest_date`, computed automatically by
+`trg_qc_compute_retest_date` from Retest period (days) + the review date
+at QC approval time, was already the one real mechanism. This pass
+retires the redundant manual field entirely rather than leaving it as
+dead-but-required data entry:
+
+- **Both purchase-line forms** (`purchase-line-form.tsx` —
+  `PurchaseLineForm` and `EditPurchaseLineForm`) no longer render a
+  Re-Test Date input at all, for either Raw Material or Packaging (it was
+  already hidden for Packaging). The Unit Price/GST row that used to
+  share a grid cell with it is now a plain 2-column row.
+- **`lib/actions/purchase.ts`**: `expiry_date` removed from `lineSchema`/
+  `updateLineSchema` entirely (not just made optional) and no longer read
+  from `formData` or written on insert/update — `createPurchaseLine()`'s
+  and `updatePurchaseLine()`'s "Re-Test date is required for raw
+  material" checks are gone, along with the item-category lookups that
+  only existed to support them (the category lookup added for the
+  Packaging Item purchase path is still there where something else needs
+  it; where it was purely for this check, it was removed too).
+- **No migration** — `purchase_lines.expiry_date` stays in the schema
+  (already nullable since `0024_purchase_lines_currency_retest.sql`) and
+  every existing line keeps whatever value it has on file. New lines
+  simply insert with it left `null`, same non-destructive pattern used
+  for Item Master's removed sampling-defaults fields (Seventh pass).
+- **Downstream displays left in place, not removed**: the "RE-TEST DATE"
+  column on the Purchase Lines table, the Purchase Register report
+  column, the Finished Product detail composition table column, and
+  BMR's/FP-compose's batch-picker "(re-test …)" suffix all still read
+  and display `purchase_lines.expiry_date` — they already handle `null`
+  gracefully (`formatDate(null)` → "—"), so historical batches that do
+  have a value keep showing it; new batches just show "—"/nothing.
+  Nothing was deleted, only new collection stopped.
+- **One real behavior fix required, not just a no-op**: Finished
+  Product's compose-step FIFO candidate ordering
+  (`finished-product/new/compose/page.tsx`) previously sorted candidates
+  by `expiry_date` first, `created_at` as a tiebreaker — with
+  `expiry_date` now `null` for every batch received going forward, and
+  JS string-sort treating `null`-as-`""` as sorting *first*, this would
+  have silently inverted FIFO into "the newest, undated batch always
+  wins." Fixed by dropping `expiry_date` from the sort entirely and
+  ordering by `created_at` alone (oldest received first) — which is also
+  the more literally correct definition of FIFO (first *in*, not
+  soonest-to-expire) regardless of this change. See
+  `docs/modules/finished-product.md`'s matching entry.
+
+Verification: `npx tsc --noEmit`, `npx eslint` on every touched file, and
+`npx next build` (all 42 routes) all clean.

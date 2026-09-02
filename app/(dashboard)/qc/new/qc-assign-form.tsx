@@ -12,7 +12,6 @@ export type PendingLine = {
   batch_number: string;
   qc_qty: string | number | null;
   unit: string | null;
-  expiry_date: string | null;
   item_id: string;
   items: { item_code: string; name: string; default_sample_unit: string | null } | null;
 };
@@ -73,7 +72,6 @@ export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; i
   const [purchaseLineId, setPurchaseLineId] = useState(initialLine?.id ?? "");
   const [sampleQty, setSampleQty] = useState(initialDisplay.sampleQty);
   const [sampleUnit, setSampleUnit] = useState(initialDisplay.sampleUnit);
-  const [expiryDate, setExpiryDate] = useState(initialLine?.expiry_date ?? "");
 
   const batchesForItem = useMemo(() => lines.filter((l) => l.item_id === itemId), [lines, itemId]);
   const currentLine = useMemo(() => lines.find((l) => l.id === purchaseLineId), [lines, purchaseLineId]);
@@ -84,7 +82,6 @@ export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; i
     setPurchaseLineId("");
     setSampleQty("");
     setSampleUnit("");
-    setExpiryDate("");
   }
 
   function handleBatchChange(nextLineId: string) {
@@ -93,7 +90,6 @@ export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; i
     const display = computeBatchDisplay(line);
     setSampleQty(display.sampleQty);
     setSampleUnit(display.sampleUnit);
-    setExpiryDate(line?.expiry_date ?? "");
   }
 
   return (
@@ -166,18 +162,10 @@ export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; i
         </Field>
       </div>
 
-      <Field label="Expiry date" htmlFor="expiry_date" required hint="Pre-filled from the batch — adjust if the QC sample's expiry differs.">
-        <Input
-          id="expiry_date"
-          name="expiry_date"
-          type="date"
-          value={expiryDate}
-          onChange={(e) => setExpiryDate(e.target.value)}
-          required
-        />
-      </Field>
-
-      <p className="text-xs text-muted">The AR number is assigned automatically on save.</p>
+      <p className="text-xs text-muted">
+        The AR number is assigned automatically on save. Retest date is set automatically at review time (Retest
+        period + review date) — there&apos;s nothing to enter here.
+      </p>
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending || !purchaseLineId}>

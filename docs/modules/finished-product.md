@@ -43,10 +43,23 @@ directly against the named views rather than PostgREST FK-embedding
 (`purchase_batch_status` is a view with no FK for PostgREST to auto-detect):
 for the ingredient's `item_id`, fetch its `purchase_lines`, cross-reference
 `purchase_batch_status.qc_status = 'approved'`, and require
-`stock_balance.on_hand > 0` for that item — then sort by `expiry_date asc,
-created_at asc` and pre-select the first result. The user can still pick a
-different batch from the dropdown; the default is no longer the old
-baseline's unordered list.
+`stock_balance.on_hand > 0` for that item — then sort by `created_at asc`
+and pre-select the first result. The user can still pick a different
+batch from the dropdown; the default is no longer the old baseline's
+unordered list.
+
+**Sort key changed 3 Sept 2026** from `expiry_date asc, created_at asc`
+to `created_at asc` alone: `purchase_lines.expiry_date` ("Re-Test Date"
+on the Purchase screen) is no longer collected at all as of this date
+(`docs/modules/purchase.md`, "Re-Test Date manual entry removed") — every
+batch received going forward has `expiry_date = null`, and the old sort
+(JS string-compare, `null` coerced to `""`) would have put every new,
+undated batch *first*, inverting FIFO into "always pick the newest
+batch." Sorting by `created_at` alone is also the more literally correct
+definition of FIFO regardless (first *in*, not soonest-to-expire) — this
+isn't a workaround, it's the fix. The candidate dropdown still displays
+each batch's `re-test <date>` (`compose-form.tsx`) when one exists on
+file; it just no longer drives the default selection.
 
 One inherited simplification, faithful to the design spec as written:
 `stock_balance.on_hand` is per **item**, not per batch, so a specific batch
@@ -312,6 +325,9 @@ batch detail page's "Composition (RM batches consumed)" table column
 (`finished_product_batches.expiry_date`, entered on Complete Batch) is a
 different column entirely and was not touched — see
 `docs/modules/qc.md`, "Retest workflow," for the full disambiguation.
+(The page description's wording was revised again 3 Sept 2026 — see
+"FIFO default — the gap fix" above — since the field it referenced is no
+longer collected.)
 
 ## Searchable, legacy-aware pickers (1 Sept 2026)
 

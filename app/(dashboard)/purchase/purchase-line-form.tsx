@@ -59,7 +59,6 @@ export function PurchaseLineForm({
   const [rndQty, setRndQty] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [gstPct, setGstPct] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
 
   function resetForm() {
     setItemId("");
@@ -72,7 +71,6 @@ export function PurchaseLineForm({
     setSampleUnit("");
     setUnitPrice("");
     setGstPct("");
-    setExpiryDate("");
   }
 
   useEffect(() => {
@@ -287,7 +285,7 @@ export function PurchaseLineForm({
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Unit Price (₹)" htmlFor="unit_price">
           <Input
             id="unit_price"
@@ -302,23 +300,6 @@ export function PurchaseLineForm({
         <Field label="GST %" htmlFor="gst_pct">
           <Input id="gst_pct" name="gst_pct" type="number" step="any" min="0" value={gstPct} onChange={(e) => setGstPct(e.target.value)} />
         </Field>
-        {isRaw && (
-          <Field
-            label="Re-Test Date"
-            htmlFor="expiry_date"
-            required
-            hint="Once this date arrives, the batch is due to go through QC again using its reserved stability sample."
-          >
-            <Input
-              id="expiry_date"
-              name="expiry_date"
-              type="date"
-              required
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-            />
-          </Field>
-        )}
       </div>
 
       <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-4">
@@ -367,7 +348,6 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
   const [rndQty, setRndQty] = useState(String(line.rnd_qty));
   const [unitPrice, setUnitPrice] = useState(line.unit_price ?? "");
   const [gstPct, setGstPct] = useState(line.gst_pct ?? "");
-  const [expiryDate, setExpiryDate] = useState(line.expiry_date ?? "");
 
   useEffect(() => {
     if (state?.success) onDone();
@@ -474,7 +454,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Unit Price (₹)" htmlFor="unit_price">
           <Input
             id="unit_price"
@@ -489,23 +469,6 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         <Field label="GST %" htmlFor="gst_pct">
           <Input id="gst_pct" name="gst_pct" type="number" step="any" min="0" value={gstPct} onChange={(e) => setGstPct(e.target.value)} />
         </Field>
-        {isRaw && (
-          <Field
-            label="Re-Test Date"
-            htmlFor="expiry_date"
-            required
-            hint="Once this date arrives, the batch is due to go through QC again using its reserved stability sample."
-          >
-            <Input
-              id="expiry_date"
-              name="expiry_date"
-              type="date"
-              required
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-            />
-          </Field>
-        )}
       </div>
 
       <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-4">

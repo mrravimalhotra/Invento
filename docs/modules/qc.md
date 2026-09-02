@@ -224,10 +224,10 @@ mid-build discovery of which "retest" field this keys off) is in
   already reserved at Purchase time — this is what "reusing the
   already-reserved stability sample rather than a fresh pull" means; the
   reserved quantity is not decremented per retest, same as the original
-  `qc_qty` reserve is never decremented by the initial assign), carries
-  forward the previous record's `expiry_date` (the sample's tested expiry
-  doesn't change just because it's being retested), sets `is_retest =
-  true`, and gets a new AR number the normal way.
+  `qc_qty` reserve is never decremented by the initial assign), sets
+  `is_retest = true`, and gets a new AR number the normal way. (Originally
+  also carried forward the previous record's `expiry_date` — removed 3
+  Sept 2026, see "Expiry date manual entry removed" below.)
 - **`/qc` "Due for retest" card** — sits above the AR table, populated by
   a two-step query mirroring `qc/new/page.tsx`'s pattern:
   `purchase_batch_status` for `qc_status = 'approved'` and `retest_date <=
@@ -273,17 +273,19 @@ batch that has no AR at all yet was never counted there either.
   a "+N more — open New AR" link beyond that (same cap convention as the
   Dashboard's Low stock/Retest due soon cards).
 - Each row is a **"Start QC" link**, not a one-click action like "Start
-  Retest" — assigning QC still needs real input (sample qty/unit, expiry
-  date), so it can't be a single button press. The link goes to
+  Retest" — assigning QC still needs real input (sample qty/unit), so it
+  can't be a single button press. The link goes to
   `/qc/new?line=<purchase_line_id>`, and `QcAssignForm` now accepts an
   optional `initialLineId` prop that pre-selects the item and batch (and
-  derives sample qty/unit/expiry the same way picking it by hand would,
-  via a `computeBatchDisplay()` helper shared with `handleBatchChange` so
-  the two paths can never compute different values for the same batch).
-  This only saves the "search for it in the picker" step — `createQualityCheck()`
+  derives sample qty/unit the same way picking it by hand would, via a
+  `computeBatchDisplay()` helper shared with `handleBatchChange` so the
+  two paths can never compute different values for the same batch). This
+  only saves the "search for it in the picker" step — `createQualityCheck()`
   still validates the batch server-side regardless of how it was selected,
   so a stale or hand-edited `?line=` value just leaves the form
-  unselected rather than being trusted.
+  unselected rather than being trusted. (Sample qty/unit only —
+  `computeBatchDisplay()` no longer touches expiry, see "Expiry date
+  manual entry removed" below.)
 
 ## Files (Awaiting QC)
 
@@ -292,3 +294,67 @@ batch that has no AR at all yet was never counted there either.
 - `app/(dashboard)/qc/new/page.tsx` — reads `?line=` from `searchParams`
 - `app/(dashboard)/qc/new/qc-assign-form.tsx` — `initialLineId` prop,
   `computeBatchDisplay()` helper
+
+## "Awaiting QC" / "Due for retest" now respect "Hide legacy data" (3 Sept 2026)
+
+Reported live: a legacy-sourced batch still showed in the "Awaiting QC"
+card with "Hide legacy data" on. Root cause: unlike `qc-table.tsx` (the
+"Hide legacy data now applies to the QC list itself" fix above), both
+`awaiting-qc.tsx` and `due-for-retest.tsx` (Eighth/Tenth pass) were built
+without ever reading the shared `useHideLegacy()` preference — they had
+no `isLegacy` concept at all.
+
+Fixed the same silent way the legacy-aware `<Select>` comboboxes handle
+it (`components/ui/combobox.tsx`): both cards now call `useHideLegacy()`
+directly and filter client-side (a batch counts as legacy if its item
+code or its own batch number is `LEG-`-prefixed — same OR rule
+`qc-table.tsx`'s `isLegacyQcRow` uses), with no card-local checkbox of
+their own — the Dashboard toggle is still the one place the preference is
+set. The `Card` wrapper for each moved from `qc/page.tsx` into the
+component itself, so the whole card can now render `null` and disappear
+once filtering leaves nothing to show — gating on `qc/page.tsx`'s
+server-computed (unfiltered) row count, as the previous structure did,
+could otherwise leave an empty card on screen when every awaiting/due
+batch happened to be legacy.
+
+## Expiry date manual entry removed (3 Sept 2026)
+
+Direct request from Ravi: "As now we are using retest period at while
+doing QC — Lets remove Expiry Date from QC screen and Related re-test
+date from Purchase screen. Retest Date should be calculated by adding
+retest period (days) into today's date as already being done in app.
+Should not be manually selected." See `docs/modules/purchase.md`'s
+matching entry for the Purchase-screen half.
+
+The "Expiry date" field on the New Assign Record form
+(`quality_checks.expiry_date`, pre-filled from the purchase line but
+independently editable, required at AR-creation time) is retired
+entirely — it was never what actually drives the retest workflow above;
+`quality_checks.retest_date`, computed automatically by
+`trg_qc_compute_retest_date` from Retest period (days) + the review date
+at approval time, already does that. Removing the redundant manual field
+doesn't change how retesting works at all, it just stops asking for a
+date nothing downstream needed.
+
+- **`qc-assign-form.tsx`**: the "Expiry date" `<Field>`/`<Input>` and its
+  `expiryDate` state are gone; the form's footer note now says retest
+  date is set automatically at review time instead.
+- **`lib/actions/qc.ts`**: `createQualityCheck()` no longer reads,
+  requires, or inserts `expiry_date` (the "Expiry date is required."
+  error is gone — the column is already nullable, so new rows just leave
+  it `null`). `startRetestQualityCheck()` no longer selects or carries
+  forward the previous record's `expiry_date` either, since there's
+  nothing meaningful left to carry forward.
+- **`qc/new/page.tsx`**: `expiry_date` dropped from the pending-lines
+  query and the `PendingLine` type — it was only ever fetched to feed the
+  now-removed field.
+- **No migration, no display removed elsewhere**: `quality_checks.
+  expiry_date` stays in the schema and existing AR records keep whatever
+  value they already have; the read-only "Expiry date" field on the
+  QC detail page (`/qc/[id]`) is untouched and still shows it — it'll
+  just read "—" for every AR created after this change, the same
+  graceful-with-null pattern used for `purchase_lines.expiry_date`'s
+  downstream displays (see `docs/modules/purchase.md`).
+
+Verification: `npx tsc --noEmit`, `npx eslint`, and `npx next build` (all
+42 routes) all clean.

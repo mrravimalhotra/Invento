@@ -19,10 +19,8 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
   const purchaseLineId = String(formData.get("purchase_line_id") || "");
   const sampleQtyRaw = formData.get("sample_qty");
   const sampleUnit = String(formData.get("sample_unit") || "").trim();
-  const expiryDate = String(formData.get("expiry_date") || "");
 
   if (!purchaseLineId) return { error: "Select a batch." };
-  if (!expiryDate) return { error: "Expiry date is required." };
 
   const sampleQty = sampleQtyRaw ? Number(sampleQtyRaw) : null;
   if (sampleQtyRaw && (sampleQty === null || !Number.isFinite(sampleQty) || sampleQty < 0)) {
@@ -61,7 +59,12 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
       finished_product_batch_id: null,
       sample_qty: sampleQty,
       sample_unit: sampleUnit || null,
-      expiry_date: expiryDate,
+      // expiry_date (3 Sept 2026): no longer collected here — see the
+      // matching comment in lib/actions/purchase.ts. The retest workflow
+      // relies solely on quality_checks.retest_date, computed automatically
+      // by trg_qc_compute_retest_date from Retest period (days) + the
+      // review date at approval time (reviewQualityCheck below); nothing
+      // needs a manually-entered expiry to work.
     })
     .select("id")
     .single();
@@ -162,7 +165,7 @@ export async function startRetestQualityCheck(
   // the "Due for retest" list the user clicked from is still current.
   const { data: latestQc, error: latestError } = await supabase
     .from("quality_checks")
-    .select("status, retest_date, expiry_date")
+    .select("status, retest_date")
     .eq("purchase_line_id", purchaseLineId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -188,7 +191,6 @@ export async function startRetestQualityCheck(
       finished_product_batch_id: null,
       sample_qty: stabilityQty,
       sample_unit: line.unit,
-      expiry_date: latestQc.expiry_date,
       is_retest: true,
     })
     .select("id")
