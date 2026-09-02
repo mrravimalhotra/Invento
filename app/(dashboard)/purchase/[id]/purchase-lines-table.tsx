@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { lineFinancials } from "./line-financials";
 import { deletePurchaseLine, type ActionState } from "@/lib/actions/purchase";
+import { downloadRmIntimationPdf } from "./rm-intimation-pdf";
 
 export type LineRow = {
   id: string;
@@ -60,14 +61,67 @@ function DeleteLineButton({ id }: { id: string }) {
   );
 }
 
+// "Against each raw material purchased under purchase lines, create Raw
+// Material Intimation slip... At the end of the Raw Material line there
+// should be link labeled RM Intimation to download pdf" (Ravi, 3 Sept
+// 2026). Raw-material only — a packaging line never goes through QC
+// sampling, so it has nothing for a "please sample this" slip to say.
+// Bill No / Date come from the parent PO's own invoice_number/invoice_date
+// (the header info already shown at the top of this page), not anything
+// stored per-line.
+function RmIntimationLink({
+  row,
+  poInvoiceNumber,
+  poInvoiceDate,
+  vendorName,
+}: {
+  row: LineRow;
+  poInvoiceNumber: string;
+  poInvoiceDate: string;
+  vendorName: string;
+}) {
+  if (row.item?.category !== "raw") return <span className="text-muted">—</span>;
+  return (
+    <button
+      type="button"
+      className="text-xs text-brand hover:underline"
+      onClick={() =>
+        downloadRmIntimationPdf(
+          {
+            billNo: poInvoiceNumber,
+            billDate: formatDate(poInvoiceDate),
+            itemName: row.item?.name ?? "—",
+            itemCode: row.item?.item_code ?? "—",
+            quantity: row.quantity,
+            unit: row.unit,
+            vendorName,
+            batchNumber: row.batch_number,
+            qcQty: row.qc_qty,
+            rndQty: row.rnd_qty,
+          },
+          `RM-Intimation_${row.item?.item_code ?? row.batch_number}_${row.batch_number}.pdf`
+        )
+      }
+    >
+      RM Intimation
+    </button>
+  );
+}
+
 export function PurchaseLinesTable({
   rows,
   editable,
   onEdit,
+  poInvoiceNumber,
+  poInvoiceDate,
+  vendorName,
 }: {
   rows: LineRow[];
   editable?: boolean;
   onEdit?: (id: string) => void;
+  poInvoiceNumber: string;
+  poInvoiceDate: string;
+  vendorName: string;
 }) {
   const columns: Column<LineRow>[] = [
     {
@@ -108,6 +162,10 @@ export function PurchaseLinesTable({
     // row just renders "—" (formatDate's own null handling) rather than
     // the column being conditionally hidden per row.
     { header: "Re-Test Date", accessor: (r) => formatDate(r.expiry_date) },
+    {
+      header: "RM Intimation",
+      accessor: (r) => <RmIntimationLink row={r} poInvoiceNumber={poInvoiceNumber} poInvoiceDate={poInvoiceDate} vendorName={vendorName} />,
+    },
   ];
 
   if (editable) {

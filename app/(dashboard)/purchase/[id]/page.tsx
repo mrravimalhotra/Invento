@@ -110,6 +110,9 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
         rows={lineRows}
         items={(rawItems ?? []) as RawItemOption[]}
         canEditLines={canEditLines}
+        poInvoiceNumber={po.invoice_number}
+        poInvoiceDate={po.invoice_date}
+        vendorName={po.vendor?.name ?? "—"}
       />
     </div>
   );

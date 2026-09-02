@@ -16,11 +16,17 @@ export function PurchaseLinesSection({
   rows,
   items,
   canEditLines,
+  poInvoiceNumber,
+  poInvoiceDate,
+  vendorName,
 }: {
   purchaseOrderId: string;
   rows: LineRow[];
   items: RawItemOption[];
   canEditLines: boolean;
+  poInvoiceNumber: string;
+  poInvoiceDate: string;
+  vendorName: string;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const editingRow = editingId ? (rows.find((r) => r.id === editingId) ?? null) : null;
@@ -29,7 +35,14 @@ export function PurchaseLinesSection({
     <>
       <Card className="mb-6">
         <CardHeader title="Purchase lines" />
-        <PurchaseLinesTable rows={rows} editable={canEditLines} onEdit={(id) => setEditingId(id)} />
+        <PurchaseLinesTable
+          rows={rows}
+          editable={canEditLines}
+          onEdit={(id) => setEditingId(id)}
+          poInvoiceNumber={poInvoiceNumber}
+          poInvoiceDate={poInvoiceDate}
+          vendorName={vendorName}
+        />
       </Card>
 
       {canEditLines && (

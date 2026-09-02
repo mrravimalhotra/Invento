@@ -568,3 +568,54 @@ dead-but-required data entry:
 
 Verification: `npx tsc --noEmit`, `npx eslint` on every touched file, and
 `npx next build` (all 42 routes) all clean.
+
+## RM Intimation slip (3 Sept 2026)
+
+"Against each raw material purchased under purchase lines, create Raw
+Material Intimation slip as per attached sample. At the end of the Raw
+Material line there should be link labeled RM Intimation to download pdf"
+(Ravi, with a sample PDF attached — a printed "please sample this batch"
+request to QC, two identical copies on one A4 page).
+
+- **New "RM Intimation" column** on the Purchase Lines table
+  (`purchase-lines-table.tsx`), rendered for every line — a text link for
+  raw material lines (`item.category === 'raw'`), "—" for packaging lines
+  (packaging is never QC-sampled, so there's nothing to intimate).
+  Clicking it downloads a PDF for that one line, generated entirely
+  client-side (no Server Action, no new database round trip — every field
+  it needs is already on the page).
+- **`app/(dashboard)/purchase/[id]/rm-intimation-pdf.ts`** —
+  `downloadRmIntimationPdf()`, a plain (not `"use client"`) module,
+  deliberately structured this way per the lesson in
+  `lib/packaging-materials.ts`'s equivalent comment: it's imported and
+  called directly from `purchase-lines-table.tsx` (a client component), so
+  it has no Server/Client boundary to cross. Draws the slip twice on one
+  page (`drawSlip()` called at two different y-offsets) rather than
+  reusing `lib/pdf.ts`'s `letterhead()`, which isn't parameterized for an
+  offset and lays out quite differently from the sample (a "To, / QC
+  Department, / Respected Sir/Madam," greeting, a `Sr.No`/`R.M.Name`/
+  `R.M.Code`/`Qty Purchased`/`Vendor Name`/`Batch No`/`QC Qty`/`R&D Qty`
+  table, and three signature lines — Production Chemist / Sampled By / QC
+  Incharge — instead of `letterhead()`'s single masthead-plus-table
+  shape). Still reuses `lib/pdf.ts`'s `COMPANY_NAME`/`MFG_LIC_NO`
+  constants and the same brand green used everywhere else in the app's
+  PDFs, for consistency. Quantities are shown to 3 decimal places
+  (`qty3()`, e.g. "35.000 kg") to match the sample, rather than
+  `formatNumber()`'s app-wide trimmed style ("35 kg") — a deliberate,
+  narrow deviation scoped to this one document.
+- **Field mapping**: `Bill No` / `Date` come from the parent purchase
+  order's own `invoice_number`/`invoice_date` (already shown at the top of
+  this page) — not a new per-line field. `R.M.Name`/`R.M.Code` from the
+  line's linked item; `Qty Purchased` from `quantity` (the full received
+  amount, not `remaining_qty`); `Vendor Name` from the PO's vendor;
+  `Batch No`, `QC Qty`, `R&D Qty` straight from the line's own columns.
+  `Sr.No` is always "1" — this is a one-line-per-PDF document, one slip
+  per purchase line, not a whole-PO register.
+- **No schema or Server Action change** — every field the slip needs was
+  already being fetched and displayed on this page; `page.tsx` only gained
+  three extra props threaded down to `PurchaseLinesSection` →
+  `PurchaseLinesTable` (`poInvoiceNumber`, `poInvoiceDate`, `vendorName`).
+- Filename: `RM-Intimation_<item code>_<batch number>.pdf`.
+
+Verification: `npx tsc --noEmit`, `npx eslint` on every touched file, and
+`npx next build` (all 42 routes) all clean.
