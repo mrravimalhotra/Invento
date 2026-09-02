@@ -75,3 +75,18 @@ wrote). Gated only behind sign-in, same as every other dashboard route via
 searchable comboboxes app-wide now (DESIGN.md §8), both marked
 `data-legacy` from `batchNumber` (already present on both record types —
 no query changes).
+
+## RM picker restricted to raw material (2 Sept 2026)
+
+Found while scoping the Purchase module's currency/Re-Test-Date changes
+(`docs/modules/purchase.md`), not separately requested: the Purchase
+batch picker's underlying query (`page.tsx`) had no category filter, so
+once Packaging Item purchase lines existed (Purchase screen's Raw
+Material / Packaging Item toggle), every one of them would show up in the
+"Approved Raw Material" / "RM Under Test" / "In-process" picker here —
+all three are raw-material-specific label templates
+(`requirements-gap-analysis.md`), and nothing about packaging stock
+should be printable as an "Approved Raw Material" label. Fixed by
+switching the `items` embed to `items!inner(name, category)` with
+`.eq("items.category", "raw")` added — the same fix already applied to
+QC's "New Assign Record" picker for the same reason.

@@ -90,7 +90,7 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
           <p className="mt-1.5 text-2xl font-semibold text-foreground">{lineRows.length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">Total value</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Total value (₹)</p>
           <p className="mt-1.5 text-2xl font-semibold text-foreground">{formatNumber(totalValue)}</p>
         </Card>
         <Card className="p-4">

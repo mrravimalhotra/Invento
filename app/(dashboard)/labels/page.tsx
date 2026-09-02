@@ -50,12 +50,23 @@ export default async function LabelsPage() {
   const supabase = await createClient();
 
   const [{ data: linesData }, { data: statusData }, { data: fpData }] = await Promise.all([
+    // Raw material only (2 Sept 2026): the three templates offered for a
+    // purchase-line batch here (Approved Raw Material / RM Under Test /
+    // In-process — real legacy label formats, requirements-gap-analysis.md)
+    // are all specifically raw-material labels. Packaging purchase lines
+    // exist now (Purchase screen's Raw Material / Packaging Item toggle),
+    // and without this filter every one of them would show up here too,
+    // letting someone print an "Approved Raw Material" label for a
+    // packaging item — caught during a related change, not separately
+    // reported. `items!inner(...)` is required for `.eq("items.category",
+    // ...)` to actually filter the joined table in PostgREST.
     supabase
       .from("purchase_lines")
       .select(
-        "id, batch_number, quantity, unit, item:items(name), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
+        "id, batch_number, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
       )
       .eq("active", true)
+      .eq("items.category", "raw")
       .order("created_at", { ascending: false }),
     supabase
       .from("purchase_batch_status")

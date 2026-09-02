@@ -432,3 +432,77 @@ against until now.
 
 See `docs/DESIGN.md` §4.4 and the Seventh-pass entry in
 `claude/known-issues.md` for the destructive-vs-additive framing.
+
+## Currency labels, financial renames, Expiry → Re-Test Date split (2 Sept 2026)
+
+Per direct request, following the Packaging Item purchase path above:
+"All unit Prices / amount to be denoted in ₹... Line total should be
+renamed Total Cost (₹)... No need to show 'Expiry Date' for Packaging
+Products. For Raw Material Rename Expiry Date to Re-Test Date."
+
+**Currency labels and renames** (`purchase-line-form.tsx`,
+`purchase-lines-table.tsx`, `purchase-table.tsx`, `[id]/page.tsx`): every
+INR-denominated field/column/card label now carries `(₹)`: "Unit Price
+(₹)", "Total value (₹)" (PO list and PO detail summary card). The
+per-line summary panel (both Add-line and Edit-line forms, and the lines
+table) was renamed and gained a new figure — all four now read:
+
+- **Item Total Excl GST (₹)** — new; `quantity × unit_price`, previously
+  shown nowhere on its own (only folded into GST amount/line total math).
+- **GST amount(₹)** — was "GST amount".
+- **Rate incl. GST(₹)** — was "Price incl. GST".
+- **Total Cost (₹)** — was "Line total".
+
+`line-financials.ts`'s `lineFinancials()` now returns `itemTotalExclGst`
+(the base amount) alongside the existing `gstAmount`/`priceInclGst`/
+`lineTotal`, so the new figure is computed once in the shared pure helper
+rather than duplicated between the form and the table.
+
+**Expiry Date → Re-Test Date, hidden for packaging:** the date field on
+both purchase-line forms is now conditional on `category`:
+
+- Raw material: still shown, relabeled "Re-Test Date", with a hint
+  explaining the intended workflow — "Once this date arrives, the batch
+  is due to go through QC again using its reserved stability sample."
+- Packaging: not rendered at all — packaging items are never QC'd or
+  retested, so there's no date to capture.
+
+Server-side, `lib/actions/purchase.ts`'s `lineSchema`/`updateLineSchema`
+changed `expiry_date` from always-required to optional at the Zod layer,
+with the actual requirement enforced by hand in
+`createPurchaseLine()`/`updatePurchaseLine()` after looking up the
+line's real item category from the database (never trusting a
+client-submitted category) — raw material still rejects a missing date
+("Re-Test date is required for raw material."), packaging silently
+stores `null`. This follows the same category-lookup pattern used for
+the QC/Stability/R&D defaulting added for Packaging Item purchases
+above: the client's `<Select>` state is a UX filter, never the source of
+truth for what the server enforces.
+
+**Migration** (`0024_purchase_lines_currency_retest.sql`): drops the
+`not null` constraint on `purchase_lines.expiry_date` — purely additive,
+every existing row (raw material only, to date) already has a real date.
+
+**Consequential fix, found while scoping this (not separately
+requested):** the Labels module's RM label picker query
+(`/labels`, `page.tsx`) had no category filter on the purchase-lines
+fetch — since packaging purchase lines now exist, they would have started
+appearing in the "Approved Raw Material" / "RM Under Test" / "In-process"
+picker there, all three of which are raw-material-specific label formats
+(`requirements-gap-analysis.md`). Fixed by switching the `items` embed to
+`items!inner(name, category)` with `.eq("items.category", "raw")` added,
+matching the same fix already applied to the QC "New Assign Record"
+picker when Packaging Item purchases were introduced. See
+`docs/modules/labels.md`.
+
+**Not yet built:** the "should go through QC again using the stability
+sample already available" retest workflow itself — i.e. actually routing
+a batch back through QC once its Re-Test Date arrives, reusing the
+already-reserved `stability_qty` rather than a fresh sample pull. This is
+a genuine new feature (`quality_checks` currently allows only one QC
+record ever per purchase line — `unique(purchase_line_id)`,
+`0015_qc_duplicate_backstop.sql` — which would need to change), scoped
+separately pending clarification on what the "due for retest" surface
+should look like and how far the Expiry→Re-Test terminology should
+propagate beyond this module (QC, Labels, Reports, BMR, and FP-compose
+all currently reference `purchase_lines.expiry_date` under "Expiry").

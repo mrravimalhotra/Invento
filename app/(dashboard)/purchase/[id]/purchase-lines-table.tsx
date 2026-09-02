@@ -19,7 +19,7 @@ export type LineRow = {
   remaining_qty: string;
   unit_price: string | null;
   gst_pct: string | null;
-  expiry_date: string;
+  expiry_date: string | null;
   item: { item_code: string; name: string; category: string } | null;
 };
 
@@ -97,12 +97,17 @@ export function PurchaseLinesTable({
     { header: "QC qty", accessor: (r) => formatNumber(r.qc_qty) },
     { header: "Stability qty", accessor: (r) => formatNumber(r.stability_qty) },
     { header: "R&D qty", accessor: (r) => formatNumber(r.rnd_qty) },
-    { header: "Unit price", accessor: (r) => formatNumber(r.unit_price) },
+    { header: "Unit Price (₹)", accessor: (r) => formatNumber(r.unit_price) },
     { header: "GST %", accessor: (r) => formatNumber(r.gst_pct) },
-    { header: "GST amount", accessor: (r) => formatNumber(lineFinancials(r).gstAmount) },
-    { header: "Price incl. GST", accessor: (r) => formatNumber(lineFinancials(r).priceInclGst) },
-    { header: "Line total", accessor: (r) => formatNumber(lineFinancials(r).lineTotal) },
-    { header: "Expiry", accessor: (r) => formatDate(r.expiry_date) },
+    { header: "Item Total Excl GST (₹)", accessor: (r) => formatNumber(lineFinancials(r).itemTotalExclGst) },
+    { header: "GST amount(₹)", accessor: (r) => formatNumber(lineFinancials(r).gstAmount) },
+    { header: "Rate incl. GST(₹)", accessor: (r) => formatNumber(lineFinancials(r).priceInclGst) },
+    { header: "Total Cost (₹)", accessor: (r) => formatNumber(lineFinancials(r).lineTotal) },
+    // Packaging lines never carry a re-test date (2 Sept 2026) — the column
+    // is shared across both categories in this one table, so a packaging
+    // row just renders "—" (formatDate's own null handling) rather than
+    // the column being conditionally hidden per row.
+    { header: "Re-Test Date", accessor: (r) => formatDate(r.expiry_date) },
   ];
 
   if (editable) {

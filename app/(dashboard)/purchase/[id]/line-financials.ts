@@ -18,6 +18,10 @@ export function lineFinancials(l: LineFinancialsInput) {
   const base = qty * price;
   const gstAmount = base * (gst / 100);
   return {
+    // "Item Total Excl GST" (2 Sept 2026) — same number as `base` above,
+    // just exposed under the name the rest of the app now shows it as:
+    // Total Cost (₹) − GST amount(₹), which is definitionally qty × price.
+    itemTotalExclGst: base,
     gstAmount,
     priceInclGst: price * (1 + gst / 100),
     lineTotal: base + gstAmount,

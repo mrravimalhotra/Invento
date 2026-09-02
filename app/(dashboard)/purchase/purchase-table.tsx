@@ -30,7 +30,7 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
     { header: "Invoice #", accessor: (r) => r.invoice_number, searchValue: (r) => r.invoice_number },
     { header: "Invoice date", accessor: (r) => formatDate(r.invoice_date) },
     { header: "Lines", accessor: (r) => r.lineCount },
-    { header: "Total value", accessor: (r) => formatNumber(r.totalValue) },
+    { header: "Total value (₹)", accessor: (r) => formatNumber(r.totalValue) },
     {
       header: "Status",
       accessor: (r) => (

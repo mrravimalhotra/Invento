@@ -288,7 +288,7 @@ export function PurchaseLineForm({
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Unit price" htmlFor="unit_price">
+        <Field label="Unit Price (₹)" htmlFor="unit_price">
           <Input
             id="unit_price"
             name="unit_price"
@@ -302,27 +302,37 @@ export function PurchaseLineForm({
         <Field label="GST %" htmlFor="gst_pct">
           <Input id="gst_pct" name="gst_pct" type="number" step="any" min="0" value={gstPct} onChange={(e) => setGstPct(e.target.value)} />
         </Field>
-        <Field label="Expiry date" htmlFor="expiry_date" required>
-          <Input
-            id="expiry_date"
-            name="expiry_date"
-            type="date"
+        {isRaw && (
+          <Field
+            label="Re-Test Date"
+            htmlFor="expiry_date"
             required
-            value={expiryDate}
-            onChange={(e) => setExpiryDate(e.target.value)}
-          />
-        </Field>
+            hint="Once this date arrives, the batch is due to go through QC again using its reserved stability sample."
+          >
+            <Input
+              id="expiry_date"
+              name="expiry_date"
+              type="date"
+              required
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+            />
+          </Field>
+        )}
       </div>
 
-      <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-3">
+      <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-4">
         <span>
-          GST amount: <strong>{formatNumber(gstAmount)}</strong>
+          Item Total Excl GST (₹): <strong>{formatNumber(baseAmount)}</strong>
         </span>
         <span>
-          Price incl. GST: <strong>{formatNumber(priceInclGst)}</strong>
+          GST amount(₹): <strong>{formatNumber(gstAmount)}</strong>
         </span>
         <span>
-          Line total: <strong>{formatNumber(lineTotal)}</strong>
+          Rate incl. GST(₹): <strong>{formatNumber(priceInclGst)}</strong>
+        </span>
+        <span>
+          Total Cost (₹): <strong>{formatNumber(lineTotal)}</strong>
         </span>
       </div>
 
@@ -357,7 +367,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
   const [rndQty, setRndQty] = useState(String(line.rnd_qty));
   const [unitPrice, setUnitPrice] = useState(line.unit_price ?? "");
   const [gstPct, setGstPct] = useState(line.gst_pct ?? "");
-  const [expiryDate, setExpiryDate] = useState(line.expiry_date);
+  const [expiryDate, setExpiryDate] = useState(line.expiry_date ?? "");
 
   useEffect(() => {
     if (state?.success) onDone();
@@ -465,7 +475,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Unit price" htmlFor="unit_price">
+        <Field label="Unit Price (₹)" htmlFor="unit_price">
           <Input
             id="unit_price"
             name="unit_price"
@@ -479,27 +489,37 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         <Field label="GST %" htmlFor="gst_pct">
           <Input id="gst_pct" name="gst_pct" type="number" step="any" min="0" value={gstPct} onChange={(e) => setGstPct(e.target.value)} />
         </Field>
-        <Field label="Expiry date" htmlFor="expiry_date" required>
-          <Input
-            id="expiry_date"
-            name="expiry_date"
-            type="date"
+        {isRaw && (
+          <Field
+            label="Re-Test Date"
+            htmlFor="expiry_date"
             required
-            value={expiryDate}
-            onChange={(e) => setExpiryDate(e.target.value)}
-          />
-        </Field>
+            hint="Once this date arrives, the batch is due to go through QC again using its reserved stability sample."
+          >
+            <Input
+              id="expiry_date"
+              name="expiry_date"
+              type="date"
+              required
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+            />
+          </Field>
+        )}
       </div>
 
-      <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-3">
+      <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-4">
         <span>
-          GST amount: <strong>{formatNumber(gstAmount)}</strong>
+          Item Total Excl GST (₹): <strong>{formatNumber(baseAmount)}</strong>
         </span>
         <span>
-          Price incl. GST: <strong>{formatNumber(priceInclGst)}</strong>
+          GST amount(₹): <strong>{formatNumber(gstAmount)}</strong>
         </span>
         <span>
-          Line total: <strong>{formatNumber(lineTotal)}</strong>
+          Rate incl. GST(₹): <strong>{formatNumber(priceInclGst)}</strong>
+        </span>
+        <span>
+          Total Cost (₹): <strong>{formatNumber(lineTotal)}</strong>
         </span>
       </div>
 
