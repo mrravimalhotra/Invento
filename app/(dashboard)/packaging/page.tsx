@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { PackagingExportButton } from "./packaging-export-button";
-import { PackagingTable, type PackagingRow } from "./packaging-table";
+import { PackagingTable, materialsSummary, type PackagingRow } from "./packaging-table";
 
 export default async function PackagingListPage({
   searchParams,
@@ -15,10 +15,14 @@ export default async function PackagingListPage({
 }) {
   const { created } = await searchParams;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
+  // packaging_issue_items (0027_packaging_multi_material.sql, 3 Sept 2026):
+  // one issue can now carry several materials (bottles, caps, labels, …),
+  // each with its own quantity/unit — embedded here in place of the old
+  // singular items(name) FK read off packaging_item_id.
   const { data } = await supabase
     .from("packaging_issues")
     .select(
-      "id, pack_size, unit_count, department, transaction_type, created_at, finished_product_batches(batch_number), items(name)"
+      "id, pack_size, unit_count, department, transaction_type, created_at, finished_product_batches(batch_number), packaging_issue_items(quantity, unit, items(name, item_code))"
     )
     .order("created_at", { ascending: false });
 
@@ -31,7 +35,7 @@ export default async function PackagingListPage({
     formatNumber(r.unit_count, 0),
     r.department,
     r.transaction_type,
-    r.items?.name ?? "—",
+    materialsSummary(r.packaging_issue_items),
     formatDate(r.created_at),
   ]);
 

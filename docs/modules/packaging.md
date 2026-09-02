@@ -27,7 +27,8 @@ adapted from prior code. Field spec sources:
 - `DataTable` of every `packaging_issues` row, newest first by
   `created_at`.
 - Columns: FP batch number, pack size, unit count, department (badge),
-  transaction type (badge), packaging item name, created at.
+  transaction type (badge), packaging materials (summarized, see below),
+  created at.
 - **PDF export button** (`lib/pdf.ts`'s `downloadPdfTable()`) next to "New
   issue" — exports the currently-loaded rows as the packing register, the
   direct replacement for legacy `FormPackingList`.
@@ -35,7 +36,8 @@ adapted from prior code. Field spec sources:
 
 ### New — `/packaging/new`
 - Role: `packaging` (`system_admin`, `inventory_manager`, `mfr_manager` —
-  matches the RLS insert policy on `packaging_issues`).
+  matches the RLS insert policy on `packaging_issues` and, since 3 Sept
+  2026, `packaging_issue_items`).
 - `finished_product_batch_id` — dropdown of `finished_product_batches`
   filtered to `status = 'approved'` **only**. Packaging follows FP approval
   per the corrected legacy flow (see `docs/DESIGN.md`'s note under
@@ -50,15 +52,69 @@ adapted from prior code. Field spec sources:
 - `unit_count` — numeric.
 - `department` — select from `DEPARTMENTS` (`production` / `rnd` /
   `store`).
-- `packaging_item_id` — dropdown of `items` where `category = 'packaging'`.
-- `packaging_qty_used` — numeric.
 - `transaction_type` — select `pack` / `repack` / `unpack`, defaults to
   `pack`.
-- On insert, `trg_packaging_pull` (in `0002_transactions.sql`) pulls
-  `packaging_qty_used` of `packaging_item_id` from stock via the ledger and
-  bumps `finished_product_batches.packaged_qty` (subtracting for `unpack`)
-  automatically — the Server Action only inserts the row, it never touches
-  the ledger or `packaged_qty` itself.
+- **Packaging materials** — see "Multiple packaging materials per issue"
+  below; this replaced the old single `packaging_item_id` +
+  `packaging_qty_used` pair.
+- On insert, `trg_packaging_pull` (in `0002_transactions.sql`, rewritten by
+  `0027_packaging_multi_material.sql`) bumps
+  `finished_product_batches.packaged_qty` (subtracting for `unpack`) off the
+  `packaging_issues` header row; a separate per-line trigger
+  (`trg_packaging_item_pull`, new in the same migration) pulls each
+  material's own quantity from stock via the ledger. The Server Action only
+  inserts the header + line rows, it never touches the ledger or
+  `packaged_qty` itself.
+
+## Multiple packaging materials per issue (3 Sept 2026)
+
+"In packaging allow selection of multiple packaging materials such as
+bottles, caps etc. Each material can have a different unit/quantity."
+(Ravi) — the original design modeled one packaging issue as exactly one
+`packaging_item_id` + `packaging_qty_used` (1:1), so a single pack run that
+actually used bottles *and* caps *and* labels needed a separate issue per
+material, with nothing tying them together as one packing event.
+
+- `supabase/migrations/0027_packaging_multi_material.sql` adds a new
+  `packaging_issue_items` table (`packaging_issue_id`, `item_id`,
+  `quantity`, `unit`) — the same header/lines split already used for MFR
+  recipe lines and Finished Product composition
+  (`finished_product_components`). `packaging_issues.packaging_item_id` /
+  `packaging_qty_used` are dropped to nullable (not dropped outright) so
+  every pre-existing row keeps its original single-material value on file;
+  the migration also backfills each of those rows into the new table as its
+  own one-line entry, using the item's own Item Master unit as a
+  best-effort default (there was never a captured unit on the old ledger
+  pull either — see below).
+- `app/(dashboard)/packaging/packaging-materials-editor.tsx` —
+  `PackagingMaterialsEditor`, a new client component mirroring
+  `mfr-line-editor.tsx`'s `MfrLineEditor` add/remove-row pattern exactly:
+  one row per material (item picker, quantity, unit — unit auto-fills from
+  the item's own Item Master default on pick, still overridable), a hidden
+  `lineCount` field, "Add material" / trash-icon remove. `packaging-form.tsx`
+  now renders this in place of the old two-column
+  item-dropdown-plus-quantity-input block.
+- `lib/actions/packaging.ts`'s `createPackagingIssue()` gained a
+  `parseMaterials()` helper (same `lineCount` + `item_id_i`/`quantity_i`/
+  `unit_i` parsing shape as `finished-product.ts`'s `parseComponents()`),
+  inserts the `packaging_issues` header first, then bulk-inserts
+  `packaging_issue_items`, with the header rolled back (deleted) if the
+  lines insert fails — same pattern as `createFinishedProductBatch()`.
+- List page (`packaging/page.tsx`) and table (`packaging-table.tsx`) now
+  embed `packaging_issue_items(quantity, unit, items(name, item_code))`
+  instead of the old singular `items(name)`, and render/search/export a
+  summarized string ("Bottle 500ml (12 count), Cap (12 count)") via the new
+  `materialsSummary()` helper.
+- **Pre-existing gap closed as a side effect**: the old
+  `trg_fn_packaging_pull()`'s ledger insert never set a `unit` column at
+  all (`packaging_issues` had no unit column to read one from) — every
+  historical packaging "pull" ledger row has `unit = null`. The new
+  per-line trigger (`trg_fn_packaging_item_pull` /
+  `trg_packaging_item_pull`) writes each line's real `unit`, so every new
+  pull going forward has one. Historical rows are unchanged.
+- `app/(dashboard)/packaging/new/page.tsx` needed no changes — its
+  `packagingItems` query shape (`id, item_code, name, unit`) already
+  matched what the new editor expects.
 
 ## Role
 
@@ -67,12 +123,18 @@ present, not added by this module).
 
 ## Files
 
-- `lib/actions/packaging.ts` — `createPackagingIssue`.
+- `lib/actions/packaging.ts` — `createPackagingIssue`, `parseMaterials`.
 - `app/(dashboard)/packaging/page.tsx` — list + PDF export.
 - `app/(dashboard)/packaging/new/page.tsx` + `packaging-form.tsx` — create
   form.
+- `app/(dashboard)/packaging/packaging-materials-editor.tsx` — multi-line
+  materials editor (3 Sept 2026).
+- `app/(dashboard)/packaging/packaging-table.tsx` — list table +
+  `materialsSummary()` helper (shared with the PDF export).
 - `app/(dashboard)/packaging/packaging-export-button.tsx` — client
   component wrapping `downloadPdfTable()`.
+- `supabase/migrations/0027_packaging_multi_material.sql` — the
+  `packaging_issue_items` table and its consumption trigger.
 
 ## Deviations / notes for review
 

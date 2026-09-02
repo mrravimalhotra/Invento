@@ -6,13 +6,14 @@ import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { DEPARTMENTS } from "@/lib/constants/units";
 import { isLegacyCode } from "@/lib/utils";
+import { PackagingMaterialsEditor, type PackagingItemOption } from "./packaging-materials-editor";
 
 export function PackagingForm({
   fpBatches,
   packagingItems,
 }: {
   fpBatches: { id: string; batch_number: string }[];
-  packagingItems: { id: string; item_code: string; name: string; unit: string | null }[];
+  packagingItems: PackagingItemOption[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createPackagingIssue, undefined);
 
@@ -72,23 +73,9 @@ export function PackagingForm({
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Packaging item" htmlFor="packaging_item_id" required hint="Item Master rows with category = packaging.">
-          <Select id="packaging_item_id" name="packaging_item_id" required defaultValue="">
-            <option value="" disabled>
-              Select…
-            </option>
-            {packagingItems.map((it) => (
-              <option key={it.id} value={it.id} data-legacy={isLegacyCode(it.item_code) ? "1" : undefined}>
-                {it.item_code} — {it.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Packaging qty used" htmlFor="packaging_qty_used" required>
-          <Input id="packaging_qty_used" name="packaging_qty_used" type="number" step="any" min="0" required />
-        </Field>
-      </div>
+      <Field label="Packaging materials" required hint="Item Master rows with category = packaging — add one line per material (bottles, caps, labels, …), each with its own quantity and unit.">
+        <PackagingMaterialsEditor packagingItems={packagingItems} />
+      </Field>
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending || fpBatches.length === 0}>

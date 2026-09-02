@@ -10,7 +10,7 @@ export function PackagingExportButton({ rows }: { rows: (string | number)[][] })
       onClick={() =>
         downloadPdfTable({
           title: "Packing Register",
-          columns: ["FP Batch", "Pack Size", "Unit Count", "Department", "Type", "Packaging Item", "Date"],
+          columns: ["FP Batch", "Pack Size", "Unit Count", "Department", "Type", "Packaging Materials", "Date"],
           rows,
           filename: `packing-register-${new Date().toISOString().slice(0, 10)}.pdf`,
         })
