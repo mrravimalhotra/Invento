@@ -6,9 +6,21 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { QcAssignForm, type PendingLine } from "./qc-assign-form";
 
-export default async function NewQualityCheckPage() {
+export default async function NewQualityCheckPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ line?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "qc_assign")) redirect("/qc");
+
+  // Deep-linked from the "Awaiting QC" card on /qc (?line=<purchase_line_id>)
+  // so a batch that just arrived doesn't need to be found again in this
+  // form's own picker. Purely a UI convenience — createQualityCheck() still
+  // validates the line server-side regardless of how it got selected, and
+  // an unrecognized/stale id here just leaves the form unselected instead
+  // of erroring.
+  const { line: initialLineId } = await searchParams;
 
   const supabase = await createClient();
 
@@ -56,7 +68,7 @@ export default async function NewQualityCheckPage() {
       />
       <Card className="max-w-2xl">
         <CardBody>
-          <QcAssignForm lines={(lines ?? []) as unknown as PendingLine[]} />
+          <QcAssignForm lines={(lines ?? []) as unknown as PendingLine[]} initialLineId={initialLineId} />
         </CardBody>
       </Card>
     </div>

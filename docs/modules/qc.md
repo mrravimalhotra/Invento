@@ -240,3 +240,55 @@ mid-build discovery of which "retest" field this keys off) is in
   number on the list page and next to the status badge on the detail
   page, so a retest AR is visually distinguishable from an original
   assign without having to infer it from timing.
+- **Live-verified end-to-end 3 Sept 2026**: full writeup, including a real
+  finding about `retest_date` and its recompute trigger, in
+  `claude/known-issues.md`, Eighth pass Part B.
+
+## "Awaiting QC" card (3 Sept 2026)
+
+Ravi: "when new purchase is done, there should be a functionality in QC
+page that new batches awaiting QC should prominently show there and
+prompt user to do QC." Before this, a batch that had just been received
+(PO Final Submitted) sat invisible until someone thought to open `/qc/new`
+and search for it in that form's own item/batch pickers — nothing
+surfaced it proactively. This is a different gap from the Dashboard's
+"Pending QC" stat card, which counts `quality_checks` rows already
+`submitted` (i.e. an AR that exists but hasn't been reviewed yet) — a
+batch that has no AR at all yet was never counted there either.
+
+- **`/qc` "Awaiting QC" card** — sits above the "Due for retest" card
+  (new batches needing their first QC take priority over already-approved
+  batches becoming due for a repeat one), same green/`brand`-tinted
+  styling as the rest of the app's "next step, not a warning" affordances
+  (as opposed to "Due for retest"'s amber, which is a genuine
+  attention/overdue signal). Populated by the exact same "open for QC"
+  query `qc/new/page.tsx` already used to build its own Item/Batch
+  pickers — `purchase_batch_status.qc_status = 'not_submitted'`, then
+  `purchase_lines` filtered to `active`, `purchase_orders.status =
+  'submitted'` (a draft PO's lines were never pushed to inventory,
+  FB-0018), and `items.category = 'raw'` (packaging has never gone
+  through QC in this app) — so "awaiting QC" here means exactly what
+  `/qc/new`'s own pickers would have shown, just surfaced proactively
+  instead of requiring a visit there first. Capped at 8 rows shown, with
+  a "+N more — open New AR" link beyond that (same cap convention as the
+  Dashboard's Low stock/Retest due soon cards).
+- Each row is a **"Start QC" link**, not a one-click action like "Start
+  Retest" — assigning QC still needs real input (sample qty/unit, expiry
+  date), so it can't be a single button press. The link goes to
+  `/qc/new?line=<purchase_line_id>`, and `QcAssignForm` now accepts an
+  optional `initialLineId` prop that pre-selects the item and batch (and
+  derives sample qty/unit/expiry the same way picking it by hand would,
+  via a `computeBatchDisplay()` helper shared with `handleBatchChange` so
+  the two paths can never compute different values for the same batch).
+  This only saves the "search for it in the picker" step — `createQualityCheck()`
+  still validates the batch server-side regardless of how it was selected,
+  so a stale or hand-edited `?line=` value just leaves the form
+  unselected rather than being trusted.
+
+## Files (Awaiting QC)
+
+- `app/(dashboard)/qc/awaiting-qc.tsx` — the card's row list
+- `app/(dashboard)/qc/page.tsx` — `getAwaitingQcLines()` query
+- `app/(dashboard)/qc/new/page.tsx` — reads `?line=` from `searchParams`
+- `app/(dashboard)/qc/new/qc-assign-form.tsx` — `initialLineId` prop,
+  `computeBatchDisplay()` helper

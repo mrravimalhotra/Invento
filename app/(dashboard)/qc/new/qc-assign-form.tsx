@@ -17,7 +17,32 @@ export type PendingLine = {
   items: { item_code: string; name: string; default_sample_unit: string | null } | null;
 };
 
-export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
+// FB-0021 ("sample quantity and Sample unit should be auto populated
+// from defaults given at the time of raw material creation"): the
+// purchase line's own qc_qty is still the authoritative recorded
+// amount for this specific batch (already converted into the line's
+// unit at purchase time, FB-0017) — but shown here re-expressed in the
+// item's own default_sample_unit when that's compatible with the line's
+// unit, same "validDefault" convention Purchase's Add-line form uses,
+// rather than always falling back to the line's own (often larger, e.g.
+// "kg") unit. Shared by handleBatchChange and the initial (deep-linked)
+// selection so both compute the same values the same way.
+function computeBatchDisplay(line: PendingLine | undefined): { sampleQty: string; sampleUnit: string } {
+  if (!line) return { sampleQty: "", sampleUnit: "" };
+  const lineUnit = line.unit ?? "";
+  const itemDefault = line.items?.default_sample_unit ?? null;
+  const validDefault = !!itemDefault && !!lineUnit && compatibleUnits(lineUnit).some((u) => u === itemDefault);
+  const displayUnit = validDefault ? (itemDefault as string) : lineUnit;
+
+  const rawQty = line.qc_qty !== null && line.qc_qty !== undefined ? Number(line.qc_qty) : null;
+  const converted = rawQty !== null && lineUnit ? convertUnit(rawQty, lineUnit, displayUnit) : null;
+  return {
+    sampleQty: converted !== null ? String(converted) : rawQty !== null ? String(rawQty) : "",
+    sampleUnit: displayUnit,
+  };
+}
+
+export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; initialLineId?: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createQualityCheck, undefined);
 
   const items = useMemo(() => {
@@ -33,11 +58,22 @@ export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
     return Array.from(map.entries()).map(([id, v]) => ({ id, ...v }));
   }, [lines]);
 
-  const [itemId, setItemId] = useState("");
-  const [purchaseLineId, setPurchaseLineId] = useState("");
-  const [sampleQty, setSampleQty] = useState("");
-  const [sampleUnit, setSampleUnit] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
+  // Deep-linked from /qc's "Awaiting QC" card as ?line=<purchase_line_id>.
+  // Only trusted as far as "does this id appear in today's actually-pending
+  // lines" — a stale or tampered id just falls back to nothing pre-selected
+  // rather than populating fields for a batch that isn't really open for QC.
+  const initialLine = useMemo(
+    () => (initialLineId ? lines.find((l) => l.id === initialLineId) : undefined),
+    [lines, initialLineId]
+  );
+
+  const initialDisplay = useMemo(() => computeBatchDisplay(initialLine), [initialLine]);
+
+  const [itemId, setItemId] = useState(initialLine?.item_id ?? "");
+  const [purchaseLineId, setPurchaseLineId] = useState(initialLine?.id ?? "");
+  const [sampleQty, setSampleQty] = useState(initialDisplay.sampleQty);
+  const [sampleUnit, setSampleUnit] = useState(initialDisplay.sampleUnit);
+  const [expiryDate, setExpiryDate] = useState(initialLine?.expiry_date ?? "");
 
   const batchesForItem = useMemo(() => lines.filter((l) => l.item_id === itemId), [lines, itemId]);
   const currentLine = useMemo(() => lines.find((l) => l.id === purchaseLineId), [lines, purchaseLineId]);
@@ -51,27 +87,12 @@ export function QcAssignForm({ lines }: { lines: PendingLine[] }) {
     setExpiryDate("");
   }
 
-  // FB-0021 ("sample quantity and Sample unit should be auto populated
-  // from defaults given at the time of raw material creation"): the
-  // purchase line's own qc_qty is still the authoritative recorded
-  // amount for this specific batch (already converted into the line's
-  // unit at purchase time, FB-0017) — but shown here re-expressed in the
-  // item's own default_sample_unit when that's compatible with the line's
-  // unit, same "validDefault" convention Purchase's Add-line form uses,
-  // rather than always falling back to the line's own (often larger, e.g.
-  // "kg") unit.
   function handleBatchChange(nextLineId: string) {
     setPurchaseLineId(nextLineId);
     const line = lines.find((l) => l.id === nextLineId);
-    const lineUnit = line?.unit ?? "";
-    const itemDefault = line?.items?.default_sample_unit ?? null;
-    const validDefault = !!itemDefault && !!lineUnit && compatibleUnits(lineUnit).some((u) => u === itemDefault);
-    const displayUnit = validDefault ? (itemDefault as string) : lineUnit;
-
-    const rawQty = line?.qc_qty !== null && line?.qc_qty !== undefined ? Number(line.qc_qty) : null;
-    const converted = rawQty !== null && lineUnit ? convertUnit(rawQty, lineUnit, displayUnit) : null;
-    setSampleQty(converted !== null ? String(converted) : rawQty !== null ? String(rawQty) : "");
-    setSampleUnit(displayUnit);
+    const display = computeBatchDisplay(line);
+    setSampleQty(display.sampleQty);
+    setSampleUnit(display.sampleUnit);
     setExpiryDate(line?.expiry_date ?? "");
   }
 
