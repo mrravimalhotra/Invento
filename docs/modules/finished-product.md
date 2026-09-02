@@ -79,6 +79,46 @@ legacy field set: `wt_total_rm`, `wastage`, `total_units`, `net_qty`,
 (`wt_total_rm - wastage`, and yield % from those two) — the form never
 computes them; they're simply displayed after the save round-trips.
 
+## Stability qty / R&D qty added to Complete Batch (2 Sept 2026)
+
+Raw Material / Packaging has captured QC + Stability + R&D quantity
+together per purchase line since FB-0007/FB-0017 — Finished Product had no
+Stability/R&D equivalent at all, only `qc_sample_qty`, and it had no unit
+conversion (always assumed to already be in the batch's own `unit`). Per
+direct request ("QC sample quantity will remain in complete batch screen
+along with Yield, Stability Sample, R&D Sample and sample unit"):
+
+- `0021_fp_stability_rnd_qty.sql` adds two new nullable columns,
+  `finished_product_batches.stability_qty` / `rnd_qty` — purely additive,
+  no backfill, no existing data touched. Every batch completed before this
+  change simply has both as `null` until edited.
+- The Complete Batch form (`complete-batch-form.tsx`) gained "Stability
+  sample qty", "R&D sample qty", and a "Sample unit" selector shared by all
+  three sample fields (QC/Stability/R&D) — same pattern as Purchase's own
+  Sample unit field (FB-0017): pick a smaller/more convenient unit than the
+  batch's own (e.g. grams while the batch is tracked in kg), and
+  `completeFinishedProductBatch()` converts via `convertUnit()` into the
+  batch's `unit` before storing, rejecting an incompatible pair with a
+  plain-English error instead of silently storing a wrong number — the
+  exact bug class fixed in `0020_qc_sample_pull_unit_fix.sql`, avoided here
+  from the start. Like `purchase_lines`, no separate "as entered" unit
+  column is kept — the sample unit defaults to the batch's own unit, so
+  resaving an existing batch without touching that dropdown never
+  re-converts its already-stored values.
+- Deliberately **not** added: any bounds check tying
+  QC+Stability+R&D sample qty to `wt_total_rm`/`net_qty` (the way
+  `purchase_lines.remaining_qty` enforces qc+stability+rnd ≤ quantity).
+  `qc_sample_qty` itself has never been bounded against anything on this
+  table, and no ledger pull is fired for a Finished Product QC/Stability/
+  R&D sample either (`trg_fn_qc_sample_pull()` only fires for
+  `purchase_line_id`-linked `quality_checks` rows — a Finished Product
+  quality_checks row is `finished_product_batch_id`-linked and was never
+  wired to the ledger). These three fields stay purely informational, same
+  as `qc_sample_qty` always was; `submitFinishedProductToQc()` is
+  unaffected and keeps working exactly as before (it still only reads
+  `qc_sample_qty`, now correctly already expressed in the batch's own
+  unit).
+
 ## Status flow — the corrected finding
 
 `in_process → submitted_to_qc → approved/rejected`. The first draft of the

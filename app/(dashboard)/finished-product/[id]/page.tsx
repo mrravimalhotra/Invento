@@ -18,7 +18,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
   const { data: batch } = await supabase
     .from("finished_product_batches")
     .select(
-      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, wt_total_rm, wastage, net_weight, total_units, net_qty, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, status, expiry_date, mfr_definitions(id, code, name)"
+      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, wt_total_rm, wastage, net_weight, total_units, net_qty, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, expiry_date, mfr_definitions(id, code, name)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -183,6 +183,8 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
                   finish_date: batch.finish_date,
                   expiry_month: batch.expiry_month,
                   qc_sample_qty: batch.qc_sample_qty,
+                  stability_qty: batch.stability_qty,
+                  rnd_qty: batch.rnd_qty,
                 }}
               />
             </CardBody>

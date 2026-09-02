@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
+import { convertUnit } from "@/lib/constants/units";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -116,17 +117,42 @@ export async function completeFinishedProductBatch(
   const netQty = formData.get("net_qty");
   const finishDate = String(formData.get("finish_date") || "");
   const expiryMonth = String(formData.get("expiry_month") || "");
-  const qcSampleQty = formData.get("qc_sample_qty");
+  const qcSampleQtyRaw = formData.get("qc_sample_qty");
+  const stabilityQtyRaw = formData.get("stability_qty");
+  const rndQtyRaw = formData.get("rnd_qty");
+  const sampleUnitRaw = String(formData.get("sample_unit") || "");
 
   const supabase = await createClient();
   const { data: current, error: fetchError } = await supabase
     .from("finished_product_batches")
-    .select("status")
+    .select("status, unit")
     .eq("id", id)
     .maybeSingle();
   if (fetchError || !current) return { error: fetchError?.message || "Batch not found." };
   if (current.status !== "in_process") {
     return { error: "This batch has already been submitted to QC — details can no longer be edited." };
+  }
+
+  // 0021_fp_stability_rnd_qty.sql: QC sample / Stability sample / R&D
+  // sample quantity can be entered in a "sample unit" that differs from
+  // the batch's own `unit` (e.g. grams while the batch itself is tracked
+  // in kg) — same convention purchase_lines uses (FB-0017). Falls back
+  // to the batch's own unit when no sample unit is submitted (matches
+  // the pre-existing behavior, where qc_sample_qty was always assumed to
+  // already be in the batch's unit). Converted values are what's stored;
+  // no separate "as entered" unit column is kept on this table.
+  const fromUnit = sampleUnitRaw || current.unit;
+  const qcSampleQty = qcSampleQtyRaw ? convertUnit(Number(qcSampleQtyRaw), fromUnit, current.unit) : null;
+  const stabilityQty = stabilityQtyRaw ? convertUnit(Number(stabilityQtyRaw), fromUnit, current.unit) : null;
+  const rndQty = rndQtyRaw ? convertUnit(Number(rndQtyRaw), fromUnit, current.unit) : null;
+  if (
+    (qcSampleQtyRaw && qcSampleQty === null) ||
+    (stabilityQtyRaw && stabilityQty === null) ||
+    (rndQtyRaw && rndQty === null)
+  ) {
+    return {
+      error: `Sample unit "${fromUnit}" can't be converted to the batch's unit "${current.unit}" — pick a compatible unit.`,
+    };
   }
 
   const { error } = await supabase
@@ -138,7 +164,9 @@ export async function completeFinishedProductBatch(
       net_qty: netQty ? Number(netQty) : null,
       finish_date: finishDate || null,
       expiry_month: expiryMonth || null,
-      qc_sample_qty: qcSampleQty ? Number(qcSampleQty) : null,
+      qc_sample_qty: qcSampleQty,
+      stability_qty: stabilityQty,
+      rnd_qty: rndQty,
     })
     .eq("id", id);
   if (error) return { error: error.message };
