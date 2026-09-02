@@ -449,6 +449,18 @@ module's own review doc under `docs/modules/`)
   worked) but never visible to a mouse user. Portaling to `<body>` escapes
   that clipping entirely; scroll/resize listeners keep it glued to the
   trigger while open.
+- **`Select`'s label extraction walks the full children tree instead of
+  assuming a single string** (FB-0016, 2 Sept 2026 bug fix). An `<option>`
+  written with more than one JSX child/expression — e.g.
+  `<option>{item.item_code} — {item.name}</option>` — hands React's
+  `children` prop an *array*, not a string; the old code's fallback ran
+  `String(anArray)`, which is `Array.prototype.join(",")` under the hood
+  and silently inserted a stray comma next to the intended separator in
+  every dropdown built that way (item/vendor/batch pickers throughout the
+  app, not just the one Ravi happened to report it on — Purchase, MFR,
+  Packaging, Labels, COA, Finished Product). `childrenToText()` now
+  concatenates every string/number leaf directly, preserving whatever
+  separator text already sits in the JSX source.
 
 ## 9. Known simplifications in this pass (flag for review, not silent)
 

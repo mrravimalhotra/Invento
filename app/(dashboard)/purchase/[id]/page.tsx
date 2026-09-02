@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { PurchaseLineForm, type RawItemOption } from "../purchase-line-form";
+import { DeletePurchaseOrderForm } from "../purchase-order-form";
 import { PurchaseLinesTable, type LineRow } from "./purchase-lines-table";
 import { purchaseLineTotal } from "./line-financials";
 
@@ -49,6 +50,7 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
 
   const lineRows = (lines ?? []) as unknown as LineRow[];
   const canEdit = canWrite(user?.roles ?? [], "purchase");
+  const isSystemAdmin = (user?.roles ?? []).includes("system_admin");
   const totalValue = lineRows.reduce((sum, l) => sum + purchaseLineTotal(l), 0);
 
   return (
@@ -74,6 +76,12 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
           <p className="mt-1.5 text-2xl font-semibold text-foreground">{formatDate(po.created_at)}</p>
         </Card>
       </div>
+
+      {isSystemAdmin && (
+        <div className="mb-6 flex justify-end">
+          <DeletePurchaseOrderForm id={po.id} poNumber={po.po_number} />
+        </div>
+      )}
 
       <Card className="mb-6">
         <CardHeader title="Purchase lines" />

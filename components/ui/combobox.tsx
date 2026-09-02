@@ -29,6 +29,25 @@ type OptionInfo = {
   legacy: boolean;
 };
 
+// FB-0016 (2 Sept 2026): an <option> with more than one JSX child/expression
+// — e.g. `<option>{item.item_code} — {item.name}</option>` — hands React's
+// `children` prop an ARRAY (["RM-00002", " — ", "Ashwagandha"]), not a
+// string. The old `typeof props.children === "string" ? ... : String(...)`
+// fallback then ran `String(anArray)`, which is `Array.prototype.join(",")`
+// under the hood — silently inserting a stray comma next to the intended
+// " — " separator in every affected dropdown (item/vendor/batch pickers
+// throughout the app, not just Purchase's). Walk the children tree instead
+// and concatenate every string/number leaf directly, so whatever separator
+// text already sits between the JSX expressions in the source is preserved
+// exactly and nothing extra is inserted.
+function childrenToText(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(childrenToText).join("");
+  if (isValidElement(node)) return childrenToText((node.props as { children?: ReactNode }).children);
+  return "";
+}
+
 function optionsFromChildren(children: ReactNode): OptionInfo[] {
   const options: OptionInfo[] = [];
   Children.forEach(children, (child) => {
@@ -38,7 +57,7 @@ function optionsFromChildren(children: ReactNode): OptionInfo[] {
     const props = el.props;
     const rawValue = props.value;
     const value = rawValue === undefined || rawValue === null ? "" : String(rawValue);
-    const label = typeof props.children === "string" ? props.children : String(props.children ?? value);
+    const label = childrenToText(props.children as ReactNode) || value;
     options.push({
       value,
       label,

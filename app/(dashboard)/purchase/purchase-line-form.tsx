@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { createPurchaseLine, previewBatchNumber, type ActionState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { UNITS } from "@/lib/constants/units";
+import { UNITS, compatibleUnits, convertUnit } from "@/lib/constants/units";
 import { formatNumber, isLegacyCode } from "@/lib/utils";
 
 export type RawItemOption = {
@@ -32,7 +32,12 @@ export function PurchaseLineForm({
   const formRef = useRef<HTMLFormElement>(null);
 
   const [itemId, setItemId] = useState("");
-  const [sampleUnit, setSampleUnit] = useState<string | null>(null);
+  // FB-0017 (2 Sept 2026): the unit QC/Stability/R&D quantity are entered
+  // in — independently choosable from the line's own `unit` (e.g. record
+  // "5" here in "g" while the line itself is in "kg"). Real conversion
+  // happens at submit (lib/actions/purchase.ts) using convertUnit(); this
+  // is no longer just a display hint like items.default_sample_unit was.
+  const [sampleUnit, setSampleUnit] = useState<string>("");
   const [batchNumber, setBatchNumber] = useState("");
   const [batchPending, startBatchTransition] = useTransition();
   const [quantity, setQuantity] = useState("");
@@ -52,7 +57,7 @@ export function PurchaseLineForm({
     setQcQty("");
     setStabilityQty("");
     setRndQty("");
-    setSampleUnit(null);
+    setSampleUnit("");
     setUnitPrice("");
     setGstPct("");
     setExpiryDate("");
@@ -76,17 +81,24 @@ export function PurchaseLineForm({
     // fix for the Automatic Sampling Deduction gap (DESIGN.md §7.1). Still
     // editable/overridable below.
     if (item) {
-      setUnit(item.unit ?? "");
+      const lineUnit = item.unit ?? "";
+      setUnit(lineUnit);
       setQcQty(numOrEmpty(item.default_qc_qty) || "0");
       setStabilityQty(numOrEmpty(item.default_stability_qty) || "0");
       setRndQty(numOrEmpty(item.default_rnd_qty) || "0");
-      setSampleUnit(item.default_sample_unit);
+      // Default the sample unit to the item's own default — but only if
+      // it's actually convertible into this line's unit (same guard as
+      // the dropdown's own option list below); falls back to the line
+      // unit itself otherwise, never a silently-wrong default.
+      const itemDefault = item.default_sample_unit;
+      const validDefault = itemDefault && compatibleUnits(lineUnit).some((u) => u === itemDefault);
+      setSampleUnit(validDefault ? (itemDefault as string) : lineUnit);
     } else {
       setUnit("");
       setQcQty("");
       setStabilityQty("");
       setRndQty("");
-      setSampleUnit(null);
+      setSampleUnit("");
     }
     setBatchNumber("");
     if (id) {
@@ -97,6 +109,15 @@ export function PurchaseLineForm({
     }
   }
 
+  function handleUnitChange(newUnit: string) {
+    setUnit(newUnit);
+    // If the currently-picked sample unit no longer belongs to the new
+    // line unit's family (e.g. line unit changed from kg to ltr), reset it
+    // to match — never leave a stale, now-incompatible sample unit sitting
+    // in the dropdown.
+    if (!compatibleUnits(newUnit).some((u) => u === sampleUnit)) setSampleUnit(newUnit);
+  }
+
   const qty = Number(quantity) || 0;
   const price = Number(unitPrice) || 0;
   const gst = Number(gstPct) || 0;
@@ -104,7 +125,11 @@ export function PurchaseLineForm({
   const gstAmount = baseAmount * (gst / 100);
   const priceInclGst = price * (1 + gst / 100);
   const lineTotal = baseAmount + gstAmount;
-  const remainingPreview = qty - (Number(qcQty) || 0) - (Number(stabilityQty) || 0) - (Number(rndQty) || 0);
+  const sampleUnitDiffers = !!sampleUnit && !!unit && sampleUnit !== unit;
+  const qcConverted = convertUnit(Number(qcQty) || 0, sampleUnit || unit, unit) ?? (Number(qcQty) || 0);
+  const stabilityConverted = convertUnit(Number(stabilityQty) || 0, sampleUnit || unit, unit) ?? (Number(stabilityQty) || 0);
+  const rndConverted = convertUnit(Number(rndQty) || 0, sampleUnit || unit, unit) ?? (Number(rndQty) || 0);
+  const remainingPreview = qty - qcConverted - stabilityConverted - rndConverted;
 
   return (
     <form ref={formRef} action={formAction} className="grid gap-4">
@@ -112,7 +137,7 @@ export function PurchaseLineForm({
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Field label="Item" htmlFor="item_id" required>
           <Select id="item_id" name="item_id" required value={itemId} onChange={(e) => handleItemChange(e.target.value)}>
             <option value="">Select item…</option>
@@ -127,9 +152,23 @@ export function PurchaseLineForm({
           <Input value={batchPending ? "Generating…" : batchNumber} readOnly disabled />
         </Field>
         <Field label="Unit" htmlFor="unit" required>
-          <Select id="unit" name="unit" required value={unit} onChange={(e) => setUnit(e.target.value)}>
+          <Select id="unit" name="unit" required value={unit} onChange={(e) => handleUnitChange(e.target.value)}>
             <option value="">Select unit…</option>
             {UNITS.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field
+          label="Sample unit"
+          htmlFor="sample_unit"
+          hint="For QC/Stability/R&D qty below — converted to the line unit above on save."
+        >
+          <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
+            <option value="">Select…</option>
+            {(unit ? compatibleUnits(unit) : UNITS).map((u) => (
               <option key={u} value={u}>
                 {u}
               </option>
@@ -154,14 +193,14 @@ export function PurchaseLineForm({
         <Field
           label="QC qty"
           htmlFor="qc_qty"
-          hint={sampleUnit ? `In ${unit || "item unit"} — item's sampling default is recorded in ${sampleUnit}.` : "Pre-filled from item default."}
+          hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : "Pre-filled from item default."}
         >
           <Input id="qc_qty" name="qc_qty" type="number" step="any" min="0" value={qcQty} onChange={(e) => setQcQty(e.target.value)} />
         </Field>
         <Field
           label="Stability qty"
           htmlFor="stability_qty"
-          hint={sampleUnit ? `In ${unit || "item unit"} — item's sampling default is recorded in ${sampleUnit}.` : "Pre-filled from item default."}
+          hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : "Pre-filled from item default."}
         >
           <Input
             id="stability_qty"
@@ -176,17 +215,16 @@ export function PurchaseLineForm({
         <Field
           label="R&D qty"
           htmlFor="rnd_qty"
-          hint={sampleUnit ? `In ${unit || "item unit"} — item's sampling default is recorded in ${sampleUnit}.` : "Pre-filled from item default."}
+          hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : "Pre-filled from item default."}
         >
           <Input id="rnd_qty" name="rnd_qty" type="number" step="any" min="0" value={rndQty} onChange={(e) => setRndQty(e.target.value)} />
         </Field>
       </div>
 
-      {sampleUnit && (
-        <p className="-mt-2 text-xs text-amber">
-          This item&apos;s default QC / stability / R&amp;D quantities were recorded in <strong>{sampleUnit}</strong>, not{" "}
-          {unit || "the item's unit"}. The quantities above are pre-filled as raw numbers — convert them to {unit || "the line's unit"} by
-          hand before saving.
+      {sampleUnitDiffers && (
+        <p className="-mt-2 text-xs text-muted">
+          QC / Stability / R&amp;D quantities above are in <strong>{sampleUnit}</strong> — converted to <strong>{unit}</strong>{" "}
+          automatically when you save.
         </p>
       )}
 
