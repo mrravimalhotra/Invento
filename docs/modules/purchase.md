@@ -619,3 +619,52 @@ request to QC, two identical copies on one A4 page).
 
 Verification: `npx tsc --noEmit`, `npx eslint` on every touched file, and
 `npx next build` (all 42 routes) all clean.
+
+## RM Intimation slip — exact visual match to the sample (3 Sept 2026)
+
+"update this so RM Intimation slip has exact same look and feel as
+attached. With Same Logo, design and color scheme" (Ravi, re-attaching the
+same sample PDF). The first pass above matched the sample's fields and
+two-copies-per-page structure but was still a generic, brand-green,
+app-styled document — this pass makes it a close visual reproduction of
+the actual legacy Crystal Reports export instead:
+
+- **Real logo, extracted from the sample itself**: `pdfimages` pulled the
+  embedded Atharva wordmark straight out of the attached PDF (a lossless
+  extraction, not a redraw), re-encoded to a 16-colour PNG for a small
+  file size with no visible quality loss, and stored as a base64 constant
+  in the new `atharva-logo.ts` (kept separate from `rm-intimation-pdf.ts`
+  so the large data string doesn't clutter the drawing logic). Placed
+  top-left at its native 2:1 aspect ratio (`ATHARVA_LOGO_ASPECT`).
+- **Verbatim company text, not the app-wide constants**: the sample reads
+  "Atharva Nature Health Care Pvt. Ltd. Wagholi,Pune" / "Mfg. Lic.  No.-
+  PD/AYU/111", which differs slightly in wording and punctuation from
+  `lib/pdf.ts`'s `COMPANY_NAME`/`MFG_LIC_NO` ("Atharva Nature Healthcare
+  Pvt. Ltd." / "PD/AYU-111", used by every other PDF in the app). This
+  slip transcribes the sample's own text as local constants
+  (`SLIP_COMPANY_NAME`/`SLIP_MFG_LIC`) instead — a deliberate, narrowly
+  scoped exception to reproduce this one legacy document exactly, not a
+  correction applied to the shared constants (which stay as they are for
+  every other PDF).
+- **Plain black-ruled table, no brand-green fill**: the sample itself is
+  monochrome — black text and black grid lines on white, only the logo is
+  in colour. The table's `autoTable` config switched from the app-wide
+  green header fill (used by every other table export in this app) to a
+  white header with bold black text and a full black grid
+  (`theme: "grid"`, black `lineColor`), matching what's actually on the
+  page in the sample rather than this app's usual PDF styling.
+- **Layout offsets measured off the sample, not eyeballed**: the sample
+  was rendered at 200dpi (`pdftoppm`) and each element's ink bounding box
+  (logo, company name, license line, title, rule, table, signature block)
+  was measured in pixels and converted to mm, so `drawSlip()`'s hand-tuned
+  y-offsets land within a millimetre or two of the original Crystal
+  Reports positions — including the second copy's start position (~155mm
+  down the page), not just "roughly halfway."
+- **Verified by actually rendering it**: generated a test PDF locally
+  (`npx tsx`, jsPDF's Node build writes straight to disk) using the
+  sample's own data (Jatamansi / R062 / 35 kg / Ambadas vanoushadhalay /
+  RM 05/26 / 0.050 / 0.000, Bill No 1080, Date 15/07/2026) and rendered it
+  side-by-side against the original with `pdftoppm` — not just a build
+  check, an actual visual diff. Test script and output were scratch files,
+  deleted before commit.
+- No data/field changes from the prior pass — this is styling-only.
