@@ -138,6 +138,16 @@ before, so a legacy raw material couldn't be told apart from a v2 one in
 that specific picker. The batch selects on both forms already had
 `batch_number`.
 
+## Expiry → Re-Test Date rename (2 Sept 2026)
+
+`NewBmrForm`'s FP batch picker shows each candidate raw-material batch's
+`purchase_lines.expiry_date` in its option label — this was `(exp ...)`,
+now `(re-test ...)`, matching the Purchase-screen rename
+(`docs/modules/purchase.md`). Same underlying value, display-only change.
+See `docs/modules/qc.md`, "Retest workflow," for the full rename scope
+and why `quality_checks`' own retest fields (unrelated, used by the actual
+retest-QC workflow) were left untouched.
+
 ## Bug fix: row-cap truncation on weighment-line item picker (1 Sept 2026)
 
 Same root cause as `docs/modules/purchase.md`'s "Bug fix" section: the

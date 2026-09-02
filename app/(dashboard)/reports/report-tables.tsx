@@ -160,7 +160,7 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
     { header: "Batch", cell: (r) => r.batch_number, pdfValue: (r) => r.batch_number },
     { header: "Quantity", cell: (r) => formatNumber(r.quantity), pdfValue: (r) => formatNumber(r.quantity) },
     { header: "Remaining Qty", cell: (r) => formatNumber(r.remaining_qty), pdfValue: (r) => formatNumber(r.remaining_qty) },
-    { header: "Expiry Date", cell: (r) => formatDate(r.expiry_date), pdfValue: (r) => formatDate(r.expiry_date) },
+    { header: "Re-Test Date", cell: (r) => formatDate(r.expiry_date), pdfValue: (r) => formatDate(r.expiry_date) },
   ];
 
   return (

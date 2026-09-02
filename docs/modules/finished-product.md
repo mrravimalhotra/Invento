@@ -301,6 +301,18 @@ only).
 - `app/(dashboard)/finished-product/[id]/page.tsx`,
   `complete-batch-form.tsx`, `submit-to-qc-form.tsx`.
 
+## Expiry → Re-Test Date rename (2 Sept 2026)
+
+Two displays of `purchase_lines.expiry_date` renamed to match the
+Purchase-screen rename (`docs/modules/purchase.md`): compose's RM batch
+picker option text (`compose-form.tsx`, "exp" → "re-test") and its page
+description ("FIFO by expiry date" → "FIFO by re-test date"), plus the
+batch detail page's "Composition (RM batches consumed)" table column
+("Expiry" → "Re-Test Date"). The batch's *own* "Expiry date" field
+(`finished_product_batches.expiry_date`, entered on Complete Batch) is a
+different column entirely and was not touched — see
+`docs/modules/qc.md`, "Retest workflow," for the full disambiguation.
+
 ## Searchable, legacy-aware pickers (1 Sept 2026)
 
 `step1-form.tsx`'s MFR select and `compose-form.tsx`'s per-line RM batch

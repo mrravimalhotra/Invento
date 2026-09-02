@@ -12,6 +12,7 @@ export type QcListRow = {
   sample_qty: string | number | null;
   sample_unit: string | null;
   retest_date: string | null;
+  is_retest: boolean;
   items: { item_code: string; name: string } | null;
   purchase_lines: { batch_number: string } | null;
   finished_product_batches: { batch_number: string } | null;
@@ -22,9 +23,12 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
     {
       header: "AR Number",
       accessor: (r) => (
-        <Link href={`/qc/${r.id}`} className="font-medium text-brand-dark hover:underline">
-          {r.ar_number}
-        </Link>
+        <span className="flex items-center gap-1.5">
+          <Link href={`/qc/${r.id}`} className="font-medium text-brand-dark hover:underline">
+            {r.ar_number}
+          </Link>
+          {r.is_retest && <Badge status="pending">Retest</Badge>}
+        </span>
       ),
       searchValue: (r) => r.ar_number,
     },

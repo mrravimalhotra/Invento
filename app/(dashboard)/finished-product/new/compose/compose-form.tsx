@@ -87,7 +87,7 @@ export function ComposeForm({
                           value={c.purchaseLineId}
                           data-legacy={isLegacyCode(c.batchNumber) ? "1" : undefined}
                         >
-                          {c.batchNumber} · exp {formatDate(c.expiryDate)} · {formatNumber(c.remainingQty)} avail.
+                          {c.batchNumber} · re-test {formatDate(c.expiryDate)} · {formatNumber(c.remainingQty)} avail.
                         </option>
                       ))}
                     </Select>

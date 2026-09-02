@@ -495,14 +495,16 @@ matching the same fix already applied to the QC "New Assign Record"
 picker when Packaging Item purchases were introduced. See
 `docs/modules/labels.md`.
 
-**Not yet built:** the "should go through QC again using the stability
-sample already available" retest workflow itself — i.e. actually routing
-a batch back through QC once its Re-Test Date arrives, reusing the
-already-reserved `stability_qty` rather than a fresh sample pull. This is
-a genuine new feature (`quality_checks` currently allows only one QC
-record ever per purchase line — `unique(purchase_line_id)`,
-`0015_qc_duplicate_backstop.sql` — which would need to change), scoped
-separately pending clarification on what the "due for retest" surface
-should look like and how far the Expiry→Re-Test terminology should
-propagate beyond this module (QC, Labels, Reports, BMR, and FP-compose
-all currently reference `purchase_lines.expiry_date` under "Expiry").
+**Now built (2 Sept 2026, Eighth pass Part B) — see `docs/modules/qc.md`,
+"Retest workflow."** The "should go through QC again using the stability
+sample already available" workflow keys off `quality_checks.retest_date`
+(a separate, pre-existing QC-computed field), not the
+`purchase_lines.expiry_date`/Re-Test Date field this module renamed above
+— that distinction was surfaced and confirmed with Ravi mid-build. This
+module's own Re-Test Date field (Purchase screen, at receipt time) is
+unchanged by that work. The Expiry→Re-Test terminology rename did
+propagate to every other place `purchase_lines.expiry_date` is displayed
+(QC's batch pickers were already this module's own field; BMR's
+weighment batch picker, FP-compose's RM batch picker, the Purchase
+Register report, and the Finished Product detail page's composition
+table all now say "Re-Test Date"/"re-test" instead of "Expiry"/"exp").

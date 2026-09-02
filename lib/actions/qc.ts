@@ -131,3 +131,78 @@ export async function reviewQualityCheck(
   revalidatePath(`/qc/${id}`);
   redirect(`/qc/${id}`);
 }
+
+// Retest workflow (Part B) — once an approved batch's QC-computed
+// retest_date has arrived, this starts a new QC record against the same
+// purchase_line using the stability sample already reserved at Purchase
+// time, instead of a fresh sample pull. One-click action, no form fields:
+// every value it needs is re-derived from the database, matching the
+// non-destructive/server-re-derived pattern used elsewhere in this file.
+export async function startRetestQualityCheck(
+  purchaseLineId: string,
+  _prev: ActionState,
+  _formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+
+  const { data: line, error: lineError } = await supabase
+    .from("purchase_lines")
+    .select("id, item_id, stability_qty, unit")
+    .eq("id", purchaseLineId)
+    .maybeSingle();
+  if (lineError || !line) return { error: "Selected batch could not be found." };
+
+  const stabilityQty = Number(line.stability_qty ?? 0);
+  if (!(stabilityQty > 0)) return { error: "No stability sample remaining for this batch." };
+
+  // Re-check the trigger condition server-side rather than trusting that
+  // the "Due for retest" list the user clicked from is still current.
+  const { data: latestQc, error: latestError } = await supabase
+    .from("quality_checks")
+    .select("status, retest_date, expiry_date")
+    .eq("purchase_line_id", purchaseLineId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestError) return { error: latestError.message };
+  if (!latestQc || latestQc.status !== "approved") {
+    return { error: "This batch is not due for retest." };
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (!latestQc.retest_date || latestQc.retest_date > today) {
+    return { error: "This batch's retest date has not arrived yet." };
+  }
+
+  const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
+  if (arError || !arNumber) return { error: arError?.message ?? "Could not generate an AR number." };
+
+  const { data: inserted, error } = await supabase
+    .from("quality_checks")
+    .insert({
+      ar_number: arNumber,
+      purchase_line_id: line.id,
+      item_id: line.item_id,
+      finished_product_batch_id: null,
+      sample_qty: stabilityQty,
+      sample_unit: line.unit,
+      expiry_date: latestQc.expiry_date,
+      is_retest: true,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505") {
+      // quality_checks_purchase_line_pending_unique (0025_qc_retest_workflow.sql)
+      // — another submission against this batch landed between our check
+      // and this insert.
+      return { error: "This batch already has a QC record submitted against it." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/qc");
+  redirect(`/qc/${inserted.id}`);
+}

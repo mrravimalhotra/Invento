@@ -119,7 +119,7 @@ export function WeighmentLineForm({
           {batchOptions.map((b) => (
             <option key={b.id} value={b.id} data-legacy={isLegacyCode(b.batch_number) ? "1" : undefined}>
               {b.batch_number}
-              {b.expiry_date ? ` (exp ${formatDate(b.expiry_date)})` : ""}
+              {b.expiry_date ? ` (re-test ${formatDate(b.expiry_date)})` : ""}
             </option>
           ))}
         </Select>

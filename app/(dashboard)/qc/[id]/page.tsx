@@ -18,6 +18,7 @@ type QcDetail = {
   review_comments: string | null;
   retest_period_days: number | null;
   retest_date: string | null;
+  is_retest: boolean;
   reviewed_at: string | null;
   items: { item_code: string; name: string } | null;
   purchase_lines: { batch_number: string; quantity: string | number; unit: string } | null;
@@ -33,7 +34,7 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
   const { data } = await supabase
     .from("quality_checks")
     .select(
-      "id, ar_number, status, sample_qty, sample_unit, expiry_date, review_comments, retest_period_days, retest_date, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number)"
+      "id, ar_number, status, sample_qty, sample_unit, expiry_date, review_comments, retest_period_days, retest_date, is_retest, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -48,7 +49,12 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
       <PageHeader
         title={record.ar_number}
         description={record.items ? `${record.items.item_code} — ${record.items.name}` : undefined}
-        action={<Badge status={record.status}>{record.status}</Badge>}
+        action={
+          <div className="flex items-center gap-2">
+            {record.is_retest && <Badge status="pending">Retest</Badge>}
+            <Badge status={record.status}>{record.status}</Badge>
+          </div>
+        }
       />
 
       <div className="grid max-w-2xl gap-6">

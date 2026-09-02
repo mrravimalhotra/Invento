@@ -108,7 +108,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
                   <tr className="border-b border-border bg-black/[0.02] text-left text-xs font-semibold uppercase tracking-wide text-muted">
                     <th className="px-4 py-2.5">Item</th>
                     <th className="px-4 py-2.5">RM batch</th>
-                    <th className="px-4 py-2.5">Expiry</th>
+                    <th className="px-4 py-2.5">Re-Test Date</th>
                     <th className="px-4 py-2.5">Quantity consumed</th>
                   </tr>
                 </thead>

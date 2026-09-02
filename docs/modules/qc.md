@@ -171,3 +171,51 @@ embeds `items!inner(..., category)` and adds `.eq("items.category",
 this was always the implicit intent (QC has never applied to packaging),
 just never enforced because packaging had no purchase path to test it
 against before now.
+
+## Retest workflow (2 Sept 2026, Eighth pass Part B)
+
+"Once Re-Test date has come, Item should go through QC again using the
+stability sample already available." Full scoping writeup (including the
+mid-build discovery of which "retest" field this keys off) is in
+`claude/known-issues.md`, Eighth pass. Summary of what's here:
+
+- **Trigger**: `quality_checks.retest_date` — the pre-existing
+  QC-computed column (`trg_fn_qc_compute_retest_date`, `reviewed_at +
+  retest_period_days`), not `purchase_lines.expiry_date`. Confirmed with
+  Ravi before building, since the app already had this second, separate
+  mechanism and building against the wrong one would have meant two
+  competing "retest" concepts.
+- **`0025_qc_retest_workflow.sql`**: replaces
+  `quality_checks_purchase_line_unique` (full unique constraint — at most
+  one QC record ever per batch) with a partial unique index scoped to
+  `status = 'submitted'`, so the check-then-insert race backstop from
+  `0015_qc_duplicate_backstop.sql` still holds while a dated history of
+  reviewed QC records (original + retests) can now accumulate per
+  `purchase_line_id`. Also adds `is_retest boolean not null default
+  false`. No changes needed to `purchase_batch_status` (its lateral join
+  already returns the latest row per line) or `trg_fn_qc_sample_pull`
+  (already logs a `pull` ledger event for any insert with `sample_qty` >
+  0, RM or retest alike).
+- **`startRetestQualityCheck(purchaseLineId)`** (`lib/actions/qc.ts`) —
+  one-click action, no form. Re-derives everything server-side: confirms
+  the latest QC record for the line is `approved` with `retest_date <=`
+  today, pulls `sample_qty = purchase_lines.stability_qty` (the sample
+  already reserved at Purchase time — this is what "reusing the
+  already-reserved stability sample rather than a fresh pull" means; the
+  reserved quantity is not decremented per retest, same as the original
+  `qc_qty` reserve is never decremented by the initial assign), carries
+  forward the previous record's `expiry_date` (the sample's tested expiry
+  doesn't change just because it's being retested), sets `is_retest =
+  true`, and gets a new AR number the normal way.
+- **`/qc` "Due for retest" card** — sits above the AR table, populated by
+  a two-step query mirroring `qc/new/page.tsx`'s pattern:
+  `purchase_batch_status` for `qc_status = 'approved'` and `retest_date <=
+  today`, then `purchase_lines` filtered to `items.category = 'raw'` and
+  `stability_qty > 0`. Each row shows item/batch/available stability
+  quantity and a "Start Retest" button, gated on `qc_assign` — satisfies
+  decision (1) from the original scoping (both a passive indicator and an
+  active one-click action, same place).
+- **`is_retest` indicator** — a small "Retest" badge next to the AR
+  number on the list page and next to the status badge on the detail
+  page, so a retest AR is visually distinguishable from an original
+  assign without having to infer it from timing.

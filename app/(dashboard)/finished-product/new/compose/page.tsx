@@ -122,7 +122,7 @@ export default async function ComposeFinishedProductPage({
     <div>
       <PageHeader
         title="Calculate composition"
-        description={`Step 2 of 2 — ${def!.code} · ${def!.name}, scaled to ${targetQty} ${unit}. Each ingredient defaults to its oldest QC-Approved batch (FIFO by expiry date); override any row before submitting.`}
+        description={`Step 2 of 2 — ${def!.code} · ${def!.name}, scaled to ${targetQty} ${unit}. Each ingredient defaults to its oldest QC-Approved batch (FIFO by re-test date); override any row before submitting.`}
       />
       <Card>
         <CardBody>

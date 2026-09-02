@@ -124,6 +124,15 @@ gap during review.
 - `app/(dashboard)/reports/report-section.tsx` — reusable report card:
   DataTable + date-range filter + Download PDF (Client Component)
 
+## Expiry → Re-Test Date rename (2 Sept 2026)
+
+Purchase Register's "Expiry Date" column (`purchase_lines.expiry_date`)
+is now "Re-Test Date", matching the Purchase-screen rename
+(`docs/modules/purchase.md`). The QC Register's "Retest Date" column
+(`quality_checks.retest_date`) was already correctly labeled and is
+unrelated — see `docs/modules/qc.md`, "Retest workflow," for the full
+disambiguation between these two fields.
+
 ## Bug fix: RM Stock report row-cap truncation (1 Sept 2026)
 
 Same root cause as `docs/modules/purchase.md`'s "Bug fix" section: the RM
