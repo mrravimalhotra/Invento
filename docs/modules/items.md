@@ -26,10 +26,10 @@ Read is open to any signed-in user.
   (select: Raw material / Packaging **only**, as of the MFR/Finished Product
   link change below — see that section for why "Finished product" was
   removed here), Item type (dropdown of `item_types`, active ones), Unit
-  (dropdown from `lib/constants/units.ts` `UNITS`), Default QC/Stability/R&D
-  qty (numeric, optional), Default sample unit (dropdown, optional — see
-  FB-0002 note below), Low stock threshold (numeric, optional), Barcode (free
-  text, optional, unique). The real `item_code` doesn't exist until save —
+  (dropdown from `lib/constants/units.ts` `UNITS`), Barcode (free text,
+  optional, unique), Low stock threshold (numeric, optional — see the
+  "Sampling & stock defaults removed" note below for where the other fields
+  that used to live next to it went). The real `item_code` doesn't exist until save —
   the Server Action calls `supabase.rpc("get_next_item_code", { p_category })`
   at insert time (never generated client-side, per the briefing), then
   redirects to the new item's detail page where the generated code is shown
@@ -192,6 +192,58 @@ reflected in the Files/Referenced-by note below.
 editable fields on this screen (not just DB columns with no UI, which was
 gap #1 in the requirements review) — they pre-fill the Purchase screen's
 QC/Stability/R&D quantity fields, per DESIGN.md §7.1.
+
+**Superseded 2 Sep 2026 — see "Sampling & stock defaults removed" below.**
+The New/Edit forms no longer capture these at item-creation time at all;
+QC/Stability/R&D quantity is now entered fresh per batch, at the point
+where it's actually known.
+
+## Sampling & stock defaults removed from Item Master (2 Sept 2026)
+
+Per direct request ("while creating new item entry no need to capture
+QC/Stability/R&D Quantity - it will be done at Purchase screen" — clarified
+to remove the whole section, including Default sample unit, since with no
+QC/Stability/R&D qty left to share a unit with, a unit-only default has
+nothing left to convert): the "Sampling & stock defaults" section (Default
+QC qty, Default stability qty, Default R&D qty, Default sample unit) is
+gone from both the New and Edit item forms, and from the read-only detail
+view. Low stock threshold — visually grouped with those four fields before,
+but unrelated (it drives the topbar low-stock banner, not sampling) — moved
+into the main field grid on both forms instead of being removed.
+
+The underlying `items.default_qc_qty` / `default_stability_qty` /
+`default_rnd_qty` / `default_sample_unit` columns are untouched — no
+migration, no data change. `createItem()` simply no longer sets them (they
+insert as `null` on every new item going forward, same as if the columns
+didn't exist from that item's point of view). `updateItem()` was changed to
+stop including all four in its update payload entirely, rather than reading
+empty values from a form that no longer sends them — the difference
+matters: reading-and-writing `null` would have silently wiped these values
+on every legacy item on its very next edit (even a name-only change),
+whereas simply not touching the columns leaves whatever a legacy item
+already had exactly as it was. Existing items that had these set keep
+them; the fields are just no longer visible or editable on this screen.
+
+Where QC/Stability/R&D quantity is captured instead:
+- **Raw material / Packaging** — already handled, no change needed. The
+  Purchase Add-line/Edit-line form (`purchase-line-form.tsx`) has captured
+  `qc_qty` / `stability_qty` / `rnd_qty` directly on each purchase line
+  since FB-0007/FB-0017 (the "Automatic Sampling Deduction" feature,
+  DESIGN.md §7.1) — deducted from that line's `remaining_qty` the moment
+  the line is entered. It already pre-fills from an item's
+  `default_qc_qty` etc. *when set* and falls back to `"0"` / the line's own
+  unit when not — so an item with no defaults (every new item, from now
+  on) behaves exactly like one whose defaults were filled in and left at
+  zero. No code change was needed here.
+- **Finished Product** — open, tracked separately. Unlike Purchase,
+  `finished_product_batches` only has a single `qc_sample_qty` column
+  (captured on the Complete Batch screen, `complete-batch-form.tsx`) — there
+  is currently no `stability_qty` / `rnd_qty` equivalent anywhere in the
+  Finished Product flow to move this into. Adding one is a genuinely new
+  feature (new columns, new form fields, and a decision about whether/how
+  they deduct from the batch's `net_qty`), not a relocation of existing
+  UI — see `claude/known-issues.md` for the open item and design questions
+  before it's built.
 
 ## Files
 

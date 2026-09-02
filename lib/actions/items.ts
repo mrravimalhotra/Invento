@@ -46,17 +46,6 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   }
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
-  const default_sample_unit = String(formData.get("default_sample_unit") || "") || null;
-  if (default_sample_unit && !UNITS.includes(default_sample_unit as (typeof UNITS)[number])) {
-    return { error: "Invalid default sample unit." };
-  }
-
-  const default_qc_qty = numOrNull(formData, "default_qc_qty");
-  if (default_qc_qty && typeof default_qc_qty === "object") return default_qc_qty;
-  const default_stability_qty = numOrNull(formData, "default_stability_qty");
-  if (default_stability_qty && typeof default_stability_qty === "object") return default_stability_qty;
-  const default_rnd_qty = numOrNull(formData, "default_rnd_qty");
-  if (default_rnd_qty && typeof default_rnd_qty === "object") return default_rnd_qty;
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
   if (low_stock_threshold && typeof low_stock_threshold === "object") return low_stock_threshold;
 
@@ -70,6 +59,14 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   });
   if (codeError) return { error: `Could not generate item code: ${codeError.message}` };
 
+  // default_qc_qty / default_stability_qty / default_rnd_qty /
+  // default_sample_unit are deliberately NOT set here (2 Sept 2026 — "no
+  // need to capture QC/Stability/R&D Quantity while creating new item
+  // entry, it will be done at Purchase screen"): they're left null on
+  // insert and captured instead per-batch at Purchase (Raw Material /
+  // Packaging) or at Finished Product → New Batch. Purchase's Add-line
+  // form already handles a null item default gracefully (falls back to
+  // "0" / the line's own unit), so no change was needed there.
   const { data: inserted, error } = await supabase
     .from("items")
     .insert({
@@ -79,10 +76,6 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
       category,
       item_type_id,
       unit,
-      default_qc_qty,
-      default_stability_qty,
-      default_rnd_qty,
-      default_sample_unit,
       low_stock_threshold,
       barcode,
     })
@@ -125,17 +118,6 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   if (!name) return { error: "Name is required." };
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
-  const default_sample_unit = String(formData.get("default_sample_unit") || "") || null;
-  if (default_sample_unit && !UNITS.includes(default_sample_unit as (typeof UNITS)[number])) {
-    return { error: "Invalid default sample unit." };
-  }
-
-  const default_qc_qty = numOrNull(formData, "default_qc_qty");
-  if (default_qc_qty && typeof default_qc_qty === "object") return default_qc_qty;
-  const default_stability_qty = numOrNull(formData, "default_stability_qty");
-  if (default_stability_qty && typeof default_stability_qty === "object") return default_stability_qty;
-  const default_rnd_qty = numOrNull(formData, "default_rnd_qty");
-  if (default_rnd_qty && typeof default_rnd_qty === "object") return default_rnd_qty;
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
   if (low_stock_threshold && typeof low_stock_threshold === "object") return low_stock_threshold;
 
@@ -151,15 +133,22 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     .single();
   if (existingError || !existing) return { error: existingError?.message || "Item not found." };
 
+  // default_qc_qty / default_stability_qty / default_rnd_qty /
+  // default_sample_unit are deliberately NOT in this update object (2 Sept
+  // 2026 — the Item Master form no longer has fields for them, per "no
+  // need to capture QC/Stability/R&D Quantity while creating new item
+  // entry, it will be done at Purchase screen"). If they were included
+  // here read from a formData that no longer sends them, every future
+  // save of an EXISTING item — even something as small as a name edit —
+  // would silently overwrite that item's legacy default values with null.
+  // Leaving them out of `update` entirely means saving an item never
+  // touches these columns; any pre-existing values on legacy items are
+  // left exactly as they are.
   const update: Record<string, unknown> = {
     name,
     botanical_alias,
     item_type_id,
     unit,
-    default_qc_qty,
-    default_stability_qty,
-    default_rnd_qty,
-    default_sample_unit,
     low_stock_threshold,
     barcode,
     active,

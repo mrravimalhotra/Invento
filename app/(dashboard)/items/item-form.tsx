@@ -75,38 +75,9 @@ export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOptio
         <Field label="Barcode" htmlFor="barcode" hint="Optional, must be unique.">
           <Input id="barcode" name="barcode" />
         </Field>
-      </div>
-
-      <div className="border-t border-border pt-4">
-        <p className="mb-3 text-sm font-medium text-foreground">Sampling &amp; stock defaults</p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Default QC qty" htmlFor="default_qc_qty" hint="Pre-fills Purchase.">
-            <Input id="default_qc_qty" name="default_qc_qty" type="number" step="any" min="0" />
-          </Field>
-          <Field label="Default stability qty" htmlFor="default_stability_qty">
-            <Input id="default_stability_qty" name="default_stability_qty" type="number" step="any" min="0" />
-          </Field>
-          <Field label="Default R&D qty" htmlFor="default_rnd_qty">
-            <Input id="default_rnd_qty" name="default_rnd_qty" type="number" step="any" min="0" />
-          </Field>
-          <Field
-            label="Default sample unit"
-            htmlFor="default_sample_unit"
-            hint="Shared by QC / stability / R&D above, e.g. gm when the item's own unit is kg."
-          >
-            <Select id="default_sample_unit" name="default_sample_unit" defaultValue="">
-              <option value="">— same as item unit —</option>
-              {UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the topbar low-stock banner.">
-            <Input id="low_stock_threshold" name="low_stock_threshold" type="number" step="any" min="0" />
-          </Field>
-        </div>
+        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the topbar low-stock banner.">
+          <Input id="low_stock_threshold" name="low_stock_threshold" type="number" step="any" min="0" />
+        </Field>
       </div>
 
       <div className="flex gap-2">
@@ -134,10 +105,6 @@ export function EditItemForm({
     category: string;
     item_type_id: string | null;
     unit: string | null;
-    default_qc_qty: string | number | null;
-    default_stability_qty: string | number | null;
-    default_rnd_qty: string | number | null;
-    default_sample_unit: string | null;
     low_stock_threshold: string | number | null;
     barcode: string | null;
     active: boolean;
@@ -198,66 +165,16 @@ export function EditItemForm({
         <Field label="Barcode" htmlFor="barcode" hint="Optional, must be unique.">
           <Input id="barcode" name="barcode" defaultValue={item.barcode ?? ""} />
         </Field>
-      </div>
-
-      <div className="border-t border-border pt-4">
-        <p className="mb-3 text-sm font-medium text-foreground">Sampling &amp; stock defaults</p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Default QC qty" htmlFor="default_qc_qty" hint="Pre-fills Purchase.">
-            <Input
-              id="default_qc_qty"
-              name="default_qc_qty"
-              type="number"
-              step="any"
-              min="0"
-              defaultValue={item.default_qc_qty ?? ""}
-            />
-          </Field>
-          <Field label="Default stability qty" htmlFor="default_stability_qty">
-            <Input
-              id="default_stability_qty"
-              name="default_stability_qty"
-              type="number"
-              step="any"
-              min="0"
-              defaultValue={item.default_stability_qty ?? ""}
-            />
-          </Field>
-          <Field label="Default R&D qty" htmlFor="default_rnd_qty">
-            <Input
-              id="default_rnd_qty"
-              name="default_rnd_qty"
-              type="number"
-              step="any"
-              min="0"
-              defaultValue={item.default_rnd_qty ?? ""}
-            />
-          </Field>
-          <Field
-            label="Default sample unit"
-            htmlFor="default_sample_unit"
-            hint="Shared by QC / stability / R&D above, e.g. gm when the item's own unit is kg."
-          >
-            <Select id="default_sample_unit" name="default_sample_unit" defaultValue={item.default_sample_unit ?? ""}>
-              <option value="">— same as item unit —</option>
-              {UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the topbar low-stock banner.">
-            <Input
-              id="low_stock_threshold"
-              name="low_stock_threshold"
-              type="number"
-              step="any"
-              min="0"
-              defaultValue={item.low_stock_threshold ?? ""}
-            />
-          </Field>
-        </div>
+        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the topbar low-stock banner.">
+          <Input
+            id="low_stock_threshold"
+            name="low_stock_threshold"
+            type="number"
+            step="any"
+            min="0"
+            defaultValue={item.low_stock_threshold ?? ""}
+          />
+        </Field>
       </div>
 
       <Checkbox name="active" label="Active" defaultChecked={item.active} />
