@@ -425,3 +425,88 @@ caught both real bugs described above (the dead-trigger mistake and the
 backfill's double-insert-on-rerun bug) before either shipped; a
 `next build` pass alone would have caught neither, since both are pure
 SQL/data-flow issues with no TypeScript surface.
+
+## Inventory Ledger redesign, Phase 2: live per-batch remaining quantity (3 Sept 2026)
+
+Second of four phases scoped in `claude/inventory-ledger-redesign.md`
+(Gap 2). `purchase_lines.remaining_qty` is a Postgres GENERATED column
+(`quantity - qc_qty - stability_qty - rnd_qty`) — static, fixed at
+purchase time. It never decreased when that specific batch was later
+consumed by a `finished_product_components` insert, or had wastage
+recorded against it — the Purchase Lines table, the FP compose picker,
+RM Report As On Date, the Wastage batch dropdown, and the Purchase
+Register report all displayed this frozen figure as if it were live
+"what's left in this batch." Most consequentially: the FP compose
+picker's "X avail." hint could describe a batch that had already been
+mostly or fully consumed, and nothing at the DB level stopped composing
+more than a batch actually had left.
+
+**The fix — `0029_purchase_line_live_remaining_qty.sql`.** A new
+`purchase_lines.live_remaining_qty` column, maintained by triggers rather
+than computed on read (Ravi's confirmed choice over the originally
+recommended computed-on-read approach):
+
+- Starts at the same base `remaining_qty` already computes, set by a
+  `BEFORE INSERT` trigger (the generated column itself isn't readable yet
+  at `BEFORE`-trigger time, so the same formula is computed directly from
+  `new.quantity`/`qc_qty`/`stability_qty`/`rnd_qty`).
+- Decremented by a `finished_product_components` insert against that
+  `purchase_line_id` (new `AFTER INSERT` trigger, `SECURITY DEFINER` —
+  the finished-product write role isn't necessarily granted `UPDATE` on
+  `purchase_lines` directly).
+- Decremented by `record_wastage()` when a batch is specified — a
+  follow-up scope question this design surfaced and confirmed with Ravi
+  via `AskUserQuestion`: batch-tied wastage counts as consumption here
+  too, matching his original formula ("available raw material = purchase
+  − QC sample − R&D sample − stability sample − wastage"), not just FP
+  composition.
+- Also handles a draft line being edited before Final Submit
+  (`updatePurchaseLine`, still possible right up to submit) — the same
+  trigger fires on `UPDATE OF quantity, qc_qty, stability_qty, rnd_qty`
+  too, recomputing the new base figure while *preserving* whatever's
+  already been consumed (always zero for an ordinary draft edit, since
+  nothing can be pushed/consumed before submit — FB-0018 — but this also
+  covers the rarer System-Admin-reopens-then-edits-then-resubmits path
+  without silently erasing real consumption history from before the
+  reopen).
+- A `not valid` check constraint (`live_remaining_not_negative`, same
+  idiom as `0016_quantity_check_constraints.sql`) makes this a real
+  DB-level guard going forward — an FP composition or a wastage record
+  that would drive a batch's live remaining below zero is now rejected
+  outright, where previously nothing enforced this at all.
+  `createFinishedProductBatch`/`recordWastage` (`lib/actions/
+  finished-product.ts`/`lib/actions/inventory.ts`) both translate that
+  specific constraint-violation message into a plain-language form error.
+- An idempotent-by-construction backfill (a single `update`, not a loop —
+  simpler than Phase 1's because there's no legacy double-counting to
+  reconcile here, just one figure to compute correctly from scratch) sets
+  every existing line's starting value from the same components: base
+  remaining minus its actual `finished_product_components` consumption
+  minus its actual recorded wastage, both summed fresh from the ledger.
+
+**Read sites switched from `remaining_qty` to `live_remaining_qty`:**
+the FP compose picker (`getCandidateBatches()` — also now filters out a
+batch already at zero remaining, not just offering it with "0 avail.");
+the Wastage form's batch dropdown; RM Report As On Date's QTY (and
+derived Total) column; the Purchase Register report's Remaining Qty
+column. The Purchase Lines table (`purchase/[id]`) keeps its existing
+"of which X remaining after QC/Stability/R&D" subline as-is (that's a
+receipt-time fact, not meant to be live) and adds a second subline — "X
+remaining now (after production/wastage)" — only when it actually
+differs, so a batch with no consumption yet doesn't show two identical
+numbers.
+
+Verified the same way as Phase 1: replayed all 29 migrations against a
+scratch local Postgres, then exercised the real flow end to end —
+insert a draft line, edit it (confirming the update trigger recomputes
+correctly), submit, QC-approve, consume part of it via a real
+`finished_product_components` insert, record wastage against the same
+batch, and confirm `live_remaining_qty` matched hand-computed
+expectations at every step, matched `stock_balance.on_hand`, and that
+attempting to over-consume (both via FP composition and via
+`record_wastage()`) was correctly rejected by the new check constraint
+with the transaction fully rolled back. Separately verified the backfill
+against data seeded *before* migration 0029 ran (a submitted line with
+real pre-existing FP consumption and wastage), confirming it computed the
+correct starting value from scratch. `npx tsc --noEmit`, `npx eslint` on
+every touched file, and `npx next build` (all 42 routes) all clean.

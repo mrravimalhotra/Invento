@@ -35,7 +35,14 @@ async function getCandidateBatches(
 ): Promise<Candidate[]> {
   const { data: lines } = await supabase
     .from("purchase_lines")
-    .select("id, batch_number, expiry_date, created_at, remaining_qty, unit")
+    // live_remaining_qty (Phase 2, claude/inventory-ledger-redesign.md
+    // Gap 2), not the static remaining_qty: this is the picker that
+    // decides how much of a batch someone can consume for FP composition
+    // — the exact gap this phase exists to close. The DB-level guard
+    // (0029_purchase_line_live_remaining_qty.sql's live_remaining_not_negative
+    // check) is the real enforcement; this keeps the picker's own "X
+    // avail." hint from suggesting more than a batch actually has left.
+    .select("id, batch_number, expiry_date, created_at, live_remaining_qty, unit")
     .eq("item_id", itemId)
     .eq("active", true);
   if (!lines || lines.length === 0) return [];
@@ -66,6 +73,12 @@ async function getCandidateBatches(
       const status = statusByLine.get(l.id);
       if (status?.qc_status !== "approved") return false;
       if (status.retest_date && status.retest_date <= today) return false;
+      // Phase 2: a batch already fully consumed (by earlier FP composition
+      // and/or wastage) shouldn't be offered at all — the item still has
+      // stock overall (the onHand <= 0 check above is item-level), just not
+      // in THIS batch. The DB-level guard would reject picking it anyway;
+      // this just keeps it out of the list in the first place.
+      if (Number(l.live_remaining_qty) <= 0) return false;
       return true;
     })
     .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))
@@ -73,7 +86,7 @@ async function getCandidateBatches(
       purchaseLineId: l.id,
       batchNumber: l.batch_number,
       expiryDate: l.expiry_date,
-      remainingQty: l.remaining_qty,
+      remainingQty: l.live_remaining_qty,
     }));
 }
 

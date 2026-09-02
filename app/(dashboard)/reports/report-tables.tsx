@@ -141,7 +141,12 @@ export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
 export type PurchaseRow = {
   batch_number: string;
   quantity: number | string;
-  remaining_qty: number | string;
+  // Phase 2 (claude/inventory-ledger-redesign.md Gap 2) — live, not the
+  // static generated remaining_qty: this report's own description already
+  // promises "remaining quantity available for use," which the static
+  // column never actually delivered once a batch had FP consumption or
+  // batch-tied wastage against it.
+  live_remaining_qty: number | string;
   expiry_date: string | null;
   created_at: string;
   item: { name: string } | null;
@@ -159,7 +164,7 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
     { header: "Batch", cell: (r) => r.batch_number, pdfValue: (r) => r.batch_number },
     { header: "Quantity", cell: (r) => formatNumber(r.quantity), pdfValue: (r) => formatNumber(r.quantity) },
-    { header: "Remaining Qty", cell: (r) => formatNumber(r.remaining_qty), pdfValue: (r) => formatNumber(r.remaining_qty) },
+    { header: "Remaining Qty", cell: (r) => formatNumber(r.live_remaining_qty), pdfValue: (r) => formatNumber(r.live_remaining_qty) },
     { header: "Re-Test Date", cell: (r) => formatDate(r.expiry_date), pdfValue: (r) => formatDate(r.expiry_date) },
   ];
 

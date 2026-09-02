@@ -93,6 +93,13 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
     if (componentsError.message.includes("is not QC-Approved")) {
       return { error: "That batch is no longer QC-Approved — refresh and pick another." };
     }
+    // Phase 2 (0029_purchase_line_live_remaining_qty.sql) — the new
+    // live_remaining_not_negative check constraint, a real DB-level guard
+    // against consuming more of a batch than it actually has left
+    // (previously nothing enforced this at all).
+    if (componentsError.message.includes("live_remaining_not_negative")) {
+      return { error: "Not enough of that batch remaining — refresh and pick another batch or a smaller quantity." };
+    }
     return { error: componentsError.message };
   }
 

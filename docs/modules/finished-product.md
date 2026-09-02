@@ -353,3 +353,20 @@ mirrored in `getCandidateBatches()` (`compose/page.tsx`) so a retest-due
 batch is never offered as a candidate to begin with. Full writeup in
 `docs/modules/inventory.md`, "'Only QC Approved batches...' — retest-due
 batches now blocked."
+
+## Inventory Ledger redesign, Phase 2: compose picker now shows live remaining, and can't over-consume a batch (3 Sept 2026)
+
+`getCandidateBatches()`'s "X avail." hint used to come from
+`purchase_lines.remaining_qty` — static, fixed at receipt, never reduced
+by earlier FP composition against that same batch. It now reads the new
+`live_remaining_qty` column instead (maintained by triggers, see
+`docs/modules/purchase.md`/`docs/modules/inventory.md`), and a batch
+already fully consumed is filtered out of the candidate list entirely
+rather than being offered with "0 avail." Separately, and more
+importantly: a new DB-level check constraint now actually rejects
+composing more of a batch than it has left — previously nothing enforced
+this at all, at any level. `createFinishedProductBatch` translates that
+specific constraint violation into a plain-language form error ("Not
+enough of that batch remaining — refresh and pick another batch or a
+smaller quantity"), the same pattern already used for the QC-Approved
+gate error just above it in the code.

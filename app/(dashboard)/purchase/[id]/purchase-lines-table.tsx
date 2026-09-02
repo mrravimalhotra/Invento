@@ -18,6 +18,12 @@ export type LineRow = {
   stability_qty: string;
   rnd_qty: string;
   remaining_qty: string;
+  // Inventory Ledger redesign, Phase 2 (0029_purchase_line_live_remaining_qty.sql,
+  // claude/inventory-ledger-redesign.md Gap 2) — remaining_qty is static
+  // (fixed at receipt, after QC/Stability/R&D sampling only); this is the
+  // live figure, also net of Finished Product consumption and any wastage
+  // recorded against this specific batch.
+  live_remaining_qty: string;
   unit_price: string | null;
   gst_pct: string | null;
   expiry_date: string | null;
@@ -138,15 +144,31 @@ export function PurchaseLinesTable({
     { header: "Batch", accessor: (r) => <span className="font-mono text-xs">{r.batch_number}</span>, searchValue: (r) => r.batch_number },
     {
       header: "Quantity",
-      accessor: (r) => (
-        <span>
-          {formatNumber(r.quantity)} {r.unit}
-          <br />
-          <span className="text-xs text-muted">
-            of which {formatNumber(r.remaining_qty)} {r.unit} remaining after QC/Stability/R&D
+      accessor: (r) => {
+        // Phase 2: only show the live-remaining subline when it actually
+        // differs from the post-sampling figure above it — i.e. this batch
+        // has had real FP consumption or batch-tied wastage recorded
+        // against it. Otherwise the two numbers are identical and a
+        // second identical line would just be noise.
+        const hasConsumption = Number(r.live_remaining_qty) !== Number(r.remaining_qty);
+        return (
+          <span>
+            {formatNumber(r.quantity)} {r.unit}
+            <br />
+            <span className="text-xs text-muted">
+              of which {formatNumber(r.remaining_qty)} {r.unit} remaining after QC/Stability/R&D
+            </span>
+            {hasConsumption && (
+              <>
+                <br />
+                <span className="text-xs text-muted">
+                  {formatNumber(r.live_remaining_qty)} {r.unit} remaining now (after production/wastage)
+                </span>
+              </>
+            )}
           </span>
-        </span>
-      ),
+        );
+      },
     },
     { header: "QC qty", accessor: (r) => formatNumber(r.qc_qty) },
     { header: "Stability qty", accessor: (r) => formatNumber(r.stability_qty) },

@@ -668,3 +668,20 @@ the actual legacy Crystal Reports export instead:
   check, an actual visual diff. Test script and output were scratch files,
   deleted before commit.
 - No data/field changes from the prior pass — this is styling-only.
+
+## Inventory Ledger redesign, Phase 2: `purchase_lines.live_remaining_qty` (3 Sept 2026)
+
+`purchase_lines` gained a new maintained column, `live_remaining_qty` —
+unlike the generated `remaining_qty` (static, fixed at receipt after
+QC/Stability/R&D sampling only), this one also reflects Finished Product
+consumption and any wastage recorded against that specific batch, kept
+current by triggers on this table plus `finished_product_components` and
+`record_wastage()`. The Purchase Lines table (`purchase/[id]`) now shows
+it as a second subline under Quantity — "X remaining now (after
+production/wastage)" — but only when it differs from the post-sampling
+figure. A draft line edited before Final Submit (`updatePurchaseLine`)
+recomputes it correctly, including the edge case of editing after a
+System Admin Reopen. Full writeup, including the new DB-level
+over-consumption guard this enables: `docs/modules/inventory.md`
+("Inventory Ledger redesign, Phase 2"),
+`supabase/migrations/0029_purchase_line_live_remaining_qty.sql`.

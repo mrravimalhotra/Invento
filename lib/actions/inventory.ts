@@ -48,7 +48,16 @@ export async function recordWastage(_prev: ActionState, formData: FormData): Pro
     p_unit: unit,
     p_reason: reason,
   });
-  if (error) return { error: error.message };
+  if (error) {
+    // Phase 2 (0029_purchase_line_live_remaining_qty.sql) — the new
+    // live_remaining_not_negative check constraint: recording more
+    // wastage against a batch than it actually has left is now rejected
+    // at the DB level instead of silently succeeding.
+    if (error.message.includes("live_remaining_not_negative")) {
+      return { error: "Not enough of that batch remaining — check the batch's remaining quantity and try a smaller amount." };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/inventory");
   revalidatePath("/inventory/balance");

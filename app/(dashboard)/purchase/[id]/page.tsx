@@ -42,7 +42,7 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
     supabase
       .from("purchase_lines")
       .select(
-        "id, batch_number, quantity, unit, qc_qty, stability_qty, rnd_qty, remaining_qty, unit_price, gst_pct, expiry_date, item:items(item_code, name, category)"
+        "id, batch_number, quantity, unit, qc_qty, stability_qty, rnd_qty, remaining_qty, live_remaining_qty, unit_price, gst_pct, expiry_date, item:items(item_code, name, category)"
       )
       .eq("purchase_order_id", id)
       .order("created_at"),

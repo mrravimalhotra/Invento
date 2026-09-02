@@ -14,6 +14,12 @@ type PurchaseLineRow = {
   stability_qty: string | number;
   rnd_qty: string | number;
   remaining_qty: string | number;
+  // Phase 2 (claude/inventory-ledger-redesign.md Gap 2) — live, not the
+  // static generated remaining_qty: this report's QTY column is meant to
+  // be "what's actually left in this batch right now," so it needs to be
+  // net of Finished Product consumption and batch-tied wastage too, not
+  // just QC/Stability/R&D sampling at receipt.
+  live_remaining_qty: string | number;
   unit: string;
   unit_price: string | number | null;
   expiry_date: string | null;
@@ -53,7 +59,7 @@ export default async function RmReportPage({
   const { data, error } = await supabase
     .from("purchase_lines")
     .select(
-      "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, remaining_qty, unit, unit_price, expiry_date, created_at, items!inner(name, item_code, category), purchase_orders!inner(status)"
+      "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, remaining_qty, live_remaining_qty, unit, unit_price, expiry_date, created_at, items!inner(name, item_code, category), purchase_orders!inner(status)"
     )
     .eq("active", true)
     .eq("purchase_orders.status", "submitted")
@@ -77,7 +83,7 @@ export default async function RmReportPage({
   const rows: RmReportExportRow[] = (data ?? []).map((r) => {
     const pqty = Number(r.quantity);
     const sqty = Number(r.qc_qty) + Number(r.stability_qty) + Number(r.rnd_qty);
-    const qty = Number(r.remaining_qty);
+    const qty = Number(r.live_remaining_qty);
     const unitPrice = r.unit_price === null ? 0 : Number(r.unit_price);
     const status = statusByLine.get(r.id);
     return {

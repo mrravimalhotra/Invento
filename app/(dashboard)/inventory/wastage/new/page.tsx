@@ -22,9 +22,14 @@ export default async function NewWastagePage() {
     // 0019_purchase_submit_workflow.sql) — offering it here would let
     // wastage be recorded against a batch that never actually became
     // stock.
+    //
+    // live_remaining_qty (Phase 2, 0029_purchase_line_live_remaining_qty.sql)
+    // instead of the static remaining_qty — this dropdown's whole purpose
+    // is telling the user what's actually left in a batch before they
+    // record more wastage against it.
     supabase
       .from("purchase_lines")
-      .select("id, item_id, batch_number, remaining_qty, unit, purchase_orders!inner(status)")
+      .select("id, item_id, batch_number, live_remaining_qty, unit, purchase_orders!inner(status)")
       .eq("active", true)
       .eq("purchase_orders.status", "submitted")
       .order("created_at", { ascending: false }),

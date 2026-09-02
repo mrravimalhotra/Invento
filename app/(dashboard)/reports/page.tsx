@@ -38,7 +38,7 @@ export default async function ReportsPage() {
     supabase
       .from("purchase_lines")
       .select(
-        "batch_number, quantity, remaining_qty, expiry_date, created_at, item:items(name), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
+        "batch_number, quantity, live_remaining_qty, expiry_date, created_at, item:items(name), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
       )
       .order("created_at", { ascending: false }),
   ]);
