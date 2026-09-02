@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { QcTable, type QcListRow } from "./qc-table";
 import { DueForRetest, type DueForRetestLine } from "./due-for-retest";
 import { AwaitingQc, type AwaitingQcLine } from "./awaiting-qc";
@@ -40,30 +40,9 @@ export default async function QcListPage() {
         action={canWrite(user?.roles ?? [], "qc_assign") ? <LinkButton href="/qc/new">New AR</LinkButton> : null}
       />
 
-      {awaitingLines.length > 0 && (
-        <Card className="mb-4 border-brand/25">
-          <CardHeader title="Awaiting QC" />
-          <CardBody className="flex flex-col gap-3">
-            <p className="text-xs text-muted">
-              These batches have been received but don&apos;t have a QC record yet — start one below.
-            </p>
-            <AwaitingQc lines={awaitingLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
-          </CardBody>
-        </Card>
-      )}
+      <AwaitingQc lines={awaitingLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
 
-      {dueLines.length > 0 && (
-        <Card className="mb-4 border-amber/40">
-          <CardHeader title="Due for retest" />
-          <CardBody className="flex flex-col gap-3">
-            <p className="text-xs text-muted">
-              Retest date has passed on these approved batches — start a new AR using the stability sample
-              already reserved for each.
-            </p>
-            <DueForRetest lines={dueLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
-          </CardBody>
-        </Card>
-      )}
+      <DueForRetest lines={dueLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
 
       <Card>
         <QcTable rows={rows} />
