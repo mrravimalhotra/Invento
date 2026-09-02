@@ -43,14 +43,26 @@
 -- "(Retest)" indicator without having to infer it from row order.
 -- Additive, nullable-default column — no backfill needed, existing rows
 -- default to false (correctly: they are all original assignments).
+--
+-- `drop constraint if exists`, not a bare `drop constraint`: running this
+-- against the live project (2 Sept 2026) surfaced that
+-- quality_checks_purchase_line_unique never actually existed there —
+-- 0015_qc_duplicate_backstop.sql's *other* constraint
+-- (quality_checks_fp_batch_unique) is present, but its purchase_line_id
+-- twin apparently failed silently when 0015 was originally run and was
+-- never caught (the app-level check-then-insert in createQualityCheck()
+-- masked the gap — no observed incident). `if exists` makes this
+-- migration a correct no-op for that half on a project where it's
+-- already missing, and still drops it cleanly on one where 0015 ran in
+-- full.
 -- ============================================================
 
 alter table public.quality_checks
-  drop constraint quality_checks_purchase_line_unique;
+  drop constraint if exists quality_checks_purchase_line_unique;
 
-create unique index quality_checks_purchase_line_pending_unique
+create unique index if not exists quality_checks_purchase_line_pending_unique
   on public.quality_checks (purchase_line_id)
   where status = 'submitted';
 
 alter table public.quality_checks
-  add column is_retest boolean not null default false;
+  add column if not exists is_retest boolean not null default false;
