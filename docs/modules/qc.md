@@ -133,6 +133,27 @@ app-wide now (DESIGN.md §8); both mark `data-legacy` (item from
 legacy data" hides legacy raw materials/batches from these two dropdowns —
 both already selected the codes needed, no query changes.
 
+## "Hide legacy data" now applies to the QC list itself (2 Sept 2026)
+
+Reported by Ravi from a screenshot of `/qc` with clearly legacy-sourced
+rows (`LEG-RM-...` items, `LEG-PR-...` batches) still showing after
+toggling "Hide legacy data" on. The list page had never wired the toggle
+in at all — every other table in the app derives `isLegacy` from the
+row's own code (`isLegacyCode(item_code)`/`isLegacyCode(batch_number)`),
+but `quality_checks.ar_number` is always freshly generated
+(`get_next_ar_number()` never produces a `LEG-` prefix — confirmed in
+`claude/data-gap-analysis.md`, no legacy QC data was ever migrated), so
+there was no per-row code to key the existing convention off, and the
+toggle was silently skipped for this table (`docs/modules/purchase.md`'s
+Medium-severity fix explicitly called this a deliberate omission at the
+time — correct given only the AR number itself was considered, but it
+missed that the *referenced* batch/item can still be legacy). Fixed:
+`QcTable` now derives `isLegacy` from whichever of `items.item_code`,
+`purchase_lines.batch_number`, or `finished_product_batches.batch_number`
+the row has — a QC record counts as legacy if what it was raised against
+does, regardless of its own (always-current) AR number. No query changes
+needed — all three fields were already selected by `qc/page.tsx`.
+
 ## FB-0021: sample qty/unit auto-populated from item defaults (2 Sept 2026)
 
 "in QC, sample quantity and Sample unit should be auto populated from
