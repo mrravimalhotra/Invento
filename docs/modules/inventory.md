@@ -608,3 +608,105 @@ duplicates); the new check constraint correctly rejecting an
 over-sampled update; and the RLS/`SECURITY DEFINER` boundary described
 above. `npx tsc --noEmit`, `npx eslint` on every touched file, and `npx
 next build` (all 42 routes, no new routes added) all clean.
+
+## Inventory Ledger redesign, Phase 4: Stock Position, running balance, ledger filters, per-item detail (3 Sept 2026)
+
+Fourth and last phase scoped in `claude/inventory-ledger-redesign.md`
+Part 3. Scoped via `AskUserQuestion`, all three answered with the
+recommended option: the Stock Position breakdown covers all three item
+categories (raw material, packaging, Finished Product) in one unified
+table rather than raw material only; the per-item drill-down page
+(Part 3 Option C) ships in this same phase rather than a later one; and
+the Ledger tab's running-balance column and item/date/reason filters
+(Part 3 Option A) ship in this same phase too. Net effect: this phase
+folds Part 3's B + C + A options together into one shipped release,
+exactly as that section's "Recommendation" anticipated.
+
+**`0031_stock_position.sql` — two new views, no destructive change.**
+`item_position` is a generic, category-agnostic breakdown: a `left join`
+from `items` to `inventory_ledger` (so a never-touched item still gets an
+all-zero row, confirmed for a fresh item with zero ledger activity) with
+eight `case`-summed columns — `received` (push/purchase), `yielded`
+(push/fp_yield), `held_qc`/`held_stability`/`held_rnd` (pull/{qc or
+qc_sample}, pull/stability_sample, pull/rnd_sample), `consumed_by_fp`
+(pull/finished_product), `issued_packaging` (pull/packaging), `wastage`
+(any row with `event_type = 'wastage'`, regardless of reference_type),
+and `on_hand` — computed with the *exact same* expression
+`stock_balance.on_hand` already uses, so the two views can never
+disagree. Confirmed every one of the eight `reference_type` values ever
+written across all 31 migrations lands in exactly one bucket, in exactly
+one of the push/pull dimensions, with none left uncounted.
+
+`inventory_ledger_with_balance` adds a per-item running balance to every
+ledger row: `sum(...) over (partition by item_id order by event_at, seq
+rows between unbounded preceding and current row)`. Building it surfaced
+a real bug before it ever reached the UI: the first version ordered by
+`(event_at, id)`, using the row's random UUID as a same-instant
+tiebreaker, which a seeded `submit_purchase_order()` call (a push and
+three sample pulls, all at the identical transaction timestamp) showed
+can sort a pull before its own push — the running balance briefly went
+negative. Root cause: a UUID has no relationship to real insertion
+order. Fix: a new `inventory_ledger.seq bigint generated always as
+identity` column, and the window ordered by `(event_at, seq)` instead —
+re-verified monotonic (100 → 95 → 92 → 90 → 70 → 68 in the original
+repro) with the fix in place.
+
+**Stock Position (`/inventory/balance`, still the same URL — only the
+tab label changed to "Stock Position").** Replaces the old
+`stock_balance`-only table with one querying `item_position` for all
+three categories at once. Rather than eight sparse raw-number columns,
+a single category-conditional "Breakdown" subline (e.g. raw material:
+"Received X · QC Y · Stability Z · R&D W · FP use U · Wastage V", each
+clause shown only when non-zero) — the same "primary figure + compact
+explanatory subline" convention already used by Purchase Lines'
+live-remaining subline and the Ledger's FP-batch-context subline. Item
+name links to the new per-item detail page.
+
+**Ledger tab upgrades (`/inventory`).** A new "Running balance" column
+reads `inventory_ledger_with_balance.running_balance` instead of the
+base table. Real server-side filters (item, reason/reference_type, date
+range) replace what had been client-side-only text search — the same
+row-cap-truncation lesson already documented in `known-issues.md`:
+filtering an already-capped 1,000-row result client-side can silently
+hide a match that never made the page. Filters are a plain GET form
+(`ledger-filters.tsx`), same auto-submit-on-change pattern as
+`rm-report-filter.tsx`, so the URL stays shareable/bookmarkable. The
+item picker's own query is capped at 5,000 (current item count is
+~2,200) rather than left unbounded, for the same reason.
+
+**Per-item detail page (`/inventory/items/[id]`, new route — distinct
+from the existing Item Master edit page at `/items/[id]`).** Full-width
+version of the Position breakdown (`ItemPositionSummary`, one stat tile
+per applicable `item_position` column, category-scoped) plus a
+category-conditional batch list — `PurchaseBatchesTable` (raw material
+and packaging, from `purchase_lines`, QC status column shown for raw
+material only) or `FpBatchesTable` (Finished Product, from
+`finished_product_batches` via `mfr_definitions.finished_product_item_id`)
+— and an embedded, item-scoped ledger (capped at 500 rows, same
+`enrichLedgerRows()` helper the main Ledger tab uses). The RM/Packaging
+batch list reuses the RM Report's established two-step
+`purchase_batch_status` lookup (no direct FK for PostgREST to embed
+through).
+
+**`lib/ledger-enrich.ts`** — the `event_by` name resolution and FB-0013
+FP-batch-context resolution, previously inline in the Ledger tab's
+`page.tsx`, factored out so the new per-item ledger reuses the identical
+logic rather than a second copy that could drift.
+
+Verified the same way as Phases 1–3: replayed all 31 migrations against
+a scratch local Postgres, then seeded a realistic cross-category
+scenario through real RPCs and trigger paths (a submitted purchase order
+with a raw-material and a packaging line, batch-tied wastage, an FP
+batch taken through QC approval, a packaging issuance against that FP
+batch) and confirmed `item_position` for all three items matched
+hand-computed expectations exactly and reconciled with `stock_balance`;
+confirmed a zero-activity item still returns one all-zero row;
+confirmed `inventory_ledger_with_balance`'s running balance was
+monotonic for every item; and ran the actual page.tsx query shapes
+(the `item_position` single-row lookup, the `purchase_lines` +
+`purchase_batch_status` two-step, the `finished_product_batches` via
+`mfr_definitions` lookup, the scoped `inventory_ledger_with_balance`
+query) directly against the seeded data, all matching. `npx tsc
+--noEmit`, `npx eslint` on every touched/new file, and `npx next build`
+(new `/inventory/items/[id]` dynamic route added, all routes compiling)
+all clean.

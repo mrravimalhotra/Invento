@@ -1,104 +1,80 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { InventoryLedgerTable, type LedgerRow } from "./inventory-ledger-table";
+import { LedgerFilters, type ItemFilterOption } from "./ledger-filters";
+import { enrichLedgerRows, type RawLedgerRow } from "@/lib/ledger-enrich";
 
 const LEDGER_LIMIT = 1000;
 
-type LedgerQueryRow = Omit<LedgerRow, "eventByName" | "fpBatchNumber">;
+type LedgerQueryRow = RawLedgerRow;
 
-export default async function InventoryLedgerPage() {
+const REFERENCE_TYPES = new Set([
+  "purchase",
+  "qc",
+  "qc_sample",
+  "stability_sample",
+  "rnd_sample",
+  "finished_product",
+  "fp_yield",
+  "packaging",
+]);
+
+function isValidDate(s: string | undefined): s is string {
+  return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+export default async function InventoryLedgerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ item?: string; reference_type?: string; from?: string; to?: string }>;
+}) {
+  const params = await searchParams;
+  const itemId = params.item ?? "";
+  const referenceType = REFERENCE_TYPES.has(params.reference_type ?? "") ? (params.reference_type as string) : "";
+  const from = isValidDate(params.from) ? params.from : "";
+  const to = isValidDate(params.to) ? params.to : "";
+
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("inventory_ledger")
+  // Phase 4 (claude/inventory-ledger-redesign.md) — queries
+  // inventory_ledger_with_balance (0031_stock_position.sql) instead of the
+  // base table, which adds a per-item running_balance column (see that
+  // migration for why it needed a real insertion-order column rather than
+  // ordering by event_at alone), and applies real server-side filters
+  // instead of only the client-side text search DataTable already had —
+  // the same row-cap-truncation lesson every other unfiltered query in
+  // this app has already had to learn (claude/known-issues.md): filtering
+  // 1,000 already-truncated rows client-side can silently miss matches
+  // that never made it into that page in the first place.
+  let query = supabase
+    .from("inventory_ledger_with_balance")
     .select(
-      "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, items(name, item_code), purchase_lines(batch_number)"
+      "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, running_balance, items(name, item_code), purchase_lines(batch_number)"
     )
     .order("event_at", { ascending: false })
-    .limit(LEDGER_LIMIT)
-    .returns<LedgerQueryRow[]>();
+    .limit(LEDGER_LIMIT);
+  if (itemId) query = query.eq("item_id", itemId);
+  if (referenceType) query = query.eq("reference_type", referenceType);
+  if (from) query = query.gte("event_at", `${from}T00:00:00`);
+  if (to) query = query.lte("event_at", `${to}T23:59:59.999`);
+
+  const [{ data, error }, { data: items }] = await Promise.all([
+    query.returns<LedgerQueryRow[]>(),
+    supabase
+      .from("items")
+      .select("id, item_code, name")
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(5000)
+      .returns<ItemFilterOption[]>(),
+  ]);
 
   const ledgerRows = data ?? [];
-
-  // event_by references auth.users, not profiles directly, so there is no
-  // FK PostgREST can embed — fetch the display names in a second query and
-  // merge server-side. Falls back to a shortened user id when a profile
-  // (or full_name on it) is missing, rather than dropping the column.
-  const userIds = Array.from(new Set(ledgerRows.map((r) => r.event_by).filter((v): v is string => !!v)));
-  const nameById = new Map<string, string>();
-  if (userIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", userIds);
-    (profiles ?? []).forEach((p) => {
-      if (p.full_name) nameById.set(p.id, p.full_name);
-    });
-  }
-
-  // FB-0013 ("Batch should be visible in inventory ledger"): purchase_lines
-  // above only covers raw-material batches. A 'finished_product' pull
-  // (MFR component consumption) or a 'packaging' pull has no
-  // purchase_line_id at all — its batch context is the *Finished Product*
-  // batch instead, reachable only via the untyped reference_id column (no
-  // real FK PostgREST can embed — see known-issues.md). Resolve it with two
-  // more targeted lookups rather than a schema change: 'finished_product'
-  // rows point straight at finished_product_batches.id; 'packaging' rows
-  // point at packaging_issues.id, one hop further to the batch.
-  //
-  // Phase 3 (0030_finished_product_ledger.sql) adds a fourth source of FP
-  // batch context: 'fp_yield' rows (the batch's own output push) always
-  // point straight at finished_product_batches.id, same shape as
-  // 'finished_product'. qc_sample/stability_sample/rnd_sample are trickier
-  // — Phase 1 already uses those same reference_type values for
-  // purchase-line-context pulls (reference_id there is a purchase_line
-  // id), so a bare reference_type check can't tell the two apart. The real
-  // purchase_line_id column (embedded above as purchase_lines) is what
-  // distinguishes them: Phase 3's trigger never sets it, so an FP-context
-  // sample row always has purchase_lines === null while an RM-context one
-  // always has it populated.
-  const fpBatchByLedgerId = new Map<string, string>();
-  const fpDirectIds = ledgerRows
-    .filter(
-      (r) =>
-        r.reference_id &&
-        (r.reference_type === "finished_product" ||
-          r.reference_type === "fp_yield" ||
-          ((r.reference_type === "qc_sample" || r.reference_type === "stability_sample" || r.reference_type === "rnd_sample") &&
-            !r.purchase_lines))
-    )
-    .map((r) => r.reference_id as string);
-  const packagingIds = ledgerRows
-    .filter((r) => r.reference_type === "packaging" && r.reference_id)
-    .map((r) => r.reference_id as string);
-
-  const [fpDirect, fpViaPackaging] = await Promise.all([
-    fpDirectIds.length > 0
-      ? supabase.from("finished_product_batches").select("id, batch_number").in("id", fpDirectIds)
-      : Promise.resolve({ data: [] }),
-    packagingIds.length > 0
-      ? supabase
-          .from("packaging_issues")
-          .select("id, finished_product_batches(batch_number)")
-          .in("id", packagingIds)
-      : Promise.resolve({ data: [] }),
-  ]);
-  (fpDirect.data ?? []).forEach((b: { id: string; batch_number: string }) => {
-    fpBatchByLedgerId.set(b.id, b.batch_number);
-  });
-  (fpViaPackaging.data ?? []).forEach((p) => {
-    const row = p as unknown as { id: string; finished_product_batches: { batch_number: string } | null };
-    if (row.finished_product_batches) fpBatchByLedgerId.set(row.id, row.finished_product_batches.batch_number);
-  });
-
-  const rows: LedgerRow[] = ledgerRows.map((r) => ({
-    ...r,
-    eventByName: r.event_by ? nameById.get(r.event_by) ?? r.event_by.slice(0, 8) : null,
-    fpBatchNumber: r.reference_id ? fpBatchByLedgerId.get(r.reference_id) ?? null : null,
-  }));
+  const rows: LedgerRow[] = await enrichLedgerRows(supabase, ledgerRows);
 
   return (
     <Card>
+      <LedgerFilters items={items ?? []} itemId={itemId} referenceType={referenceType} from={from} to={to} />
       {error && <p className="p-4 text-sm text-red">{error.message}</p>}
       <InventoryLedgerTable rows={rows} ledgerLimit={LEDGER_LIMIT} />
     </Card>

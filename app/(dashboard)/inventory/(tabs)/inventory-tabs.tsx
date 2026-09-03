@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/inventory", label: "Ledger" },
-  { href: "/inventory/balance", label: "Stock Balance" },
+  { href: "/inventory/balance", label: "Stock Position" },
   { href: "/inventory/rm-report", label: "RM Report As On Date" },
 ];
 

@@ -3,26 +3,9 @@
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatNumber, isLegacyCode } from "@/lib/utils";
+import type { EnrichedLedgerRow } from "@/lib/ledger-enrich";
 
-export type LedgerRow = {
-  id: string;
-  event_at: string;
-  event_type: string;
-  quantity: string | number;
-  unit: string | null;
-  department: string | null;
-  reference_type: string | null;
-  reference_id: string | null;
-  event_by: string | null;
-  items: { name: string; item_code: string } | null;
-  purchase_lines: { batch_number: string } | null;
-  eventByName: string | null;
-  // FB-0013 ("Batch should be visible in inventory ledger") — the Finished
-  // Product batch a 'finished_product'/'packaging' event relates to,
-  // resolved server-side via reference_id (see page.tsx). Distinct from
-  // purchase_lines.batch_number above, which is the raw-material batch.
-  fpBatchNumber: string | null;
-};
+export type LedgerRow = EnrichedLedgerRow;
 
 // Inventory Ledger redesign, Phase 1 (claude/inventory-ledger-redesign.md)
 // — 0028_ledger_sample_pull_fix.sql added three new reference_type values
@@ -95,6 +78,23 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
           {formatNumber(r.quantity)} {r.unit}
         </span>
       ),
+    },
+    {
+      // Phase 4 (claude/inventory-ledger-redesign.md, Option A) — that
+      // item's on-hand balance immediately after this event
+      // (inventory_ledger_with_balance, 0031_stock_position.sql). Blank
+      // rather than 0 when absent so a page/query that didn't request it
+      // doesn't look like every item's balance is genuinely zero.
+      header: "Running balance",
+      accessor: (r) =>
+        r.running_balance === null || r.running_balance === undefined ? (
+          "—"
+        ) : (
+          <span className="whitespace-nowrap font-medium">
+            {formatNumber(r.running_balance)} {r.unit}
+          </span>
+        ),
+      sortValue: (r) => (r.running_balance === null || r.running_balance === undefined ? 0 : Number(r.running_balance)),
     },
     {
       header: "Department",
