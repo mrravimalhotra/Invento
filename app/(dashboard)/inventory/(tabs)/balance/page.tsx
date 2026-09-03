@@ -33,18 +33,31 @@ type PositionQueryRow = {
 export default async function StockPositionPage() {
   const supabase = await createClient();
 
+  // known-issues.md ("Row-cap truncation") — an unbounded select() is
+  // silently capped server-side (commonly 1,000) with ~2,200 active items
+  // on file. That fix (ordering by created_at descending) isn't enough on
+  // its own here: this page joins two separate queries client-side by
+  // item_id, and item_position (a plain `group by` over a view, no
+  // explicit order) doesn't share that ordering — an item comfortably
+  // inside the `items` cap can still fall outside item_position's own
+  // differently-ordered cap, silently rendering as all-zero rather than
+  // missing outright. Both queries capped at 5,000 (same convention as
+  // ledger-filters.tsx's item picker) so neither ever truncates in
+  // practice.
   const [{ data: items, error: itemsError }, { data: positions, error: positionError }] = await Promise.all([
     supabase
       .from("items")
       .select("id, item_code, name, unit, low_stock_threshold, category")
       .eq("active", true)
       .order("created_at", { ascending: false })
+      .limit(5000)
       .returns<ItemRow[]>(),
     supabase
       .from("item_position")
       .select(
         "item_id, received, yielded, held_qc, held_stability, held_rnd, consumed_by_fp, issued_packaging, wastage, on_hand"
       )
+      .limit(5000)
       .returns<PositionQueryRow[]>(),
   ]);
 
