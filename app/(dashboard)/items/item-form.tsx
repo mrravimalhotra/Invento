@@ -125,14 +125,18 @@ export function EditItemForm({
         <Field label="Botanical alias" htmlFor="botanical_alias">
           <Input id="botanical_alias" name="botanical_alias" defaultValue={item.botanical_alias ?? ""} />
         </Field>
-        {item.category === "processed" ? (
+        {item.category === "processed" || item.category === "packaged_fp" ? (
           <Field
             label="Category"
             htmlFor="category"
-            hint="Set once, from MFR, when this Finished Product item was created — locked from here on."
+            hint={
+              item.category === "packaged_fp"
+                ? "Auto-created alongside its paired Finished Product item — locked from here on."
+                : "Set once, from MFR, when this Finished Product item was created — locked from here on."
+            }
           >
-            <Input id="category" value="Finished product" readOnly disabled />
-            <input type="hidden" name="category" value="processed" />
+            <Input id="category" value={item.category === "packaged_fp" ? "Packaged finished product" : "Finished product"} readOnly disabled />
+            <input type="hidden" name="category" value={item.category} />
           </Field>
         ) : (
           <Field label="Category" htmlFor="category" required>

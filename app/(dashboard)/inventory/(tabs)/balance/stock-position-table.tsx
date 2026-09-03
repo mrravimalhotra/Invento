@@ -23,6 +23,11 @@ import { formatNumber, isLegacyCode } from "@/lib/utils";
 // "primary figure + explanatory subline" convention already used for
 // Purchase Lines' live-remaining figure and the Ledger's FP-batch
 // context line.
+const CATEGORY_LABELS: Record<string, string> = {
+  processed: "Finished product",
+  packaged_fp: "Packaged finished product",
+};
+
 export type PositionRow = {
   id: string;
   item_code: string;
@@ -39,6 +44,10 @@ export type PositionRow = {
   heldRnd: number;
   consumedByFp: number;
   issuedPackaging: number;
+  consumedByPackaging: number;
+  packagedYield: number;
+  issuedStore: number;
+  issuedRnd: number;
   wastage: number;
 };
 
@@ -49,6 +58,15 @@ function Breakdown({ r }: { r: PositionRow }) {
     if (r.heldQc > 0) parts.push(`QC ${formatNumber(r.heldQc)}`);
     if (r.heldStability > 0) parts.push(`Stability ${formatNumber(r.heldStability)}`);
     if (r.heldRnd > 0) parts.push(`R&D ${formatNumber(r.heldRnd)}`);
+    if (r.consumedByPackaging > 0) parts.push(`Packaged ${formatNumber(r.consumedByPackaging)}`);
+  } else if (r.category === "packaged_fp") {
+    // Task F (claude/packaged-fp-redesign.md) — always fully issued,
+    // one-shot: on-hand nets to zero once yield and issue both land, so
+    // the breakdown is the only place this item's history is visible at
+    // a glance.
+    parts.push(`Packaged ${formatNumber(r.packagedYield)}`);
+    if (r.issuedStore > 0) parts.push(`Store ${formatNumber(r.issuedStore)}`);
+    if (r.issuedRnd > 0) parts.push(`R&D ${formatNumber(r.issuedRnd)}`);
   } else if (r.category === "packaging") {
     parts.push(`Received ${formatNumber(r.received)}`);
     if (r.issuedPackaging > 0) parts.push(`Issued ${formatNumber(r.issuedPackaging)}`);
@@ -78,7 +96,7 @@ export function StockPositionTable({ rows }: { rows: PositionRow[] }) {
     },
     {
       header: "Category",
-      accessor: (r) => <span className="capitalize">{r.category === "processed" ? "Finished product" : r.category}</span>,
+      accessor: (r) => <span className="capitalize">{CATEGORY_LABELS[r.category] ?? r.category}</span>,
       searchValue: (r) => r.category,
     },
     {

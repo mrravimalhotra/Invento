@@ -153,14 +153,17 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     barcode,
     active,
   };
-  if (existing.category === "processed") {
-    // Locked — see the comment above. The edit form doesn't render an
-    // editable Category field for these, so this is a defensive backstop,
-    // not the primary guard.
-    update.category = "processed";
+  if (existing.category === "processed" || existing.category === "packaged_fp") {
+    // Locked — see the comment above. Packaged Finished Product
+    // ('packaged_fp', Task F) is the same kind of one-way, non-editable
+    // category as 'processed': auto-created alongside its paired FP item
+    // by createMfrDefinition(), never through this screen. The edit form
+    // doesn't render an editable Category field for either, so this is a
+    // defensive backstop, not the primary guard.
+    update.category = existing.category;
   } else if (CREATABLE_CATEGORIES.includes(submittedCategory as (typeof CREATABLE_CATEGORIES)[number])) {
     update.category = submittedCategory;
-  } else if (submittedCategory === "processed") {
+  } else if (submittedCategory === "processed" || submittedCategory === "packaged_fp") {
     return { error: "Finished Product items are created from the MFR screen, not here — go to MFR → New MFR." };
   } else {
     return { error: "Category must be Raw Material or Packaging." };

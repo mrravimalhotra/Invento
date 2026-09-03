@@ -185,3 +185,116 @@ section and `claude/known-issues.md`): the packaging-items query
 (`packaging/new/page.tsx`) had the same unbounded-query-plus-name-order
 shape, just with a much smaller table so lower practical risk today. Fixed
 the same way for consistency — orders by `created_at descending` now.
+
+## Packaged Finished Product — how FP leaves inventory (Task F, 3 Sept 2026)
+
+Full design rationale: `claude/packaged-fp-redesign.md` (project doc).
+Ravi's opening question for this task was "how Finished Product which is
+only incremental right now in inventory will go out of inventory" —
+Finished Product had been fully ledger-tracked since the
+[Inventory Ledger redesign](inventory.md)'s Phase 3 (pushed at QC
+approval, pulled for QC/Stability/R&D samples) but nothing ever pulled it
+back out for ordinary use. His answer: build it into this screen, not a
+new Dispatch/Sales module.
+
+**The mechanic.** A "New Packaging Issue" for department **Store** or
+**R&D** now does three things in one transaction, on top of the existing
+packaging-material pull and `packaged_qty` bump:
+
+1. Pulls bulk Finished Product (e.g. FP-00001, in its native unit).
+2. Pushes a brand-new paired item, **Packaged Finished Product** (e.g.
+   PKG-FP-00001 for FP-00001 — same item name, its own code and
+   category), counted in packaged units (bottles/packs), not bulk volume.
+3. Immediately pulls that same quantity back out as "issued to Store" /
+   "issued to R&D" — always fully issued, one-shot; a Packaged FP item's
+   on-hand always nets to zero right after. The full create-then-issue
+   history stays on the ledger, same "never hide history" convention as
+   the rest of this app.
+
+**Department = Production is explicitly untouched.** The pre-existing
+`trg_fn_packaging_pull` (packaged_qty bump) and `trg_fn_packaging_item_pull`
+(packaging-material pulls) still fire for every department exactly as
+before; the new transform only ever fires for `store`/`rnd`. `department`
+was purely descriptive before this feature — this is the first place it
+becomes a real behavioral fork.
+
+**Schema (`0032_packaged_finished_product.sql`)**:
+- `items.category` gains `'packaged_fp'`, a fourth value distinct from
+  both `'processed'` (bulk FP) and the pre-existing `'packaging'`
+  (materials — bottles, caps).
+- `items.packaged_item_id` (nullable, unique, self-ref FK) pairs a bulk
+  FP item to its Packaged FP item 1:1. Set once, eagerly, the moment the
+  FP item itself is created — `createMfrDefinition()`
+  (`lib/actions/mfr.ts`) now creates both items and links them, before
+  creating the MFR definition, with the same best-effort rollback-on-
+  failure discipline it already used for the FP item alone.
+- `get_next_item_code()` / `peek_next_item_code()` gained a
+  `'packaged_fp'` branch: prefix `PKG-FP` (own sequence,
+  `item_code_seq_pkgfp`) → `PKG-FP-00001`, deliberately matching Ravi's
+  own example despite the visual similarity to the pre-existing
+  packaging-materials `PKG-00001` prefix.
+- `packaging_issues` gained three nullable columns — `pack_size_qty`,
+  `pack_size_unit`, `fp_qty_consumed` — populated only for Store/R&D.
+  Production keeps the original free-text-only `pack_size` unchanged.
+  `fp_qty_consumed` (`pack_size_qty × unit_count`, already unit-converted
+  into the FP item's own base unit via `lib/constants/units.ts`
+  `convertUnit()`) is computed app-side in `createPackagingIssue()`, so
+  the DB trigger never does unit arithmetic.
+- `inventory_ledger.reference_type` gained `fp_packaging_pull` (bulk FP
+  consumed), `packaged_fp_yield` (Packaged FP pushed), `packaged_fp_issue`
+  (Packaged FP pulled/issued — Store vs R&D read off the existing
+  `department` column, same pattern the pre-existing `packaging` pulls
+  already use, not a separate reference_type per department).
+- New trigger `trg_fn_packaging_transform_and_issue`
+  (`after insert on packaging_issues`) does the three-step pull/push/pull
+  above. No-ops for `department = 'production'`, for a null/zero
+  `fp_qty_consumed`, and — same graceful-skip posture as Phase 3's
+  `fp_yield` trigger — for an FP item with no `packaged_item_id` yet
+  (an MFR created before this migration). The server action checks that
+  last case up front and returns a clear error instead of a silent no-op,
+  since a Store/R&D issue succeeding without actually transforming
+  anything would otherwise look like a bug.
+- `item_position` (0031) gained four more columns:
+  `consumed_by_packaging` (bulk FP's new pull bucket), `packaged_yield`
+  (Packaged FP's push bucket), `issued_store` / `issued_rnd` (Packaged
+  FP's pull bucket, split by department). Appended *after* the view's
+  existing last column (`on_hand`) — `create or replace view` requires
+  every pre-existing column to keep its exact name/type/position, so new
+  columns can only ever go at the end (hit this the hard way locally: the
+  first draft inserted them before `wastage`/`on_hand` and Postgres
+  rejected the replace outright).
+
+**Form (`packaging-form.tsx`)**: department Store/R&D swaps the free-text
+Pack size field for two structured inputs (Pack size quantity + unit);
+Production is unchanged. `packaging/new/page.tsx` now also resolves each
+listed batch's own FP item unit (via `mfr_definitions.
+finished_product_item_id`) to hint the form. All server-side enforcement
+still happens in `createPackagingIssue()` regardless of what the client
+sends.
+
+**Item Master / Stock Position / item detail page**: `packaged_fp` gets
+its own label ("Packaged finished product"), its own locked-category
+treatment in the item edit form (same one-way-door pattern as
+`processed`), a dedicated `ItemPositionSummary` layout (Packaged total /
+Issued to Store / Issued to R&D / Available), and a Stock Position
+breakdown line. The bulk FP item's own summary/breakdown gained a "Used
+in packaging" / "Packaged" figure.
+
+**Verified locally** (fresh `invento_test` Postgres, all 32 migrations
+replayed): an FP batch pushed to 100 ltr at QC approval, then a Store
+issue (1 ltr × 40 = 40 ltr) and an R&D issue (500 ml × 20 = 10 ltr,
+exercising the ml→ltr unit-family conversion) both correctly pulled bulk
+FP, pushed then fully pulled Packaged FP (on_hand nets to 0 for both),
+and left bulk FP on-hand at 50 (100 − 40 − 10). A same-batch Production
+issue produced *zero* new `fp_packaging_pull`/`packaged_fp_yield`/
+`packaged_fp_issue` rows — only the pre-existing material pull and
+`packaged_qty` bump, confirming Production is byte-for-byte unchanged.
+Two defensive-skip paths (a store issue with no `fp_qty_consumed`, and a
+legacy FP item with no paired `packaged_item_id`) both no-op cleanly with
+no error, and the packaging-material pull still fires normally in the
+second case.
+
+**Not done in this pass** (see the design doc): no backfill of a
+`packaged_item_id` for MFRs created before this migration — they simply
+can't take a Store/R&D packaging issue until paired (the server action
+reports this clearly rather than silently skipping the transform).

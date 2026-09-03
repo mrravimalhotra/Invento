@@ -50,6 +50,7 @@ export default async function ItemsPage({
     { key: "raw", label: "Raw material" },
     { key: "packaging", label: "Packaging" },
     { key: "processed", label: "Finished product" },
+    { key: "packaged_fp", label: "Packaged finished product" },
   ];
   const active = category && tabs.some((t) => t.key === category) ? category : "all";
 

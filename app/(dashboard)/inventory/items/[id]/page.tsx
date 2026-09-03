@@ -13,6 +13,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
   processed: "Finished product",
   packaging: "Packaging",
+  packaged_fp: "Packaged finished product",
 };
 
 const ITEM_LEDGER_LIMIT = 500;
@@ -36,6 +37,10 @@ type PositionQueryRow = {
   held_rnd: string | number;
   consumed_by_fp: string | number;
   issued_packaging: string | number;
+  consumed_by_packaging: string | number;
+  packaged_yield: string | number;
+  issued_store: string | number;
+  issued_rnd: string | number;
   wastage: string | number;
   on_hand: string | number;
 };
@@ -78,7 +83,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
     supabase
       .from("item_position")
       .select(
-        "received, yielded, held_qc, held_stability, held_rnd, consumed_by_fp, issued_packaging, wastage, on_hand"
+        "received, yielded, held_qc, held_stability, held_rnd, consumed_by_fp, issued_packaging, consumed_by_packaging, packaged_yield, issued_store, issued_rnd, wastage, on_hand"
       )
       .eq("item_id", id)
       .maybeSingle<PositionQueryRow>(),
@@ -95,6 +100,10 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
     heldRnd: p ? Number(p.held_rnd) : 0,
     consumedByFp: p ? Number(p.consumed_by_fp) : 0,
     issuedPackaging: p ? Number(p.issued_packaging) : 0,
+    consumedByPackaging: p ? Number(p.consumed_by_packaging) : 0,
+    packagedYield: p ? Number(p.packaged_yield) : 0,
+    issuedStore: p ? Number(p.issued_store) : 0,
+    issuedRnd: p ? Number(p.issued_rnd) : 0,
     wastage: p ? Number(p.wastage) : 0,
     onHand: p ? Number(p.on_hand) : 0,
   };

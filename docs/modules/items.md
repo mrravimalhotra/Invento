@@ -186,6 +186,14 @@ MFR records (an item linked to an MFR via `finished_product_item_id` can't
 be deleted while that MFR exists), matching the "or MFR" addition already
 reflected in the Files/Referenced-by note below.
 
+**Task F addendum (3 Sept 2026):** a fourth category, `packaged_fp`
+("Packaged finished product"), is locked the exact same way — created
+only as a side effect of `createMfrDefinition()` (alongside the
+`processed` item it pairs with, via the new `items.packaged_item_id`),
+never through this screen, Category read-only once set. See
+`docs/modules/mfr.md`'s Task F addendum and
+`docs/modules/packaging.md`'s "Packaged Finished Product" section.
+
 ## Gap closed
 
 `default_qc_qty` / `default_stability_qty` / `default_rnd_qty` are fully

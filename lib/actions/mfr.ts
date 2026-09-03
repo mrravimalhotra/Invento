@@ -42,10 +42,18 @@ function parseLines(formData: FormData): LineInput[] | { error: string } {
 // CREATABLE_CATEGORIES in lib/actions/items.ts) — this screen is the only
 // way a Finished Product item comes into existence from here on.
 //
-// Three inserts (item → mfr_definitions → mfr_lines), each with
-// best-effort cleanup of what came before it on failure, since the
-// Supabase client doesn't give us a real multi-statement transaction —
-// same pattern this action already used for the definition+lines pair.
+// Task F (claude/packaged-fp-redesign.md) — "for each Finished Product
+// code e.g. FP-0001 there will be a unique packaged Finished Product code
+// e.g. PKG-FP-0001," created "automatically, the moment FP-0001 is
+// created." So this also creates that paired 'packaged_fp' item right
+// here, eagerly, and links it via items.packaged_item_id — same item
+// name, its own PKG-FP-##### code, unit fixed to 'count' (it's always
+// counted in packaged units — bottles/packs — never bulk volume; see the
+// design doc for why). Four inserts now (FP item → packaged item →
+// mfr_definitions → mfr_lines), each with best-effort cleanup of
+// everything before it on failure, since the Supabase client doesn't give
+// us a real multi-statement transaction — same pattern this action
+// already used for the definition+lines pair.
 export async function createMfrDefinition(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get("name") || "").trim();
   const batchSizeQty = Number(formData.get("batch_size_qty"));
@@ -90,8 +98,45 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
     return { error: itemError?.message || "Could not create the Finished Product item." };
   }
 
+  // Task F's paired Packaged FP item — see the header comment above.
+  // Failure here rolls back just the FP item (nothing else exists yet).
+  const { data: packagedItemCode, error: packagedCodeError } = await supabase.rpc("get_next_item_code", {
+    p_category: "packaged_fp",
+  });
+  if (packagedCodeError || !packagedItemCode) {
+    await supabase.from("items").delete().eq("id", item.id);
+    return { error: packagedCodeError?.message || "Could not generate a Packaged Finished Product item code." };
+  }
+
+  const { data: packagedItem, error: packagedItemError } = await supabase
+    .from("items")
+    .insert({
+      item_code: packagedItemCode,
+      name,
+      category: "packaged_fp",
+      item_type_id: itemTypeId,
+      unit: "count",
+    })
+    .select("id")
+    .single();
+  if (packagedItemError || !packagedItem) {
+    await supabase.from("items").delete().eq("id", item.id);
+    return { error: packagedItemError?.message || "Could not create the Packaged Finished Product item." };
+  }
+
+  const { error: pairError } = await supabase
+    .from("items")
+    .update({ packaged_item_id: packagedItem.id })
+    .eq("id", item.id);
+  if (pairError) {
+    await supabase.from("items").delete().eq("id", packagedItem.id);
+    await supabase.from("items").delete().eq("id", item.id);
+    return { error: pairError.message };
+  }
+
   const { data: code, error: codeError } = await supabase.rpc("get_next_mfr_code");
   if (codeError || !code) {
+    await supabase.from("items").delete().eq("id", packagedItem.id);
     await supabase.from("items").delete().eq("id", item.id);
     return { error: codeError?.message || "Could not generate an MFR code." };
   }
@@ -108,6 +153,7 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
     .select("id")
     .single();
   if (defError || !def) {
+    await supabase.from("items").delete().eq("id", packagedItem.id);
     await supabase.from("items").delete().eq("id", item.id);
     return { error: defError?.message || "Could not create the MFR definition." };
   }
@@ -123,8 +169,9 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   );
   if (linesError) {
     // Best-effort cleanup so a failed recipe insert doesn't leave a headerless
-    // definition — or its linked Finished Product item — behind.
+    // definition — or its linked Finished Product / Packaged FP items — behind.
     await supabase.from("mfr_definitions").delete().eq("id", def.id);
+    await supabase.from("items").delete().eq("id", packagedItem.id);
     await supabase.from("items").delete().eq("id", item.id);
     return { error: linesError.message };
   }

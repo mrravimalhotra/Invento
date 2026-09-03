@@ -60,5 +60,5 @@ export function convertUnit(value: number, from: string, to: string): number | n
 export const DEPARTMENTS = ["production", "rnd", "store"] as const;
 export type Department = (typeof DEPARTMENTS)[number];
 
-export const ITEM_CATEGORIES = ["raw", "processed", "packaging"] as const;
+export const ITEM_CATEGORIES = ["raw", "processed", "packaging", "packaged_fp"] as const;
 export type ItemCategory = (typeof ITEM_CATEGORIES)[number];

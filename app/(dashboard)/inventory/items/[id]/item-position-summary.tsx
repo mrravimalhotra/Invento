@@ -15,6 +15,10 @@ export type Position = {
   heldRnd: number;
   consumedByFp: number;
   issuedPackaging: number;
+  consumedByPackaging: number;
+  packagedYield: number;
+  issuedStore: number;
+  issuedRnd: number;
   wastage: number;
   onHand: number;
 };
@@ -35,11 +39,28 @@ export function ItemPositionSummary({ category, unit, position }: { category: st
 
   if (category === "processed") {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-6">
         <Stat label="Batch yield (total)" value={p.yielded} unit={unit} />
         <Stat label="QC sampled" value={p.heldQc} unit={unit} />
         <Stat label="Stability sampled" value={p.heldStability} unit={unit} />
         <Stat label="R&D sampled" value={p.heldRnd} unit={unit} />
+        <Stat label="Used in packaging" value={p.consumedByPackaging} unit={unit} />
+        <Stat label="Available" value={p.onHand} unit={unit} emphasize />
+      </div>
+    );
+  }
+
+  // Task F (claude/packaged-fp-redesign.md) — Packaged Finished Product:
+  // always fully issued, one-shot, so Available nets to zero once yield
+  // and issue both land. Shown anyway (rather than hidden) so the history
+  // is visible at a glance, same "never hide history" convention as every
+  // other category here.
+  if (category === "packaged_fp") {
+    return (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Stat label="Packaged (total)" value={p.packagedYield} unit={unit} />
+        <Stat label="Issued to Store" value={p.issuedStore} unit={unit} />
+        <Stat label="Issued to R&D" value={p.issuedRnd} unit={unit} />
         <Stat label="Available" value={p.onHand} unit={unit} emphasize />
       </div>
     );

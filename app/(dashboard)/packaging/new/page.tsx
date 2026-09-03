@@ -45,7 +45,38 @@ export default async function NewPackagingIssuePage() {
         .not("finished_product_batch_id", "is", null)
     : { data: [] };
   const latestQc = latestQcByBatch((qcRows ?? []) as { finished_product_batch_id: string; status: string; created_at: string }[]);
-  const fpBatches = candidates.filter((b) => resolveDisplayStatus(b.status, latestQc.get(b.id)) === "approved");
+  const approvedBatches = candidates.filter((b) => resolveDisplayStatus(b.status, latestQc.get(b.id)) === "approved");
+
+  // Task F: the Store/R&D form needs each batch's own Finished Product
+  // item unit, to hint/validate the structured pack size against
+  // (createPackagingIssue() does the real enforcement server-side via
+  // convertUnit() — this is just for the form's own hint text).
+  const { data: fullBatchRows } = approvedBatches.length
+    ? await supabase
+        .from("finished_product_batches")
+        .select("id, mfr_definition_id")
+        .in(
+          "id",
+          approvedBatches.map((b) => b.id)
+        )
+    : { data: [] };
+  const mfrDefIds = [...new Set((fullBatchRows ?? []).map((r) => r.mfr_definition_id).filter(Boolean))];
+  const { data: mfrDefRows } = mfrDefIds.length
+    ? await supabase.from("mfr_definitions").select("id, finished_product_item_id").in("id", mfrDefIds)
+    : { data: [] };
+  const fpItemIds = [...new Set((mfrDefRows ?? []).map((r) => r.finished_product_item_id).filter(Boolean))] as string[];
+  const { data: fpItemRows } = fpItemIds.length
+    ? await supabase.from("items").select("id, unit").in("id", fpItemIds)
+    : { data: [] };
+  const unitByItemId = new Map((fpItemRows ?? []).map((r) => [r.id, r.unit]));
+  const itemIdByMfrDef = new Map((mfrDefRows ?? []).map((r) => [r.id, r.finished_product_item_id]));
+  const mfrDefByBatch = new Map((fullBatchRows ?? []).map((r) => [r.id, r.mfr_definition_id]));
+
+  const fpBatches = approvedBatches.map((b) => {
+    const mfrDefId = mfrDefByBatch.get(b.id);
+    const fpItemId = mfrDefId ? itemIdByMfrDef.get(mfrDefId) : null;
+    return { ...b, fp_unit: fpItemId ? unitByItemId.get(fpItemId) ?? null : null };
+  });
 
   return (
     <div>

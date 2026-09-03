@@ -95,6 +95,17 @@ carries its own `item_type_id`. The MFR detail/list/report screens read
 item type via the linked item (`items:finished_product_item_id(...,
 item_types(description))`), not the old column.
 
+**Task F addendum (3 Sept 2026, `claude/packaged-fp-redesign.md`):**
+`createMfrDefinition()` now also creates a second, paired item —
+category `packaged_fp`, same name, its own `PKG-FP-#####` code — right
+alongside the Finished Product item, and links the two via the new
+`items.packaged_item_id` (nullable, unique, self-referencing). Same
+"strict 1:1, set once, never guessed at for pre-existing rows" shape as
+`finished_product_item_id` itself, one level further down the chain. See
+`docs/modules/packaging.md`'s "Packaged Finished Product" section for
+what this pairing is for (Store/R&D packaging issues transform bulk FP
+into this paired item and dispatch it).
+
 ## Admin-only delete (1 Sept 2026)
 
 Extends the same admin-only-delete pattern used for Item Type Master

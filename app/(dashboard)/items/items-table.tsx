@@ -9,6 +9,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
   processed: "Finished product",
   packaging: "Packaging",
+  packaged_fp: "Packaged finished product",
 };
 
 export type ItemRow = {

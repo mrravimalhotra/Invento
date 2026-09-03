@@ -742,3 +742,17 @@ PostgREST layer in front of it. See `claude/known-issues.md`'s Twelfth
 pass for the full incident writeup, including the still-open finding that
 other list pages (`/items`, confirmed; the RM Stock report, likely) have
 the same latent truncation from their own earlier ordering-only fix.
+
+## Task F — Packaged Finished Product / how FP leaves inventory (3 Sept 2026)
+
+Ravi's follow-up to Phase 3: Finished Product could be pushed to stock
+(at QC approval) but nothing ever pulled it back out. Full design and
+implementation: `docs/modules/packaging.md`'s "Packaged Finished
+Product" section and `claude/packaged-fp-redesign.md` (project doc) —
+built into the Packaging screen (Store/R&D issues transform bulk FP +
+materials into a new paired "Packaged Finished Product" item and
+immediately dispatch it; Production is untouched for now), not a change
+to this module's own screens. `item_position` (this module's own view)
+gained four new columns as part of it — `consumed_by_packaging`,
+`packaged_yield`, `issued_store`, `issued_rnd` — and Stock Position /
+the per-item detail page both render the new `packaged_fp` category.
