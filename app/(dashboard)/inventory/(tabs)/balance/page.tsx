@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { StockPositionTable, type PositionRow } from "./stock-position-table";
 
 type ItemRow = {
@@ -33,32 +34,42 @@ type PositionQueryRow = {
 export default async function StockPositionPage() {
   const supabase = await createClient();
 
-  // known-issues.md ("Row-cap truncation") — an unbounded select() is
-  // silently capped server-side (commonly 1,000) with ~2,200 active items
-  // on file. That fix (ordering by created_at descending) isn't enough on
-  // its own here: this page joins two separate queries client-side by
-  // item_id, and item_position (a plain `group by` over a view, no
-  // explicit order) doesn't share that ordering — an item comfortably
-  // inside the `items` cap can still fall outside item_position's own
-  // differently-ordered cap, silently rendering as all-zero rather than
-  // missing outright. Both queries capped at 5,000 (same convention as
-  // ledger-filters.tsx's item picker) so neither ever truncates in
-  // practice.
+  // known-issues.md ("Row-cap truncation") — Supabase/PostgREST enforces
+  // its max-rows cap (this project's is 1,000) server-side; a client
+  // `.limit()` above that number is silently capped back down to it, not
+  // honored — confirmed live: `.limit(5000)` alone still truncated at
+  // exactly 1,000 rows post-deploy. With ~2,200 active items on file, and
+  // this page joining two separate queries client-side by item_id, that
+  // truncation doesn't just drop items past the cap — item_position (a
+  // plain `group by` over a view, no inherent order) gets capped in a
+  // different row order than `items`, so an item well inside the items
+  // page can still fall outside item_position's page and silently render
+  // as all-zero rather than missing outright (exactly what happened to
+  // "A. Jatamansi Tail" / FP-00001 in live verification). Real fix:
+  // fetchAllRows pages both queries in max-rows-sized windows via
+  // `.range()` until each is exhausted, so neither ever truncates
+  // regardless of how large the table grows. Both queries need a
+  // deterministic `.order()` for `.range()` pagination to be valid.
   const [{ data: items, error: itemsError }, { data: positions, error: positionError }] = await Promise.all([
-    supabase
-      .from("items")
-      .select("id, item_code, name, unit, low_stock_threshold, category")
-      .eq("active", true)
-      .order("created_at", { ascending: false })
-      .limit(5000)
-      .returns<ItemRow[]>(),
-    supabase
-      .from("item_position")
-      .select(
-        "item_id, received, yielded, held_qc, held_stability, held_rnd, consumed_by_fp, issued_packaging, wastage, on_hand"
-      )
-      .limit(5000)
-      .returns<PositionQueryRow[]>(),
+    fetchAllRows<ItemRow>((from, to) =>
+      supabase
+        .from("items")
+        .select("id, item_code, name, unit, low_stock_threshold, category")
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .range(from, to)
+        .returns<ItemRow[]>()
+    ),
+    fetchAllRows<PositionQueryRow>((from, to) =>
+      supabase
+        .from("item_position")
+        .select(
+          "item_id, received, yielded, held_qc, held_stability, held_rnd, consumed_by_fp, issued_packaging, wastage, on_hand"
+        )
+        .order("item_id", { ascending: true })
+        .range(from, to)
+        .returns<PositionQueryRow[]>()
+    ),
   ]);
 
   const positionMap = new Map((positions ?? []).map((p) => [p.item_id, p]));

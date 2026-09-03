@@ -710,3 +710,35 @@ query) directly against the seeded data, all matching. `npx tsc
 --noEmit`, `npx eslint` on every touched/new file, and `npx next build`
 (new `/inventory/items/[id]` dynamic route added, all routes compiling)
 all clean.
+
+**A real bug found during live verification against production, not
+caught by the local-Postgres check above.** Stock Position showed
+"A. Jatamansi Tail" (FP-00001) at 0 with an all-zero breakdown, while its
+own per-item detail page — querying `item_position` scoped to that one
+`item_id` — correctly showed 58.5 yielded / 58.2 available, the same
+number Phase 3's live verification already confirmed. Root cause: exactly
+the row-cap-truncation bug class in `claude/known-issues.md`, but with a
+new wrinkle. `balance/page.tsx` joins two separate queries (`items`,
+`item_position`) client-side by `item_id`; with ~2,200+ active items on
+file, Supabase's server-side row cap (1,000) truncated each
+independently, and since `item_position` has no inherent order, an item
+well inside `items`' page could fall outside `item_position`'s
+differently-ordered page and render as all-zero rather than missing
+outright. **A first fix (`.limit(5000)` on both queries) shipped and was
+confirmed live NOT to work** — Supabase/PostgREST's max-rows cap can't be
+raised by a client-side `.limit()`/`.range()` above the server's own
+configured max; it's silently capped back down regardless. The real fix
+is genuine pagination: new `lib/supabase/fetch-all.ts` (`fetchAllRows`)
+repeats the query in `.range()` windows no wider than the server max,
+concatenating pages until a short page signals the end — the only way to
+get more than the cap in one logical fetch. `item_position` gained an
+explicit `.order("item_id")` since `.range()` pagination needs a
+deterministic order to be valid. Verified with an isolated logic test
+(a mocked data source hard-capping every request at 1,000 rows,
+reproducing the exact live failure) confirming `fetchAllRows` retrieves
+all rows of a 2,317-row scenario exactly once each, in order — the actual
+server cap can't be reproduced locally, since local Postgres has no
+PostgREST layer in front of it. See `claude/known-issues.md`'s Twelfth
+pass for the full incident writeup, including the still-open finding that
+other list pages (`/items`, confirmed; the RM Stock report, likely) have
+the same latent truncation from their own earlier ordering-only fix.
