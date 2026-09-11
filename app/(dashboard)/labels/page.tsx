@@ -2,25 +2,28 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { LabelPicker, type RmRecord, type FpRecord } from "./label-picker";
 
-// Supabase's query builder infers embedded relations as arrays when the
-// select string's cardinality can't be statically resolved (no generated
-// Database types in this project) — even though item_id/purchase_order_id/
-// vendor_id/mfr_definition_id are all single-row "belongs to" foreign keys
-// that return at most one row. Typed as arrays here and unwrapped with [0]
-// in the mapping below to match what actually comes back at runtime.
+// FB-0024 fix (11 Sept 2026): every other belongs-to embed in this codebase
+// (Purchase, Reports, QC — see e.g. purchase/[id]/page.tsx's
+// `vendor:vendors(...)` or qc/page.tsx's `items(...)`) is typed and read as
+// a plain object, not an array — this file was the one exception, typed as
+// `{ name: string }[] | null` and unwrapped with `[0]`, which silently
+// returned undefined (falling back to "—") for every row on both the item
+// name and the vendor name, since the real runtime shape here is a plain
+// object too. Found live: the new "Search product by name" field (FB-0024)
+// collapsed to a single "—" entry across every raw-material batch, which
+// is what surfaced this — it was likely always showing "—" instead of the
+// item name in the "Purchase batch" dropdown's option text as well.
 type PurchaseLineFetch = {
   id: string;
   batch_number: string;
   quantity: string | number;
   unit: string;
-  item: { name: string }[] | null;
-  purchase_order:
-    | {
-        invoice_number: string;
-        invoice_date: string;
-        vendor: { name: string }[] | null;
-      }[]
-    | null;
+  item: { name: string } | null;
+  purchase_order: {
+    invoice_number: string;
+    invoice_date: string;
+    vendor: { name: string } | null;
+  } | null;
 };
 
 type BatchStatusFetch = {
@@ -43,7 +46,7 @@ type FpBatchFetch = {
   finish_date: string | null;
   expiry_month: string | null;
   status: string;
-  mfr_definition: { name: string }[] | null;
+  mfr_definition: { name: string } | null;
 };
 
 export default async function LabelsPage() {
@@ -80,9 +83,18 @@ export default async function LabelsPage() {
       .order("created_at", { ascending: false }),
   ]);
 
-  const lines: PurchaseLineFetch[] = linesData ?? [];
+  // supabase-js infers embedded relations as arrays here (no generated
+  // Database types in this project to tell it these are all single-row
+  // "belongs to" foreign keys) — that inferred type doesn't match the
+  // actual runtime shape PostgREST returns for a to-one embed (a plain
+  // object), so a direct structural assignment against it fails to
+  // compile. Cast through `unknown`, same convention already used
+  // elsewhere in the app for the same reason (e.g. qc/page.tsx's
+  // `items(...)`/`items!inner(...)` embeds) — see the PurchaseLineFetch/
+  // FpBatchFetch comments above for how this was found and confirmed.
+  const lines = (linesData ?? []) as unknown as PurchaseLineFetch[];
   const statuses: BatchStatusFetch[] = statusData ?? [];
-  const fpBatches: FpBatchFetch[] = fpData ?? [];
+  const fpBatches = (fpData ?? []) as unknown as FpBatchFetch[];
 
   const qcIds = statuses.map((s) => s.quality_check_id).filter((id): id is string => !!id);
   const { data: qcData } =
@@ -95,14 +107,14 @@ export default async function LabelsPage() {
 
   const rmRecords: RmRecord[] = lines.map((l) => {
     const status = statusByLineId.get(l.id);
-    const po = l.purchase_order?.[0];
+    const po = l.purchase_order;
     return {
       id: l.id,
-      itemName: l.item?.[0]?.name ?? "—",
+      itemName: l.item?.name ?? "—",
       batchNumber: l.batch_number,
       quantity: Number(l.quantity),
       unit: l.unit,
-      vendorName: po?.vendor?.[0]?.name ?? "—",
+      vendorName: po?.vendor?.name ?? "—",
       invoiceNumber: po?.invoice_number ?? "—",
       receiptDate: po?.invoice_date ?? null,
       qcStatus: status?.qc_status ?? "not_submitted",
@@ -113,7 +125,7 @@ export default async function LabelsPage() {
 
   const fpRecords: FpRecord[] = fpBatches.map((b) => ({
     id: b.id,
-    productName: b.mfr_definition?.[0]?.name ?? "—",
+    productName: b.mfr_definition?.name ?? "—",
     batchNumber: b.batch_number,
     quantity: b.batch_yield !== null ? Number(b.batch_yield) : null,
     unit: b.unit,

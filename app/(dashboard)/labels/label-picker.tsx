@@ -168,7 +168,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
           </Field>
 
           <Field
-            label="Search product by name"
+            label="Search by Item Name"
             htmlFor="name-filter"
             hint="Type to find a raw material or finished product by name, e.g. Jatamansi — narrows the batch list below."
           >
