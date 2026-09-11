@@ -54,11 +54,29 @@ function dateOrNull(d: string | null) {
 
 export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; fpRecords: FpRecord[] }) {
   const [labelType, setLabelType] = useState<LabelType>("approved_rm");
+  // FB-0024 (7 Sept 2026, Namrata Gaikwad): a second picker, in between
+  // Label type and the batch field, so a user can find a batch by the raw
+  // material/finished product's *name* (e.g. "jatamansi") rather than
+  // needing to already recognize its batch code. Picking a name here
+  // narrows the batch field below it to just that product's batches;
+  // clearing it (or switching Label type) shows every batch again, same
+  // as before this existed.
+  const [nameFilter, setNameFilter] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string>("");
 
   const isFp = labelType === "finished_product";
   const rm = !isFp ? rmRecords.find((r) => r.id === selectedId) : undefined;
   const fp = isFp ? fpRecords.find((r) => r.id === selectedId) : undefined;
+
+  // Distinct product names for the currently active record set, so the
+  // name picker offers each RM/FP item once rather than once per batch.
+  const nameOptions = useMemo(() => {
+    const names = isFp ? fpRecords.map((r) => r.productName) : rmRecords.map((r) => r.itemName);
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+  }, [isFp, rmRecords, fpRecords]);
+
+  const filteredRmRecords = nameFilter ? rmRecords.filter((r) => r.itemName === nameFilter) : rmRecords;
+  const filteredFpRecords = nameFilter ? fpRecords.filter((r) => r.productName === nameFilter) : fpRecords;
 
   const fields: LabelField[] = useMemo(() => {
     if (labelType === "approved_rm" && rm) {
@@ -114,6 +132,14 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
 
   function handleTypeChange(next: LabelType) {
     setLabelType(next);
+    setNameFilter("");
+    setSelectedId("");
+  }
+
+  function handleNameFilterChange(next: string) {
+    setNameFilter(next);
+    // The previously selected batch may not belong to this product — clear
+    // it rather than leave a stale, now-hidden batch selected underneath.
     setSelectedId("");
   }
 
@@ -141,11 +167,26 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             </Select>
           </Field>
 
+          <Field
+            label="Search product by name"
+            htmlFor="name-filter"
+            hint="Type to find a raw material or finished product by name, e.g. Jatamansi — narrows the batch list below."
+          >
+            <Select id="name-filter" value={nameFilter} onChange={(e) => handleNameFilterChange(e.target.value)}>
+              <option value="">All products</option>
+              {nameOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           {!isFp ? (
             <Field label="Purchase batch" htmlFor="record" required hint="Raw material batch, from Purchase.">
               <Select id="record" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
                 <option value="">Select a batch…</option>
-                {rmRecords.map((r) => (
+                {filteredRmRecords.map((r) => (
                   <option key={r.id} value={r.id} data-legacy={isLegacyCode(r.batchNumber) ? "1" : undefined}>
                     {r.batchNumber} · {r.itemName}
                   </option>
@@ -156,13 +197,17 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             <Field label="Finished product batch" htmlFor="record" required>
               <Select id="record" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
                 <option value="">Select a batch…</option>
-                {fpRecords.map((r) => (
+                {filteredFpRecords.map((r) => (
                   <option key={r.id} value={r.id} data-legacy={isLegacyCode(r.batchNumber) ? "1" : undefined}>
                     {r.batchNumber} · {r.productName}
                   </option>
                 ))}
               </Select>
             </Field>
+          )}
+
+          {nameFilter && (!isFp ? filteredRmRecords.length === 0 : filteredFpRecords.length === 0) && (
+            <p className="text-sm text-muted">No batches on file for &ldquo;{nameFilter}&rdquo;.</p>
           )}
 
           {rm && (
