@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Field, Select } from "@/components/ui/form";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { ReportSection, type ReportColumn } from "./report-section";
 
@@ -149,11 +151,25 @@ export type PurchaseRow = {
   live_remaining_qty: number | string;
   expiry_date: string | null;
   created_at: string;
-  item: { name: string } | null;
+  item: { name: string; category: string | null } | null;
   purchase_order: { po_number: string; vendor: { name: string } | null } | null;
 };
 
+// FB-0035 (12 Sept 2026): every purchased item is 'raw' or 'packaging' —
+// see the FB-0035 comment on the query in page.tsx.
+const CATEGORY_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "raw", label: "Raw material" },
+  { value: "packaging", label: "Packaging" },
+] as const;
+
 export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
+  const [category, setCategory] = useState<string>("all");
+  const filteredRows = useMemo(
+    () => (category === "all" ? rows : rows.filter((r) => r.item?.category === category)),
+    [rows, category]
+  );
+
   const columns: ReportColumn<PurchaseRow>[] = [
     { header: "PO Number", cell: (r) => r.purchase_order?.po_number ?? "—", pdfValue: (r) => r.purchase_order?.po_number ?? "—" },
     {
@@ -169,14 +185,27 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
   ];
 
   return (
-    <ReportSection
-      title="Purchase Register"
-      description="Every purchase line received, with vendor, item, and remaining quantity available for use."
-      rows={rows}
-      columns={columns}
-      dateOf={(r) => r.created_at}
-      dateLabel="Received"
-      filename="purchase-register"
-    />
+    <div className="flex flex-col gap-3">
+      <div className="w-48">
+        <Field label="Category" htmlFor="purchase-register-category">
+          <Select id="purchase-register-category" value={category} onChange={(e) => setCategory(e.target.value)}>
+            {CATEGORY_FILTER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      <ReportSection
+        title="Purchase Register"
+        description="Every purchase line received, with vendor, item, and remaining quantity available for use."
+        rows={filteredRows}
+        columns={columns}
+        dateOf={(r) => r.created_at}
+        dateLabel="Received"
+        filename="purchase-register"
+      />
+    </div>
   );
 }

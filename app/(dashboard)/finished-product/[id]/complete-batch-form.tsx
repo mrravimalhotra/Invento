@@ -52,7 +52,13 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
         <Field label="Finish date" htmlFor="finish_date">
           <Input id="finish_date" name="finish_date" type="date" defaultValue={defaults.finish_date ?? ""} />
         </Field>
-        <Field label="Expiry month" htmlFor="expiry_month">
+        {/* FB-0025 (12 Sept 2026): label text only — the field still stores
+            a full date (expiry_month is a `date` column name, not a display
+            label; see the "Best Before" month/year rendering in
+            labels/label-picker.tsx, which is unaffected by this rename).
+            The start-date column and future-date validation raised in the
+            same ticket are deferred pending more input from Ravi. */}
+        <Field label="Expiry date" htmlFor="expiry_month">
           <Input id="expiry_month" name="expiry_month" type="date" defaultValue={defaults.expiry_month ?? ""} />
         </Field>
         <Field

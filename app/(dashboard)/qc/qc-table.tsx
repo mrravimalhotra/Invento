@@ -15,7 +15,10 @@ export type QcListRow = {
   is_retest: boolean;
   items: { item_code: string; name: string } | null;
   purchase_lines: { batch_number: string } | null;
-  finished_product_batches: { batch_number: string } | null;
+  // FB-0027: nested mfr_definitions gives the Finished Product's own name,
+  // since FP-context QC rows never get an `items` row of their own — see
+  // the query comment in page.tsx for why.
+  finished_product_batches: { batch_number: string; mfr_definitions: { name: string } | null } | null;
 };
 
 // AR numbers themselves are always freshly generated (get_next_ar_number()
@@ -54,8 +57,15 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
     },
     {
       header: "Item",
-      accessor: (r) => (r.items ? `${r.items.item_code} — ${r.items.name}` : "—"),
-      searchValue: (r) => r.items?.name ?? "",
+      // FB-0027 (12 Sept 2026): FP-context rows have no `items` row (see the
+      // query comment in page.tsx), so fall back to the FP's own product
+      // name via finished_product_batches.mfr_definitions — same fallback
+      // in both the displayed value and what search matches against.
+      accessor: (r) =>
+        r.items
+          ? `${r.items.item_code} — ${r.items.name}`
+          : r.finished_product_batches?.mfr_definitions?.name ?? "—",
+      searchValue: (r) => r.items?.name ?? r.finished_product_batches?.mfr_definitions?.name ?? "",
     },
     {
       header: "Batch",

@@ -19,10 +19,21 @@ export default async function QcListPage() {
   const supabase = await createClient();
 
   const [{ data }, awaitingLines, dueLines] = await Promise.all([
+    // FB-0027 (12 Sept 2026): a Finished Product's QC record never gets an
+    // `item_id` (submitFinishedProductToQc() only sets
+    // finished_product_batch_id — see lib/actions/finished-product.ts), so
+    // the "Item" column below was always "—" and unsearchable for every
+    // FP-context row. Reported live: "when checking the Finished Product
+    // for QC approval, only the product code is available for search" —
+    // with 280+ Finished Products on file, searching by AR number or the
+    // FP batch number alone (both already worked) wasn't enough; the
+    // product's own name needs to show and be searchable too. Joining
+    // through to mfr_definitions(name) the same way labels/page.tsx and
+    // reports/page.tsx already do for Finished Product batches.
     supabase
       .from("quality_checks")
       .select(
-        "id, ar_number, status, sample_qty, sample_unit, retest_date, is_retest, items(item_code, name), purchase_lines(batch_number), finished_product_batches(batch_number)"
+        "id, ar_number, status, sample_qty, sample_unit, retest_date, is_retest, items(item_code, name), purchase_lines(batch_number), finished_product_batches(batch_number, mfr_definitions(name))"
       )
       .order("created_at", { ascending: false })
       .limit(QC_LIMIT),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,15 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
   // as before this existed.
   const [nameFilter, setNameFilter] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string>("");
+  // FB-0037 (12 Sept 2026, Namrata Gaikwad): a JPEG download alongside the
+  // existing PDF, for pasting the label straight into a chat/doc without a
+  // PDF viewer. Captures the already-rendered on-screen preview below
+  // (ref'd via previewRef) with html2canvas rather than re-implementing the
+  // jsPDF vector layout a second time — the two exports can drift slightly
+  // in typography since one is a canvas rasterization of HTML/CSS and the
+  // other is native PDF vector drawing, but they show the same fields.
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [downloadingJpeg, setDownloadingJpeg] = useState(false);
 
   const isFp = labelType === "finished_product";
   const rm = !isFp ? rmRecords.find((r) => r.id === selectedId) : undefined;
@@ -148,6 +157,23 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
     downloadLabelPdf(labelType, fields, `label-${labelType}-${safeBatch}.pdf`);
   }
 
+  async function handleDownloadJpeg() {
+    const node = previewRef.current;
+    if (!node) return;
+    setDownloadingJpeg(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(node, { scale: 3, backgroundColor: "#ffffff" });
+      const safeBatch = batchNumberForFilename.replace(/[^\w.-]+/g, "_");
+      const link = document.createElement("a");
+      link.download = `label-${labelType}-${safeBatch}.jpg`;
+      link.href = canvas.toDataURL("image/jpeg", 0.92);
+      link.click();
+    } finally {
+      setDownloadingJpeg(false);
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
@@ -231,9 +257,19 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             <p className="text-sm text-muted">No finished product batches available yet.</p>
           )}
 
-          <Button onClick={handleDownload} disabled={!canDownload} className="self-start">
-            Download PDF
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleDownload} disabled={!canDownload} className="self-start">
+              Download PDF
+            </Button>
+            <Button
+              onClick={handleDownloadJpeg}
+              disabled={!canDownload || downloadingJpeg}
+              variant="secondary"
+              className="self-start"
+            >
+              {downloadingJpeg ? "Preparing…" : "Download JPEG"}
+            </Button>
+          </div>
         </CardBody>
       </Card>
 
@@ -245,7 +281,10 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
               Select a batch to preview the label.
             </div>
           ) : (
-            <div className="w-full max-w-sm rounded-md border-2 border-brand bg-white p-3 text-foreground shadow-sm">
+            <div
+              ref={previewRef}
+              className="w-full max-w-sm rounded-md border-2 border-brand bg-white p-3 text-foreground shadow-sm"
+            >
               <p className="text-center text-[11px] font-bold text-brand-dark leading-tight">
                 Atharva Nature Healthcare Pvt. Ltd.
               </p>

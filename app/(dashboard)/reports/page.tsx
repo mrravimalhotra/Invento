@@ -37,8 +37,12 @@ export default async function ReportsPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("purchase_lines")
+      // FB-0035 (12 Sept 2026): `category` rides along on the item embed so
+      // the Purchase Register can offer a Raw material / Packaging filter —
+      // every purchased item is one or the other (see purchase-line-form.tsx),
+      // never 'processed'/'packaged_fp' (those are never purchased).
       .select(
-        "batch_number, quantity, live_remaining_qty, expiry_date, created_at, item:items(name), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
+        "batch_number, quantity, live_remaining_qty, expiry_date, created_at, item:items(name, category), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
       )
       .order("created_at", { ascending: false }),
   ]);
