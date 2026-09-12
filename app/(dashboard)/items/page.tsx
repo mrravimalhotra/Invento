@@ -6,7 +6,22 @@ import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { ItemsTable, type ItemRow } from "./items-table";
+
+type ItemQueryRow = {
+  id: string;
+  item_code: string;
+  name: string;
+  category: string;
+  unit: string | null;
+  active: boolean;
+  low_stock_threshold: string | number | null;
+  item_types: { description: string } | { description: string }[] | null;
+  created_at: string;
+};
+
+type BalanceQueryRow = { item_id: string; on_hand: string | number };
 
 export default async function ItemsPage({
   searchParams,
@@ -22,15 +37,33 @@ export default async function ItemsPage({
   // LEG-, which sorts before RM/PKG but after FP alphabetically), pushing
   // new items past DataTable's client-side 15-rows/page slice — a newly
   // added item was effectively invisible without searching or paging deep.
-  let query = supabase
-    .from("items")
-    .select("id, item_code, name, category, unit, active, low_stock_threshold, item_types(description), created_at")
-    .order("created_at", { ascending: false });
-  if (category && category !== "all") query = query.eq("category", category);
-
+  //
+  // known-issues.md ("Row-cap truncation") — with ~2,200+ active items on
+  // file, a plain unbounded select() silently truncated at Supabase's
+  // server-side max-rows cap (1,000, confirmed live via this page's own
+  // "Page 1 of 67 · 1000 rows" footer) — the newest-first ordering above
+  // only ever fixed a *picker* (new rows within the cap); it can't make a
+  // list page that must show *every* row return more than the cap.
+  // fetchAllRows pages both queries in max-rows-sized `.range()` windows
+  // until each is exhausted, same fix already shipped for Stock Position.
   const [{ data: itemsData }, { data: balances }] = await Promise.all([
-    query,
-    supabase.from("stock_balance").select("item_id, on_hand"),
+    fetchAllRows<ItemQueryRow>((from, to) => {
+      let query = supabase
+        .from("items")
+        .select("id, item_code, name, category, unit, active, low_stock_threshold, item_types(description), created_at")
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (category && category !== "all") query = query.eq("category", category);
+      return query.returns<ItemQueryRow[]>();
+    }),
+    fetchAllRows<BalanceQueryRow>((from, to) =>
+      supabase
+        .from("stock_balance")
+        .select("item_id, on_hand")
+        .order("item_id", { ascending: true })
+        .range(from, to)
+        .returns<BalanceQueryRow[]>()
+    ),
   ]);
 
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));

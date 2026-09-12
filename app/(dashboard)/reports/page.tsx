@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { latestQcByBatch, resolveDisplayStatus } from "@/lib/finished-product-status";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import {
   RmStockReport,
   QcRegisterReport,
@@ -12,44 +13,80 @@ import {
   type PurchaseRow,
 } from "./report-tables";
 
+type BalanceQueryRow = { item_id: string; on_hand: string | number };
+
 export default async function ReportsPage() {
   const supabase = await createClient();
 
+  // known-issues.md ("Row-cap truncation") — every one of these five
+  // queries fetched its whole table with no `.limit()`, ordered
+  // newest-first. That ordering (FB-0006's fix) only ever guarantees a
+  // *picker* shows new rows within whatever the server's 1,000-row cap
+  // returns — it does nothing for a *report* that's supposed to show
+  // every row. purchase_lines alone has ~92,000 rows (mostly legacy) on
+  // file, so the Purchase Register was almost certainly already silently
+  // showing only its newest 1,000 lines, no error, no indication. Same
+  // fix as Stock Position (Twelfth pass) and Item Master (this pass):
+  // fetchAllRows pages every query in max-rows-sized `.range()` windows
+  // until each is exhausted.
   const [itemsRes, balancesRes, qcRes, fpRes, purchaseRes] = await Promise.all([
-    supabase
-      .from("items")
-      .select("id, item_code, name, unit, low_stock_threshold, created_at")
-      .eq("category", "raw")
-      .eq("active", true)
-      .order("created_at", { ascending: false }),
-    supabase.from("stock_balance").select("item_id, on_hand"),
-    supabase
-      .from("quality_checks")
-      .select(
-        "ar_number, status, reviewed_at, retest_date, created_at, item:items(name), purchase_line:purchase_lines(batch_number), fp_batch:finished_product_batches(batch_number)"
-      )
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("finished_product_batches")
-      .select(
-        "id, batch_number, target_qty, actual_yield_pct, status, finish_date, created_at, mfr:mfr_definitions(name)"
-      )
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("purchase_lines")
-      // FB-0035 (12 Sept 2026): `category` rides along on the item embed so
-      // the Purchase Register can offer a Raw material / Packaging filter —
-      // every purchased item is one or the other (see purchase-line-form.tsx),
-      // never 'processed'/'packaged_fp' (those are never purchased).
-      .select(
-        "batch_number, quantity, live_remaining_qty, expiry_date, created_at, item:items(name, category), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
-      )
-      .order("created_at", { ascending: false }),
+    fetchAllRows<Omit<RmStockRow, "onHand">>((from, to) =>
+      supabase
+        .from("items")
+        .select("id, item_code, name, unit, low_stock_threshold, created_at")
+        .eq("category", "raw")
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .range(from, to)
+        .returns<Omit<RmStockRow, "onHand">[]>()
+    ),
+    fetchAllRows<BalanceQueryRow>((from, to) =>
+      supabase
+        .from("stock_balance")
+        .select("item_id, on_hand")
+        .order("item_id", { ascending: true })
+        .range(from, to)
+        .returns<BalanceQueryRow[]>()
+    ),
+    fetchAllRows<unknown>((from, to) =>
+      supabase
+        .from("quality_checks")
+        .select(
+          "ar_number, status, reviewed_at, retest_date, created_at, item:items(name), purchase_line:purchase_lines(batch_number), fp_batch:finished_product_batches(batch_number)"
+        )
+        .order("created_at", { ascending: false })
+        .range(from, to)
+        .returns<unknown[]>()
+    ),
+    fetchAllRows<unknown>((from, to) =>
+      supabase
+        .from("finished_product_batches")
+        .select(
+          "id, batch_number, target_qty, actual_yield_pct, status, finish_date, created_at, mfr:mfr_definitions(name)"
+        )
+        .order("created_at", { ascending: false })
+        .range(from, to)
+        .returns<unknown[]>()
+    ),
+    fetchAllRows<unknown>((from, to) =>
+      supabase
+        .from("purchase_lines")
+        // FB-0035 (12 Sept 2026): `category` rides along on the item embed so
+        // the Purchase Register can offer a Raw material / Packaging filter —
+        // every purchased item is one or the other (see purchase-line-form.tsx),
+        // never 'processed'/'packaged_fp' (those are never purchased).
+        .select(
+          "batch_number, quantity, live_remaining_qty, expiry_date, created_at, item:items(name, category), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
+        )
+        .order("created_at", { ascending: false })
+        .range(from, to)
+        .returns<unknown[]>()
+    ),
   ]);
 
   const onHandByItem = new Map<string, number>();
   for (const b of balancesRes.data ?? []) {
-    onHandByItem.set(b.item_id as string, Number(b.on_hand ?? 0));
+    onHandByItem.set(b.item_id, Number(b.on_hand ?? 0));
   }
   const rmStockRows: RmStockRow[] = (itemsRes.data ?? []).map((i) => ({
     ...i,

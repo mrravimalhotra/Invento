@@ -33,12 +33,21 @@ const REFERENCE_TYPE_LABELS: Record<string, string> = {
 };
 
 function formatEventAt(iso: string) {
+  // known-issues.md ("React error #418 on /inventory") — with no explicit
+  // timeZone, this formats in whatever timezone the code happens to run
+  // in: the server's during SSR, the browser's during hydration. Those can
+  // disagree on which calendar day an event falls under near a day
+  // boundary, and React flags the resulting server/client text mismatch
+  // as a hydration error. Pinning both to the same zone (matching the
+  // en-IN locale already chosen) makes server and client agree always,
+  // regardless of either runtime's own timezone.
   return new Date(iso).toLocaleString("en-IN", {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Kolkata",
   });
 }
 
