@@ -23,6 +23,18 @@ function addHeaderRow(sheet: ExcelJS.Worksheet, columns: ColumnDef[]) {
   sheet.columns = columns.map((c) => ({ width: Math.max(18, c.header.length + 6) }));
 }
 
+// Converts an example row's cell values against each column's `numeric`
+// flag before it's written — a column marked numeric (Quantity, Unit
+// Price, Mobile, ...) gets a real Excel number in that cell instead of
+// text, so Excel doesn't flag it with its own "Number Stored as Text"
+// warning (Ravi, 13 Sept 2026, with a screenshot of exactly that warning
+// on the Vendor Master template's Mobile example cell). A blank example
+// value is left as an empty string either way — Number("") is 0, which
+// would wrongly turn "leave blank" into a real zero in the template.
+function exampleRowValues(columns: ColumnDef[], values: string[]): (string | number)[] {
+  return values.map((v, i) => (columns[i]?.numeric && v !== "" ? Number(v) : v));
+}
+
 function addInstructionsSheet(
   workbook: ExcelJS.Workbook,
   title: string,
@@ -68,7 +80,7 @@ async function buildItemsWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Wor
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.items.sheetName);
   addHeaderRow(sheet, ITEM_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(ITEM_COLUMNS_WITH_EXAMPLE.example);
+  sheet.addRow(exampleRowValues(ITEM_COLUMNS_WITH_EXAMPLE.columns, ITEM_COLUMNS_WITH_EXAMPLE.example));
 
   const refSheet = workbook.addWorksheet("Reference");
   addReferenceSheet(refSheet, "Valid Category values", ["Raw Material", "Packaging"]);
@@ -89,7 +101,7 @@ async function buildVendorsWorkbook(): Promise<ExcelJS.Workbook> {
   addInstructionsSheet(workbook, "Vendor Master", VENDOR_COLUMNS_WITH_EXAMPLE.columns, []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.vendors.sheetName);
   addHeaderRow(sheet, VENDOR_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(VENDOR_COLUMNS_WITH_EXAMPLE.example);
+  sheet.addRow(exampleRowValues(VENDOR_COLUMNS_WITH_EXAMPLE.columns, VENDOR_COLUMNS_WITH_EXAMPLE.example));
   return workbook;
 }
 
@@ -98,7 +110,7 @@ async function buildItemTypesWorkbook(): Promise<ExcelJS.Workbook> {
   addInstructionsSheet(workbook, "Item Type Master", ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns, []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["item-types"].sheetName);
   addHeaderRow(sheet, ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(ITEM_TYPE_COLUMNS_WITH_EXAMPLE.example);
+  sheet.addRow(exampleRowValues(ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns, ITEM_TYPE_COLUMNS_WITH_EXAMPLE.example));
   return workbook;
 }
 
@@ -119,7 +131,7 @@ async function buildPurchaseWorkbook(supabase: SupabaseClient): Promise<ExcelJS.
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.purchase.sheetName);
   addHeaderRow(sheet, PURCHASE_COLUMNS_WITH_EXAMPLE.columns);
-  PURCHASE_COLUMNS_WITH_EXAMPLE.example.forEach((row) => sheet.addRow(row));
+  PURCHASE_COLUMNS_WITH_EXAMPLE.example.forEach((row) => sheet.addRow(exampleRowValues(PURCHASE_COLUMNS_WITH_EXAMPLE.columns, row)));
 
   const refSheet = workbook.addWorksheet("Reference");
   addReferenceSheet(refSheet, "Valid Unit values", [...UNITS]);
@@ -150,7 +162,7 @@ async function buildEquipmentWorkbook(): Promise<ExcelJS.Workbook> {
   addInstructionsSheet(workbook, "Instrument / Equipment Master", EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns, []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.equipment.sheetName);
   addHeaderRow(sheet, EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(EQUIPMENT_COLUMNS_WITH_EXAMPLE.example);
+  sheet.addRow(exampleRowValues(EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns, EQUIPMENT_COLUMNS_WITH_EXAMPLE.example));
 
   const refSheet = workbook.addWorksheet("Reference");
   addReferenceSheet(refSheet, "Valid Calibration Status values", ["Calibrated", "Due", "Not Applicable"]);
@@ -162,7 +174,7 @@ async function buildDeadStockWorkbook(): Promise<ExcelJS.Workbook> {
   addInstructionsSheet(workbook, "Dead Stock Register", DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns, []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["dead-stock"].sheetName);
   addHeaderRow(sheet, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(DEAD_STOCK_COLUMNS_WITH_EXAMPLE.example);
+  sheet.addRow(exampleRowValues(DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.example));
   return workbook;
 }
 
@@ -187,7 +199,7 @@ async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workb
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.mfr.sheetName);
   addHeaderRow(sheet, MFR_COLUMNS_WITH_EXAMPLE.columns);
-  MFR_COLUMNS_WITH_EXAMPLE.example.forEach((row) => sheet.addRow(row));
+  MFR_COLUMNS_WITH_EXAMPLE.example.forEach((row) => sheet.addRow(exampleRowValues(MFR_COLUMNS_WITH_EXAMPLE.columns, row)));
 
   const refSheet = workbook.addWorksheet("Reference");
   addReferenceSheet(refSheet, "Valid Unit values", [...UNITS]);

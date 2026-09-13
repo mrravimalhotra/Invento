@@ -276,9 +276,22 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
+  const supabase = await createClient();
+  // vendors.name has no DB-level unique constraint at all (vendor_code is
+  // the only unique identifier, and it's always server-generated) — so
+  // without an app-level check here, two rows with the same name (or a
+  // name matching an existing vendor) would both insert cleanly as
+  // separate vendors. Checked case-insensitively, same convention as
+  // Item Type Master's Description dedup below: "Ambadas" and "ambadas"
+  // should collide too. Ravi (13 Sept 2026): "make sure there is
+  // validation so it is not allowed to add duplicate Vendors."
+  const { data: existingVendors } = await supabase.from("vendors").select("name");
+  const existingNames = new Set((existingVendors ?? []).map((v) => v.name.trim().toLowerCase()));
+
   type Parsed = { name: string; address: string | null; mobile: string | null; phone: string | null; email: string | null };
   const rowErrors: string[] = [];
   const parsed: Parsed[] = [];
+  const seenNames = new Map<string, number>();
 
   rows.forEach((row, i) => {
     const r = excelRow(i);
@@ -296,6 +309,16 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
       rowErrors.push(`Row ${r} ("${name}"): "${emailRaw}" isn't a valid email address.`);
       return;
     }
+    const nameKey = name.toLowerCase();
+    if (seenNames.has(nameKey)) {
+      rowErrors.push(`Row ${r}: "${name}" is repeated on row ${seenNames.get(nameKey)} of this file.`);
+      return;
+    }
+    if (existingNames.has(nameKey)) {
+      rowErrors.push(`Row ${r}: "${name}" already exists as a vendor.`);
+      return;
+    }
+    seenNames.set(nameKey, r);
 
     parsed.push({ name, address, mobile, phone, email: emailRaw || null });
   });
@@ -304,7 +327,6 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
-  const supabase = await createClient();
   const insertRows: Record<string, unknown>[] = [];
   for (const p of parsed) {
     const { data: vendorCode, error: codeError } = await supabase.rpc("get_next_vendor_code");

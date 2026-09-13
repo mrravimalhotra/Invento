@@ -76,10 +76,29 @@ export async function readFirstSheet(file: File): Promise<ParsedSheet> {
 }
 
 // Case-insensitive, trimmed header match — a user retyping "name" or
-// " Name " instead of "Name" shouldn't break the upload.
+// " Name " instead of "Name" shouldn't break the upload. Also strips a
+// trailing "*" (the required-field marker templates.ts's addHeaderRow
+// writes directly into the header cell, e.g. "Description *") before
+// comparing — without this, findColumnIndex compared the literal cell
+// text ("description *") against the plain column name ("description")
+// and never matched, so every required column in every downloaded
+// template was reported "missing" even when the template was used
+// correctly. Found live 13 Sept 2026 (Ravi: Item Type Master and Vendor
+// Master uploads both failing with "Missing required column" against
+// their own downloaded templates) — the bug is in this shared function,
+// so it affected every module's required columns identically, not just
+// the two Ravi happened to try first.
+function normalizeHeader(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\s*\*+\s*$/, "")
+    .trim()
+    .toLowerCase();
+}
+
 export function findColumnIndex(headers: string[], column: ColumnDef): number {
-  const target = column.header.trim().toLowerCase();
-  return headers.findIndex((h) => h.trim().toLowerCase() === target);
+  const target = normalizeHeader(column.header);
+  return headers.findIndex((h) => normalizeHeader(h) === target);
 }
 
 export function requireColumns(headers: string[], columns: ColumnDef[]): string | null {

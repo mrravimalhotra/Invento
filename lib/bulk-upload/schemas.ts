@@ -29,7 +29,19 @@
 export const BULK_UPLOAD_MODULES = ["items", "vendors", "item-types", "mfr", "purchase", "equipment", "dead-stock"] as const;
 export type BulkUploadModuleKey = (typeof BULK_UPLOAD_MODULES)[number];
 
-export type ColumnDef = { header: string; required: boolean; hint?: string };
+// `numeric: true` marks a column whose values are plain numbers (never
+// letters or punctuation like a hyphen) — templates.ts writes that
+// column's example-row cell as a real Excel number, not text, so Excel
+// doesn't flag it with its "Number Stored as Text" warning (Ravi, 13
+// Sept 2026, with a screenshot of exactly that warning on the Vendor
+// Master template's Mobile example cell: "All templates should have
+// numbers stored as number not number stored as string"). Left off
+// columns that can legitimately contain non-digit characters (Phone's
+// example has a hyphen, "020-00000000") or where the value is really a
+// code/label even though it looks numeric (Batch Size Unit, item/vendor
+// codes) — those stay text so a leading zero or punctuation is never
+// silently dropped.
+export type ColumnDef = { header: string; required: boolean; hint?: string; numeric?: boolean };
 
 export const BULK_UPLOAD_MODULE_META: Record<
   BulkUploadModuleKey,
@@ -69,13 +81,13 @@ export const ITEM_COLUMNS: ColumnDef[] = [
   { header: "Unit", required: false, hint: "kg, g, mg, ltr, ml, count, bottle, or pack — see the Reference sheet" },
   { header: "Botanical Alias", required: false },
   { header: "Barcode", required: false },
-  { header: "Low Stock Threshold", required: false, hint: "a number" },
+  { header: "Low Stock Threshold", required: false, hint: "a number", numeric: true },
 ];
 
 export const VENDOR_COLUMNS: ColumnDef[] = [
   { header: "Name", required: true },
   { header: "Address", required: false },
-  { header: "Mobile", required: false },
+  { header: "Mobile", required: false, numeric: true },
   { header: "Phone", required: false },
   { header: "Email", required: false },
 ];
@@ -84,11 +96,11 @@ export const ITEM_TYPE_COLUMNS: ColumnDef[] = [{ header: "Description", required
 
 export const MFR_COLUMNS: ColumnDef[] = [
   { header: "MFR Name", required: true, hint: "repeat the exact same text on every line row belonging to this MFR" },
-  { header: "Batch Size Qty", required: true, hint: "same value on every line row for one MFR" },
+  { header: "Batch Size Qty", required: true, hint: "same value on every line row for one MFR", numeric: true },
   { header: "Batch Size Unit", required: true, hint: "same value on every line row for one MFR — see the Reference sheet" },
   { header: "Item Type", required: false, hint: "applies to the Finished Product item this MFR creates — same value on every line row for one MFR; must match an existing Item Type Master description" },
   { header: "Line Item Code", required: true, hint: "an existing, active Raw Material item code — see the Reference sheet" },
-  { header: "Line Quantity", required: true, hint: "a number greater than 0" },
+  { header: "Line Quantity", required: true, hint: "a number greater than 0", numeric: true },
   { header: "Line Unit", required: true, hint: "kg, g, mg, ltr, ml, count, bottle, or pack" },
 ];
 
@@ -104,14 +116,14 @@ export const PURCHASE_COLUMNS: ColumnDef[] = [
   { header: "Invoice Date", required: true, hint: "same value on every line row for one purchase order" },
   { header: "Purchase Type", required: true, hint: "Raw Material or Packaging Item" },
   { header: "Item Code", required: true, hint: "an existing, active item code matching Purchase Type — see the Reference sheet" },
-  { header: "Quantity", required: true, hint: "a number greater than 0" },
+  { header: "Quantity", required: true, hint: "a number greater than 0", numeric: true },
   { header: "Unit", required: true, hint: "kg, g, mg, ltr, ml, count, bottle, or pack — see the Reference sheet" },
-  { header: "QC Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines" },
-  { header: "Stability Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines" },
-  { header: "R&D Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines" },
+  { header: "QC Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines", numeric: true },
+  { header: "Stability Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines", numeric: true },
+  { header: "R&D Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines", numeric: true },
   { header: "Sample Unit", required: false, hint: "unit QC/Stability/R&D Qty are entered in, if different from Unit above — Raw Material lines only, converted to Unit on save" },
-  { header: "Unit Price (₹)", required: false },
-  { header: "GST %", required: false },
+  { header: "Unit Price (₹)", required: false, numeric: true },
+  { header: "GST %", required: false, numeric: true },
 ];
 
 export const EQUIPMENT_COLUMNS: ColumnDef[] = [
@@ -119,7 +131,7 @@ export const EQUIPMENT_COLUMNS: ColumnDef[] = [
   { header: "Room No", required: false },
   { header: "Section", required: false },
   { header: "Legacy Asset ID", required: false },
-  { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank" },
+  { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank", numeric: true },
   { header: "Calibration Status", required: false, hint: "Calibrated, Due, or Not Applicable — leave blank if unknown" },
   { header: "Last Calibration Date", required: false },
   { header: "Next Calibration Due", required: false },
@@ -128,14 +140,14 @@ export const EQUIPMENT_COLUMNS: ColumnDef[] = [
 export const DEAD_STOCK_COLUMNS: ColumnDef[] = [
   { header: "Name of Article", required: true },
   { header: "Date of Purchase", required: false },
-  { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank" },
-  { header: "Purchase Price (₹)", required: false },
-  { header: "Depreciation %", required: false, hint: "a number from 0 to 100 — defaults to 25 if left blank" },
+  { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank", numeric: true },
+  { header: "Purchase Price (₹)", required: false, numeric: true },
+  { header: "Depreciation %", required: false, hint: "a number from 0 to 100 — defaults to 25 if left blank", numeric: true },
   { header: "Resolution Date", required: false },
-  { header: "Rejected Qty", required: false, hint: "a number ≥ 0 — defaults to 0 if left blank" },
-  { header: "Rejected Value (₹)", required: false, hint: "a number ≥ 0 — defaults to 0 if left blank" },
-  { header: "Balance Qty", required: false },
-  { header: "Balance Value (₹)", required: false },
+  { header: "Rejected Qty", required: false, hint: "a number ≥ 0 — defaults to 0 if left blank", numeric: true },
+  { header: "Rejected Value (₹)", required: false, hint: "a number ≥ 0 — defaults to 0 if left blank", numeric: true },
+  { header: "Balance Qty", required: false, numeric: true },
+  { header: "Balance Value (₹)", required: false, numeric: true },
   { header: "Remark", required: false },
 ];
 
