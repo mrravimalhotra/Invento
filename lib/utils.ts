@@ -5,10 +5,33 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// FB-0026 (12 Sept 2026, Namrata Gaikwad): every date this app displays
+// through formatDate() — Expiry/Re-Test Date columns, and along with them
+// every other date rendered via this same shared helper (submitted/
+// approved/reviewed/checked/recorded/finish/invoice/issued dates, etc.,
+// across Purchase, QC, Reports, BMR, Inventory and Finished Product) — now
+// renders as numeric dd-mm-yyyy (e.g. "13-09-2026") instead of the previous
+// textual-month "13 Sept 2026" style. Deliberately built by hand rather
+// than left to toLocaleDateString's own formatting: en-IN's 2-digit
+// day/month/year output uses "/" as a separator ("13/09/2026"), and the
+// ticket specifically asked for hyphens. Uses the JS Date's local-timezone
+// getters, same as the previous toLocaleDateString call did implicitly —
+// no change to which calendar day a given timestamp resolves to, only to
+// how it's written out.
+//
+// Out of scope for this fix (Ravi, 13 Sept 2026): native <input
+// type="date"> fields (e.g. the "Expiry date" pickers on Finished Product
+// Step 1 and Complete Batch) — their displayed format is set by the
+// browser/OS locale, not by this app, and isn't something formatDate()
+// touches. Also out of scope: label-picker.tsx's separate month/year-only
+// "Best Before" formatter, which has no day component to reformat.
 export function formatDate(d: string | Date | null | undefined) {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
-  return date.toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 }
 
 export function formatNumber(n: number | string | null | undefined, decimals = 2) {
