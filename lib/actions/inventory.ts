@@ -30,6 +30,12 @@ export async function recordWastage(_prev: ActionState, formData: FormData): Pro
   const reason = String(formData.get("reason") || "").trim();
 
   if (!itemId) return { error: "Item is required." };
+  // FB-0033/FB-0034 (13 Sept 2026): batch is now required for every new
+  // wastage entry — historical rows recorded before this change (with no
+  // batch) are untouched, see 0036_wastage_batch_required.sql.
+  if (!purchaseLineId) {
+    return { error: "Batch is required. Select the received batch this wastage came from." };
+  }
   const quantity = Number(quantityRaw);
   if (!quantityRaw || Number.isNaN(quantity) || quantity <= 0) {
     return { error: "Quantity must be a positive number." };

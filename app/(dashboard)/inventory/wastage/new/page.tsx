@@ -39,7 +39,7 @@ export default async function NewWastagePage() {
     <div>
       <PageHeader
         title="Record wastage"
-        description="Writes a 'wastage' event to the inventory ledger via the record_wastage() database function. Item and (optionally) batch are required; the RPC's own role check is the real enforcement."
+        description="Writes a 'wastage' event to the inventory ledger via the record_wastage() database function. Item and batch are both required; the RPC's own role check is the real enforcement."
       />
       <Card className="max-w-xl">
         <CardBody>

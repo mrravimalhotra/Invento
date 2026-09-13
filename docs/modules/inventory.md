@@ -53,14 +53,30 @@ the cross-cutting rule in DESIGN.md §3.
 - **Record wastage** — `/inventory/wastage/new`
   (`app/(dashboard)/inventory/wastage/new/page.tsx` +
   `wastage-form.tsx`). Item dropdown, dependent batch dropdown (that item's
-  `purchase_lines`, optional — "— none —" default, shows remaining qty per
-  batch), quantity, unit (defaults to the item's unit, editable), reason
-  (required textarea). Submits to `recordWastage` in
-  `lib/actions/inventory.ts`, which re-checks `canWrite(..., "inventory")`
-  and then calls `supabase.rpc("record_wastage", {...})` — the RPC's own
-  role check is the real backstop. The "Record wastage" button lives in the
-  shared tab-strip layout (`(tabs)/layout.tsx`) so it's reachable from all
-  three views, gated client-side by the same `canWrite` check.
+  `purchase_lines`, showing remaining qty per batch), quantity, unit
+  (defaults to the item's unit, editable), reason (required textarea).
+  Submits to `recordWastage` in `lib/actions/inventory.ts`, which
+  re-checks `canWrite(..., "inventory")` and then calls
+  `supabase.rpc("record_wastage", {...})` — the RPC's own role check is
+  the real backstop. The "Record wastage" button lives in the shared
+  tab-strip layout (`(tabs)/layout.tsx`) so it's reachable from all three
+  views, gated client-side by the same `canWrite` check.
+
+  **FB-0033/FB-0034 (13 Sept 2026): batch is now required, not optional.**
+  Previously the batch dropdown defaulted to "— none —" and wastage could
+  be recorded against just an item, checked only against its overall
+  on-hand balance. Both the client (`wastage-form.tsx`'s select is now
+  `required`, with the submit button disabled and an inline message when
+  the selected item has no received batches at all) and the server
+  (`recordWastage()`, then `record_wastage()` itself as the real backstop
+  — RLS's `ledger_no_direct_write` policy means the RPC is the only way
+  any code path can insert an `inventory_ledger` row) now reject a
+  no-batch wastage entry. A `not valid` CHECK constraint
+  (`wastage_requires_batch`, `0036_wastage_batch_required.sql`) mirrors
+  this at the table level for defense-in-depth. **Deliberately not
+  retroactive**: existing wastage rows recorded before this change with
+  no batch are untouched — no backfill, no data change to historical
+  records, per Ravi's explicit instruction.
 
 ## Files
 

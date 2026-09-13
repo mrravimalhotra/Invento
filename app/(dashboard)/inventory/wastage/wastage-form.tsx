@@ -35,6 +35,12 @@ export function WastageForm({
     () => purchaseLines.filter((pl) => pl.item_id === itemId),
     [purchaseLines, itemId]
   );
+  // FB-0033/FB-0034 (13 Sept 2026): batch is now required for every new
+  // wastage entry. An item with no received (submitted) purchase lines on
+  // file has nothing to pick, so wastage genuinely can't be recorded for
+  // it yet — surfaced explicitly rather than leaving a required select
+  // stuck on an empty "Select a batch…" placeholder with no explanation.
+  const noBatchesForItem = itemId !== "" && batchesForItem.length === 0;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -60,10 +66,15 @@ export function WastageForm({
       <Field
         label="Batch (purchase line)"
         htmlFor="purchaseLineId"
-        hint="Optional — leave blank for wastage not tied to a specific received batch."
+        required
+        hint={
+          noBatchesForItem
+            ? "No received batches on file for this item — wastage can't be recorded without one."
+            : "The received batch this wastage came from."
+        }
       >
-        <Select id="purchaseLineId" name="purchaseLineId" defaultValue="" disabled={!itemId}>
-          <option value="">— none —</option>
+        <Select id="purchaseLineId" name="purchaseLineId" required defaultValue="" disabled={!itemId || noBatchesForItem}>
+          <option value="">Select a batch…</option>
           {batchesForItem.map((pl) => (
             <option key={pl.id} value={pl.id} data-legacy={isLegacyCode(pl.batch_number) ? "1" : undefined}>
               {pl.batch_number} (remaining {formatNumber(pl.live_remaining_qty)} {pl.unit})
@@ -93,7 +104,7 @@ export function WastageForm({
       </Field>
 
       <div>
-        <Button type="submit" variant="danger" disabled={pending}>
+        <Button type="submit" variant="danger" disabled={pending || noBatchesForItem}>
           {pending ? "Recording…" : "Record wastage"}
         </Button>
       </div>
