@@ -3,13 +3,25 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { BulkUploadForm } from "./upload-form";
-import { bulkUploadItems, bulkUploadVendors, bulkUploadItemTypes, bulkUploadMfr } from "@/lib/actions/bulk-upload";
+import {
+  bulkUploadItems,
+  bulkUploadVendors,
+  bulkUploadItemTypes,
+  bulkUploadMfr,
+  bulkUploadPurchase,
+  bulkUploadEquipment,
+  bulkUploadDeadStock,
+} from "@/lib/actions/bulk-upload";
 import { BULK_UPLOAD_MODULE_META, type BulkUploadModuleKey } from "@/lib/bulk-upload/schemas";
 import type { BulkUploadState } from "@/lib/actions/bulk-upload";
 
 // Ravi (13 Sept 2026): "create a link in admin panel to upload data...
 // as bulk upload" for Item Master, Vendor, Item Type, MFR (Purchase
 // deliberately out of scope this pass — see lib/bulk-upload/schemas.ts).
+// Purchase, Instrument/Equipment Master, and Dead Stock Register added
+// the same day, once Ravi asked for them too: "can we have purchase,
+// instrument and dead stock entries done as excel as part of bulk upload
+// utility we created."
 // Each card below is gated by that module's own canWrite() role set, not
 // admin-only (Ravi's explicit access choice) — the same people who can
 // create one record at a time by hand can also bulk-import a whole file
@@ -43,6 +55,22 @@ const MODULE_CARDS: ModuleCard[] = [
     description:
       "Create MFR recipes — one row per recipe line, grouped by repeating the same MFR Name. Also creates each MFR's paired Finished Product and Packaged Finished Product items automatically, the same way creating an MFR by hand does.",
   },
+  {
+    key: "purchase",
+    action: bulkUploadPurchase,
+    description:
+      "Create purchase orders — one row per purchase line, grouped by repeating the same Vendor Code and Invoice Number. Every purchase order created this way lands as a Draft, exactly like one entered by hand — nothing is pushed to inventory until someone opens it and clicks Final Submit.",
+  },
+  {
+    key: "equipment",
+    action: bulkUploadEquipment,
+    description: "Create instruments and equipment in Instrument / Equipment Master.",
+  },
+  {
+    key: "dead-stock",
+    action: bulkUploadDeadStock,
+    description: "Create records in the Dead Stock Register.",
+  },
 ];
 
 export default async function BulkUploadPage() {
@@ -54,7 +82,7 @@ export default async function BulkUploadPage() {
     <div>
       <PageHeader
         title="Bulk Data Upload"
-        description="Upload master/setup data from a standard Excel template. Item, vendor, and MFR codes are always generated automatically — a file is imported only if every row in it passes validation; if anything is wrong, nothing is imported."
+        description="Upload master/setup data from a standard Excel template. Item, vendor, MFR, purchase order, equipment, and dead stock asset codes are always generated automatically — a file is imported only if every row in it passes validation; if anything is wrong, nothing is imported."
       />
       {allowed.length === 0 ? (
         <Card>

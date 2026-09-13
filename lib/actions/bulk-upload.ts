@@ -19,11 +19,24 @@
 // through the new bulk_create_mfr_definitions() RPC (0037_bulk_upload_
 // mfr.sql) for true all-or-nothing atomicity across the whole file — see
 // that migration's header comment for the full reasoning.
+//
+// Purchase, Instrument/Equipment Master, and Dead Stock Register added
+// 13 Sept 2026 (Ravi: "can we have purchase, instrument and dead stock
+// entries done as excel as part of bulk upload utility we created").
+// Equipment and Dead Stock are flat, single-table master data — same
+// "validate every row, generate every code, one multi-row insert" shape
+// as Vendor Master, no new RPC needed. Purchase again needs its own RPC
+// (bulk_create_purchase_orders(), 0038_bulk_upload_purchase.sql) for the
+// same reason MFR does: one row = one purchase line, grouped into a
+// purchase order by repeating Vendor Code + Invoice Number (+ Invoice
+// Date), and every bulk-uploaded purchase order lands as a Draft — see
+// that migration's header comment for the "why Draft needs no special
+// code" reasoning.
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
-import { UNITS, type Unit } from "@/lib/constants/units";
+import { UNITS, convertUnit, type Unit } from "@/lib/constants/units";
 import { revalidatePath } from "next/cache";
 import { readFirstSheet, findColumnIndex } from "@/lib/bulk-upload/parse";
 import {
@@ -31,6 +44,9 @@ import {
   VENDOR_COLUMNS,
   ITEM_TYPE_COLUMNS,
   MFR_COLUMNS,
+  PURCHASE_COLUMNS,
+  EQUIPMENT_COLUMNS,
+  DEAD_STOCK_COLUMNS,
   MAX_UPLOAD_ROWS,
   type ColumnDef,
 } from "@/lib/bulk-upload/schemas";
@@ -502,4 +518,495 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   revalidatePath("/mfr");
   revalidatePath("/items");
   return { success: `Imported ${data?.length ?? payload.length} MFR definition${(data?.length ?? payload.length) === 1 ? "" : "s"}.` };
+}
+
+// ------------------------------------------------------------------
+// Purchase
+// ------------------------------------------------------------------
+type PurchaseLinePayload = {
+  item_id: string;
+  quantity: number;
+  unit: Unit;
+  qc_qty: number;
+  stability_qty: number;
+  rnd_qty: number;
+  unit_price: number | null;
+  gst_pct: number | null;
+};
+type PurchaseOrderPayload = {
+  vendor_id: string;
+  invoice_number: string;
+  invoice_date: string;
+  lines: PurchaseLinePayload[];
+};
+
+export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+
+  const loaded = await loadSheetOrError(formData, PURCHASE_COLUMNS);
+  if ("error" in loaded) return { error: loaded.error };
+  const { headers, rows } = loaded.sheet;
+
+  const supabase = await createClient();
+  const [{ data: vendors }, { data: items }] = await Promise.all([
+    supabase.from("vendors").select("id, vendor_code").eq("active", true),
+    // Only Raw Material and Packaging items are purchasable — same rule
+    // createPurchaseLine()'s own item picker enforces (purchase/[id]/page.tsx).
+    supabase.from("items").select("id, item_code, category").in("category", ["raw", "packaging"]).eq("active", true),
+  ]);
+  const vendorByCode = new Map((vendors ?? []).map((v) => [v.vendor_code.trim().toLowerCase(), v.id]));
+  const itemByCode = new Map(
+    (items ?? []).map((it) => [it.item_code.trim().toLowerCase(), it as { id: string; item_code: string; category: string }])
+  );
+
+  const rowErrors: string[] = [];
+  // Groups keyed by (Vendor Code, Invoice Number) — repeating both across
+  // rows is how one purchase order's multiple lines are expressed in a
+  // flat spreadsheet, the same flat-file grouping pattern MFR_COLUMNS
+  // uses for recipe lines (see the template's Instructions sheet).
+  const groups = new Map<string, { firstRow: number; def: PurchaseOrderPayload }>();
+
+  rows.forEach((row, i) => {
+    const r = excelRow(i);
+    const vendorCodeRaw = cell(row, headers, PURCHASE_COLUMNS[0]);
+    const invoiceNumberRaw = cell(row, headers, PURCHASE_COLUMNS[1]);
+    const invoiceDateRaw = cell(row, headers, PURCHASE_COLUMNS[2]);
+    const purchaseTypeRaw = cell(row, headers, PURCHASE_COLUMNS[3]);
+    const itemCodeRaw = cell(row, headers, PURCHASE_COLUMNS[4]);
+    const quantityRaw = cell(row, headers, PURCHASE_COLUMNS[5]);
+    const unitRaw = cell(row, headers, PURCHASE_COLUMNS[6]);
+    const qcQtyRaw = cell(row, headers, PURCHASE_COLUMNS[7]);
+    const stabilityQtyRaw = cell(row, headers, PURCHASE_COLUMNS[8]);
+    const rndQtyRaw = cell(row, headers, PURCHASE_COLUMNS[9]);
+    const sampleUnitRaw = cell(row, headers, PURCHASE_COLUMNS[10]);
+    const unitPriceRaw = cell(row, headers, PURCHASE_COLUMNS[11]);
+    const gstPctRaw = cell(row, headers, PURCHASE_COLUMNS[12]);
+
+    const vendorId = vendorByCode.get(vendorCodeRaw.trim().toLowerCase());
+    if (!vendorCodeRaw || !vendorId) {
+      rowErrors.push(`Row ${r}: Vendor Code "${vendorCodeRaw}" doesn't match an existing active vendor.`);
+      return;
+    }
+    if (!invoiceNumberRaw) {
+      rowErrors.push(`Row ${r}: Invoice Number is required.`);
+      return;
+    }
+    const invoiceDateParsed = invoiceDateRaw ? new Date(invoiceDateRaw) : null;
+    if (!invoiceDateRaw || !invoiceDateParsed || Number.isNaN(invoiceDateParsed.getTime())) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Invoice Date "${invoiceDateRaw}" isn't a valid date.`);
+      return;
+    }
+    const invoiceDate = invoiceDateParsed.toISOString().slice(0, 10);
+
+    const typeNorm = purchaseTypeRaw.trim().toLowerCase();
+    let category: "raw" | "packaging" | null = null;
+    if (typeNorm === "raw material" || typeNorm === "raw") category = "raw";
+    else if (
+      typeNorm === "packaging item" ||
+      typeNorm === "packaging" ||
+      typeNorm === "packing material" ||
+      typeNorm === "packing"
+    )
+      category = "packaging";
+    if (!category) {
+      rowErrors.push(
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): Purchase Type must be "Raw Material" or "Packaging Item" — got "${purchaseTypeRaw}".`
+      );
+      return;
+    }
+
+    const item = itemByCode.get(itemCodeRaw.trim().toLowerCase());
+    if (!itemCodeRaw || !item) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Item Code "${itemCodeRaw}" doesn't match an existing active item.`);
+      return;
+    }
+    if (item.category !== category) {
+      rowErrors.push(
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): Item Code "${itemCodeRaw}" is a ${item.category === "raw" ? "Raw Material" : "Packaging"} item, but Purchase Type says "${purchaseTypeRaw}".`
+      );
+      return;
+    }
+
+    const quantity = Number(quantityRaw);
+    if (!quantityRaw || Number.isNaN(quantity) || quantity <= 0) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Quantity must be a number greater than 0.`);
+      return;
+    }
+    const unit = matchUnit(unitRaw);
+    if (!unit) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Unit "${unitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
+      return;
+    }
+
+    // QC/Stability/R&D sampling only applies to Raw Material lines — same
+    // rule the Purchase line form itself enforces by hiding these fields
+    // for a Packaging Item line.
+    if (category === "packaging" && (qcQtyRaw || stabilityQtyRaw || rndQtyRaw || sampleUnitRaw)) {
+      rowErrors.push(
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): QC Qty / Stability Qty / R&D Qty / Sample Unit only apply to Raw Material lines — leave them blank for a Packaging Item line.`
+      );
+      return;
+    }
+
+    const sampleUnit = sampleUnitRaw || unitRaw;
+    const qcQtyEntered = Number(qcQtyRaw || "0");
+    const stabilityQtyEntered = Number(stabilityQtyRaw || "0");
+    const rndQtyEntered = Number(rndQtyRaw || "0");
+    if ([qcQtyEntered, stabilityQtyEntered, rndQtyEntered].some((n) => Number.isNaN(n) || n < 0)) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): QC Qty / Stability Qty / R&D Qty must be numbers ≥ 0.`);
+      return;
+    }
+
+    // Converted from Sample Unit to the line's own Unit before storing —
+    // same conversion createPurchaseLine() does by hand (FB-0017).
+    const qc_qty = convertUnit(qcQtyEntered, sampleUnit, unit);
+    const stability_qty = convertUnit(stabilityQtyEntered, sampleUnit, unit);
+    const rnd_qty = convertUnit(rndQtyEntered, sampleUnit, unit);
+    if (qc_qty === null || stability_qty === null || rnd_qty === null) {
+      rowErrors.push(
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): Sample Unit "${sampleUnit}" can't be converted to Unit "${unit}" — pick a compatible unit.`
+      );
+      return;
+    }
+    if (qc_qty + stability_qty + rnd_qty > quantity) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): QC + Stability + R&D quantity cannot exceed Quantity.`);
+      return;
+    }
+
+    let unit_price: number | null = null;
+    if (unitPriceRaw) {
+      const n = Number(unitPriceRaw);
+      if (Number.isNaN(n) || n < 0) {
+        rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Unit Price must be a number ≥ 0.`);
+        return;
+      }
+      unit_price = n;
+    }
+    let gst_pct: number | null = null;
+    if (gstPctRaw) {
+      const n = Number(gstPctRaw);
+      if (Number.isNaN(n) || n < 0) {
+        rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): GST % must be a number ≥ 0.`);
+        return;
+      }
+      gst_pct = n;
+    }
+
+    const line: PurchaseLinePayload = { item_id: item.id, quantity, unit, qc_qty, stability_qty, rnd_qty, unit_price, gst_pct };
+    const key = `${vendorCodeRaw.trim().toLowerCase()}||${invoiceNumberRaw.trim().toLowerCase()}`;
+    const existing = groups.get(key);
+    if (!existing) {
+      groups.set(key, {
+        firstRow: r,
+        def: { vendor_id: vendorId, invoice_number: invoiceNumberRaw.trim(), invoice_date: invoiceDate, lines: [line] },
+      });
+      return;
+    }
+    // Every row for the same Vendor Code + Invoice Number must repeat the
+    // same Invoice Date — catches a typo/copy-paste slip before it
+    // silently changes the header, mirroring MFR's header-consistency
+    // check above.
+    if (existing.def.invoice_date !== invoiceDate) {
+      rowErrors.push(
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): Invoice Date must match row ${existing.firstRow} — every line for the same Vendor Code + Invoice Number must repeat the same Invoice Date.`
+      );
+      return;
+    }
+    existing.def.lines.push(line);
+  });
+
+  if (rowErrors.length > 0) {
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+  }
+
+  const payload = Array.from(groups.values()).map((g) => g.def);
+  if (payload.length === 0) return { error: "No purchase rows found in that file." };
+
+  const { data, error } = await supabase.rpc("bulk_create_purchase_orders", { p_payload: payload });
+  if (error) {
+    if (error.code === "23505") {
+      return {
+        error: "Two lines in this file needed the same auto-generated batch number at once — please try uploading again.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/purchase");
+  const poCount = data?.length ?? payload.length;
+  const lineCount = payload.reduce((sum, p) => sum + p.lines.length, 0);
+  return {
+    success: `Imported ${poCount} purchase order${poCount === 1 ? "" : "s"} (${lineCount} line${lineCount === 1 ? "" : "s"}), landed as Draft.`,
+  };
+}
+
+// ------------------------------------------------------------------
+// Instrument / Equipment Master
+// ------------------------------------------------------------------
+const CALIBRATION_STATUS_MAP: Record<string, string> = {
+  calibrated: "calibrated",
+  due: "due",
+  "not applicable": "not_applicable",
+  na: "not_applicable",
+  "n/a": "not_applicable",
+};
+
+// Shared by Equipment and Dead Stock below — returns the parsed date (as
+// YYYY-MM-DD) for a non-empty cell, null for a blank one, or undefined as
+// a sentinel meaning "already pushed a row error, stop parsing this row."
+function parseOptionalDate(raw: string, label: string, r: number, rowErrors: string[]): string | null | undefined {
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) {
+    rowErrors.push(`Row ${r}: ${label} "${raw}" isn't a valid date.`);
+    return undefined;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+export async function bulkUploadEquipment(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "equipment")) return { error: "Not authorized." };
+
+  const loaded = await loadSheetOrError(formData, EQUIPMENT_COLUMNS);
+  if ("error" in loaded) return { error: loaded.error };
+  const { headers, rows } = loaded.sheet;
+
+  type Parsed = {
+    name: string;
+    room_no: string | null;
+    section: string | null;
+    legacy_asset_id: string | null;
+    quantity: number;
+    calibration_status: string | null;
+    last_calibration_date: string | null;
+    next_calibration_due: string | null;
+  };
+
+  const rowErrors: string[] = [];
+  const parsed: Parsed[] = [];
+
+  rows.forEach((row, i) => {
+    const r = excelRow(i);
+    const name = cell(row, headers, EQUIPMENT_COLUMNS[0]);
+    const room_no = cell(row, headers, EQUIPMENT_COLUMNS[1]) || null;
+    const section = cell(row, headers, EQUIPMENT_COLUMNS[2]) || null;
+    const legacy_asset_id = cell(row, headers, EQUIPMENT_COLUMNS[3]) || null;
+    const quantityRaw = cell(row, headers, EQUIPMENT_COLUMNS[4]);
+    const calibRaw = cell(row, headers, EQUIPMENT_COLUMNS[5]);
+    const lastCalibRaw = cell(row, headers, EQUIPMENT_COLUMNS[6]);
+    const nextCalibRaw = cell(row, headers, EQUIPMENT_COLUMNS[7]);
+
+    if (!name) {
+      rowErrors.push(`Row ${r}: Name is required.`);
+      return;
+    }
+
+    let quantity = 1;
+    if (quantityRaw) {
+      const n = Number(quantityRaw);
+      if (Number.isNaN(n) || n <= 0) {
+        rowErrors.push(`Row ${r} ("${name}"): Quantity must be a number greater than 0.`);
+        return;
+      }
+      quantity = n;
+    }
+
+    let calibration_status: string | null = null;
+    if (calibRaw) {
+      const match = CALIBRATION_STATUS_MAP[calibRaw.trim().toLowerCase()];
+      if (!match) {
+        rowErrors.push(
+          `Row ${r} ("${name}"): Calibration Status must be "Calibrated", "Due", or "Not Applicable" — got "${calibRaw}".`
+        );
+        return;
+      }
+      calibration_status = match;
+    }
+
+    const last_calibration_date = parseOptionalDate(lastCalibRaw, "Last Calibration Date", r, rowErrors);
+    if (last_calibration_date === undefined) return;
+    const next_calibration_due = parseOptionalDate(nextCalibRaw, "Next Calibration Due", r, rowErrors);
+    if (next_calibration_due === undefined) return;
+
+    parsed.push({ name, room_no, section, legacy_asset_id, quantity, calibration_status, last_calibration_date, next_calibration_due });
+  });
+
+  if (rowErrors.length > 0) {
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+  }
+
+  const supabase = await createClient();
+  const insertRows: Record<string, unknown>[] = [];
+  for (const p of parsed) {
+    const { data: equipmentCode, error: codeError } = await supabase.rpc("get_next_equipment_code");
+    if (codeError || !equipmentCode) {
+      return {
+        error: `Could not generate an equipment code (stopped after ${insertRows.length} of ${parsed.length}): ${codeError?.message ?? "unknown error"}`,
+      };
+    }
+    insertRows.push({
+      equipment_code: equipmentCode,
+      name: p.name,
+      room_no: p.room_no,
+      section: p.section,
+      legacy_asset_id: p.legacy_asset_id,
+      quantity: p.quantity,
+      calibration_status: p.calibration_status,
+      last_calibration_date: p.last_calibration_date,
+      next_calibration_due: p.next_calibration_due,
+    });
+  }
+
+  const { error } = await supabase.from("equipment").insert(insertRows);
+  if (error) return { error: error.message };
+
+  revalidatePath("/equipment");
+  return { success: `Imported ${insertRows.length} equipment record${insertRows.length === 1 ? "" : "s"}.` };
+}
+
+// ------------------------------------------------------------------
+// Dead Stock Register
+// ------------------------------------------------------------------
+export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "dead_stock")) return { error: "Not authorized." };
+
+  const loaded = await loadSheetOrError(formData, DEAD_STOCK_COLUMNS);
+  if ("error" in loaded) return { error: loaded.error };
+  const { headers, rows } = loaded.sheet;
+
+  type Parsed = {
+    article_name: string;
+    date_of_purchase: string | null;
+    quantity: number;
+    purchase_price: number | null;
+    depreciation_pct: number;
+    resolution_date: string | null;
+    rejected_qty: number;
+    rejected_value: number;
+    balance_qty: number | null;
+    balance_value: number | null;
+    remark: string | null;
+  };
+
+  const rowErrors: string[] = [];
+  const parsed: Parsed[] = [];
+
+  rows.forEach((row, i) => {
+    const r = excelRow(i);
+    const article_name = cell(row, headers, DEAD_STOCK_COLUMNS[0]);
+    const dateOfPurchaseRaw = cell(row, headers, DEAD_STOCK_COLUMNS[1]);
+    const quantityRaw = cell(row, headers, DEAD_STOCK_COLUMNS[2]);
+    const purchasePriceRaw = cell(row, headers, DEAD_STOCK_COLUMNS[3]);
+    const depreciationRaw = cell(row, headers, DEAD_STOCK_COLUMNS[4]);
+    const resolutionDateRaw = cell(row, headers, DEAD_STOCK_COLUMNS[5]);
+    const rejectedQtyRaw = cell(row, headers, DEAD_STOCK_COLUMNS[6]);
+    const rejectedValueRaw = cell(row, headers, DEAD_STOCK_COLUMNS[7]);
+    const balanceQtyRaw = cell(row, headers, DEAD_STOCK_COLUMNS[8]);
+    const balanceValueRaw = cell(row, headers, DEAD_STOCK_COLUMNS[9]);
+    const remark = cell(row, headers, DEAD_STOCK_COLUMNS[10]) || null;
+
+    if (!article_name) {
+      rowErrors.push(`Row ${r}: Name of Article is required.`);
+      return;
+    }
+
+    const date_of_purchase = parseOptionalDate(dateOfPurchaseRaw, "Date of Purchase", r, rowErrors);
+    if (date_of_purchase === undefined) return;
+    const resolution_date = parseOptionalDate(resolutionDateRaw, "Resolution Date", r, rowErrors);
+    if (resolution_date === undefined) return;
+
+    let quantity = 1;
+    if (quantityRaw) {
+      const n = Number(quantityRaw);
+      if (Number.isNaN(n) || n <= 0) {
+        rowErrors.push(`Row ${r} ("${article_name}"): Quantity must be a number greater than 0.`);
+        return;
+      }
+      quantity = n;
+    }
+
+    const parseNonNegative = (raw: string, label: string, fallback: number | null): number | null | undefined => {
+      if (!raw) return fallback;
+      const n = Number(raw);
+      if (Number.isNaN(n) || n < 0) {
+        rowErrors.push(`Row ${r} ("${article_name}"): ${label} must be a number ≥ 0.`);
+        return undefined;
+      }
+      return n;
+    };
+
+    const purchase_price = parseNonNegative(purchasePriceRaw, "Purchase Price", null);
+    if (purchase_price === undefined) return;
+
+    let depreciation_pct = 25;
+    if (depreciationRaw) {
+      const n = Number(depreciationRaw);
+      if (Number.isNaN(n) || n < 0 || n > 100) {
+        rowErrors.push(`Row ${r} ("${article_name}"): Depreciation % must be a number from 0 to 100.`);
+        return;
+      }
+      depreciation_pct = n;
+    }
+
+    const rejected_qty = parseNonNegative(rejectedQtyRaw, "Rejected Qty", 0);
+    if (rejected_qty === undefined) return;
+    const rejected_value = parseNonNegative(rejectedValueRaw, "Rejected Value", 0);
+    if (rejected_value === undefined) return;
+    const balance_qty = parseNonNegative(balanceQtyRaw, "Balance Qty", null);
+    if (balance_qty === undefined) return;
+    const balance_value = parseNonNegative(balanceValueRaw, "Balance Value", null);
+    if (balance_value === undefined) return;
+
+    parsed.push({
+      article_name,
+      date_of_purchase,
+      quantity,
+      purchase_price,
+      depreciation_pct,
+      resolution_date,
+      rejected_qty: rejected_qty ?? 0,
+      rejected_value: rejected_value ?? 0,
+      balance_qty,
+      balance_value,
+      remark,
+    });
+  });
+
+  if (rowErrors.length > 0) {
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+  }
+
+  const supabase = await createClient();
+  const insertRows: Record<string, unknown>[] = [];
+  for (const p of parsed) {
+    const { data: assetCode, error: codeError } = await supabase.rpc("get_next_dead_stock_code");
+    if (codeError || !assetCode) {
+      return {
+        error: `Could not generate an asset code (stopped after ${insertRows.length} of ${parsed.length}): ${codeError?.message ?? "unknown error"}`,
+      };
+    }
+    insertRows.push({
+      asset_code: assetCode,
+      article_name: p.article_name,
+      date_of_purchase: p.date_of_purchase,
+      quantity: p.quantity,
+      purchase_price: p.purchase_price,
+      depreciation_pct: p.depreciation_pct,
+      resolution_date: p.resolution_date,
+      rejected_qty: p.rejected_qty,
+      rejected_value: p.rejected_value,
+      balance_qty: p.balance_qty,
+      balance_value: p.balance_value,
+      remark: p.remark,
+    });
+  }
+
+  const { error } = await supabase.from("dead_stock_items").insert(insertRows);
+  if (error) return { error: error.message };
+
+  revalidatePath("/dead-stock");
+  return { success: `Imported ${insertRows.length} dead stock record${insertRows.length === 1 ? "" : "s"}.` };
 }

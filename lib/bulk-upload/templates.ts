@@ -102,6 +102,70 @@ async function buildItemTypesWorkbook(): Promise<ExcelJS.Workbook> {
   return workbook;
 }
 
+async function buildPurchaseWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
+  const workbook = new ExcelJS.Workbook();
+  const [{ data: vendors }, { data: rawItems }, { data: packagingItems }] = await Promise.all([
+    supabase.from("vendors").select("vendor_code, name").eq("active", true).order("vendor_code"),
+    supabase.from("items").select("item_code, name").eq("category", "raw").eq("active", true).order("item_code").limit(2000),
+    supabase.from("items").select("item_code, name").eq("category", "packaging").eq("active", true).order("item_code").limit(2000),
+  ]);
+
+  addInstructionsSheet(workbook, "Purchase", PURCHASE_COLUMNS_WITH_EXAMPLE.columns, [
+    "Each row is one purchase line. To create a purchase order with more than one line, add one row per line and repeat the exact same Vendor Code, Invoice Number, and Invoice Date on every one of those rows — the upload groups rows into one purchase order by matching Vendor Code + Invoice Number exactly.",
+    "Every purchase order created this way lands as a Draft, exactly like one entered by hand on the Purchase screen — nothing is pushed to inventory until someone opens it and clicks Final Submit.",
+    "Purchase Type must be \"Raw Material\" or \"Packaging Item\", and the Item Code on that row must actually be that category — a Raw Material row can't reference a Packaging item and vice versa. QC Qty / Stability Qty / R&D Qty / Sample Unit only apply to Raw Material lines; leave them blank for Packaging Item lines.",
+    "Batch numbers are always generated automatically, the same as a line entered by hand — do not add a batch number column.",
+  ]);
+
+  const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.purchase.sheetName);
+  addHeaderRow(sheet, PURCHASE_COLUMNS_WITH_EXAMPLE.columns);
+  PURCHASE_COLUMNS_WITH_EXAMPLE.example.forEach((row) => sheet.addRow(row));
+
+  const refSheet = workbook.addWorksheet("Reference");
+  addReferenceSheet(refSheet, "Valid Unit values", [...UNITS]);
+  refSheet.addRow([]);
+  addReferenceSheet(
+    refSheet,
+    "Active Vendor codes (for Vendor Code)",
+    (vendors ?? []).map((v) => `${v.vendor_code} — ${v.name}`)
+  );
+  refSheet.addRow([]);
+  addReferenceSheet(
+    refSheet,
+    "Active Raw Material item codes (for Item Code, Purchase Type \"Raw Material\")",
+    (rawItems ?? []).map((i) => `${i.item_code} — ${i.name}`)
+  );
+  refSheet.addRow([]);
+  addReferenceSheet(
+    refSheet,
+    "Active Packaging item codes (for Item Code, Purchase Type \"Packaging Item\")",
+    (packagingItems ?? []).map((i) => `${i.item_code} — ${i.name}`)
+  );
+
+  return workbook;
+}
+
+async function buildEquipmentWorkbook(): Promise<ExcelJS.Workbook> {
+  const workbook = new ExcelJS.Workbook();
+  addInstructionsSheet(workbook, "Instrument / Equipment Master", EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns, []);
+  const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.equipment.sheetName);
+  addHeaderRow(sheet, EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns);
+  sheet.addRow(EQUIPMENT_COLUMNS_WITH_EXAMPLE.example);
+
+  const refSheet = workbook.addWorksheet("Reference");
+  addReferenceSheet(refSheet, "Valid Calibration Status values", ["Calibrated", "Due", "Not Applicable"]);
+  return workbook;
+}
+
+async function buildDeadStockWorkbook(): Promise<ExcelJS.Workbook> {
+  const workbook = new ExcelJS.Workbook();
+  addInstructionsSheet(workbook, "Dead Stock Register", DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns, []);
+  const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["dead-stock"].sheetName);
+  addHeaderRow(sheet, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns);
+  sheet.addRow(DEAD_STOCK_COLUMNS_WITH_EXAMPLE.example);
+  return workbook;
+}
+
 async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   const [{ data: itemTypes }, { data: rawItems }] = await Promise.all([
@@ -163,6 +227,21 @@ const MFR_COLUMNS_WITH_EXAMPLE = {
     ["A. Jatamansi Tail", "100", "ltr", "", "RM-00005", "5", "ltr"],
   ],
 };
+const PURCHASE_COLUMNS_WITH_EXAMPLE = {
+  columns: MODULE_COLUMNS.purchase,
+  example: [
+    ["V-00001", "INV-2026-0091", "2026-09-10", "Raw Material", "RM-00002", "20", "kg", "0.5", "0.2", "0.1", "", "450", "5"],
+    ["V-00001", "INV-2026-0091", "2026-09-10", "Packaging Item", "PK-00007", "500", "count", "", "", "", "", "3.2", "18"],
+  ],
+};
+const EQUIPMENT_COLUMNS_WITH_EXAMPLE = {
+  columns: MODULE_COLUMNS.equipment,
+  example: ["Analytical Balance", "R-101", "QC Lab", "", "1", "Calibrated", "2026-06-01", "2027-06-01"],
+};
+const DEAD_STOCK_COLUMNS_WITH_EXAMPLE = {
+  columns: MODULE_COLUMNS["dead-stock"],
+  example: ["Old HPLC Column", "2022-03-15", "1", "12000", "25", "", "0", "0", "", "", ""],
+};
 
 export async function buildTemplateWorkbook(
   module: BulkUploadModuleKey,
@@ -177,5 +256,11 @@ export async function buildTemplateWorkbook(
       return buildItemTypesWorkbook();
     case "mfr":
       return buildMfrWorkbook(supabase);
+    case "purchase":
+      return buildPurchaseWorkbook(supabase);
+    case "equipment":
+      return buildEquipmentWorkbook();
+    case "dead-stock":
+      return buildDeadStockWorkbook();
   }
 }
