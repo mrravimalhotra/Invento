@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
   Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
-  UploadCloud,
+  UploadCloud, Trash2,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -66,6 +66,12 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // Master (17) / Dead Stock Register (18)'s precedent for
       // post-baseline additions.
       { href: "/bulk-upload", label: "Bulk Data Upload", icon: UploadCloud, module: 19 },
+      // Not part of the original 15-module baseline — added per Ravi's
+      // 13 Sept 2026 request for an admin-controlled button to purge all
+      // inventory/purchase data for from-scratch end-to-end testing;
+      // module number 20 follows Bulk Data Upload (19)'s precedent for
+      // post-baseline additions.
+      { href: "/admin/purge-test-data", label: "Purge Test Data", icon: Trash2, module: 20 },
     ],
   },
 ];
