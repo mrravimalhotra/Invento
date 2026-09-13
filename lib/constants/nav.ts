@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
   Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
+  UploadCloud,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -59,6 +60,12 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { href: "/reports", label: "Reports", icon: BarChart3, module: 15 },
       { href: "/documents", label: "SOP / STP Documents", icon: FileText, module: 12 },
       { href: "/feedback", label: "Tester Feedback", icon: MessageSquarePlus, module: 16 },
+      // Not part of the original 15-module baseline — added per Ravi's
+      // 13 Sept 2026 request ("create a link in admin panel to upload
+      // data... as bulk upload"); module number 19 follows Equipment
+      // Master (17) / Dead Stock Register (18)'s precedent for
+      // post-baseline additions.
+      { href: "/bulk-upload", label: "Bulk Data Upload", icon: UploadCloud, module: 19 },
     ],
   },
 ];
