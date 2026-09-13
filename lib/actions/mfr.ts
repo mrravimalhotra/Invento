@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { escapeLike } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -75,6 +76,16 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
 
   const supabase = await createClient();
+
+  // mfr_definitions.name has no DB-level unique constraint (code is the
+  // only server-generated unique identifier) — checked here, case-
+  // insensitively, before any of the four inserts below start, so a
+  // duplicate name fails fast instead of after already creating (and then
+  // having to roll back) an FP item. Ravi (13 Sept 2026, via
+  // AskUserQuestion): "add duplicate blocking on ... MFR Name ... for both
+  // bulk upload and the regular one-at-a-time forms."
+  const { data: dupMfr } = await supabase.from("mfr_definitions").select("id").ilike("name", escapeLike(name)).maybeSingle();
+  if (dupMfr) return { error: `"${name}" already exists as an MFR.` };
 
   const { data: itemCode, error: itemCodeError } = await supabase.rpc("get_next_item_code", {
     p_category: "processed",

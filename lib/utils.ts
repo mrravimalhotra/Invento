@@ -51,3 +51,17 @@ export function formatNumber(n: number | string | null | undefined, decimals = 2
 export function isLegacyCode(code: string | null | undefined) {
   return !!code && code.startsWith("LEG-");
 }
+
+// Escapes Postgres LIKE/ILIKE special characters (%, _, \) so a raw string
+// can be used as an EXACT-match pattern via .ilike() — Postgres has no
+// case-insensitive `=`, and .ilike() is the standard workaround, but its
+// pattern syntax treats "%" and "_" as wildcards. Without escaping, a name
+// containing one of those characters (e.g. "50% Extract", "Vitamin B_12")
+// would silently match extra rows instead of being compared literally.
+// Used by the duplicate-name/identity checks added 13 Sept 2026 (Ravi, via
+// AskUserQuestion: block duplicate Item Name, MFR Name, Equipment Name,
+// Dead Stock Article Name, and Purchase Invoice Number per vendor, across
+// both bulk upload and the regular one-at-a-time forms).
+export function escapeLike(raw: string): string {
+  return raw.replace(/[\\%_]/g, (c) => `\\${c}`);
+}

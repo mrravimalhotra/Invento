@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
+import { escapeLike } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -49,6 +50,20 @@ export async function createEquipment(_prev: ActionState, formData: FormData): P
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
+
+  // equipment.name has no DB-level unique constraint (equipment_code is the
+  // only server-generated unique identifier) — checked here, case-
+  // insensitively, against every existing equipment record regardless of
+  // active status. Ravi (13 Sept 2026, via AskUserQuestion): "add duplicate
+  // blocking on ... Equipment Name ... for both bulk upload and the regular
+  // one-at-a-time forms."
+  const { data: dupEquipment } = await supabase
+    .from("equipment")
+    .select("id")
+    .ilike("name", escapeLike(parsed.data.name))
+    .maybeSingle();
+  if (dupEquipment) return { error: `"${parsed.data.name}" already exists as an equipment record.` };
+
   const { data: equipmentCode, error: codeError } = await supabase.rpc("get_next_equipment_code");
   if (codeError) return { error: codeError.message };
 
@@ -86,6 +101,18 @@ export async function updateEquipment(
   const active = formData.get("active") === "on";
 
   const supabase = await createClient();
+
+  // Same case-insensitive duplicate-name check as createEquipment() above,
+  // self-excluded so saving a record without changing its name doesn't
+  // collide with itself.
+  const { data: dupEquipment } = await supabase
+    .from("equipment")
+    .select("id")
+    .ilike("name", escapeLike(parsed.data.name))
+    .neq("id", id)
+    .maybeSingle();
+  if (dupEquipment) return { error: `"${parsed.data.name}" already exists as an equipment record.` };
+
   const { error } = await supabase
     .from("equipment")
     .update({

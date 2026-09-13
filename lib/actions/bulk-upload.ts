@@ -117,9 +117,10 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
   const { headers, rows } = loaded.sheet;
 
   const supabase = await createClient();
-  const [{ data: itemTypes }, { data: existingBarcodeRows }] = await Promise.all([
+  const [{ data: itemTypes }, { data: existingBarcodeRows }, { data: existingItemRows }] = await Promise.all([
     supabase.from("item_types").select("id, description").eq("active", true),
     supabase.from("items").select("barcode, item_code").not("barcode", "is", null),
+    supabase.from("items").select("name"),
   ]);
   const itemTypeByName = new Map((itemTypes ?? []).map((t) => [t.description.trim().toLowerCase(), t.id]));
   // Barcode is DB-unique (items.barcode unique) — checked here against
@@ -132,6 +133,11 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
       .filter((it): it is { barcode: string; item_code: string } => !!it.barcode)
       .map((it) => [it.barcode.trim().toLowerCase(), it.item_code])
   );
+  // items.name has no DB-level unique constraint — same reasoning and
+  // pattern as Vendor Master's name dedup below. Ravi (13 Sept 2026, via
+  // AskUserQuestion): "add duplicate blocking on Item Name ... for both
+  // bulk upload and the regular one-at-a-time forms."
+  const existingItemNames = new Set((existingItemRows ?? []).map((it) => it.name.trim().toLowerCase()));
 
   type Parsed = {
     name: string;
@@ -146,6 +152,7 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
   const rowErrors: string[] = [];
   const parsed: Parsed[] = [];
   const seenBarcodes = new Map<string, number>();
+  const seenItemNames = new Map<string, number>();
 
   rows.forEach((row, i) => {
     const r = excelRow(i);
@@ -161,6 +168,16 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
       rowErrors.push(`Row ${r}: Name is required.`);
       return;
     }
+    const nameKey = name.toLowerCase();
+    if (seenItemNames.has(nameKey)) {
+      rowErrors.push(`Row ${r}: "${name}" is repeated on row ${seenItemNames.get(nameKey)} of this file.`);
+      return;
+    }
+    if (existingItemNames.has(nameKey)) {
+      rowErrors.push(`Row ${r}: "${name}" already exists as an item.`);
+      return;
+    }
+    seenItemNames.set(nameKey, r);
 
     const categoryNorm = categoryRaw.trim().toLowerCase();
     let category: "raw" | "packaging" | null = null;
@@ -427,12 +444,21 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   const { headers, rows } = loaded.sheet;
 
   const supabase = await createClient();
-  const [{ data: itemTypes }, { data: rawItems }] = await Promise.all([
+  const [{ data: itemTypes }, { data: rawItems }, { data: existingMfrRows }] = await Promise.all([
     supabase.from("item_types").select("id, description").eq("active", true),
     supabase.from("items").select("id, item_code").eq("category", "raw").eq("active", true),
+    supabase.from("mfr_definitions").select("name"),
   ]);
   const itemTypeByName = new Map((itemTypes ?? []).map((t) => [t.description.trim().toLowerCase(), t.id]));
   const rawItemByCode = new Map((rawItems ?? []).map((it) => [it.item_code.trim().toLowerCase(), it.id]));
+  // mfr_definitions.name has no DB-level unique constraint — same reasoning
+  // as Item/Vendor's name dedup. Checked only when a NEW group is opened
+  // below (i.e. against the DB, not within-file — repeating the same MFR
+  // Name across rows in one file is how its multiple recipe lines are
+  // expressed, and is already handled by the grouping itself). Ravi (13
+  // Sept 2026, via AskUserQuestion): "add duplicate blocking on ... MFR
+  // Name ... for both bulk upload and the regular one-at-a-time forms."
+  const existingMfrNames = new Set((existingMfrRows ?? []).map((m) => m.name.trim().toLowerCase()));
 
   const rowErrors: string[] = [];
   // Groups keyed by exact (trimmed) MFR Name text — repeating the same
@@ -496,6 +522,10 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
     const key = name.trim();
     const existing = groups.get(key);
     if (!existing) {
+      if (existingMfrNames.has(key.toLowerCase())) {
+        rowErrors.push(`Row ${r}: "${name}" already exists as an MFR.`);
+        return;
+      }
       groups.set(key, {
         firstRow: r,
         def: { name: key, batch_size_qty: batchQty, batch_size_unit: batchUnit, item_type_id, lines: [{ item_id: rawItemId, quantity: lineQty, unit: lineUnit }] },
@@ -571,15 +601,29 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
   const { headers, rows } = loaded.sheet;
 
   const supabase = await createClient();
-  const [{ data: vendors }, { data: items }] = await Promise.all([
+  const [{ data: vendors }, { data: items }, { data: existingPoRows }] = await Promise.all([
     supabase.from("vendors").select("id, vendor_code").eq("active", true),
     // Only Raw Material and Packaging items are purchasable — same rule
     // createPurchaseLine()'s own item picker enforces (purchase/[id]/page.tsx).
     supabase.from("items").select("id, item_code, category").in("category", ["raw", "packaging"]).eq("active", true),
+    supabase.from("purchase_orders").select("vendor_id, invoice_number"),
   ]);
   const vendorByCode = new Map((vendors ?? []).map((v) => [v.vendor_code.trim().toLowerCase(), v.id]));
   const itemByCode = new Map(
     (items ?? []).map((it) => [it.item_code.trim().toLowerCase(), it as { id: string; item_code: string; category: string }])
+  );
+  // purchase_orders has no DB-level unique constraint on (vendor_id,
+  // invoice_number) — checked only when a NEW group is opened below (i.e.
+  // against the DB, not within-file — repeating the same Vendor Code +
+  // Invoice Number across rows in one file is how one purchase order's
+  // multiple lines are expressed, and is already handled by the grouping
+  // itself). Scoped per vendor, not globally — different vendors
+  // legitimately reuse their own invoice numbering. Ravi (13 Sept 2026, via
+  // AskUserQuestion): "add duplicate blocking on ... Purchase Invoice
+  // Number (per vendor) ... for both bulk upload and the regular
+  // one-at-a-time forms."
+  const existingPoKeys = new Set(
+    (existingPoRows ?? []).map((po) => `${po.vendor_id}||${po.invoice_number.trim().toLowerCase()}`)
   );
 
   const rowErrors: string[] = [];
@@ -719,6 +763,11 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
     const key = `${vendorCodeRaw.trim().toLowerCase()}||${invoiceNumberRaw.trim().toLowerCase()}`;
     const existing = groups.get(key);
     if (!existing) {
+      const dbKey = `${vendorId}||${invoiceNumberRaw.trim().toLowerCase()}`;
+      if (existingPoKeys.has(dbKey)) {
+        rowErrors.push(`Row ${r}: Invoice "${invoiceNumberRaw}" already exists for vendor "${vendorCodeRaw}".`);
+        return;
+      }
       groups.set(key, {
         firstRow: r,
         def: { vendor_id: vendorId, invoice_number: invoiceNumberRaw.trim(), invoice_date: invoiceDate, lines: [line] },
@@ -795,6 +844,14 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
+  const supabase = await createClient();
+  // equipment.name has no DB-level unique constraint — same reasoning and
+  // pattern as Item/Vendor's name dedup. Ravi (13 Sept 2026, via
+  // AskUserQuestion): "add duplicate blocking on ... Equipment Name ... for
+  // both bulk upload and the regular one-at-a-time forms."
+  const { data: existingEquipmentRows } = await supabase.from("equipment").select("name");
+  const existingEquipmentNames = new Set((existingEquipmentRows ?? []).map((e) => e.name.trim().toLowerCase()));
+
   type Parsed = {
     name: string;
     room_no: string | null;
@@ -808,6 +865,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
 
   const rowErrors: string[] = [];
   const parsed: Parsed[] = [];
+  const seenEquipmentNames = new Map<string, number>();
 
   rows.forEach((row, i) => {
     const r = excelRow(i);
@@ -824,6 +882,16 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
       rowErrors.push(`Row ${r}: Name is required.`);
       return;
     }
+    const nameKey = name.toLowerCase();
+    if (seenEquipmentNames.has(nameKey)) {
+      rowErrors.push(`Row ${r}: "${name}" is repeated on row ${seenEquipmentNames.get(nameKey)} of this file.`);
+      return;
+    }
+    if (existingEquipmentNames.has(nameKey)) {
+      rowErrors.push(`Row ${r}: "${name}" already exists as an equipment record.`);
+      return;
+    }
+    seenEquipmentNames.set(nameKey, r);
 
     let quantity = 1;
     if (quantityRaw) {
@@ -859,7 +927,6 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
-  const supabase = await createClient();
   const insertRows: Record<string, unknown>[] = [];
   for (const p of parsed) {
     const { data: equipmentCode, error: codeError } = await supabase.rpc("get_next_equipment_code");
@@ -899,6 +966,14 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
+  const supabase = await createClient();
+  // dead_stock_items.article_name has no DB-level unique constraint — same
+  // reasoning and pattern as Item/Vendor's name dedup. Ravi (13 Sept 2026,
+  // via AskUserQuestion): "add duplicate blocking on ... Dead Stock Article
+  // Name ... for both bulk upload and the regular one-at-a-time forms."
+  const { data: existingDeadStockRows } = await supabase.from("dead_stock_items").select("article_name");
+  const existingArticleNames = new Set((existingDeadStockRows ?? []).map((d) => d.article_name.trim().toLowerCase()));
+
   type Parsed = {
     article_name: string;
     date_of_purchase: string | null;
@@ -915,6 +990,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
 
   const rowErrors: string[] = [];
   const parsed: Parsed[] = [];
+  const seenArticleNames = new Map<string, number>();
 
   rows.forEach((row, i) => {
     const r = excelRow(i);
@@ -934,6 +1010,16 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
       rowErrors.push(`Row ${r}: Name of Article is required.`);
       return;
     }
+    const articleKey = article_name.toLowerCase();
+    if (seenArticleNames.has(articleKey)) {
+      rowErrors.push(`Row ${r}: "${article_name}" is repeated on row ${seenArticleNames.get(articleKey)} of this file.`);
+      return;
+    }
+    if (existingArticleNames.has(articleKey)) {
+      rowErrors.push(`Row ${r}: "${article_name}" already exists as a dead stock record.`);
+      return;
+    }
+    seenArticleNames.set(articleKey, r);
 
     const date_of_purchase = parseOptionalDate(dateOfPurchaseRaw, "Date of Purchase", r, rowErrors);
     if (date_of_purchase === undefined) return;
@@ -1001,7 +1087,6 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
-  const supabase = await createClient();
   const insertRows: Record<string, unknown>[] = [];
   for (const p of parsed) {
     const { data: assetCode, error: codeError } = await supabase.rpc("get_next_dead_stock_code");

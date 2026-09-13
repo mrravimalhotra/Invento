@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { convertUnit } from "@/lib/constants/units";
+import { escapeLike } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -61,6 +62,22 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
+
+  // purchase_orders has no DB-level unique constraint on (vendor_id,
+  // invoice_number) — checked here, case-insensitively on the invoice
+  // number, scoped to this vendor only (not globally): different vendors
+  // legitimately reuse their own invoice numbering, so only the same
+  // vendor + same invoice number combination is blocked. Ravi (13 Sept
+  // 2026, via AskUserQuestion): "add duplicate blocking on ... Purchase
+  // Invoice Number (per vendor) ... for both bulk upload and the regular
+  // one-at-a-time forms."
+  const { data: dupPo } = await supabase
+    .from("purchase_orders")
+    .select("id")
+    .eq("vendor_id", parsed.data.vendor_id)
+    .ilike("invoice_number", escapeLike(parsed.data.invoice_number))
+    .maybeSingle();
+  if (dupPo) return { error: `Invoice "${parsed.data.invoice_number}" already exists for this vendor.` };
 
   // po_number is always generated here via the Postgres RPC, never in JS.
   const { data: poNumber, error: numError } = await supabase.rpc("get_next_po_number");

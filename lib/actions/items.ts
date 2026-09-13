@@ -6,6 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { UNITS } from "@/lib/constants/units";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { escapeLike } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -53,6 +54,15 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   if (!canWrite(user?.roles ?? [], "items")) return { error: "Not authorized." };
 
   const supabase = await createClient();
+
+  // items.name has no DB-level unique constraint (item_code is the only
+  // server-generated unique identifier) — checked here, case-insensitively,
+  // against every existing item regardless of category or active status, so
+  // two items can't silently share a name. Ravi (13 Sept 2026, via
+  // AskUserQuestion): "add duplicate blocking on ... Item Name ... for both
+  // bulk upload and the regular one-at-a-time forms."
+  const { data: dupItem } = await supabase.from("items").select("id").ilike("name", escapeLike(name)).maybeSingle();
+  if (dupItem) return { error: `"${name}" already exists as an item.` };
 
   const { data: itemCode, error: codeError } = await supabase.rpc("get_next_item_code", {
     p_category: category,
@@ -132,6 +142,17 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     .eq("id", id)
     .single();
   if (existingError || !existing) return { error: existingError?.message || "Item not found." };
+
+  // Same case-insensitive duplicate-name check as createItem() above, self-
+  // excluded so saving an item without changing its name doesn't collide
+  // with itself.
+  const { data: dupItem } = await supabase
+    .from("items")
+    .select("id")
+    .ilike("name", escapeLike(name))
+    .neq("id", id)
+    .maybeSingle();
+  if (dupItem) return { error: `"${name}" already exists as an item.` };
 
   // default_qc_qty / default_stability_qty / default_rnd_qty /
   // default_sample_unit are deliberately NOT in this update object (2 Sept

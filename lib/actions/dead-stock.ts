@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
+import { escapeLike } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -50,6 +51,20 @@ export async function createDeadStockItem(_prev: ActionState, formData: FormData
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
+
+  // dead_stock_items.article_name has no DB-level unique constraint
+  // (asset_code is the only server-generated unique identifier) — checked
+  // here, case-insensitively, against every existing record regardless of
+  // active status. Ravi (13 Sept 2026, via AskUserQuestion): "add duplicate
+  // blocking on ... Dead Stock Article Name ... for both bulk upload and
+  // the regular one-at-a-time forms."
+  const { data: dupArticle } = await supabase
+    .from("dead_stock_items")
+    .select("id")
+    .ilike("article_name", escapeLike(parsed.data.article_name))
+    .maybeSingle();
+  if (dupArticle) return { error: `"${parsed.data.article_name}" already exists as a dead stock record.` };
+
   const { data: assetCode, error: codeError } = await supabase.rpc("get_next_dead_stock_code");
   if (codeError) return { error: codeError.message };
 
@@ -87,6 +102,18 @@ export async function updateDeadStockItem(
   const active = formData.get("active") === "on";
 
   const supabase = await createClient();
+
+  // Same case-insensitive duplicate-name check as createDeadStockItem()
+  // above, self-excluded so saving a record without changing its name
+  // doesn't collide with itself.
+  const { data: dupArticle } = await supabase
+    .from("dead_stock_items")
+    .select("id")
+    .ilike("article_name", escapeLike(parsed.data.article_name))
+    .neq("id", id)
+    .maybeSingle();
+  if (dupArticle) return { error: `"${parsed.data.article_name}" already exists as a dead stock record.` };
+
   const { error } = await supabase
     .from("dead_stock_items")
     .update({
