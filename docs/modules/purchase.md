@@ -45,6 +45,38 @@ only the received quantity.
 | `/purchase/new` | Create a PO header — vendor (dropdown), invoice number, invoice date. `po_number` is assigned automatically. |
 | `/purchase/[id]` | PO header (read-only — no edit screen in this pass, matching baseline scope) + a table of its lines + an "Add line" form below, gated to users with write access. |
 
+**Single-screen New Purchase Order flow (13 Sept 2026).** Ravi: "have these
+two in single screen to reduce number of clicks." `/purchase/new` and
+`/purchase/[id]` used to be two genuinely separate pages — `createPurchaseOrder`
+redirected to `/purchase/[id]` on success, a real navigation to a very
+differently laid-out page (a bare form vs. cards + a lines table), which
+read as two disjoint screens even though it was already only ever one
+click. They now share one component tree
+(`app/(dashboard)/purchase/purchase-order-view.tsx`'s `PurchaseOrderView`
+— header summary cards, action buttons, the lines table/Add-line form):
+`new-purchase-order-form.tsx` renders the header form until
+`createPurchaseOrder` succeeds, then renders `PurchaseOrderView` directly
+with the header data the action returned and an empty line list — no
+navigation, no page reload, no re-fetch, since that's all
+`PurchaseOrderView`'s first render ever needed. The address bar is updated
+to the real `/purchase/[id]` URL afterwards via a plain
+`window.history.replaceState` (cosmetic only, no data fetch) so
+refresh/back/bookmark all land on the real, server-rendered detail page —
+`/purchase/[id]/page.tsx` fetches fresh from the DB and renders the exact
+same `PurchaseOrderView`, so the two entry points can never visually drift
+apart.
+
+Deliberately **not** a true zero-navigation merge (never touching the URL
+at all): every line-level action (add/edit/delete line, Final Submit,
+Reopen) still refreshes the real `/purchase/[id]` page the same way it
+always has — a server action calls `revalidatePath`, and Next
+auto-refreshes the route the browser is actually on. Reworking that to
+work with no real navigation at all would have meant touching that
+refresh mechanism on all five of those actions, on a page tied directly to
+inventory pushes and batch numbers — flagged to Ravi as a bigger, riskier
+change before starting; he chose this lower-risk version, which leaves
+that whole mechanism completely untouched.
+
 ## Fields
 
 **Purchase order (header):** `po_number` (auto, `get_next_po_number()` — new
@@ -82,9 +114,22 @@ rest of the module's access rule.
 ## Files
 
 - `lib/actions/purchase.ts` — `createPurchaseOrder`, `previewBatchNumber`,
-  `createPurchaseLine` (Zod-validated, `use server`).
+  `createPurchaseLine` (Zod-validated, `use server`). `createPurchaseOrder`
+  returns the created header's data (`CreatePurchaseOrderState`) rather
+  than redirecting, per the single-screen flow above.
 - `app/(dashboard)/purchase/page.tsx`, `.../new/page.tsx`, `.../[id]/page.tsx`
-- `app/(dashboard)/purchase/purchase-order-form.tsx` — PO header create form.
+- `app/(dashboard)/purchase/purchase-order-view.tsx` — `PurchaseOrderView`,
+  the shared header-cards/action-buttons/lines-section view rendered by
+  both `.../[id]/page.tsx` (fed fresh server data) and
+  `new-purchase-order-form.tsx` (fed the just-created header, once saved).
+- `app/(dashboard)/purchase/new-purchase-order-form.tsx` — the "new
+  purchase order" header form; on success, renders `PurchaseOrderView` in
+  place instead of navigating.
+- `app/(dashboard)/purchase/purchase-order-form.tsx` — `DeletePurchaseOrderForm`,
+  `SubmitPurchaseOrderForm`, `ReopenPurchaseOrderForm` (the PO-level action
+  buttons `PurchaseOrderView` renders); split into its own file from the
+  header create form specifically to avoid a circular import between the
+  two once the create form needed to render `PurchaseOrderView`.
 - `app/(dashboard)/purchase/purchase-line-form.tsx` — line add form: item
   select drives batch-number preview + default pre-fill; live GST/total
   calculation.

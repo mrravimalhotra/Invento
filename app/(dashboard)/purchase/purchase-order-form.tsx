@@ -2,50 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useActionState } from "react";
-import { createPurchaseOrder, deletePurchaseOrder, submitPurchaseOrder, reopenPurchaseOrder, type ActionState } from "@/lib/actions/purchase";
-import { Field, Input, Select } from "@/components/ui/form";
-import { Button, LinkButton } from "@/components/ui/button";
-import { isLegacyCode } from "@/lib/utils";
+import { deletePurchaseOrder, submitPurchaseOrder, reopenPurchaseOrder, type ActionState } from "@/lib/actions/purchase";
+import { Button } from "@/components/ui/button";
 
-type VendorOption = { id: string; vendor_code: string; name: string };
-
-export function PurchaseOrderForm({ vendors }: { vendors: VendorOption[] }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createPurchaseOrder, undefined);
-
-  return (
-    <form action={formAction} className="grid gap-4">
-      {state?.error && <p className="text-sm text-red">{state.error}</p>}
-      <Field label="Vendor" htmlFor="vendor_id" required>
-        <Select id="vendor_id" name="vendor_id" required defaultValue="">
-          <option value="" disabled>
-            Select vendor…
-          </option>
-          {vendors.map((v) => (
-            <option key={v.id} value={v.id} data-legacy={isLegacyCode(v.vendor_code) ? "1" : undefined}>
-              {v.vendor_code} — {v.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Invoice number" htmlFor="invoice_number" required>
-          <Input id="invoice_number" name="invoice_number" required />
-        </Field>
-        <Field label="Invoice date" htmlFor="invoice_date" required>
-          <Input id="invoice_date" name="invoice_date" type="date" required />
-        </Field>
-      </div>
-      <div className="flex gap-3">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Creating…" : "Create purchase order"}
-        </Button>
-        <LinkButton href="/purchase" variant="secondary">
-          Cancel
-        </LinkButton>
-      </div>
-    </form>
-  );
-}
+// The "new purchase order" header form itself now lives in
+// new-purchase-order-form.tsx, not here — it needs to render
+// PurchaseOrderView (below) once the header's saved, and PurchaseOrderView
+// needs the three forms this file exports, so keeping the header form in
+// its own file avoids a circular import between the two.
 
 // FB-0015 ("admin should be able to delete purchase records"): delete is
 // restricted to system_admin — see deletePurchaseOrder() in

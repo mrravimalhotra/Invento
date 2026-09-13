@@ -20,7 +20,36 @@ const poSchema = z.object({
   invoice_date: z.string().trim().min(1, "Invoice date is required."),
 });
 
-export async function createPurchaseOrder(_prev: ActionState, formData: FormData): Promise<ActionState> {
+// Header data returned to the client on a successful create, shaped to
+// match exactly what PurchaseOrderView (the same component /purchase/[id]
+// renders) needs — see purchase-order-view.tsx. Letting the "new purchase
+// order" screen render that same view in place, right after creation,
+// instead of the caller having to navigate to /purchase/[id] and re-fetch
+// it, is what makes the two screens feel like one continuous flow (Ravi,
+// 13 Sept 2026 — "have these two in single screen to reduce number of
+// clicks"). The header row itself is still created exactly as before
+// (same RPC-generated po_number, same insert) — only how the result gets
+// back to the screen has changed, from a server redirect to returned data.
+export type CreatePurchaseOrderState =
+  | { error: string; success?: undefined }
+  | {
+      error?: undefined;
+      success: true;
+      po: {
+        id: string;
+        po_number: string;
+        invoice_number: string;
+        invoice_date: string;
+        created_at: string;
+        status: "draft";
+        submitted_at: null;
+        reopened_at: null;
+        vendor: { id: string; vendor_code: string; name: string } | null;
+      };
+    }
+  | undefined;
+
+export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formData: FormData): Promise<CreatePurchaseOrderState> {
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
 
@@ -45,12 +74,35 @@ export async function createPurchaseOrder(_prev: ActionState, formData: FormData
       invoice_number: parsed.data.invoice_number,
       invoice_date: parsed.data.invoice_date,
     })
-    .select("id")
+    .select("id, po_number, invoice_number, invoice_date, created_at, vendor:vendors(id, vendor_code, name)")
     .single();
   if (error) return { error: error.message };
 
   revalidatePath("/purchase");
-  redirect(`/purchase/${data.id}`);
+
+  const created = data as unknown as {
+    id: string;
+    po_number: string;
+    invoice_number: string;
+    invoice_date: string;
+    created_at: string;
+    vendor: { id: string; vendor_code: string; name: string } | null;
+  };
+
+  return {
+    success: true,
+    po: {
+      id: created.id,
+      po_number: created.po_number,
+      invoice_number: created.invoice_number,
+      invoice_date: created.invoice_date,
+      created_at: created.created_at,
+      status: "draft",
+      submitted_at: null,
+      reopened_at: null,
+      vendor: created.vendor,
+    },
+  };
 }
 
 // ------------------------------------------------------------
