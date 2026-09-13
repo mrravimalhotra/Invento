@@ -45,6 +45,21 @@ export async function setUserRoles(
     if (insertError) return { error: insertError.message };
   }
 
+  // FB-0038: revalidatePath("/user-roles") alone only invalidates the
+  // /user-roles page segment. Per Next.js's own caching model, shared
+  // layouts are NOT automatically refetched on ordinary in-app navigation —
+  // only the page segment that changes is. The Topbar (role badge, name)
+  // renders from app/(dashboard)/layout.tsx, which every dashboard route
+  // shares, so a role change was correctly enforced everywhere (each page
+  // does its own fresh getCurrentUser() call) but the Topbar kept showing
+  // whatever it last rendered until a hard refresh — a real user reported
+  // seeing "System Admin" in the Topbar while /user-roles itself said
+  // "Access restricted" for the same account, because their role had been
+  // changed since the layout was last rendered in that browser session.
+  // revalidatePath("/", "layout") explicitly invalidates the root layout
+  // and every nested layout beneath it (including the dashboard layout and
+  // therefore the Topbar), on top of the specific page.
   revalidatePath("/user-roles");
+  revalidatePath("/", "layout");
   return { success: "Roles updated." };
 }
