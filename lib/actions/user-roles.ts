@@ -45,10 +45,12 @@ export async function setUserRoles(
     if (insertError) return { error: insertError.message };
   }
 
-  // FB-0038: revalidatePath("/user-roles") alone only invalidates the
-  // /user-roles page segment. Per Next.js's own caching model, shared
-  // layouts are NOT automatically refetched on ordinary in-app navigation —
-  // only the page segment that changes is. The Topbar (role badge, name)
+  // Topbar stale-role-badge fix (13 Sept 2026, reported directly by Ravi
+  // with screenshots, not a filed /feedback ticket): revalidatePath(
+  // "/user-roles") alone only invalidates the /user-roles page segment.
+  // Per Next.js's own caching model, shared layouts are NOT automatically
+  // refetched on ordinary in-app navigation — only the page segment that
+  // changes is. The Topbar (role badge, name)
   // renders from app/(dashboard)/layout.tsx, which every dashboard route
   // shares, so a role change was correctly enforced everywhere (each page
   // does its own fresh getCurrentUser() call) but the Topbar kept showing
