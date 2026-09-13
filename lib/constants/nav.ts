@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
-  Thermometer, Users, BarChart3, FileText, MessageSquarePlus,
+  Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -18,6 +18,12 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { href: "/item-types", label: "Item Type Master", icon: Tags, module: 2 },
       { href: "/items", label: "Item Master", icon: Package, module: 3 },
       { href: "/vendors", label: "Vendor Master", icon: Truck, module: 4 },
+      // Not part of the original 15-module baseline — added per the
+      // open-requirements-log gap analysis (13 Sept 2026); module numbers
+      // 17/18 follow Feedback's precedent (module 16) for post-baseline
+      // additions.
+      { href: "/equipment", label: "Instrument / Equipment Master", icon: Wrench, module: 17 },
+      { href: "/dead-stock", label: "Dead Stock Register", icon: Archive, module: 18 },
     ],
   },
   {

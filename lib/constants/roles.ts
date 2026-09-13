@@ -41,6 +41,15 @@ export const MODULE_WRITE_ROLES = {
   environmental_control: ["system_admin", "quality_checker", "qc_reviewer", "mfr_manager"],
   user_roles: ["system_admin"],
   documents: ["system_admin", "quality_checker", "qc_reviewer"],
+  // Broader than the plain master-data default (system_admin/
+  // inventory_manager/mfr_manager) per Ravi's 13 Sept 2026 decision —
+  // equipment lives across QC and production rooms alike, and calibration
+  // status is itself a QC concern, so quality_checker/qc_reviewer are
+  // included too. Mirrors equipment_write in 0034_equipment_master.sql.
+  equipment: ["system_admin", "inventory_manager", "mfr_manager", "quality_checker", "qc_reviewer"],
+  // Same role set as Equipment, applied consistently — mirrors
+  // dead_stock_items_write in 0035_dead_stock_register.sql.
+  dead_stock: ["system_admin", "inventory_manager", "mfr_manager", "quality_checker", "qc_reviewer"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export function canWrite(userRoles: string[], module: keyof typeof MODULE_WRITE_ROLES) {
