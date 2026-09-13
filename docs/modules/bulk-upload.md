@@ -69,10 +69,37 @@ if a repeated name's header values don't match row-for-row.
    not.
 3. Row cap: 500 data rows per file (`MAX_UPLOAD_ROWS`) — bounds
    worst-case request time; split a bigger file and upload in batches.
-4. Validate every row against live reference data (active Item Types,
-   active Raw Material item codes) and collect **every** row's errors —
-   not just the first — before touching the database. Any error at all
-   ⇒ nothing is imported; the full list is shown back to the uploader.
+4. Validate every row against live reference data and collect **every**
+   row's errors — not just the first — before touching the database. Any
+   error at all ⇒ nothing is imported; the full list is shown back to the
+   uploader. Specifically checked, per module:
+   - **Item Master**: Category must resolve to Raw Material or Packaging
+     (accepts "Raw Material"/"Raw", "Packaging"/"Packing Material"/
+     "Packing" — anything else fails); Unit, if given, must be one of the
+     app's canonical units; Item Type, if given, must match an existing
+     **active** Item Type Master description; Barcode, if given, must be
+     unique both within the file and against every barcode already on an
+     existing item (checked up front — a specific row is named, not a
+     generic failure after the fact); Low Stock Threshold, if given, must
+     be a non-negative number.
+   - **Vendor Master**: Email, if given, must look like a valid email
+     address.
+   - **Item Type Master**: Description must be unique both within the
+     file and against every existing item type description
+     (case-insensitive — `item_types.description`'s DB uniqueness is
+     case-sensitive, so this closes a near-duplicate gap the constraint
+     itself wouldn't catch).
+   - **MFR**: Batch Size Qty and Line Quantity must be numbers greater
+     than 0; Batch Size Unit and Line Unit must be valid units; Item
+     Type, if given, must match an existing active Item Type Master
+     description; Line Item Code must match an existing **active Raw
+     Material** item code (an inactive item, a Packaging/Finished
+     Product item, or an unknown code are all rejected the same way);
+     every row sharing one MFR Name must repeat identical Batch Size
+     Qty/Unit/Item Type; the same Line Item Code can't appear twice under
+     one MFR Name (a likely copy-paste slip — combine into one line
+     instead, since two separate lines for the same ingredient would
+     silently double-count it at production time).
 5. Only once every row passes: Item Master, Vendor Master, and Item Type
    Master generate any needed codes (one `get_next_item_code()` /
    `get_next_vendor_code()` RPC round trip per row, sequentially) and

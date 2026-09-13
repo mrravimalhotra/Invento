@@ -101,8 +101,21 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
   const { headers, rows } = loaded.sheet;
 
   const supabase = await createClient();
-  const { data: itemTypes } = await supabase.from("item_types").select("id, description").eq("active", true);
+  const [{ data: itemTypes }, { data: existingBarcodeRows }] = await Promise.all([
+    supabase.from("item_types").select("id, description").eq("active", true),
+    supabase.from("items").select("barcode, item_code").not("barcode", "is", null),
+  ]);
   const itemTypeByName = new Map((itemTypes ?? []).map((t) => [t.description.trim().toLowerCase(), t.id]));
+  // Barcode is DB-unique (items.barcode unique) — checked here against
+  // every existing item (not just this file's own rows) so a collision
+  // surfaces as a specific row error before any insert is attempted,
+  // instead of the whole batch failing on a generic Postgres 23505 after
+  // the fact with no row number to point at.
+  const existingBarcodeToCode = new Map(
+    (existingBarcodeRows ?? [])
+      .filter((it): it is { barcode: string; item_code: string } => !!it.barcode)
+      .map((it) => [it.barcode.trim().toLowerCase(), it.item_code])
+  );
 
   type Parsed = {
     name: string;
@@ -136,7 +149,12 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
     const categoryNorm = categoryRaw.trim().toLowerCase();
     let category: "raw" | "packaging" | null = null;
     if (categoryNorm === "raw material" || categoryNorm === "raw") category = "raw";
-    else if (categoryNorm === "packaging") category = "packaging";
+    // "Packing material" is real vocabulary Ravi himself has used for this
+    // same category elsewhere (FB-0035's ticket text) — accepted alongside
+    // the template's own "Packaging" so a legitimately-intended value isn't
+    // wrongly rejected, while anything else still fails.
+    else if (categoryNorm === "packaging" || categoryNorm === "packing material" || categoryNorm === "packing")
+      category = "packaging";
     if (!category) {
       rowErrors.push(`Row ${r} ("${name}"): Category must be "Raw Material" or "Packaging" — got "${categoryRaw}".`);
       return;
@@ -175,6 +193,11 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
       const key = barcode.toLowerCase();
       if (seenBarcodes.has(key)) {
         rowErrors.push(`Row ${r} ("${name}"): Barcode "${barcode}" is repeated on row ${seenBarcodes.get(key)} of this file.`);
+        return;
+      }
+      const existingCode = existingBarcodeToCode.get(key);
+      if (existingCode) {
+        rowErrors.push(`Row ${r} ("${name}"): Barcode "${barcode}" is already used by existing item ${existingCode}.`);
         return;
       }
       seenBarcodes.set(key, r);
@@ -293,6 +316,16 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
+  const supabase = await createClient();
+  // item_types.description is DB-unique but Postgres text comparison is
+  // case-sensitive — "Powder" and "powder" wouldn't collide at the
+  // constraint level and would otherwise create a near-duplicate that's
+  // confusing everywhere it's picked from (Item Master, MFR). Checked
+  // case-insensitively against every existing item type, active or not,
+  // since the constraint itself doesn't care about active status either.
+  const { data: existingTypes } = await supabase.from("item_types").select("description");
+  const existingDescriptions = new Set((existingTypes ?? []).map((t) => t.description.trim().toLowerCase()));
+
   const rowErrors: string[] = [];
   const descriptions: string[] = [];
   const seen = new Map<string, number>();
@@ -309,6 +342,10 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
       rowErrors.push(`Row ${r}: "${description}" is repeated on row ${seen.get(key)} of this file.`);
       return;
     }
+    if (existingDescriptions.has(key)) {
+      rowErrors.push(`Row ${r}: "${description}" already exists as an item type.`);
+      return;
+    }
     seen.set(key, r);
     descriptions.push(description);
   });
@@ -317,7 +354,6 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
-  const supabase = await createClient();
   const { error } = await supabase.from("item_types").insert(descriptions.map((description) => ({ description })));
   if (error) {
     return {
@@ -437,6 +473,16 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
     if (existing.def.batch_size_qty !== batchQty || existing.def.batch_size_unit !== batchUnit || existing.def.item_type_id !== item_type_id) {
       rowErrors.push(
         `Row ${r} ("${name}"): Batch Size Qty / Batch Size Unit / Item Type must match row ${existing.firstRow} — every line for the same MFR Name must repeat the same header values.`
+      );
+      return;
+    }
+    // Same Raw Material item added twice as two separate lines under one
+    // MFR is almost always a copy-paste slip, not an intentional recipe —
+    // rejected so a duplicated ingredient doesn't silently double-count
+    // when the batch is actually produced. Combine into one line instead.
+    if (existing.def.lines.some((l) => l.item_id === rawItemId)) {
+      rowErrors.push(
+        `Row ${r} ("${name}"): Line Item Code "${lineCodeRaw}" is already a recipe line for this MFR (see an earlier row) — combine into one line instead of repeating it.`
       );
       return;
     }
