@@ -26,11 +26,35 @@ function cellToString(value: ExcelJS.CellValue): string {
   return String(value).trim();
 }
 
-// Reads the first worksheet of an uploaded .xlsx: row 1 is headers, every
-// row after is data. Throws a plain Error with a message safe to show the
-// user directly (not a raw parser exception) if the file isn't a readable
+// Reads the data sheet of an uploaded .xlsx: row 1 is headers, every row
+// after is data. Throws a plain Error with a message safe to show the user
+// directly (not a raw parser exception) if the file isn't a readable
 // workbook at all, or has no header row.
-export async function readFirstSheet(file: File): Promise<ParsedSheet> {
+//
+// `expectedSheetName` should be that module's
+// BULK_UPLOAD_MODULE_META[module].sheetName. Bug found live 14 Sept 2026
+// (Ravi: Item Type Master upload failing "Missing required column:
+// Description" against a freshly downloaded, unmodified template — not
+// user error). Root cause: this function used to just read
+// `workbook.worksheets[0]` — but templates.ts's addInstructionsSheet()
+// always creates the "Instructions" sheet BEFORE the actual data sheet in
+// every one of the 7 module templates, so worksheets[0] was ALWAYS the
+// Instructions sheet's one prose column, never the real data. The
+// Twenty-fifth pass's header-suffix-stripping fix (normalizeHeader()
+// below) was real and necessary but insufficient on its own — even with
+// headers matched correctly, this function was handing findColumnIndex()
+// an entirely different sheet's headers, so every required-column check
+// failed identically regardless of that fix. This is a distinct,
+// more fundamental bug than the one that pass fixed, present since the
+// very first Bulk Data Upload build (Twenty-first pass), never caught
+// because no prior verification pass actually round-tripped the FULL
+// multi-sheet generated template through this exact function — only
+// findColumnIndex() in isolation. Fixed: look the sheet up by its known
+// name first (case-insensitive, trimmed — matches how templates.ts names
+// it); if that lookup ever fails (e.g. a re-saved file with a renamed
+// tab), fall back to the first sheet that isn't named "Instructions" or
+// "Reference", rather than assuming position 0 again.
+export async function readFirstSheet(file: File, expectedSheetName?: string): Promise<ParsedSheet> {
   const arrayBuffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
   try {
@@ -48,9 +72,14 @@ export async function readFirstSheet(file: File): Promise<ParsedSheet> {
     throw new Error("Couldn't read that file as an Excel workbook (.xlsx). Please use the downloaded template.");
   }
 
-  const sheet = workbook.worksheets[0];
+  const NON_DATA_SHEET_NAMES = new Set(["instructions", "reference"]);
+  const byExpectedName = expectedSheetName
+    ? workbook.worksheets.find((s) => s.name.trim().toLowerCase() === expectedSheetName.trim().toLowerCase())
+    : undefined;
+  const sheet =
+    byExpectedName ?? workbook.worksheets.find((s) => !NON_DATA_SHEET_NAMES.has(s.name.trim().toLowerCase()));
   if (!sheet || sheet.rowCount === 0) {
-    throw new Error("That file has no data — the first sheet is empty.");
+    throw new Error("That file has no data — the data sheet is empty or missing.");
   }
 
   const headerRow = sheet.getRow(1);

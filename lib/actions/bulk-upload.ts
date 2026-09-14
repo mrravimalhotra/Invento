@@ -48,6 +48,8 @@ import {
   EQUIPMENT_COLUMNS,
   DEAD_STOCK_COLUMNS,
   MAX_UPLOAD_ROWS,
+  BULK_UPLOAD_MODULE_META,
+  type BulkUploadModuleKey,
   type ColumnDef,
 } from "@/lib/bulk-upload/schemas";
 
@@ -66,7 +68,7 @@ function matchUnit(raw: string): Unit | null {
   return UNITS.find((u) => u === target) ?? null;
 }
 
-async function loadSheetOrError(formData: FormData, columns: ColumnDef[]) {
+async function loadSheetOrError(formData: FormData, columns: ColumnDef[], module: BulkUploadModuleKey) {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Choose an Excel file (.xlsx) to upload." } as const;
@@ -74,7 +76,7 @@ async function loadSheetOrError(formData: FormData, columns: ColumnDef[]) {
 
   let sheet;
   try {
-    sheet = await readFirstSheet(file);
+    sheet = await readFirstSheet(file, BULK_UPLOAD_MODULE_META[module].sheetName);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Couldn't read that file." } as const;
   }
@@ -112,7 +114,7 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "items")) return { error: "Not authorized." };
 
-  const loaded = await loadSheetOrError(formData, ITEM_COLUMNS);
+  const loaded = await loadSheetOrError(formData, ITEM_COLUMNS, "items");
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
@@ -289,7 +291,7 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "vendors")) return { error: "Not authorized." };
 
-  const loaded = await loadSheetOrError(formData, VENDOR_COLUMNS);
+  const loaded = await loadSheetOrError(formData, VENDOR_COLUMNS, "vendors");
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
@@ -367,7 +369,7 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "item_types")) return { error: "Not authorized." };
 
-  const loaded = await loadSheetOrError(formData, ITEM_TYPE_COLUMNS);
+  const loaded = await loadSheetOrError(formData, ITEM_TYPE_COLUMNS, "item-types");
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
@@ -439,7 +441,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
 
-  const loaded = await loadSheetOrError(formData, MFR_COLUMNS);
+  const loaded = await loadSheetOrError(formData, MFR_COLUMNS, "mfr");
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
@@ -596,7 +598,7 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
 
-  const loaded = await loadSheetOrError(formData, PURCHASE_COLUMNS);
+  const loaded = await loadSheetOrError(formData, PURCHASE_COLUMNS, "purchase");
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
@@ -840,7 +842,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "equipment")) return { error: "Not authorized." };
 
-  const loaded = await loadSheetOrError(formData, EQUIPMENT_COLUMNS);
+  const loaded = await loadSheetOrError(formData, EQUIPMENT_COLUMNS, "equipment");
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
@@ -962,7 +964,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "dead_stock")) return { error: "Not authorized." };
 
-  const loaded = await loadSheetOrError(formData, DEAD_STOCK_COLUMNS);
+  const loaded = await loadSheetOrError(formData, DEAD_STOCK_COLUMNS, "dead-stock");
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows } = loaded.sheet;
 
