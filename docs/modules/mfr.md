@@ -19,16 +19,13 @@ mirrors the RLS policies `mfr_def_write` / `mfr_lines_write` in
   MFR" gated by `canWrite(user.roles, "mfr")`.
 - **New** — `/mfr/new`. Header fields (name, item type dropdown, batch size
   qty/unit) plus a dynamic recipe-line editor (item dropdown — raw-material
-  items only, quantity, unit; add/remove rows client-side). **This screen is
-  the only way a Finished Product item comes into existence** (see
-  "MFR ↔ Finished Product item link" below) — submitting creates, in one
-  Server Action: the `items` row (category `processed`, code via
-  `get_next_item_code('processed')`, name/unit mirrored from the MFR's
-  Name/Batch size unit fields), the `mfr_definitions` row (code via
-  `get_next_mfr_code()`, `finished_product_item_id` pointing at that item),
-  and its version-1 `mfr_lines` — each step best-effort-deletes what came
-  before it if a later step fails, so a partial item or header never sticks
-  around.
+  items only, quantity, unit; add/remove rows client-side). Submitting
+  creates only the recipe — the `mfr_definitions` row (code via
+  `get_next_mfr_code()`, `finished_product_item_id` left null) and its
+  version-1 `mfr_lines` — atomically, via the `create_mfr_definition()` RPC.
+  **As of 14 Sept 2026, the Finished Product item is no longer created
+  here** — see "MFR ↔ Finished Product item link" below for where that
+  moved to and why.
 - **Detail** — `/mfr/[id]`. Header (read-only, including a **Finished
   product** row linking to the item), current-version recipe table, an
   **Approve** action (sets `approved_by`/`approved_at`; hidden once approved
@@ -72,14 +69,70 @@ Migration `0010_mfr_finished_product_link.sql` adds
 `mfr_definitions.finished_product_item_id` (nullable `uuid references
 items(id)`, `unique`) — a strict 1:1: one MFR per Finished Product item, one
 Finished Product item per MFR. This is a deliberate architectural change:
-"MFR is the formula for a Finished Product", so the MFR screen is now the
-*only* entry point for creating a Finished Product master item —
-`createMfrDefinition()` creates the `items` row and the `mfr_definitions`
-row together (see New, above). Item Master (`lib/actions/items.ts`,
-`CREATABLE_CATEGORIES`) can no longer create or promote an item into
-category `processed`; it can still list, view, and edit the non-category
-fields of existing Finished Product items (Category renders read-only for
-those, both in the edit form and enforced server-side in `updateItem`).
+"MFR is the formula for a Finished Product", so the MFR screen is the
+*only* entry point for creating a Finished Product master item — no other
+screen can. Item Master (`lib/actions/items.ts`, `CREATABLE_CATEGORIES`) can
+no longer create or promote an item into category `processed`; it can still
+list, view, and edit the non-category fields of existing Finished Product
+items (Category renders read-only for those, both in the edit form and
+enforced server-side in `updateItem`).
+
+**When the item is actually created — deferred to approval (14 Sept 2026,
+`0041_mfr_deferred_approval.sql`).** Ravi: "while creating MFR, transaction
+should be atomic, new MFR, Finished Product or Packaged Finished Product
+should only get created once MFR is approved otherwise there is no point of
+creating these." Previously `createMfrDefinition()` created the Finished
+Product item (and its paired Packaged FP item, see the Task F addendum
+below) eagerly, the moment the MFR itself was created — before anyone had
+reviewed or approved the recipe. An MFR that was created and then abandoned
+or deleted without ever being approved had still permanently burned an
+FP-##### and a PKG-FP-##### code and left two live Item Master rows behind
+for a recipe nobody signed off on (this is exactly what happened in the
+"draft MFR / draft FP deleted, counter not reset" incident the same day).
+
+Now:
+- `create_mfr_definition()` (the RPC `createMfrDefinition()` calls) creates
+  only the `mfr_definitions` row and its `mfr_lines` — `finished_product_item_id`
+  stays null. Nothing in Item Master exists yet for this recipe.
+- `approve_mfr_definition()` (the RPC `approveMfrDefinition()` calls) is now
+  the *only* place the Finished Product / Packaged FP item pair gets
+  created — atomically, in the same transaction as setting
+  `approved_by`/`approved_at`. Both RPCs are `security definer` functions
+  (`0041_mfr_deferred_approval.sql`), giving this a real, single-transaction
+  atomic guarantee — replacing the old manual multi-insert-with-best-effort-
+  `.delete()`-rollback pattern this action used to use, the same real-
+  transaction pattern `bulk_create_mfr_definitions()` already proved out
+  (see `docs/modules/bulk-upload.md`).
+- Re-approving an MFR whose recipe was edited (`updateMfrLines()` clears
+  `approved_by`/`approved_at` back to null on every edit — see Versioning
+  above) does **not** create a second item pair: `approve_mfr_definition()`
+  only creates items the first time `finished_product_item_id` is still
+  null; every later (re-)approval reuses the pair already on file.
+- The submitted Item Type has nowhere to live until an item exists to put
+  it on — rather than add a new staging column, this repurposes
+  `mfr_definitions.item_type_id` (present since `0001_init.sql`, marked
+  deprecated once `finished_product_item_id` shipped): written at create
+  time, read once at approval time to seed the new Finished Product item's
+  `item_type_id`, left in place afterward.
+- `/finished-product/new`'s MFR picker now also requires `approved_by is
+  not null` (previously just `active = true`) — producing against a
+  still-unapproved recipe no longer makes sense once that recipe might have
+  no Finished Product item to push the eventual yield onto at all.
+- Bulk-uploaded MFRs (`bulk_create_mfr_definitions()`) get the identical
+  treatment — see `docs/modules/bulk-upload.md`.
+- The New MFR screen's `peek_next_item_code('processed')` preview banner
+  (FB-0010, "next auto generated FP code should be visible") is removed:
+  the code is no longer assigned anywhere near creation time, so a peeked
+  value would very likely not match what's actually assigned whenever this
+  MFR eventually gets approved (which could be after other MFRs have been
+  created and approved in between) — showing one would be misleading, not
+  a useful preview.
+- The detail page's "Finished product" row and header description already
+  handled a null `finished_product_item_id` gracefully (the pre-existing
+  legacy-data fallback) — now reworded to say "created on approval" for an
+  unapproved MFR, keeping the old "created before this MFR/item link
+  existed" wording only for the (now rarer) case of an *approved* MFR with
+  no link.
 
 The column is nullable rather than `NOT NULL` because it's an additive
 migration on a live app: existing `mfr_definitions` rows, and any
@@ -95,16 +148,18 @@ carries its own `item_type_id`. The MFR detail/list/report screens read
 item type via the linked item (`items:finished_product_item_id(...,
 item_types(description))`), not the old column.
 
-**Task F addendum (3 Sept 2026, `claude/packaged-fp-redesign.md`):**
-`createMfrDefinition()` now also creates a second, paired item —
-category `packaged_fp`, same name, its own `PKG-FP-#####` code — right
-alongside the Finished Product item, and links the two via the new
-`items.packaged_item_id` (nullable, unique, self-referencing). Same
+**Task F addendum (3 Sept 2026, `claude/packaged-fp-redesign.md`):** the
+Finished Product item also gets a second, paired item created alongside it
+— category `packaged_fp`, same name, its own `PKG-FP-#####` code — linked
+via `items.packaged_item_id` (nullable, unique, self-referencing). Same
 "strict 1:1, set once, never guessed at for pre-existing rows" shape as
-`finished_product_item_id` itself, one level further down the chain. See
-`docs/modules/packaging.md`'s "Packaged Finished Product" section for
-what this pairing is for (Store/R&D packaging issues transform bulk FP
-into this paired item and dispatch it).
+`finished_product_item_id` itself, one level further down the chain. As of
+14 Sept 2026 this pairing is created at approval time, not creation time —
+see the deferred-creation writeup above; Task F's original design ("PKG-FP
+created automatically, the moment FP is created") is superseded by that
+change. See `docs/modules/packaging.md`'s "Packaged Finished Product"
+section for what this pairing is for (Store/R&D packaging issues transform
+bulk FP into this paired item and dispatch it).
 
 ## Admin-only delete (1 Sept 2026)
 
@@ -182,6 +237,10 @@ new production is exactly what deactivating is meant to prevent.
   `approveMfrDefinition`, `setMfrActive` (each re-checks
   `canWrite(user.roles, "mfr")` server-side), `deleteMfrDefinition` (checks
   `system_admin` directly, same as the other three master-data deletes).
+  `createMfrDefinition`/`approveMfrDefinition` are now thin wrappers around
+  the `create_mfr_definition()`/`approve_mfr_definition()` RPCs
+  (`0041_mfr_deferred_approval.sql`) — see "When the item is actually
+  created" above.
 - `app/(dashboard)/mfr/[id]/delete-mfr-form.tsx` — two-step-confirm Delete UI.
 - `app/(dashboard)/mfr/[id]/toggle-active-form.tsx` — one-click
   Deactivate/Reactivate UI.

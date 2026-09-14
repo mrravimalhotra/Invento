@@ -55,6 +55,14 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
     item_types: { description: string } | null;
   } | null;
   const itemType = finishedProduct?.item_types?.description;
+  // As of 0041_mfr_deferred_approval.sql, an unapproved MFR normally has
+  // no linked item yet at all — that's the expected, common case now, not
+  // just a legacy-data edge case. Only an *approved* MFR with no link is
+  // the old "predates the link" situation (approved before
+  // finished_product_item_id existed, or before this deferral shipped and
+  // somehow never got one — shouldn't happen going forward, but the
+  // message stays accurate if it's ever seen).
+  const noItemReason = def.approved_by ? "created before this MFR/item link existed" : "created on approval";
 
   type LineRow = { id: string; quantity: string | number; unit: string; items: { id: string; item_code: string; name: string; unit: string | null } | null };
   const lineRows = (lines ?? []) as unknown as LineRow[];
@@ -69,7 +77,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
     <div>
       <PageHeader
         title={`${def.code} · ${def.name}`}
-        description={`Version ${def.version} · ${finishedProduct ? finishedProduct.item_code : "No Finished Product item linked"}`}
+        description={`Version ${def.version} · ${finishedProduct ? finishedProduct.item_code : `No Finished Product item — ${noItemReason}`}`}
         action={<LinkButton href={`/mfr/${id}/report`}>Print MFR</LinkButton>}
       />
 
@@ -99,7 +107,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
                     {finishedProduct.item_code} · {finishedProduct.name}
                   </Link>
                 ) : (
-                  "— (created before this MFR/item link existed)"
+                  `— (${noItemReason})`
                 )}
               </span>
             </div>

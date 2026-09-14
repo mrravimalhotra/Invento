@@ -10,11 +10,9 @@ import { MfrLineEditor, type RawItemOption } from "../mfr-line-editor";
 export function NewMfrForm({
   itemTypes,
   rawItems,
-  nextFpCode,
 }: {
   itemTypes: { id: string; description: string }[];
   rawItems: RawItemOption[];
-  nextFpCode: string;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createMfrDefinition, undefined);
 
@@ -23,16 +21,13 @@ export function NewMfrForm({
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
 
       <div className="rounded-md border border-border bg-black/[0.02] p-3 text-sm text-muted">
-        Creating this MFR also creates its Finished Product master entry (an
-        auto-numbered <code>FP-</code> item, same as this recipe&apos;s Name) —
-        Item Master no longer has its own way to add a Finished Product
-        directly.
+        This creates the recipe only — its Finished Product master entry (an
+        auto-numbered <code>FP-</code> item) and paired Packaged Finished
+        Product item aren&apos;t created until this MFR is approved. Item
+        Master has no other way to add a Finished Product directly.
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Finished Product item code" hint="Auto-generated — assigned exactly when you save.">
-          <Input value={nextFpCode} readOnly disabled />
-        </Field>
         <Field label="Name" htmlFor="name" required hint="Also becomes the Finished Product item's name.">
           <Input id="name" name="name" required autoFocus />
         </Field>

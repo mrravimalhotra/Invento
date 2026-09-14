@@ -168,17 +168,32 @@ wrinkle — one row is always one complete record.
 
 ## Why Purchase and MFR need a migration (and Equipment/Dead Stock don't)
 `createMfrDefinition()` (`lib/actions/mfr.ts`) shows the general problem:
-one MFR is five separate inserts/updates across three tables (Finished
-Product item → Packaged FP item → pairing update → `mfr_definitions` →
-`mfr_lines`), each with manual best-effort rollback of the others on
-failure, because the Supabase client gives no real multi-statement
-transaction. Purchase has the same shape at a smaller scale: one
-purchase order is a header row plus one-or-more line rows. That's an
-acceptable shape for one record submitted by hand, but a bulk file can
-contain many — "all-or-nothing across the whole file" done the same
-one-call-at-a-time way would mean a failure on record #8 leaves records
-#1–7 already committed, exactly the partial-import outcome Ravi's
+one MFR was, at the time this bulk-upload feature was built, five separate
+inserts/updates across three tables (Finished Product item → Packaged FP
+item → pairing update → `mfr_definitions` → `mfr_lines`), each with manual
+best-effort rollback of the others on failure, because the Supabase client
+gives no real multi-statement transaction. Purchase has the same shape at a
+smaller scale: one purchase order is a header row plus one-or-more line
+rows. That's an acceptable shape for one record submitted by hand, but a
+bulk file can contain many — "all-or-nothing across the whole file" done
+the same one-call-at-a-time way would mean a failure on record #8 leaves
+records #1–7 already committed, exactly the partial-import outcome Ravi's
 error-handling choice rules out.
+
+**Update, 14 Sept 2026 (`0041_mfr_deferred_approval.sql`):** MFR creation
+is down to two steps now, not five — `mfr_definitions` + `mfr_lines` only.
+Ravi: "new MFR, Finished Product or Packaged Finished Product should only
+get created once MFR is approved otherwise there is no point of creating
+these" — so `bulk_create_mfr_definitions()` no longer creates the Finished
+Product / Packaged FP item pair at all; that moved to a new
+`approve_mfr_definition()` RPC, called once per MFR when someone approves
+it (see `docs/modules/mfr.md`). Bulk upload never auto-approves, so a
+bulk-uploaded MFR now always needs a manual Approve click, same as a
+one-at-a-time MFR, before it has a Finished Product item or can be used for
+production. Still worth its own RPC despite being simpler now — two inserts
+across two tables, repeated once per MFR in the file, is still more than
+"validate, then one multi-row insert," and the real-transaction guarantee
+matters just as much for two steps as it did for five.
 
 Equipment and Dead Stock don't have this problem: both are flat,
 single-table master data with no cross-table references, the same shape

@@ -5,7 +5,6 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { escapeLike } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -36,25 +35,30 @@ function parseLines(formData: FormData): LineInput[] | { error: string } {
 
 // Every MFR is the recipe for exactly one Finished Product — per the
 // "MFR screen be entry point for Finished Product master list creation"
-// request, creating the MFR now also creates that item's Item Master
-// entry (FP- coded, same numbering as Raw material/Packaging), instead of
-// requiring a separate trip through Item Master. Item Master no longer
-// offers "Finished product" as a create-able category at all (see
-// CREATABLE_CATEGORIES in lib/actions/items.ts) — this screen is the only
-// way a Finished Product item comes into existence from here on.
+// request, this screen (not Item Master — see CREATABLE_CATEGORIES in
+// lib/actions/items.ts) is the only way a Finished Product item ever
+// comes into existence. Task F (claude/packaged-fp-redesign.md) pairs it
+// with a second, 'packaged_fp' item (same name, its own PKG-FP-##### code)
+// via items.packaged_item_id.
 //
-// Task F (claude/packaged-fp-redesign.md) — "for each Finished Product
-// code e.g. FP-0001 there will be a unique packaged Finished Product code
-// e.g. PKG-FP-0001," created "automatically, the moment FP-0001 is
-// created." So this also creates that paired 'packaged_fp' item right
-// here, eagerly, and links it via items.packaged_item_id — same item
-// name, its own PKG-FP-##### code, unit fixed to 'count' (it's always
-// counted in packaged units — bottles/packs — never bulk volume; see the
-// design doc for why). Four inserts now (FP item → packaged item →
-// mfr_definitions → mfr_lines), each with best-effort cleanup of
-// everything before it on failure, since the Supabase client doesn't give
-// us a real multi-statement transaction — same pattern this action
-// already used for the definition+lines pair.
+// Ravi (14 Sept 2026): "while creating MFR, transaction should be atomic,
+// new MFR, Finished Product or Packaged Finished Product should only get
+// created once MFR is approved otherwise there is no point of creating
+// these." Two changes from the previous design:
+//
+// 1. This action no longer creates the Finished Product / Packaged FP
+//    item pair at all — that moved to approveMfrDefinition() below, the
+//    only place it happens now (see that function's header comment).
+//    This just creates the recipe: mfr_definitions (unapproved,
+//    finished_product_item_id left null) + its version-1 mfr_lines.
+// 2. Both steps run inside one real Postgres transaction via the new
+//    create_mfr_definition() RPC (0041_mfr_deferred_approval.sql),
+//    replacing the old manual two-insert-with-best-effort-rollback
+//    pattern — same "security definer function body = one transaction"
+//    approach bulk_create_mfr_definitions() already used, now applied to
+//    the single-entry path too. A mid-failure now genuinely rolls back
+//    everything the call did, not just what a .delete() call after the
+//    fact remembered to clean up.
 export async function createMfrDefinition(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get("name") || "").trim();
   const batchSizeQty = Number(formData.get("batch_size_qty"));
@@ -77,118 +81,18 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
 
   const supabase = await createClient();
 
-  // mfr_definitions.name has no DB-level unique constraint (code is the
-  // only server-generated unique identifier) — checked here, case-
-  // insensitively, before any of the four inserts below start, so a
-  // duplicate name fails fast instead of after already creating (and then
-  // having to roll back) an FP item. Ravi (13 Sept 2026, via
-  // AskUserQuestion): "add duplicate blocking on ... MFR Name ... for both
-  // bulk upload and the regular one-at-a-time forms."
-  const { data: dupMfr } = await supabase.from("mfr_definitions").select("id").ilike("name", escapeLike(name)).maybeSingle();
-  if (dupMfr) return { error: `"${name}" already exists as an MFR.` };
-
-  const { data: itemCode, error: itemCodeError } = await supabase.rpc("get_next_item_code", {
-    p_category: "processed",
+  const { data, error } = await supabase.rpc("create_mfr_definition", {
+    p_name: name,
+    p_batch_size_qty: batchSizeQty,
+    p_batch_size_unit: batchSizeUnit,
+    p_item_type_id: itemTypeId,
+    p_lines: lines.map((l) => ({ item_id: l.itemId, quantity: l.quantity, unit: l.unit })),
   });
-  if (itemCodeError || !itemCode) {
-    return { error: itemCodeError?.message || "Could not generate a Finished Product item code." };
-  }
-
-  const { data: item, error: itemError } = await supabase
-    .from("items")
-    .insert({
-      item_code: itemCode,
-      name,
-      category: "processed",
-      item_type_id: itemTypeId,
-      unit: batchSizeUnit,
-    })
-    .select("id")
-    .single();
-  if (itemError || !item) {
-    return { error: itemError?.message || "Could not create the Finished Product item." };
-  }
-
-  // Task F's paired Packaged FP item — see the header comment above.
-  // Failure here rolls back just the FP item (nothing else exists yet).
-  const { data: packagedItemCode, error: packagedCodeError } = await supabase.rpc("get_next_item_code", {
-    p_category: "packaged_fp",
-  });
-  if (packagedCodeError || !packagedItemCode) {
-    await supabase.from("items").delete().eq("id", item.id);
-    return { error: packagedCodeError?.message || "Could not generate a Packaged Finished Product item code." };
-  }
-
-  const { data: packagedItem, error: packagedItemError } = await supabase
-    .from("items")
-    .insert({
-      item_code: packagedItemCode,
-      name,
-      category: "packaged_fp",
-      item_type_id: itemTypeId,
-      unit: "count",
-    })
-    .select("id")
-    .single();
-  if (packagedItemError || !packagedItem) {
-    await supabase.from("items").delete().eq("id", item.id);
-    return { error: packagedItemError?.message || "Could not create the Packaged Finished Product item." };
-  }
-
-  const { error: pairError } = await supabase
-    .from("items")
-    .update({ packaged_item_id: packagedItem.id })
-    .eq("id", item.id);
-  if (pairError) {
-    await supabase.from("items").delete().eq("id", packagedItem.id);
-    await supabase.from("items").delete().eq("id", item.id);
-    return { error: pairError.message };
-  }
-
-  const { data: code, error: codeError } = await supabase.rpc("get_next_mfr_code");
-  if (codeError || !code) {
-    await supabase.from("items").delete().eq("id", packagedItem.id);
-    await supabase.from("items").delete().eq("id", item.id);
-    return { error: codeError?.message || "Could not generate an MFR code." };
-  }
-
-  const { data: def, error: defError } = await supabase
-    .from("mfr_definitions")
-    .insert({
-      code,
-      name,
-      batch_size_qty: batchSizeQty,
-      batch_size_unit: batchSizeUnit,
-      finished_product_item_id: item.id,
-    })
-    .select("id")
-    .single();
-  if (defError || !def) {
-    await supabase.from("items").delete().eq("id", packagedItem.id);
-    await supabase.from("items").delete().eq("id", item.id);
-    return { error: defError?.message || "Could not create the MFR definition." };
-  }
-
-  const { error: linesError } = await supabase.from("mfr_lines").insert(
-    lines.map((l) => ({
-      mfr_definition_id: def.id,
-      version: 1,
-      item_id: l.itemId,
-      quantity: l.quantity,
-      unit: l.unit,
-    }))
-  );
-  if (linesError) {
-    // Best-effort cleanup so a failed recipe insert doesn't leave a headerless
-    // definition — or its linked Finished Product / Packaged FP items — behind.
-    await supabase.from("mfr_definitions").delete().eq("id", def.id);
-    await supabase.from("items").delete().eq("id", packagedItem.id);
-    await supabase.from("items").delete().eq("id", item.id);
-    return { error: linesError.message };
-  }
+  if (error) return { error: error.message };
+  const def = (data as { id: string; code: string }[] | null)?.[0];
+  if (!def) return { error: "Could not create the MFR definition." };
 
   revalidatePath("/mfr");
-  revalidatePath("/items");
   redirect(`/mfr/${def.id}`);
 }
 
@@ -323,36 +227,35 @@ export async function setMfrActive(id: string, active: boolean, _prev: ActionSta
   return { success: active ? "MFR reactivated." : "MFR deactivated." };
 }
 
+// The Finished Product / Packaged FP item pair now comes into existence
+// HERE, not at MFR creation — see createMfrDefinition()'s header comment
+// and 0041_mfr_deferred_approval.sql for the full reasoning (Ravi, 14
+// Sept 2026: "...should only get created once MFR is approved otherwise
+// there is no point of creating these"). The whole thing — the "already
+// approved" guard, the item pair creation (first approval only; an edited
+// recipe's re-approval reuses the pair already on file, never creates a
+// second one), and setting approved_by/approved_at — runs as one
+// transaction inside approve_mfr_definition(), replacing the old
+// select-then-conditional-update optimistic lock with a real `for update`
+// row lock (same concurrent-double-click protection, enforced by Postgres
+// itself now instead of a second round trip from the app).
 export async function approveMfrDefinition(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in." };
   if (!canWrite(user.roles, "mfr")) return { error: "Not authorized." };
 
   const supabase = await createClient();
-  const { data: def, error: defError } = await supabase
-    .from("mfr_definitions")
-    .select("approved_by")
-    .eq("id", id)
-    .single();
-  if (defError || !def) return { error: defError?.message || "MFR definition not found." };
-  if (def.approved_by) return { error: "This MFR is already approved." };
-
-  // Optimistic lock: the check above and this update are two separate round
-  // trips, so two people clicking Approve on the same still-unapproved MFR
-  // within the same moment could otherwise both pass the check and the
-  // second approval would silently overwrite the first approver's identity
-  // with no error. Requiring approved_by to still be null here means the
-  // loser gets a clear "already approved" instead.
-  const { data: updated, error } = await supabase
-    .from("mfr_definitions")
-    .update({ approved_by: user.id, approved_at: new Date().toISOString() })
-    .eq("id", id)
-    .is("approved_by", null)
-    .select("id");
+  const { data, error } = await supabase.rpc("approve_mfr_definition", { p_id: id });
   if (error) return { error: error.message };
-  if (!updated || updated.length === 0) return { error: "This MFR is already approved." };
+  const result = (data as { fp_item_code: string | null; packaged_item_code: string | null; items_created: boolean }[] | null)?.[0];
 
   revalidatePath(`/mfr/${id}`);
   revalidatePath("/mfr");
-  return { success: "MFR approved." };
+  revalidatePath("/items");
+  return {
+    success:
+      result?.items_created && result.fp_item_code
+        ? `MFR approved — created Finished Product ${result.fp_item_code}${result.packaged_item_code ? ` and Packaged Finished Product ${result.packaged_item_code}` : ""}.`
+        : "MFR approved.",
+  };
 }

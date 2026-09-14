@@ -10,7 +10,7 @@ export default async function NewMfrPage() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   if (!canWrite(user?.roles ?? [], "mfr")) redirect("/mfr");
 
-  const [{ data: itemTypes }, { data: rawItems }, { data: nextFpCode }] = await Promise.all([
+  const [{ data: itemTypes }, { data: rawItems }] = await Promise.all([
     supabase.from("item_types").select("id, description").eq("active", true).order("description"),
     supabase
       .from("items")
@@ -18,11 +18,15 @@ export default async function NewMfrPage() {
       .eq("category", "raw")
       .eq("active", true)
       .order("created_at", { ascending: false }),
-    // Non-consuming preview (0012_peek_next_codes.sql), same pattern as the
-    // Item/Vendor next-code previews — per FB-0010 ("while creating MFR,
-    // next auto generated FP code should be visible").
-    supabase.rpc("peek_next_item_code", { p_category: "processed" }),
   ]);
+  // No more next-FP-code preview here (FB-0010's peek_next_item_code
+  // call, removed): as of 0041_mfr_deferred_approval.sql the Finished
+  // Product item isn't created — and its code isn't assigned — until this
+  // MFR is approved, which may happen long after other MFRs have been
+  // created and approved in between. A code peeked at creation time would
+  // very likely no longer match what's actually assigned by then, so
+  // showing one here would be actively misleading rather than a useful
+  // preview.
 
   return (
     <div>
@@ -32,7 +36,7 @@ export default async function NewMfrPage() {
       />
       <Card>
         <CardBody>
-          <NewMfrForm itemTypes={itemTypes ?? []} rawItems={rawItems ?? []} nextFpCode={nextFpCode ?? "FP-…"} />
+          <NewMfrForm itemTypes={itemTypes ?? []} rawItems={rawItems ?? []} />
         </CardBody>
       </Card>
     </div>

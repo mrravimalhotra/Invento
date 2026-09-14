@@ -569,9 +569,17 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   const { data, error } = await supabase.rpc("bulk_create_mfr_definitions", { p_payload: payload });
   if (error) return { error: error.message };
 
+  // As of 0041_mfr_deferred_approval.sql, bulk-uploaded MFRs land the same
+  // way a manually-created one now does: unapproved, with no Finished
+  // Product / Packaged FP item pair yet — bulk upload never auto-approves,
+  // so each one needs a manual Approve click (on its own /mfr/[id] page)
+  // before it can be used for production. See that migration's header
+  // comment (Ravi, 14 Sept 2026) for the full reasoning.
   revalidatePath("/mfr");
-  revalidatePath("/items");
-  return { success: `Imported ${data?.length ?? payload.length} MFR definition${(data?.length ?? payload.length) === 1 ? "" : "s"}.` };
+  const count = data?.length ?? payload.length;
+  return {
+    success: `Imported ${count} MFR definition${count === 1 ? "" : "s"} — each needs to be approved (on its own MFR page) before it can be used for production.`,
+  };
 }
 
 // ------------------------------------------------------------------
