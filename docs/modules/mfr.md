@@ -231,6 +231,18 @@ query in `finished-product/new/page.tsx` was **not** changed — it should
 keep filtering to active MFRs only, since offering an inactive recipe for
 new production is exactly what deactivating is meant to prevent.
 
+## Code prefix: F- → MFR- (14 Sept 2026)
+
+Ravi: "MFR Record code should start with MFR-0001 so it is more
+explicit." `get_next_mfr_code()` (`0001_init.sql`) generated `F-0001`-style
+codes — a single letter, ambiguous next to every other module's clearer
+prefix (`RM-`/`PKG-`/`FP-`/`V-`/`PO-`/`AR-`/`COA-`/`EQ-`/`DS-`).
+`0042_mfr_code_prefix.sql` changes only the prefix text, same sequence
+(`mfr_code_seq`), same 4-digit padding. Purely cosmetic and forward-only —
+MFRs created before this migration keep their existing `F-####` codes
+(codes are never rewritten retroactively anywhere in this app); only MFRs
+created from now on get `MFR-####`.
+
 ## Files
 
 - `lib/actions/mfr.ts` — `createMfrDefinition`, `updateMfrLines`,
