@@ -47,29 +47,40 @@ export default async function InventoryLedgerPage({
   // 1,000 already-truncated rows client-side can silently miss matches
   // that never made it into that page in the first place.
   //
-  // Ravi (14 Sept 2026): "first entry should be of Purchase(Push) and then
-  // samples should be pulled out in order of Q, Stability & R&D to reflect
-  // correct running balance." Root cause: submit_purchase_order()
-  // (0028_ledger_sample_pull_fix.sql) inserts the push then the three
-  // sample pulls inside one function call, so they all get the exact same
-  // event_at — Postgres's now() is constant for the whole transaction, not
-  // per-statement. This query only ever ordered by event_at, with no
-  // tiebreaker, so SQL leaves the display order of same-instant rows
-  // unspecified — it can (and, per Ravi, did) render a sample pull above
-  // its own purchase push. The view's own running_balance figures were
-  // never wrong (0031_stock_position.sql's window function already orders
-  // by (event_at, seq), which is exactly push-then-qc-then-stability-then-
-  // rnd, matching insertion order) — only this page's *display* order was
-  // missing the same tiebreaker. Adding `seq` ascending as a secondary
-  // sort key makes same-instant rows render in the order they actually
-  // happened, so the numbers and the row order now agree.
+  // Ravi (14 Sept 2026), two rounds. First: "first entry should be of
+  // Purchase(Push) and then samples should be pulled out in order of Q,
+  // Stability & R&D to reflect correct running balance." Root cause:
+  // submit_purchase_order() (0028_ledger_sample_pull_fix.sql) inserts the
+  // push then the three sample pulls inside one function call, so they
+  // all get the exact same event_at — Postgres's now() is constant for
+  // the whole transaction, not per-statement. This query only ever
+  // ordered by event_at, with no tiebreaker, so SQL left the display
+  // order of same-instant rows unspecified. Second round, clarifying the
+  // intent: the page's overall convention is newest-first, and same-
+  // instant rows should follow that same convention — each new event
+  // (Purchase, then QC, then Stability, then R&D, in the real order
+  // submit_purchase_order() writes them) should land at the TOP of its
+  // tied group as it's added, pushing earlier same-instant rows down —
+  // "purchase first, then QC lands on top and purchase slides to 2nd,
+  // then stability lands on top and QC goes 2nd/purchase 3rd, and so
+  // on." That is `seq` DESCENDING (most-recently-written row first),
+  // matching the primary event_at-descending direction, not ascending —
+  // an ascending tiebreak (this file's prior fix) instead read same-
+  // instant rows oldest-first, inconsistent with the rest of the page.
+  // The view's own running_balance figures (0031_stock_position.sql) are
+  // computed with `order by (event_at, seq)` ascending internally, which
+  // is correct and untouched by this — that's the math (push happens
+  // before its pulls, so the balance must add before it subtracts), not
+  // the display order, and the two are allowed to differ: seq DESC here
+  // only changes which row of a tied group is drawn first, never what
+  // running_balance value is stored on any row.
   let query = supabase
     .from("inventory_ledger_with_balance")
     .select(
       "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, running_balance, items(name, item_code), purchase_lines(batch_number)"
     )
     .order("event_at", { ascending: false })
-    .order("seq", { ascending: true })
+    .order("seq", { ascending: false })
     .limit(LEDGER_LIMIT);
   if (itemId) query = query.eq("item_id", itemId);
   if (referenceType) query = query.eq("reference_type", referenceType);

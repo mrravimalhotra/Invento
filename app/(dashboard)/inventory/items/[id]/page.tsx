@@ -179,12 +179,15 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
   // Embedded ledger for this item — same inventory_ledger_with_balance
   // view + enrichLedgerRows helper the Ledger tab uses, filtered to this
   // item and capped like every other unbounded ledger query in this app.
-  // Secondary `seq` sort (14 Sept 2026) matches the same fix on the Ledger
-  // tab's own query — see that page for the full root-cause writeup: a
+  // Secondary `seq` sort (14 Sept 2026, descending — see the Ledger tab's
+  // own query for the full writeup) matches the same fix there: a
   // Purchase push and its QC/Stability/R&D sample pulls all share one
   // event_at (submit_purchase_order() writes them in the same
-  // transaction), so without this tiebreaker their display order was
-  // unspecified and could show a sample pull above its own purchase push.
+  // transaction), so without a tiebreaker their display order was
+  // unspecified. Descending (not ascending) keeps same-instant rows
+  // consistent with the page's overall newest-first convention — the
+  // most-recently-written row of a tied group (R&D, written last) shows
+  // first, then Stability, then QC, then Purchase.
   const { data: ledgerData } = await supabase
     .from("inventory_ledger_with_balance")
     .select(
@@ -192,7 +195,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
     )
     .eq("item_id", id)
     .order("event_at", { ascending: false })
-    .order("seq", { ascending: true })
+    .order("seq", { ascending: false })
     .limit(ITEM_LEDGER_LIMIT)
     .returns<RawLedgerRow[]>();
 
