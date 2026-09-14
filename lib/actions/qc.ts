@@ -105,6 +105,15 @@ export async function reviewQualityCheck(
   if (retestPeriodRaw && (retestPeriodDays === null || !Number.isFinite(retestPeriodDays) || retestPeriodDays <= 0)) {
     return { error: "Retest period must be a positive whole number of days." };
   }
+  // Ravi (14 Sept 2026): "make retest period entry mandatory." Scoped via
+  // AskUserQuestion to apply only when the batch is being Approved — a
+  // Rejected batch is never retested, so forcing a number in there would
+  // just be noise, not a real requirement. Re-checked server-side (not
+  // just the form's `required` attribute) since this is the actual
+  // backstop against a hand-crafted request.
+  if (status === "approved" && !retestPeriodRaw) {
+    return { error: "Retest period (days) is required to approve a batch." };
+  }
 
   const supabase = await createClient();
 
