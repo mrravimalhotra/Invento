@@ -77,7 +77,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
     <div>
       <PageHeader
         title={`${def.code} · ${def.name}`}
-        description={`Version ${def.version} · ${finishedProduct ? finishedProduct.item_code : `No Finished Product item — ${noItemReason}`}`}
+        description={finishedProduct ? finishedProduct.item_code : `No Finished Product item — ${noItemReason}`}
         action={<LinkButton href={`/mfr/${id}/report`}>Print MFR</LinkButton>}
       />
 
@@ -148,7 +148,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
         </Card>
 
         <Card>
-          <CardHeader title={`Recipe · version ${def.version}`} />
+          <CardHeader title="Recipe" />
           <CardBody className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -163,7 +163,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
                   {lineRows.length === 0 && (
                     <tr>
                       <td colSpan={3} className="px-4 py-10 text-center text-muted">
-                        No recipe lines on this version.
+                        No recipe lines yet.
                       </td>
                     </tr>
                   )}
@@ -179,20 +179,25 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
                 </tbody>
               </table>
             </div>
-            {canEdit && (
+            {/* Ravi (14 Sept 2026): "for now MFR edit option should only
+                available before approval. Post approval edit should be
+                not allowed." Once approved, the recipe is locked — no
+                edit panel, just an explanation of why and what to do
+                instead, same pattern as deleteMfrDefinition()'s FK-
+                violation message pointing at Deactivate. */}
+            {canEdit && !def.approved_by && (
               <div className="border-t border-border p-4">
-                <EditRecipeForm mfrId={id} currentVersion={def.version} rawItems={rawItems ?? []} initialLines={initialLines} />
+                <EditRecipeForm mfrId={id} rawItems={rawItems ?? []} initialLines={initialLines} />
               </div>
+            )}
+            {canEdit && def.approved_by && (
+              <p className="border-t border-border p-4 text-xs text-muted">
+                This recipe is locked — approved MFRs can&apos;t be edited. Deactivate this MFR and create a new one
+                if the recipe needs to change.
+              </p>
             )}
           </CardBody>
         </Card>
-
-        {def.version > 1 && (
-          <p className="text-xs text-muted">
-            Versions 1–{def.version - 1} of this recipe are retained in the database for history but are not yet
-            browsable from this screen (known follow-up — see docs/modules/mfr.md).
-          </p>
-        )}
       </div>
     </div>
   );

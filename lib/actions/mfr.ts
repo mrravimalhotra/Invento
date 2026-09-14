@@ -96,11 +96,28 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   redirect(`/mfr/${def.id}`);
 }
 
-// Gap fix (DESIGN.md §4.7/§7.4): editing recipe lines never overwrites mfr_lines in
-// place. It increments mfr_definitions.version and inserts a fresh set of mfr_lines
-// tagged with that version — old versions stay in the table for history. Since the
-// recipe changed, any prior approval no longer describes what's on file, so approval
-// is cleared and must be re-granted against the new version.
+// Ravi (14 Sept 2026): "before MFR is approved there should be option to
+// edit recipe 1. Currently An MFR should only have one approved recipe.
+// We will add recipe versioning if required but right now lets not have
+// this as standard feature" — then, via AskUserQuestion: "for now MFR
+// edit option should only available before approval. Post approval edit
+// should be not allowed. We will revisit if required."
+//
+// This used to increment mfr_definitions.version and insert a fresh set
+// of mfr_lines tagged with that version, keeping old versions in the
+// table for history, and clearing any existing approval so it had to be
+// re-granted (DESIGN.md §4.7/§7.4). All of that is gone now: there's just
+// one current recipe per MFR, edited in place, and editing an
+// already-approved MFR is refused outright — not "allowed, but clears the
+// approval," just not offered at all (see the detail page) and rejected
+// server-side if attempted directly. See update_mfr_recipe()
+// (0043_mfr_recipe_edit_lock.sql) for the atomic in-place replace + the
+// "not approved" guard, both enforced there as one real transaction (a
+// `for update` lock, then delete-and-reinsert mfr_lines, so a failed
+// insert can never leave the recipe empty the way the old best-effort-
+// revert version could in theory). The `version` columns on
+// mfr_definitions/mfr_lines are left in the schema, always 1 going
+// forward, in case real versioning is wanted later.
 export async function updateMfrLines(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const linesOrError = parseLines(formData);
   if ("error" in linesOrError) return linesOrError;
@@ -110,58 +127,11 @@ export async function updateMfrLines(id: string, _prev: ActionState, formData: F
   if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
 
   const supabase = await createClient();
-  const { data: def, error: defError } = await supabase
-    .from("mfr_definitions")
-    .select("version")
-    .eq("id", id)
-    .single();
-  if (defError || !def) return { error: defError?.message || "MFR definition not found." };
-
-  const newVersion = def.version + 1;
-
-  // Optimistic lock, and deliberately done *before* inserting any lines:
-  // only bump the header if version is still what we just read. Two
-  // concurrent edits both reading version=1 would otherwise both insert
-  // lines tagged version=2 and both "succeed," silently interleaving two
-  // different recipes under one version number. Checking first means a
-  // losing writer's lines are never inserted at all, instead of left behind
-  // as an orphaned half-write next to the winner's.
-  const { data: updated, error: updateError } = await supabase
-    .from("mfr_definitions")
-    .update({ version: newVersion, approved_by: null, approved_at: null })
-    .eq("id", id)
-    .eq("version", def.version)
-    .select("id");
-  if (updateError) return { error: updateError.message };
-  if (!updated || updated.length === 0) {
-    return {
-      error:
-        "This recipe was edited by someone else while you were working on it. Please reopen this MFR to see the current recipe, then re-apply your changes.",
-    };
-  }
-
-  const { error: linesError } = await supabase.from("mfr_lines").insert(
-    lines.map((l) => ({
-      mfr_definition_id: id,
-      version: newVersion,
-      item_id: l.itemId,
-      quantity: l.quantity,
-      unit: l.unit,
-    }))
-  );
-  if (linesError) {
-    // We already bumped the header to newVersion, but the lines that should
-    // back it failed to insert — revert the header rather than leaving
-    // mfr_definitions.version pointing at a version with zero mfr_lines
-    // rows (the detail page would render an empty recipe with no
-    // indication anything went wrong).
-    await supabase
-      .from("mfr_definitions")
-      .update({ version: def.version })
-      .eq("id", id)
-      .eq("version", newVersion);
-    return { error: linesError.message };
-  }
+  const { error } = await supabase.rpc("update_mfr_recipe", {
+    p_id: id,
+    p_lines: lines.map((l) => ({ item_id: l.itemId, quantity: l.quantity, unit: l.unit })),
+  });
+  if (error) return { error: error.message };
 
   revalidatePath(`/mfr/${id}`);
   revalidatePath("/mfr");
@@ -232,13 +202,21 @@ export async function setMfrActive(id: string, active: boolean, _prev: ActionSta
 // and 0041_mfr_deferred_approval.sql for the full reasoning (Ravi, 14
 // Sept 2026: "...should only get created once MFR is approved otherwise
 // there is no point of creating these"). The whole thing — the "already
-// approved" guard, the item pair creation (first approval only; an edited
-// recipe's re-approval reuses the pair already on file, never creates a
-// second one), and setting approved_by/approved_at — runs as one
-// transaction inside approve_mfr_definition(), replacing the old
-// select-then-conditional-update optimistic lock with a real `for update`
-// row lock (same concurrent-double-click protection, enforced by Postgres
-// itself now instead of a second round trip from the app).
+// approved" guard, the item pair creation, and setting
+// approved_by/approved_at — runs as one transaction inside
+// approve_mfr_definition(), replacing the old select-then-conditional-
+// update optimistic lock with a real `for update` row lock (same
+// concurrent-double-click protection, enforced by Postgres itself now
+// instead of a second round trip from the app).
+//
+// approve_mfr_definition()'s "reuse the item pair on a later re-approval"
+// branch is now effectively unreachable in normal use — as of
+// 0043_mfr_recipe_edit_lock.sql, a recipe can no longer be edited once
+// approved at all, so there's no path back to an unapproved state for an
+// MFR that already has items. Left in place rather than removed: it's
+// still correct (harmless if ever reached — e.g. if approval is cleared
+// some other way in the future) and is exactly the safety net real
+// versioning, if it comes back later, would need again.
 export async function approveMfrDefinition(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in." };

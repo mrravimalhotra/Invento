@@ -22,7 +22,7 @@ export default async function MfrListPage() {
     <div>
       <PageHeader
         title="Master Formula Record (MFR)"
-        description="Approved recipes for finished products — versioned so a past edit never silently overwrites the record on file."
+        description="Recipes for finished products — editable only before approval; once approved, a recipe is locked."
         action={canCreate ? <LinkButton href="/mfr/new">New MFR</LinkButton> : undefined}
       />
       <Card>

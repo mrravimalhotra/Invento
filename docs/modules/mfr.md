@@ -27,10 +27,12 @@ mirrors the RLS policies `mfr_def_write` / `mfr_lines_write` in
   here** — see "MFR ↔ Finished Product item link" below for where that
   moved to and why.
 - **Detail** — `/mfr/[id]`. Header (read-only, including a **Finished
-  product** row linking to the item), current-version recipe table, an
-  **Approve** action (sets `approved_by`/`approved_at`; hidden once approved
-  — shown read-only instead), and an **Edit recipe** panel (same line editor
-  as New) that saves as a new version rather than overwriting.
+  product** row linking to the item), the recipe table, an **Approve**
+  action (sets `approved_by`/`approved_at`; hidden once approved — shown
+  read-only instead), and, only while unapproved, an **Edit recipe** panel
+  (same line editor as New) that replaces the recipe in place. Once
+  approved, the panel is replaced by a note explaining the recipe is
+  locked — see "Versioning" below, 14 Sept 2026 update.
 - **Report** — `/mfr/[id]/report`. On-screen print preview (letterhead +
   recipe table + `SignatureBlock`'s Prepared/Checked/Approved) and a
   **Download PDF** button that renders the same content via `lib/pdf.ts`'s
@@ -38,30 +40,52 @@ mirrors the RLS policies `mfr_def_write` / `mfr_lines_write` in
   block (jsPDF has no React component to reuse, so the PDF version reproduces
   `SignatureBlock`'s layout directly with `doc.line()`/`doc.text()`).
 
-## Versioning — the gap fix
+## Versioning — built, then turned off (14 Sept 2026)
 
-`mfr_definitions.version` starts at 1. **Editing recipe lines never updates
-`mfr_lines` in place.** `updateMfrLines` (in `lib/actions/mfr.ts`):
+`mfr_definitions.version`/`mfr_lines.version` started at 1, with editing
+designed to never update `mfr_lines` in place: `updateMfrLines` used to read
+the current version, insert a fresh set of `mfr_lines` tagged
+`version = current + 1`, bump `mfr_definitions.version` to match, and clear
+`approved_by`/`approved_at` back to null (since the recipe just changed, a
+signature against the old recipe no longer described what was on file). Old
+version rows were kept in the table for history, never deleted or
+overwritten, though there was never a UI to browse them (a known,
+unaddressed follow-up).
 
-1. Reads the definition's current `version`.
-2. Inserts a fresh set of `mfr_lines` tagged `version = current + 1`.
-3. Updates `mfr_definitions.version` to that new number, **and clears
-   `approved_by`/`approved_at` back to null** — a decision beyond the literal
-   brief: since the recipe just changed, a signature against the old recipe
-   no longer describes what's on file, so re-approval is required. This is
-   plain application logic (no schema change), consistent with "no material
-   moves without quality clearance" applied to the record itself, not just
-   to stock.
+**Ravi (14 Sept 2026), on the deferred-approval MFR flow
+(`0041_mfr_deferred_approval.sql`) exposing a rough edge in this:** "before
+MFR is approved there should be option to edit recipe 1. Currently An MFR
+should only have one approved recipe. We will add recipe versioning if
+required but right now lets not have this as standard feature." — then, via
+AskUserQuestion: "for now MFR edit option should only available before
+approval. Post approval edit should be not allowed. We will revisit if
+required."
 
-The detail screen and the report both query `mfr_lines` filtered to
-`version = mfr_definitions.version`, so only the current recipe is ever
-shown. Old version rows are never deleted or overwritten — they stay in the
-table for history.
+So, as of `0043_mfr_recipe_edit_lock.sql`:
 
-**Known follow-up (not built this pass):** there is no UI to browse old
-versions. The data is safe (nothing is destroyed), but a past version can
-currently only be inspected via direct SQL. A `/mfr/[id]/versions/[v]` route
-reusing the same recipe-table markup would be the natural addition.
+- There is just **one current recipe per MFR**. Editing it — via
+  `update_mfr_recipe()`, a `security definer` RPC that runs the whole thing
+  as one transaction (a `for update` row lock, then delete-and-reinsert
+  `mfr_lines`) — replaces it in place. `mfr_definitions.version` stays `1`
+  forever; no history is kept.
+- Editing is **only available before approval**. Once `approved_by` is set,
+  `update_mfr_recipe()` refuses outright ("This MFR is already approved —
+  the recipe can no longer be edited. Deactivate it and create a new MFR if
+  the recipe needs to change.") — not "allowed, but clears the approval"
+  like before, just not offered at all: the detail page's Edit panel is
+  hidden once approved (`canEdit && !def.approved_by`) and shows that same
+  explanation as plain text instead.
+- The `version` columns on both tables are **left in the schema**, unused
+  beyond always being `1` — Ravi's own words, "we will add recipe
+  versioning if required" — so real version history can be turned back on
+  later (this doc's previous "Known follow-up" — a versions-browsing UI —
+  would be the natural place to pick that back up) without another
+  migration to re-add the columns.
+
+The detail screen and the report still query `mfr_lines` filtered to
+`version = mfr_definitions.version` (i.e., always `1` now) — harmless,
+since that's the only version that will ever exist for an MFR created or
+edited after this change.
 
 ## MFR ↔ Finished Product item link
 
@@ -103,11 +127,13 @@ Now:
   `.delete()`-rollback pattern this action used to use, the same real-
   transaction pattern `bulk_create_mfr_definitions()` already proved out
   (see `docs/modules/bulk-upload.md`).
-- Re-approving an MFR whose recipe was edited (`updateMfrLines()` clears
-  `approved_by`/`approved_at` back to null on every edit — see Versioning
-  above) does **not** create a second item pair: `approve_mfr_definition()`
-  only creates items the first time `finished_product_item_id` is still
-  null; every later (re-)approval reuses the pair already on file.
+- `approve_mfr_definition()`'s "only create items the first time
+  `finished_product_item_id` is still null, reuse the pair on any later
+  (re-)approval" logic is kept, but as of `0043_mfr_recipe_edit_lock.sql`
+  it's effectively unreachable in normal use — a recipe can no longer be
+  edited once approved at all (see Versioning above), so there's no path
+  back to an unapproved state for an MFR that already has items. Left in
+  place as a safety net rather than removed.
 - The submitted Item Type has nowhere to live until an item exists to put
   it on — rather than add a new staging column, this repurposes
   `mfr_definitions.item_type_id` (present since `0001_init.sql`, marked
@@ -249,10 +275,11 @@ created from now on get `MFR-####`.
   `approveMfrDefinition`, `setMfrActive` (each re-checks
   `canWrite(user.roles, "mfr")` server-side), `deleteMfrDefinition` (checks
   `system_admin` directly, same as the other three master-data deletes).
-  `createMfrDefinition`/`approveMfrDefinition` are now thin wrappers around
-  the `create_mfr_definition()`/`approve_mfr_definition()` RPCs
-  (`0041_mfr_deferred_approval.sql`) — see "When the item is actually
-  created" above.
+  `createMfrDefinition`/`approveMfrDefinition`/`updateMfrLines` are now thin
+  wrappers around the `create_mfr_definition()`/`approve_mfr_definition()`/
+  `update_mfr_recipe()` RPCs (`0041_mfr_deferred_approval.sql` /
+  `0043_mfr_recipe_edit_lock.sql`) — see "When the item is actually
+  created" and "Versioning" above.
 - `app/(dashboard)/mfr/[id]/delete-mfr-form.tsx` — two-step-confirm Delete UI.
 - `app/(dashboard)/mfr/[id]/toggle-active-form.tsx` — one-click
   Deactivate/Reactivate UI.
@@ -270,8 +297,9 @@ created from now on get `MFR-####`.
 - No screen to edit header fields (name/item type/batch size) after
   creation — the brief only asked for header display + Approve + recipe
   editing on the detail screen, so that's what's built. If header edits
-  turn out to be needed, they can reuse the same `useActionState` pattern
-  without touching versioning.
+  turn out to be needed, they can reuse the same `useActionState` pattern;
+  worth deciding at that point whether they should be locked post-approval
+  too, same as recipe edits now are.
 - "Approved by" resolves the approver's display name via a second query to
   `public.profiles` (keyed by `mfr_definitions.approved_by`), since
   `approved_by` references `auth.users` directly and PostgREST can't embed
@@ -288,16 +316,18 @@ From a full-app audit (`claude/known-issues.md`) plus a tester ticket:
   the same day. Now says "Deactivate it instead," matching Item Master's
   equivalent message.
 - **Concurrency guards, app-level (no schema change).** `updateMfrLines()`
-  now does its `mfr_definitions.version` bump as an optimistic-locked
+  used to do its `mfr_definitions.version` bump as an optimistic-locked
   update (`.eq("version", <version just read>)`) *before* inserting the new
-  `mfr_lines`, not after — a losing concurrent editor now gets a clear "was
+  `mfr_lines`, not after — a losing concurrent editor got a clear "was
   edited by someone else" error with none of its lines inserted, instead of
-  two edits silently interleaving under the same version number. If the
-  lines insert itself then fails, the version bump is rolled back rather
-  than left pointing at a version with zero lines. `approveMfrDefinition()`
-  similarly requires `approved_by is null` in the update's own `where`
-  clause, so a second concurrent Approve click now loses cleanly instead of
-  silently overwriting the first approver's identity.
+  two edits silently interleaving under the same version number.
+  **Superseded 14 Sept 2026** (see Versioning above): `update_mfr_recipe()`
+  now takes a real `for update` row lock instead, giving the same
+  no-interleaving guarantee without a version number to optimistically
+  lock against. `approveMfrDefinition()` similarly used to require
+  `approved_by is null` in its update's own `where` clause; `0041`
+  replaced that with the same kind of real row lock, in
+  `approve_mfr_definition()`.
 - **FB-0010** ("while creating MFR, next auto generated FP code should be
   visible"): `/mfr/new` now shows a read-only "Finished Product item code"
   preview via `peek_next_item_code('processed')` — same non-consuming
