@@ -69,7 +69,7 @@ upload parser — the two sides can't drift apart.
 | Item Type Master | Description | — |
 | MFR | MFR Name, Batch Size Qty, Batch Size Unit, Line Item Code, Line Quantity, Line Unit | Item Type |
 | Purchase | Vendor Code, Invoice Number, Invoice Date, Purchase Type (`Raw Material` / `Packaging Item`), Item Code, Quantity, Unit | QC Qty, Stability Qty, R&D Qty, Sample Unit, Unit Price, GST % |
-| Instrument / Equipment Master | Name | Room No, Section, Legacy Asset ID, Quantity, Calibration Status, Last/Next Calibration date |
+| Instrument / Equipment Master | Name | Room No, Section, Asset ID, Quantity, Calibration Status, Last/Next Calibration date |
 | Dead Stock Register | Name of Article | Date of Purchase, Quantity, Purchase Price, Depreciation %, Resolution Date, Rejected Qty/Value, Balance Qty/Value, Remark |
 
 MFR and Purchase share the same flat-file wrinkle: one row is one

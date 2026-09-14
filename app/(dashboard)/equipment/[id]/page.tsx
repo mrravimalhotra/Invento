@@ -14,7 +14,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
   const { data: equipment } = await supabase
     .from("equipment")
     .select(
-      "id, equipment_code, name, room_no, section, legacy_asset_id, quantity, calibration_status, last_calibration_date, next_calibration_due, active"
+      "id, equipment_code, name, room_no, section, asset_id, quantity, calibration_status, last_calibration_date, next_calibration_due, active"
     )
     .eq("id", id)
     .maybeSingle();
@@ -46,7 +46,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted">Asset ID</dt>
-                <dd>{equipment.legacy_asset_id ?? "—"}</dd>
+                <dd>{equipment.asset_id ?? "—"}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted">Quantity</dt>

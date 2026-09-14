@@ -18,7 +18,7 @@ export default async function EquipmentPage({
   const [{ data, error }, nextEquipmentCode] = await Promise.all([
     supabase
       .from("equipment")
-      .select("id, equipment_code, name, room_no, section, legacy_asset_id, quantity, calibration_status")
+      .select("id, equipment_code, name, room_no, section, asset_id, quantity, calibration_status")
       .eq("active", true)
       .order("room_no")
       .order("equipment_code"),

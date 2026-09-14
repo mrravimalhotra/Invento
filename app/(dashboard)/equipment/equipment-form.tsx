@@ -12,7 +12,7 @@ type Equipment = {
   name: string;
   room_no: string | null;
   section: string | null;
-  legacy_asset_id: string | null;
+  asset_id: string | null;
   quantity: number;
   calibration_status: string | null;
   last_calibration_date: string | null;
@@ -45,8 +45,8 @@ export function NewEquipmentForm({ nextEquipmentCode }: { nextEquipmentCode: str
           <Input id="section" name="section" />
         </Field>
       </div>
-      <Field label="Asset ID" htmlFor="legacy_asset_id" hint="The existing printed/engraved ID tag, if any.">
-        <Input id="legacy_asset_id" name="legacy_asset_id" />
+      <Field label="Asset ID" htmlFor="asset_id" hint="The existing printed/engraved ID tag, if any.">
+        <Input id="asset_id" name="asset_id" />
       </Field>
       <Field label="Quantity" htmlFor="quantity">
         <Input id="quantity" name="quantity" type="number" step="1" min="1" defaultValue={1} />
@@ -96,8 +96,8 @@ export function EditEquipmentForm({ equipment }: { equipment: Equipment }) {
           <Input id="section" name="section" defaultValue={equipment.section ?? ""} />
         </Field>
       </div>
-      <Field label="Asset ID" htmlFor="legacy_asset_id">
-        <Input id="legacy_asset_id" name="legacy_asset_id" defaultValue={equipment.legacy_asset_id ?? ""} />
+      <Field label="Asset ID" htmlFor="asset_id">
+        <Input id="asset_id" name="asset_id" defaultValue={equipment.asset_id ?? ""} />
       </Field>
       <Field label="Quantity" htmlFor="quantity">
         <Input

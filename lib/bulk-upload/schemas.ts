@@ -130,7 +130,7 @@ export const EQUIPMENT_COLUMNS: ColumnDef[] = [
   { header: "Name", required: true },
   { header: "Room No", required: false },
   { header: "Section", required: false },
-  { header: "Legacy Asset ID", required: false },
+  { header: "Asset ID", required: false, hint: "the existing printed/engraved ID tag, if any — holds both legacy and newly assigned IDs" },
   { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank", numeric: true },
   { header: "Calibration Status", required: false, hint: "Calibrated, Due, or Not Applicable — leave blank if unknown" },
   { header: "Last Calibration Date", required: false },

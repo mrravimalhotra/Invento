@@ -858,7 +858,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     name: string;
     room_no: string | null;
     section: string | null;
-    legacy_asset_id: string | null;
+    asset_id: string | null;
     quantity: number;
     calibration_status: string | null;
     last_calibration_date: string | null;
@@ -874,7 +874,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     const name = cell(row, headers, EQUIPMENT_COLUMNS[0]);
     const room_no = cell(row, headers, EQUIPMENT_COLUMNS[1]) || null;
     const section = cell(row, headers, EQUIPMENT_COLUMNS[2]) || null;
-    const legacy_asset_id = cell(row, headers, EQUIPMENT_COLUMNS[3]) || null;
+    const asset_id = cell(row, headers, EQUIPMENT_COLUMNS[3]) || null;
     const quantityRaw = cell(row, headers, EQUIPMENT_COLUMNS[4]);
     const calibRaw = cell(row, headers, EQUIPMENT_COLUMNS[5]);
     const lastCalibRaw = cell(row, headers, EQUIPMENT_COLUMNS[6]);
@@ -922,7 +922,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     const next_calibration_due = parseOptionalDate(nextCalibRaw, "Next Calibration Due", r, rowErrors);
     if (next_calibration_due === undefined) return;
 
-    parsed.push({ name, room_no, section, legacy_asset_id, quantity, calibration_status, last_calibration_date, next_calibration_due });
+    parsed.push({ name, room_no, section, asset_id, quantity, calibration_status, last_calibration_date, next_calibration_due });
   });
 
   if (rowErrors.length > 0) {
@@ -942,7 +942,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
       name: p.name,
       room_no: p.room_no,
       section: p.section,
-      legacy_asset_id: p.legacy_asset_id,
+      asset_id: p.asset_id,
       quantity: p.quantity,
       calibration_status: p.calibration_status,
       last_calibration_date: p.last_calibration_date,

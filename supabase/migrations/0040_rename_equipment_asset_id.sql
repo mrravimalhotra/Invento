@@ -1,0 +1,29 @@
+-- ============================================================
+-- Rename equipment.legacy_asset_id to asset_id.
+--
+-- Ravi (14 Sept 2026): "in the instrument template why do we have 'Legacy
+-- Asset ID' - this needs to be renamed everywhere 'Asset ID' as this will
+-- be used to hold both legacy and new records. Change in all areas
+-- screen, internal codes and database tables alike."
+--
+-- Ravi's initial note said the table was currently blank so this would be
+-- a no-impact rename — checked directly against the live data and that
+-- wasn't the case (screenshot showed real values: "ANHC/QC/02/205(B1)",
+-- "BSDT/RM/02/150K/037", etc.), matching what docs/modules/equipment.md
+-- already recorded: 274 of the 304 seeded rows carry a real
+-- legacy_asset_id value. Flagged back to Ravi before proceeding — not
+-- that it changes anything here, since a plain column RENAME (not a
+-- drop/recreate) preserves every existing value byte-for-byte under the
+-- new name; there was never a risk of data loss either way.
+--
+-- The app-facing UI already displayed "Asset ID" everywhere (the equipment
+-- list column header, the new/edit form's field label, the read-only
+-- detail view) — only the underlying DB column name, the Zod/Server
+-- Action field names, and the bulk-upload template's actual column header
+-- said "Legacy Asset ID". This migration is the DB half of the rename;
+-- see lib/actions/equipment.ts, lib/actions/bulk-upload.ts,
+-- lib/bulk-upload/schemas.ts, equipment-table.tsx, equipment-form.tsx,
+-- and [id]/page.tsx for the code half (same commit).
+-- ============================================================
+
+alter table public.equipment rename column legacy_asset_id to asset_id;

@@ -9,7 +9,7 @@ export type EquipmentRow = {
   name: string;
   room_no: string | null;
   section: string | null;
-  legacy_asset_id: string | null;
+  asset_id: string | null;
   quantity: number;
   calibration_status: string | null;
 };
@@ -40,8 +40,8 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
     { header: "Section", accessor: (r) => r.section ?? "—", searchValue: (r) => r.section ?? "" },
     {
       header: "Asset ID",
-      accessor: (r) => (r.legacy_asset_id ? <span className="font-mono text-xs">{r.legacy_asset_id}</span> : "—"),
-      searchValue: (r) => r.legacy_asset_id ?? "",
+      accessor: (r) => (r.asset_id ? <span className="font-mono text-xs">{r.asset_id}</span> : "—"),
+      searchValue: (r) => r.asset_id ?? "",
     },
     { header: "Qty", accessor: (r) => r.quantity },
     {
