@@ -26,11 +26,13 @@ Write (`finished_product` in `MODULE_WRITE_ROLES`): `system_admin`,
   Server Component: loads the MFR's recipe lines *at the version locked in
   step 1*, scales each line's quantity by `target_qty / batch_size_qty`, and
   for each ingredient queries candidate RM batches (see FIFO section below).
-  Renders one row per ingredient with the computed quantity and a batch
-  picker **pre-selected to the FIFO candidate**, overridable. Submitting
-  calls `createFinishedProductBatch`, which inserts the
+  Renders one row per ingredient with the computed quantity and, as of
+  14 Sept 2026, an **automatic multi-batch FIFO breakdown** (see "Automatic
+  multi-batch FIFO allocation" below) rather than a single overridable
+  picker. Submitting calls `createFinishedProductBatch`, which inserts the
   `finished_product_batches` header (status `in_process`) and then all
-  `finished_product_components` rows in a single bulk insert.
+  `finished_product_components` rows — now possibly several per
+  ingredient, one per batch drawn from — in a single bulk insert.
 - **Detail** — `/finished-product/[id]`. Header, composition table (item,
   RM batch consumed, expiry, quantity), the linked QC record if one exists,
   a **Complete batch** form (yield/wastage fields, shown while
@@ -43,10 +45,12 @@ directly against the named views rather than PostgREST FK-embedding
 (`purchase_batch_status` is a view with no FK for PostgREST to auto-detect):
 for the ingredient's `item_id`, fetch its `purchase_lines`, cross-reference
 `purchase_batch_status.qc_status = 'approved'`, and require
-`stock_balance.on_hand > 0` for that item — then sort by `created_at asc`
-and pre-select the first result. The user can still pick a different
-batch from the dropdown; the default is no longer the old baseline's
-unordered list.
+`stock_balance.on_hand > 0` for that item — then sort by `created_at asc`.
+As of 14 Sept 2026 the full sorted list feeds an automatic FIFO cascade
+(see "Automatic multi-batch FIFO allocation" below) rather than defaulting
+just the first result into an overridable picker — the default is no
+longer the old baseline's unordered list, and there is no longer a manual
+override.
 
 **Sort key changed 3 Sept 2026** from `expiry_date asc, created_at asc`
 to `created_at asc` alone: `purchase_lines.expiry_date` ("Re-Test Date"
@@ -57,9 +61,9 @@ batch received going forward has `expiry_date = null`, and the old sort
 undated batch *first*, inverting FIFO into "always pick the newest
 batch." Sorting by `created_at` alone is also the more literally correct
 definition of FIFO regardless (first *in*, not soonest-to-expire) — this
-isn't a workaround, it's the fix. The candidate dropdown still displays
-each batch's `re-test <date>` (`compose-form.tsx`) when one exists on
-file; it just no longer drives the default selection.
+isn't a workaround, it's the fix. Each batch drawn into the allocation
+breakdown still displays its `re-test <date>` (`compose-form.tsx`) when one
+exists on file; it just no longer drives the default selection.
 
 One inherited simplification, faithful to the design spec as written:
 `stock_balance.on_hand` is per **item**, not per batch, so a specific batch
@@ -340,16 +344,13 @@ longer collected.)
 
 ## Searchable, legacy-aware pickers (1 Sept 2026)
 
-`step1-form.tsx`'s MFR select and `compose-form.tsx`'s per-line RM batch
-selects are searchable comboboxes app-wide now (DESIGN.md §8), both marked
-`data-legacy` (from `mfr_definitions.code` and each candidate's
-`batch_number` respectively — both already selected, no query changes).
-The RM batch selects are FIFO-defaulted to the oldest QC-approved
-candidate; if that default happens to be a legacy batch and "Hide legacy
-data" is on, the picker still shows it as the current selection (the
-filter only hides legacy rows from the *open* dropdown list, never a
-value already chosen) — it just won't be offered again if the line is
-re-picked.
+`step1-form.tsx`'s MFR select is a searchable combobox app-wide now
+(DESIGN.md §8), marked `data-legacy` (from `mfr_definitions.code`, already
+selected, no query changes). `compose-form.tsx`'s per-line RM batch
+picker was the same kind of combobox until 14 Sept 2026, when it was
+replaced with the automatic multi-batch FIFO allocation described below —
+see that section for why `data-legacy` marking no longer applies there
+(there's no longer a dropdown to mark options in).
 
 ## Retest-due batches now blocked from composition (3 Sept 2026)
 
@@ -379,6 +380,53 @@ specific constraint violation into a plain-language form error ("Not
 enough of that batch remaining — refresh and pick another batch or a
 smaller quantity"), the same pattern already used for the QC-Approved
 gate error just above it in the code.
+
+## Automatic multi-batch FIFO allocation (14 Sept 2026)
+
+Ravi: "while creating a finished product batch, it should automatically
+show how much quantity will be taken from which batch." Before this,
+`getCandidateBatches()` already fetched every QC-Approved, non-retest-due,
+`live_remaining_qty > 0` batch for an ingredient — sorted oldest-first —
+but the compose step only ever let a person pick ONE of them from a
+dropdown, pre-selected to the oldest (FIFO). Whenever the quantity needed
+exceeded what that single batch had left, there was no way to express
+"take the rest from the next batch" — the screen just silently offered a
+batch that couldn't cover the line, and the only way to make it work was
+to look up and hand-split the amount across separate finished-product
+batches entirely.
+
+`allocateFifo()` (`compose/page.tsx`) now walks the same sorted candidate
+list and greedily draws from each batch in turn — oldest first — until the
+ingredient's scaled quantity is covered or every candidate is exhausted.
+`compose-form.tsx` renders the resulting breakdown per ingredient (e.g.
+"RM-01/26 · 21.8 ltr, RM-02/26 · 25.0 ltr, RM-03/26 · 13.2 ltr") instead of
+a picker, and flattens it into one `finished_product_components` row per
+batch actually drawn from when the form submits.
+
+Scoped with Ravi via `AskUserQuestion` before building, two decisions:
+
+- The allocation is **fully automatic and not hand-editable** — no
+  per-batch override, matching "automatically show" literally rather than
+  reintroducing the old picker per row.
+- If the total available across *every* QC-Approved batch for an
+  ingredient is still short of what's needed, submission is **blocked
+  entirely** (the row shows "Short by X <unit> — no further QC-Approved
+  stock", and the Create batch button is disabled) rather than creating an
+  under-supplied batch — the same all-or-nothing posture the old
+  "No QC-Approved batch available" block already had for the
+  zero-candidate case, just extended to the "some stock, not enough" case.
+
+No migration: `finished_product_components` (`0001_init.sql`) never had a
+uniqueness constraint tying one row per `(finished_product_batch_id,
+item_id)`, so multiple rows for the same ingredient against different
+`purchase_line_id` values already worked — each independently re-checked
+by `trg_fp_component_qc_gate` and decremented by
+`trg_fp_component_live_remaining_pull`
+(`0029_purchase_line_live_remaining_qty.sql`). `createFinishedProductBatch`
+/ `parseComponents` (`lib/actions/finished-product.ts`) were not changed
+either — they already read an arbitrary-length, index-based list of
+`(item_id, quantity, purchase_line_id)` triples with no assumption that
+`item_id` is unique across them.
 
 ## Inventory Ledger redesign, Phase 3: FP stock becomes a real, ledger-tracked item at QC approval (3 Sept 2026)
 

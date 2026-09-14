@@ -3,14 +3,16 @@
 import { useActionState } from "react";
 import { createFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
 import { Button, LinkButton } from "@/components/ui/button";
-import { Select } from "@/components/ui/form";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
 
-export type ComposeCandidate = {
+// One batch actually drawn from as part of an ingredient's automatic FIFO
+// allocation (see allocateFifo() in page.tsx) — `qty` is how much of THIS
+// batch is being taken, not how much the batch has left.
+export type Allocation = {
   purchaseLineId: string;
   batchNumber: string;
   expiryDate: string | null;
-  remainingQty: string | number;
+  qty: number;
 };
 
 export type ComposeLine = {
@@ -18,7 +20,11 @@ export type ComposeLine = {
   itemLabel: string;
   quantity: number;
   unit: string;
-  candidates: ComposeCandidate[];
+  allocations: Allocation[];
+  // How much of `quantity` could NOT be covered by any QC-Approved batch,
+  // summed across every candidate. 0 means the allocation above fully
+  // covers what's needed.
+  shortfallQty: number;
 };
 
 export function ComposeForm({
@@ -37,7 +43,22 @@ export function ComposeForm({
   lines: ComposeLine[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createFinishedProductBatch, undefined);
-  const blockedLines = lines.filter((l) => l.candidates.length === 0);
+
+  // Blocked either because nothing was QC-Approved at all (allocations
+  // empty) or because every QC-Approved batch together still doesn't cover
+  // what's needed (shortfallQty > 0) — both are the same "can't submit"
+  // condition per Ravi's answer (block submission, no partial batch).
+  const blockedLines = lines.filter((l) => l.allocations.length === 0 || l.shortfallQty > 0);
+
+  // Flatten each ingredient's (possibly multi-batch) allocation into one
+  // finished_product_components row per batch drawn from. The server
+  // action (parseComponents in lib/actions/finished-product.ts) already
+  // just reads item_id_i/quantity_i/purchase_line_id_i for i in
+  // [0, lineCount) with no assumption that each item_id is unique — it
+  // never needed a change for this.
+  const components = lines.flatMap((line) =>
+    line.allocations.map((a) => ({ itemId: line.itemId, purchaseLineId: a.purchaseLineId, quantity: a.qty }))
+  );
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -46,13 +67,20 @@ export function ComposeForm({
       <input type="hidden" name="target_qty" value={targetQty} />
       <input type="hidden" name="unit" value={unit} />
       <input type="hidden" name="expiry_date" value={expiryDate} />
-      <input type="hidden" name="lineCount" value={lines.length} />
+      <input type="hidden" name="lineCount" value={components.length} />
+      {components.map((c, i) => (
+        <span key={i}>
+          <input type="hidden" name={`item_id_${i}`} value={c.itemId} />
+          <input type="hidden" name={`quantity_${i}`} value={c.quantity} />
+          <input type="hidden" name={`purchase_line_id_${i}`} value={c.purchaseLineId} />
+        </span>
+      ))}
 
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {blockedLines.length > 0 && (
         <p className="text-sm text-red">
-          No QC-Approved stock is available for: {blockedLines.map((l) => l.itemLabel).join(", ")}. This batch
-          cannot be submitted until stock is available.
+          Not enough QC-Approved stock for: {blockedLines.map((l) => l.itemLabel).join(", ")}. This batch cannot be
+          submitted until stock is available.
         </p>
       )}
 
@@ -62,35 +90,32 @@ export function ComposeForm({
             <tr className="border-b border-border bg-black/[0.02] text-left text-xs font-semibold uppercase tracking-wide text-muted">
               <th className="px-3 py-2">Item</th>
               <th className="px-3 py-2">Qty needed</th>
-              <th className="px-3 py-2">RM batch (FIFO default)</th>
+              <th className="px-3 py-2">Taken from (FIFO, automatic)</th>
             </tr>
           </thead>
           <tbody>
-            {lines.map((line, i) => (
-              <tr key={line.itemId} className="border-b border-border last:border-0">
-                <td className="px-3 py-2">
-                  <input type="hidden" name={`item_id_${i}`} value={line.itemId} />
-                  <input type="hidden" name={`quantity_${i}`} value={line.quantity} />
-                  {line.itemLabel}
-                </td>
+            {lines.map((line) => (
+              <tr key={line.itemId} className="border-b border-border last:border-0 align-top">
+                <td className="px-3 py-2">{line.itemLabel}</td>
                 <td className="px-3 py-2">
                   {formatNumber(line.quantity)} {line.unit}
                 </td>
                 <td className="px-3 py-2">
-                  {line.candidates.length === 0 ? (
+                  {line.allocations.length === 0 ? (
                     <span className="text-red">No QC-Approved batch available</span>
                   ) : (
-                    <Select name={`purchase_line_id_${i}`} defaultValue={line.candidates[0].purchaseLineId} required>
-                      {line.candidates.map((c) => (
-                        <option
-                          key={c.purchaseLineId}
-                          value={c.purchaseLineId}
-                          data-legacy={isLegacyCode(c.batchNumber) ? "1" : undefined}
-                        >
-                          {c.batchNumber} · re-test {formatDate(c.expiryDate)} · {formatNumber(c.remainingQty)} avail.
-                        </option>
+                    <div className="flex flex-col gap-0.5">
+                      {line.allocations.map((a) => (
+                        <div key={a.purchaseLineId}>
+                          {a.batchNumber} · re-test {formatDate(a.expiryDate)} · {formatNumber(a.qty)} {line.unit}
+                        </div>
                       ))}
-                    </Select>
+                      {line.shortfallQty > 0 && (
+                        <div className="text-red">
+                          Short by {formatNumber(line.shortfallQty)} {line.unit} — no further QC-Approved stock
+                        </div>
+                      )}
+                    </div>
                   )}
                 </td>
               </tr>

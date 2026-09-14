@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
-import { ComposeForm, type ComposeLine } from "./compose-form";
+import { ComposeForm, type ComposeLine, type Allocation } from "./compose-form";
 
 type Candidate = {
   purchaseLineId: string;
@@ -90,6 +90,49 @@ async function getCandidateBatches(
     }));
 }
 
+// Ravi (14 Sept 2026): "while creating a finished product batch, it should
+// automatically show how much quantity will be taken from which batch" —
+// getCandidateBatches() above already returns every eligible batch for an
+// ingredient, but the form only ever let a person pick ONE of them, so a
+// need that exceeded the single (oldest) batch's live_remaining_qty had no
+// way to be expressed. Scoped with Ravi via AskUserQuestion: allocation is
+// a fully automatic FIFO cascade (oldest batch first, then the next, and
+// so on) with no per-batch override, and a shortfall across every
+// QC-Approved batch blocks submission entirely rather than allowing a
+// partial batch — the same all-or-nothing posture the old "No QC-Approved
+// batch available" block already had for the zero-candidate case, just
+// extended to the "some stock, not enough" case. No schema change:
+// finished_product_components (0001_init.sql) never had a uniqueness
+// constraint tying one row per (batch, item) — multiple rows for the same
+// item against different purchase_line_id values, each independently
+// gated by trg_fp_component_qc_gate and decremented by trg_fp_component_
+// live_remaining_pull (0029_purchase_line_live_remaining_qty.sql), already
+// worked at the DB level. This is a display/allocation change only.
+function allocateFifo(
+  candidates: Candidate[],
+  neededQty: number
+): { allocations: Allocation[]; shortfallQty: number } {
+  const allocations: Allocation[] = [];
+  let remaining = neededQty;
+  for (const c of candidates) {
+    if (remaining <= 0) break;
+    const avail = Number(c.remainingQty);
+    if (avail <= 0) continue;
+    const take = Math.min(avail, remaining);
+    allocations.push({
+      purchaseLineId: c.purchaseLineId,
+      batchNumber: c.batchNumber,
+      expiryDate: c.expiryDate,
+      qty: take,
+    });
+    remaining -= take;
+  }
+  // Guard against floating-point dust (e.g. an exact match leaving
+  // `remaining` at 1e-13) reading as a real shortfall.
+  const shortfallQty = Math.max(remaining, 0);
+  return { allocations, shortfallQty: shortfallQty < 1e-9 ? 0 : shortfallQty };
+}
+
 export default async function ComposeFinishedProductPage({
   searchParams,
 }: {
@@ -142,12 +185,14 @@ export default async function ComposeFinishedProductPage({
         const item = l.items!;
         const scaledQuantity = Number(l.quantity) * scaleFactor;
         const candidates = await getCandidateBatches(supabase, item.id);
+        const { allocations, shortfallQty } = allocateFifo(candidates, scaledQuantity);
         return {
           itemId: item.id,
           itemLabel: `${item.item_code} · ${item.name}`,
           quantity: scaledQuantity,
           unit: l.unit,
-          candidates,
+          allocations,
+          shortfallQty,
         };
       })
   );
@@ -156,7 +201,7 @@ export default async function ComposeFinishedProductPage({
     <div>
       <PageHeader
         title="Calculate composition"
-        description={`Step 2 of 2 — ${def!.code} · ${def!.name}, scaled to ${targetQty} ${unit}. Each ingredient defaults to its oldest received QC-Approved batch (FIFO); override any row before submitting.`}
+        description={`Step 2 of 2 — ${def!.code} · ${def!.name}, scaled to ${targetQty} ${unit}. Each ingredient is drawn automatically from its oldest received QC-Approved batches (FIFO), cascading into the next batch whenever one isn't enough on its own.`}
       />
       <Card>
         <CardBody>
