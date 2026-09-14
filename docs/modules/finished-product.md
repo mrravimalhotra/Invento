@@ -61,9 +61,11 @@ batch received going forward has `expiry_date = null`, and the old sort
 undated batch *first*, inverting FIFO into "always pick the newest
 batch." Sorting by `created_at` alone is also the more literally correct
 definition of FIFO regardless (first *in*, not soonest-to-expire) — this
-isn't a workaround, it's the fix. Each batch drawn into the allocation
-breakdown still displays its `re-test <date>` (`compose-form.tsx`) when one
-exists on file; it just no longer drives the default selection.
+isn't a workaround, it's the fix. (Until 14 Sept 2026 each batch drawn into
+the allocation breakdown also displayed its `re-test <date>` when one
+existed on file — see "Automatic multi-batch FIFO allocation" below for
+why that display was dropped; `expiry_date` was already not driving the
+sort by this point, only the label.)
 
 One inherited simplification, faithful to the design spec as written:
 `stock_balance.on_hand` is per **item**, not per batch, so a specific batch
@@ -427,6 +429,37 @@ by `trg_fp_component_qc_gate` and decremented by
 either — they already read an arbitrary-length, index-based list of
 `(item_id, quantity, purchase_line_id)` triples with no assumption that
 `item_id` is unique across them.
+
+## Compose screen: batch number only, and re-confirming the retest-due block (14 Sept 2026)
+
+Same day as the above, two follow-up points from Ravi after asking why the
+allocation breakdown showed "re-test —" next to each batch:
+
+- **"it should only show batch number, no need to show expiry/retest date
+  while creating new finished product batch"** — the allocation breakdown
+  (just added, above) carried `expiryDate` (`purchase_lines.expiry_date`)
+  and rendered it as "re-test `<date>`" next to each batch, inherited from
+  the old single-picker's option text. That field stopped being collected
+  at Purchase time on 3 Sept 2026 ("Re-Test Date manual entry removed",
+  `docs/modules/purchase.md`) — the real retest date lives on
+  `quality_checks.retest_date` instead, computed automatically at QC
+  approval — so every batch received since then showed a bare "re-test —"
+  here, which is what prompted the question. Removed end-to-end rather
+  than just hidden in the UI: `getCandidateBatches()` no longer selects
+  `expiry_date` at all, and `Candidate`/`Allocation` no longer carry it.
+  The breakdown now reads e.g. "RM-01/26 · 21.8 ltr" — batch number and
+  quantity taken, nothing else.
+- **"If any raw material batch is due for re-test, it should not be
+  available to create new finished product until it is retested"** — this
+  was already true on both layers (see "Retest-due batches now blocked
+  from composition" below), and remains unchanged; re-verified locally
+  this same session. `getCandidateBatches()` already excludes any batch
+  whose `quality_checks.retest_date` has passed from the candidate list
+  (so `allocateFifo()` never offers it as an allocation source either),
+  and `check_batch_qc_approved()` (`0026_qc_retest_consumption_gate.sql`)
+  independently rejects a direct insert against such a batch regardless of
+  what the picker query returns. No code change was needed for this half
+  of the request.
 
 ## Inventory Ledger redesign, Phase 3: FP stock becomes a real, ledger-tracked item at QC approval (3 Sept 2026)
 

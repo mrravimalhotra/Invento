@@ -9,7 +9,6 @@ import { ComposeForm, type ComposeLine, type Allocation } from "./compose-form";
 type Candidate = {
   purchaseLineId: string;
   batchNumber: string;
-  expiryDate: string | null;
   remainingQty: string | number;
 };
 
@@ -29,6 +28,13 @@ type Candidate = {
 // Receipt date is also the more literally correct FIFO key regardless (first *in*, not
 // soonest to expire) — existing batches that do carry a historical expiry_date are
 // unaffected by this change, they just no longer take priority over it.
+//
+// `expiry_date` itself is no longer fetched here at all (14 Sept 2026) — it was only
+// ever used to render the "re-test <date>" suffix next to a batch's number, which Ravi
+// asked to drop ("it should only show batch number, no need to show expiry/retest
+// date") since it always shows blank for any batch received after the above 3 Sept
+// change. Purely a display simplification; nothing in this function's actual filtering
+// or sorting logic ever depended on this column.
 async function getCandidateBatches(
   supabase: Awaited<ReturnType<typeof createClient>>,
   itemId: string
@@ -42,7 +48,7 @@ async function getCandidateBatches(
     // (0029_purchase_line_live_remaining_qty.sql's live_remaining_not_negative
     // check) is the real enforcement; this keeps the picker's own "X
     // avail." hint from suggesting more than a batch actually has left.
-    .select("id, batch_number, expiry_date, created_at, live_remaining_qty, unit")
+    .select("id, batch_number, created_at, live_remaining_qty, unit")
     .eq("item_id", itemId)
     .eq("active", true);
   if (!lines || lines.length === 0) return [];
@@ -67,6 +73,17 @@ async function getCandidateBatches(
   // mirrors check_batch_qc_approved() (0026_qc_retest_consumption_gate.sql),
   // which is the real, DB-level enforcement; filtering here is purely so
   // the picker never *offers* a batch that insert would reject anyway.
+  //
+  // Ravi re-asked for this exact guarantee on 14 Sept 2026 ("If any raw
+  // material batch is due for re-test, it should not be available to
+  // create new finished product until it is retested") — re-verified
+  // locally against a fresh migration replay that both layers still hold:
+  // a batch whose quality_checks.retest_date has passed is excluded here
+  // (so it's never offered as a candidate to begin with, automatic FIFO
+  // allocation included) AND, independently, a direct insert attempt
+  // against such a batch is still rejected by the DB trigger regardless
+  // of what this query returns. No code change was needed for this half
+  // of the request — only the display cleanup above.
   const today = new Date().toISOString().slice(0, 10);
   return lines
     .filter((l) => {
@@ -85,7 +102,6 @@ async function getCandidateBatches(
     .map((l) => ({
       purchaseLineId: l.id,
       batchNumber: l.batch_number,
-      expiryDate: l.expiry_date,
       remainingQty: l.live_remaining_qty,
     }));
 }
@@ -119,12 +135,7 @@ function allocateFifo(
     const avail = Number(c.remainingQty);
     if (avail <= 0) continue;
     const take = Math.min(avail, remaining);
-    allocations.push({
-      purchaseLineId: c.purchaseLineId,
-      batchNumber: c.batchNumber,
-      expiryDate: c.expiryDate,
-      qty: take,
-    });
+    allocations.push({ purchaseLineId: c.purchaseLineId, batchNumber: c.batchNumber, qty: take });
     remaining -= take;
   }
   // Guard against floating-point dust (e.g. an exact match leaving

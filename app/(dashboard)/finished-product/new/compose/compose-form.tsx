@@ -3,15 +3,27 @@
 import { useActionState } from "react";
 import { createFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
 import { Button, LinkButton } from "@/components/ui/button";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 
 // One batch actually drawn from as part of an ingredient's automatic FIFO
 // allocation (see allocateFifo() in page.tsx) — `qty` is how much of THIS
 // batch is being taken, not how much the batch has left.
+//
+// Ravi (14 Sept 2026): "it should only show batch number, no need to show
+// expiry/retest date while creating new finished product batch" — this
+// used to also carry `expiryDate` (purchase_lines.expiry_date) and render
+// it as "re-test <date>" next to the batch number. That field was never
+// the real retest mechanism to begin with (see docs/modules/purchase.md,
+// "Re-Test Date manual entry removed") — it stopped being collected at
+// Purchase time on 3 Sept 2026 in favor of quality_checks.retest_date,
+// computed automatically at QC approval from Retest Period (days) — so
+// every batch received since then showed a bare "re-test —" here, which
+// is what prompted this cleanup. Dropped end-to-end rather than just
+// hidden: no more expiry_date column fetched in getCandidateBatches()
+// (page.tsx), no more field on Candidate/Allocation.
 export type Allocation = {
   purchaseLineId: string;
   batchNumber: string;
-  expiryDate: string | null;
   qty: number;
 };
 
@@ -107,7 +119,7 @@ export function ComposeForm({
                     <div className="flex flex-col gap-0.5">
                       {line.allocations.map((a) => (
                         <div key={a.purchaseLineId}>
-                          {a.batchNumber} · re-test {formatDate(a.expiryDate)} · {formatNumber(a.qty)} {line.unit}
+                          {a.batchNumber} · {formatNumber(a.qty)} {line.unit}
                         </div>
                       ))}
                       {line.shortfallQty > 0 && (

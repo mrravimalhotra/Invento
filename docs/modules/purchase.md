@@ -592,12 +592,16 @@ dead-but-required data entry:
   for Item Master's removed sampling-defaults fields (Seventh pass).
 - **Downstream displays left in place, not removed**: the "RE-TEST DATE"
   column on the Purchase Lines table, the Purchase Register report
-  column, the Finished Product detail composition table column, and
-  BMR's/FP-compose's batch-picker "(re-test …)" suffix all still read
-  and display `purchase_lines.expiry_date` — they already handle `null`
-  gracefully (`formatDate(null)` → "—"), so historical batches that do
-  have a value keep showing it; new batches just show "—"/nothing.
-  Nothing was deleted, only new collection stopped.
+  column, the Finished Product detail composition table column, and (at
+  the time of this pass) BMR's/FP-compose's batch-picker "(re-test …)"
+  suffix all still read and display `purchase_lines.expiry_date` — they
+  already handle `null` gracefully (`formatDate(null)` → "—"), so
+  historical batches that do have a value keep showing it; new batches
+  just show "—"/nothing. Nothing was deleted, only new collection
+  stopped. (FP-compose's own display was later dropped entirely — see
+  `docs/modules/finished-product.md`, "Compose screen: batch number only,
+  and re-confirming the retest-due block," 14 Sept 2026 — once its
+  always-blank "re-test —" was itself the source of confusion.)
 - **One real behavior fix required, not just a no-op**: Finished
   Product's compose-step FIFO candidate ordering
   (`finished-product/new/compose/page.tsx`) previously sorted candidates
