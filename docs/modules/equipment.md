@@ -26,6 +26,20 @@ this field has no equivalent anywhere in the source data (it's a
 spec.md-only ask) and starts null on every row; it's meant to be filled in
 going forward, not backfilled from history that doesn't exist.
 
+**Asset ID is the record's unique key, Name is not.** Ravi (14 Sept
+2026): "make 'Asset ID' as unique key across application including bulk
+data upload template and remove unique constraint from Name." Equipment
+Name is expected to repeat (several identical "Wooden Barrels" rows, each
+tagged with its own distinct Asset ID, is the normal shape of the real
+seed data) — `createEquipment()`/`updateEquipment()`
+(`lib/actions/equipment.ts`) and `bulkUploadEquipment()`
+(`lib/actions/bulk-upload.ts`) both check Asset ID for a case-insensitive
+duplicate (only when one is actually supplied — it's optional, and a
+blank Asset ID never collides with another blank one), and no longer
+check Name at all. App-level only, no DB constraint — same as every
+other duplicate check in this app (Ravi's explicit choice, 14 Sept 2026,
+via AskUserQuestion).
+
 ## Seed data
 Seeded from the real legacy inventory: "ROOM WISE INSTRUMENT AND EQUIPMENT
 ID DEC 2023 FINAL.xlsx" — 304 rows across 13 rooms/sections plus a

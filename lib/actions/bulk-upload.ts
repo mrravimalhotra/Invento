@@ -847,12 +847,19 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
   const { headers, rows } = loaded.sheet;
 
   const supabase = await createClient();
-  // equipment.name has no DB-level unique constraint — same reasoning and
-  // pattern as Item/Vendor's name dedup. Ravi (13 Sept 2026, via
-  // AskUserQuestion): "add duplicate blocking on ... Equipment Name ... for
-  // both bulk upload and the regular one-at-a-time forms."
-  const { data: existingEquipmentRows } = await supabase.from("equipment").select("name");
-  const existingEquipmentNames = new Set((existingEquipmentRows ?? []).map((e) => e.name.trim().toLowerCase()));
+  // Asset ID is the unique key for equipment, not Name — Ravi (14 Sept
+  // 2026): "make 'Asset ID' as unique key across application including
+  // bulk data upload template and remove unique constraint from Name."
+  // Supersedes the Name-based dedup this pass replaces (added 13 Sept
+  // 2026) — Equipment Name is now deliberately allowed to repeat within a
+  // file (several identical "Wooden Barrels" rows, each with its own
+  // distinct Asset ID, is the normal shape for this module's real data).
+  // App-level only, no DB constraint — same as every other duplicate
+  // check in this app (Ravi's explicit choice, via AskUserQuestion).
+  const { data: existingEquipmentRows } = await supabase.from("equipment").select("asset_id");
+  const existingAssetIds = new Set(
+    (existingEquipmentRows ?? []).flatMap((e) => (e.asset_id ? [e.asset_id.trim().toLowerCase()] : []))
+  );
 
   type Parsed = {
     name: string;
@@ -867,7 +874,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
 
   const rowErrors: string[] = [];
   const parsed: Parsed[] = [];
-  const seenEquipmentNames = new Map<string, number>();
+  const seenAssetIds = new Map<string, number>();
 
   rows.forEach((row, i) => {
     const r = excelRow(i);
@@ -884,16 +891,21 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
       rowErrors.push(`Row ${r}: Name is required.`);
       return;
     }
-    const nameKey = name.toLowerCase();
-    if (seenEquipmentNames.has(nameKey)) {
-      rowErrors.push(`Row ${r}: "${name}" is repeated on row ${seenEquipmentNames.get(nameKey)} of this file.`);
-      return;
+
+    // Asset ID is optional (many equipment rows legitimately have none) —
+    // only checked for duplicates when a row actually supplies one.
+    if (asset_id) {
+      const assetKey = asset_id.toLowerCase();
+      if (seenAssetIds.has(assetKey)) {
+        rowErrors.push(`Row ${r}: Asset ID "${asset_id}" is repeated on row ${seenAssetIds.get(assetKey)} of this file.`);
+        return;
+      }
+      if (existingAssetIds.has(assetKey)) {
+        rowErrors.push(`Row ${r}: Asset ID "${asset_id}" already exists on another equipment record.`);
+        return;
+      }
+      seenAssetIds.set(assetKey, r);
     }
-    if (existingEquipmentNames.has(nameKey)) {
-      rowErrors.push(`Row ${r}: "${name}" already exists as an equipment record.`);
-      return;
-    }
-    seenEquipmentNames.set(nameKey, r);
 
     let quantity = 1;
     if (quantityRaw) {

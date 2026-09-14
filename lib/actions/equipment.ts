@@ -51,18 +51,29 @@ export async function createEquipment(_prev: ActionState, formData: FormData): P
 
   const supabase = await createClient();
 
-  // equipment.name has no DB-level unique constraint (equipment_code is the
-  // only server-generated unique identifier) — checked here, case-
-  // insensitively, against every existing equipment record regardless of
-  // active status. Ravi (13 Sept 2026, via AskUserQuestion): "add duplicate
-  // blocking on ... Equipment Name ... for both bulk upload and the regular
-  // one-at-a-time forms."
-  const { data: dupEquipment } = await supabase
-    .from("equipment")
-    .select("id")
-    .ilike("name", escapeLike(parsed.data.name))
-    .maybeSingle();
-  if (dupEquipment) return { error: `"${parsed.data.name}" already exists as an equipment record.` };
+  // Asset ID is the unique key for equipment going forward, not Name —
+  // Ravi (14 Sept 2026): "make 'Asset ID' as unique key across application
+  // including bulk data upload template and remove unique constraint from
+  // Name." Supersedes the Name-based duplicate check this pass replaces
+  // (added 13 Sept 2026 — Equipment Name is now deliberately allowed to
+  // repeat, e.g. several identical "Wooden Barrels" tagged with distinct
+  // Asset IDs, matching how the legacy seed data itself is structured).
+  // Only checked when an Asset ID is actually supplied — it's an optional
+  // field (30 of the 304 seeded rows have none) and Postgres/this app's
+  // own convention never treats "both blank" as a collision. Case-
+  // insensitive via escapeLike()/.ilike(), against every existing
+  // equipment record regardless of active status, same as every other
+  // duplicate check in this app. App-level only, no DB constraint — same
+  // as Item Name/MFR Name/Dead Stock Article Name/Purchase Invoice Number
+  // (Ravi's explicit choice, 14 Sept 2026, via AskUserQuestion).
+  if (parsed.data.asset_id) {
+    const { data: dupAsset } = await supabase
+      .from("equipment")
+      .select("id")
+      .ilike("asset_id", escapeLike(parsed.data.asset_id))
+      .maybeSingle();
+    if (dupAsset) return { error: `Asset ID "${parsed.data.asset_id}" already exists on another equipment record.` };
+  }
 
   const { data: equipmentCode, error: codeError } = await supabase.rpc("get_next_equipment_code");
   if (codeError) return { error: codeError.message };
@@ -102,16 +113,19 @@ export async function updateEquipment(
 
   const supabase = await createClient();
 
-  // Same case-insensitive duplicate-name check as createEquipment() above,
-  // self-excluded so saving a record without changing its name doesn't
-  // collide with itself.
-  const { data: dupEquipment } = await supabase
-    .from("equipment")
-    .select("id")
-    .ilike("name", escapeLike(parsed.data.name))
-    .neq("id", id)
-    .maybeSingle();
-  if (dupEquipment) return { error: `"${parsed.data.name}" already exists as an equipment record.` };
+  // Same case-insensitive duplicate-Asset-ID check as createEquipment()
+  // above, self-excluded so saving a record without changing its Asset ID
+  // doesn't collide with itself. Only checked when non-blank — see the
+  // full reasoning in createEquipment().
+  if (parsed.data.asset_id) {
+    const { data: dupAsset } = await supabase
+      .from("equipment")
+      .select("id")
+      .ilike("asset_id", escapeLike(parsed.data.asset_id))
+      .neq("id", id)
+      .maybeSingle();
+    if (dupAsset) return { error: `Asset ID "${parsed.data.asset_id}" already exists on another equipment record.` };
+  }
 
   const { error } = await supabase
     .from("equipment")

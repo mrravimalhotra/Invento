@@ -140,10 +140,15 @@ wrinkle — one row is always one complete record.
      every row sharing one Vendor Code + Invoice Number must repeat the
      same Invoice Date. Every purchase order created this way lands as a
      **Draft** — see the migration section below.
-   - **Instrument / Equipment Master**: Name is required; Quantity, if
-     given, must be a number greater than 0 (defaults to 1); Calibration
-     Status, if given, must resolve to Calibrated/Due/Not Applicable;
-     Last/Next Calibration dates, if given, must be real dates.
+   - **Instrument / Equipment Master**: Name is required (repeats freely
+     — e.g. several "Wooden Barrels" rows, each with its own Asset ID, is
+     the normal shape here); Asset ID, if given, must be unique both
+     within the file and against every existing equipment record
+     (case-insensitive, app-level only — blank Asset IDs are never
+     compared against each other); Quantity, if given, must be a number
+     greater than 0 (defaults to 1); Calibration Status, if given, must
+     resolve to Calibrated/Due/Not Applicable; Last/Next Calibration
+     dates, if given, must be real dates.
    - **Dead Stock Register**: Name of Article is required; Quantity, if
      given, must be a number greater than 0 (defaults to 1);
      Depreciation %, if given, must be 0–100 (defaults to 25); Purchase
