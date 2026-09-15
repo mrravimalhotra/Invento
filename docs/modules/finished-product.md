@@ -596,3 +596,50 @@ No changes were needed to the Packaging or Store/R&D issue path, or to
 `stock_balance`/Stock Position — as established above, those already
 correctly show zero for an FP item until its QC record is approved,
 regardless of anything on this screen.
+
+## Batch number format: FP-01/26, year-reset (15 Sept 2026)
+
+Ravi: *"suggest suitable name for batch number instead of FP-0003 etc."*
+`get_next_fp_batch_number()` (`0001_init.sql`) generated a flat global
+sequence — `FP-0001`, `FP-0002`, `FP-0003`, ... via `fp_batch_seq` — the
+only code-generation format in the app that doesn't sort or scan
+meaningfully by time. Presented four options grounded in the app's
+existing conventions (year-reset like `RM-01/26`/`PKG-01/26`, seq+full-date
+like `AR-001-02092026`, date-first daily-reset, or leave as is); Ravi
+picked the year-reset format.
+
+`supabase/migrations/0045_fp_batch_number_year_reset.sql` rewrites
+`get_next_fp_batch_number()` to `FP-<2-digit seq>/<2-digit year>` — e.g.
+the 3rd FP batch created in 2026 is `FP-03/26`, resetting to 01 each
+calendar year. This mirrors `get_next_batch_number()`'s `RM-`/`PKG-`
+pattern exactly, except the count is global across all Finished Products
+rather than per-item: RM/PKG batch numbers are scoped per raw
+material/packaging item because those items are each purchased
+repeatedly, but FP batches don't have an equivalent natural per-item
+bucket Ravi asked to reset by — every `finished_product_batches` row
+created this year counts, regardless of which MFR product it's for.
+
+Counted from `created_at`, which is when `get_next_fp_batch_number()` is
+actually called (`createFinishedProductBatch`, at Step 2/compose submit —
+batch start time, see the Batch Start Date section above). It's a
+`count(*) + 1`, not a real sequence, same as `get_next_batch_number()` —
+two concurrent batch creations in the same instant could in theory
+compute the same number, but `finished_product_batches.batch_number` is
+`not null unique`, so a genuine race fails the second insert with a
+constraint violation rather than silently assigning a duplicate code —
+verified locally by inserting a row using an already-taken new-style
+number and confirming it's rejected.
+
+Purely a function replace, no data migration: existing `FP-0001`-style
+batch numbers already assigned to rows are **not** rewritten — batch
+numbers are immutable once assigned everywhere else in this app (item
+codes, vendor codes, MFR codes per the `MFR-`/`F-` rename above).
+Pre-existing FP batches keep their old `FP-0001` style codes; only
+batches created from now on get the new `FP-NN/YY` format. Verified
+locally: after seeding one legacy `FP-0001` row, the function correctly
+returned `FP-02/26`; two more batches created via the function came back
+`FP-02/26`/`FP-03/26`; a row backdated to `2025-12-31` was confirmed
+excluded from the 2026 count (`get_next_fp_batch_number()` still returned
+`FP-04/26` afterward). No app code assumes the old fixed 4-digit format —
+`batch_number` is stored and displayed everywhere as opaque text — so no
+other files needed changes; confirmed via grep across `app/` and `lib/`.
