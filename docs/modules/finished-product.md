@@ -643,3 +643,129 @@ excluded from the 2026 count (`get_next_fp_batch_number()` still returned
 `FP-04/26` afterward). No app code assumes the old fixed 4-digit format —
 `batch_number` is stored and displayed everywhere as opaque text — so no
 other files needed changes; confirmed via grep across `app/` and `lib/`.
+
+## Draft / Cancel step before production, with a 30-minute auto-cancel (15 Sept 2026)
+
+Ravi, on the FP-0002 detail screen: *"there should be a 'Create Batch'
+Button and a cancel button, till 'Create Batch' is clicked batch should
+be in draft status and if clicked on cancelled, the batch should be
+cancelled... Till 'Create Batch' is clicked, 'Complete Batch' Should be
+disabled or invisible. Only when 'Create Batch' is clicked... batch will
+move to 'In Progress' state. If batch is in draft state for more than 30
+mins, it should automatically cancelled and raw material reserved should
+be returned back to inventory. A smaller timer should be displayed to
+remind to create batch."*
+
+Scoped via AskUserQuestion — three open points, all confirmed before
+writing any code:
+
+1. **Where "draft" begins.** The compose/Step-2 screen's existing submit
+   (`createFinishedProductBatch`) already pulls RM immediately via
+   `finished_product_components` inserts (`trg_fp_component_pull`,
+   `0002_transactions.sql`) and redirects to this exact detail page.
+   Confirmed: that submit now creates the batch in `draft` instead of
+   `in_process` — RM is pulled at the same moment as before, nothing
+   about *that* part changes — and this detail page gets the new Create
+   Batch / Cancel buttons while `status = 'draft'`.
+2. Ravi initially described manual Cancel as **not** returning RM, but
+   the 30-minute auto-cancel **as** returning it — flagged as an
+   apparent inconsistency. Confirmed: no, always return RM on any
+   cancel, manual or automatic. One reversal rule, regardless of cause.
+3. This app has no scheduled/background job of any kind (checked: no
+   `pg_cron`, no `vercel.json` cron, no edge function). Ravi chose the
+   lazy option over adding real cron infrastructure: a stale draft
+   (>30 min old) is only actually flipped to `cancelled` the next time
+   someone loads the FP list or that batch's detail page — until then
+   its DB row still literally says `draft`. The on-screen countdown
+   timer is a reminder, not the enforcement.
+
+**`supabase/migrations/0046_fp_batch_draft_cancel.sql`:**
+
+- Widens `finished_product_batches.status` to add `'draft'` and
+  `'cancelled'`, and flips the column default from `'in_process'` to
+  `'draft'` (a defense-in-depth backstop mirroring this app's established
+  pattern — see `fp_completion_fields_required_together`, 0044 — of a
+  DB-level default/constraint matching an app-level decision).
+- Adds one new `inventory_ledger` `reference_type`, `'fp_draft_cancelled'`,
+  for the reversal push.
+- One new trigger (`trg_fp_batch_draft_cancel_reversal`), symmetric to
+  `trg_fp_component_pull`: fires on the `draft -> cancelled` transition
+  however it happens — manual Cancel and the lazy auto-expire both just
+  run the same `UPDATE ... SET status = 'cancelled'`, so one trigger
+  keyed on the transition covers both, the same shape
+  `trg_fn_qc_review_finished_product` already uses for its own
+  approved/rejected transition. For every `finished_product_components`
+  row on that batch it: (a) inserts an offsetting ledger push, and
+  (b) — a gap found while verifying locally, easy to miss — **also**
+  increments that purchase line's `live_remaining_qty` back up.
+  `live_remaining_qty` (`0029_purchase_line_live_remaining_qty.sql`) is a
+  *maintained* column, not derived live from the ledger; the FP compose
+  picker's FIFO allocation reads that column, not the ledger, so without
+  this second update a cancelled draft's RM would still look unavailable
+  for the next batch even though item-level stock looked correct.
+  Confirmed exactly this gap locally before fixing it: with only the
+  ledger push, `live_remaining_qty` stayed at its drawn-down figure
+  through a manual cancel; adding the `purchase_lines` update fixed it
+  (a batch that consumed 15kg went 50 → 35 → 50 through
+  create-draft → cancel).
+- One new function, `expire_stale_fp_drafts()` — the lazy check itself.
+  `security definer` (like every other ledger-writing trigger function in
+  this app) since `fp_write` (`0001_init.sql`) is scoped to
+  `system_admin`/`mfr_manager`/`inventory_manager`, and this needs to
+  self-heal for *any* signed-in user who happens to load a stale draft.
+  A bulk, idempotent `UPDATE ... WHERE status = 'draft' AND created_at <
+  now() - 30 minutes` — safe to call on every page load by any number of
+  concurrent users.
+
+Verified locally end to end: a draft batch that pulled 15kg from a
+50kg-remaining purchase line showed `live_remaining_qty = 35`; a manual
+cancel restored it to `50` and left one `fp_draft_cancelled` push row in
+the ledger; a draft backdated to 31 minutes old was flipped to
+`cancelled` (and its RM restored) by `expire_stale_fp_drafts()` while a
+5-minutes-old draft was left untouched; an `in_process -> cancelled`
+transition (not part of this app's own action set, but tested as a
+guard) correctly left no reversal row, confirming the trigger's `WHEN`
+clause only reacts to a genuine `draft -> cancelled` move; and the
+widened status check constraint correctly rejected a bogus status value.
+
+**App-layer changes:**
+
+- `lib/actions/finished-product.ts` — `createFinishedProductBatch`'s
+  insert now sets `status: "draft"` instead of `"in_process"`. Two new
+  actions: `confirmFinishedProductBatch(id)` ("Create Batch" —
+  `draft -> in_process`) and `cancelFinishedProductBatch(id)` ("Cancel" —
+  `draft -> cancelled`), both scoped with `.eq("status", "draft")` on the
+  update so a stale page, or a batch someone else already
+  confirmed/cancelled/auto-expired in the meantime, gets a clear error
+  instead of a silent no-op or a double-confirm.
+- `app/(dashboard)/finished-product/[id]/draft-actions-panel.tsx`
+  (new) — the amber panel shown on the detail page while
+  `status === 'draft'`: an explanation, a live `mm:ss` countdown to the
+  30-minute mark (turns red under 5 minutes remaining), and, for users
+  with Finished Product write access, the Create Batch / Cancel buttons.
+  When the visible countdown reaches zero the panel calls
+  `router.refresh()` once — that's what actually re-runs the server-side
+  `expire_stale_fp_drafts()` check and re-renders with the batch's real
+  post-expiry status; the countdown itself enforces nothing.
+- `app/(dashboard)/finished-product/[id]/page.tsx` — calls
+  `supabase.rpc("expire_stale_fp_drafts")` before selecting the batch (so
+  a stale visit to this exact batch reflects the fresh status
+  immediately), adds `created_at` to the select, and renders
+  `DraftActionsPanel` while `status === 'draft'`. The existing "Complete
+  batch" and "Submit to QC" cards were already gated on
+  `batch.status === "in_process"` — that already correctly keeps them
+  hidden through the draft stage, so per Ravi's "Complete Batch should be
+  disabled or invisible" ask, no change was needed there.
+- `app/(dashboard)/finished-product/page.tsx` (list) — same
+  `expire_stale_fp_drafts()` call before its own select, so any stale
+  draft self-heals from a list visit too, not only a detail-page visit.
+- `components/ui/badge.tsx` — `draft` styled amber (same "needs
+  attention" amber as `submitted_to_qc`/`awaiting_retest`), `cancelled`
+  styled red (same as `rejected`/`not_clear`/`wastage`) — no new colors,
+  reusing this app's existing four-color status palette.
+
+A cancelled batch's `finished_product_components` rows are **not**
+deleted — the Composition table on the detail page still shows exactly
+what was drawn and then returned, same as this app never deletes
+historical consumption rows elsewhere (a rejected QC record, a wastage
+entry) even once their effect is reversed.

@@ -10,15 +10,25 @@ import { formatDate, formatNumber } from "@/lib/utils";
 import { resolveDisplayStatus } from "@/lib/finished-product-status";
 import { CompleteBatchForm } from "./complete-batch-form";
 import { SubmitToQcForm } from "./submit-to-qc-form";
+import { DraftActionsPanel } from "./draft-actions-panel";
 
 export default async function FinishedProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
 
+  // Lazy 30-minute draft auto-expiry (0046_fp_batch_draft_cancel.sql) —
+  // this app has no cron/background job of any kind, so a stale draft
+  // only actually flips to "cancelled" (and gets its RM returned) the
+  // next time someone loads the FP list or a batch's own detail page.
+  // Cheap no-op when nothing is stale; run before the select below so a
+  // stale visit to THIS batch reflects the fresh status immediately
+  // rather than one page-load behind.
+  await supabase.rpc("expire_stale_fp_drafts");
+
   const { data: batch } = await supabase
     .from("finished_product_batches")
     .select(
-      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, mfr_definitions(id, code, name)"
+      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, created_at, mfr_definitions(id, code, name)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -169,6 +179,10 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
               )}
             </CardBody>
           </Card>
+        )}
+
+        {batch.status === "draft" && (
+          <DraftActionsPanel batchId={id} createdAt={batch.created_at} canEdit={canEdit} />
         )}
 
         {canEdit && batch.status === "in_process" && (

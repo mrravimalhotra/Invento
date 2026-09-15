@@ -79,7 +79,16 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
       target_qty: targetQty,
       unit,
       batch_start_date: batchStartDate,
-      status: "in_process",
+      // Ravi (15 Sept 2026): batch creation is now two-step. This insert
+      // still pulls RM immediately (finished_product_components below,
+      // same as before this change), but the batch now lands in "draft"
+      // rather than "in_process" — it only actually starts production
+      // once confirmFinishedProductBatch() below is called from the
+      // detail page's "Create Batch" button. A draft left untouched for
+      // 30 minutes auto-cancels (expire_stale_fp_drafts(), called lazily
+      // from the FP list/detail pages — see 0046_fp_batch_draft_cancel.sql)
+      // and its RM is returned to inventory, same as a manual Cancel.
+      status: "draft",
     })
     .select("id")
     .single();
@@ -112,6 +121,69 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
 
   revalidatePath("/finished-product");
   redirect(`/finished-product/${batch.id}`);
+}
+
+// "Create Batch" on the detail page — the second, explicit step that
+// actually starts production. Only a batch still in "draft" can be
+// confirmed; the WHERE clause below is the real enforcement (a stale
+// page, or a batch someone else already cancelled/confirmed/auto-expired
+// in the meantime, just gets a "no longer a draft" error rather than a
+// silent no-op or a double-confirm).
+export async function confirmFinishedProductBatch(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in." };
+  if (!canWrite(user.roles, "finished_product")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("finished_product_batches")
+    .update({ status: "in_process" })
+    .eq("id", id)
+    .eq("status", "draft")
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) {
+    return {
+      error: "This batch is no longer a draft — it may already have been confirmed, cancelled, or auto-cancelled after 30 minutes. Refresh to see its current status.",
+    };
+  }
+
+  revalidatePath(`/finished-product/${id}`);
+  revalidatePath("/finished-product");
+  return { success: "Batch created — now in process." };
+}
+
+// "Cancel" on the detail page, only available while a batch is still a
+// draft. Ravi (15 Sept 2026): a cancelled draft's Raw Material is
+// returned to inventory — same reversal, whether it's this manual click
+// or the 30-minute auto-cancel (expire_stale_fp_drafts()) that gets a
+// batch to "cancelled"; both just do this same status update, and
+// trg_fp_batch_draft_cancel_reversal (0046_fp_batch_draft_cancel.sql)
+// is the single trigger that reacts to it either way.
+export async function cancelFinishedProductBatch(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in." };
+  if (!canWrite(user.roles, "finished_product")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("finished_product_batches")
+    .update({ status: "cancelled" })
+    .eq("id", id)
+    .eq("status", "draft")
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) {
+    return {
+      error: "This batch is no longer a draft — it may already have been confirmed, cancelled, or auto-cancelled after 30 minutes. Refresh to see its current status.",
+    };
+  }
+
+  revalidatePath(`/finished-product/${id}`);
+  revalidatePath("/finished-product");
+  return { success: "Batch cancelled — its raw material has been returned to inventory." };
 }
 
 // "Complete batch". As of 0022_fp_batch_yield.sql (2 Sept 2026), Batch Yield

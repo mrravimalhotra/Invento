@@ -20,6 +20,12 @@ type FpQueryRow = {
 
 export default async function FinishedProductListPage() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
+
+  // Lazy 30-minute draft auto-expiry — see the detail page's own comment
+  // (0046_fp_batch_draft_cancel.sql) for why this is a lazy, page-load
+  // check rather than a real scheduled job.
+  await supabase.rpc("expire_stale_fp_drafts");
+
   const { data } = await supabase
     .from("finished_product_batches")
     .select("id, batch_number, target_qty, unit, actual_yield_pct, finish_date, status, mfr_definitions(name)")
