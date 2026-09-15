@@ -734,3 +734,67 @@ System Admin Reopen. Full writeup, including the new DB-level
 over-consumption guard this enables: `docs/modules/inventory.md`
 ("Inventory Ledger redesign, Phase 2"),
 `supabase/migrations/0029_purchase_line_live_remaining_qty.sql`.
+
+## QC/Stability/R&D qty and sample unit made mandatory (15 Sept 2026)
+
+Ravi: *"now make QC, Stability & R&D Sample mandatory along with sample
+unit in both Purchase as well as Batch screen."* The Finished Product
+Complete Batch screen already made these same four fields mandatory
+earlier the same day (Batch Start Date pass — `complete-batch-form.tsx`,
+`lib/actions/finished-product.ts`, `0044_fp_batch_start_date.sql`), with
+QC/Stability/R&D sample qty required **and** `> 0` there. This pass is
+the Purchase side.
+
+Scoped via AskUserQuestion first: "mandatory" here could mean either
+"must be entered, but 0 stays a valid value" or "must be entered and
+greater than zero" (the Complete Batch rule). Since Item Master stopped
+capturing `default_qc_qty`/`default_stability_qty`/`default_rnd_qty` at
+item-creation time entirely on 2 Sept 2026 ("Sampling & stock defaults
+removed from Item Master," above in `docs/modules/items.md`), every item
+created since then has no defaults, and the Purchase form already falls
+back to 0 for those — explicitly documented as intentional at the time
+("an item with no defaults... behaves exactly like one whose defaults
+were filled in and left at zero"). Forcing `> 0` now would have been a
+real policy reversal, silently blocking any item that legitimately needs
+no QC/Stability/R&D sample. Ravi confirmed: mandatory-but-zero-is-fine.
+
+**`purchase-line-form.tsx`** (both `PurchaseLineForm` — Add line — and
+`EditPurchaseLineForm` — Edit line): QC qty, Stability qty, R&D qty, and
+Sample unit all gained the visual required asterisk (`Field required`)
+and the real `required` HTML attribute on their `Input`/`Select`. Sample
+unit's underlying `Select` already had `required` set (just missing the
+asterisk) — QC/Stability/R&D qty's `Input`s did not have `required` at
+all before this. In practice this only blocks deliberately clearing a
+field to blank and submitting — `handleItemChange` in the Add form
+already pre-fills all three to `"0"` the moment an item is picked, so a
+normal flow never even sees the new restriction.
+
+**`lib/actions/purchase.ts`** (`createPurchaseLine` and
+`updatePurchaseLine`): previously, a blank/missing `qc_qty` (etc.) field
+silently became `"0"` via `formData.get(...) || "0"` — the same code
+path a genuinely-entered `"0"` took, so there was no way to actually
+*require* the field server-side; blank and zero were indistinguishable.
+Both actions now read the raw `FormData` value first and check it
+explicitly:
+
+- Raw material line, field left blank (`""`) → rejected with a plain
+  "QC quantity is required — enter 0 if this line needs no QC sample."
+  (and the Stability/R&D equivalents).
+- Raw material line, field entered as `"0"` → accepted, same as any
+  other number.
+- Packaging line → **not** rejected. Packaging items never go through
+  QC/Stability/R&D sampling at all (`isRaw` gate — these fields aren't
+  even rendered for a packaging line, in either form), so
+  `formData.get("qc_qty")` comes back `null` for a packaging submission,
+  never `""`. That `null`-vs-`""` distinction is exactly what separates
+  "this is a packaging line, always 0, by design" from "this is a
+  raw-material line someone left empty" — verified with a standalone
+  Node check of all four cases (raw with real values including 0, raw
+  left blank, raw whitespace-only, packaging with everything `null`)
+  before committing.
+
+No migration needed — this is purely an app-layer (form + action)
+change; nothing about how the value is stored or what the DB allows
+changed. The Batch screen side of Ravi's request needed no further
+work — it was already fully mandatory (and already `> 0`) as of the
+Batch Start Date pass earlier the same day.

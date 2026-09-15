@@ -207,6 +207,7 @@ export function PurchaseLineForm({
           <Field
             label="Sample unit"
             htmlFor="sample_unit"
+            required
             hint="For QC/Stability/R&D qty below — converted to the line unit above on save."
           >
             <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
@@ -236,16 +237,36 @@ export function PurchaseLineForm({
         </Field>
         {isRaw && (
           <>
+        {/* Ravi (15 Sept 2026): "make QC, Stability & R&D Sample
+            mandatory along with sample unit" — required now, but 0
+            stays a valid, explicitly-entered value (see
+            lib/actions/purchase.ts's matching comment for why: plenty
+            of items legitimately need no sample, especially since Item
+            Master stopped capturing sample-qty defaults on 2 Sept
+            2026). Pre-filled to "0" the moment an item is picked
+            (handleItemChange below), so in practice this only blocks
+            someone from clearing the field to blank and submitting. */}
         <Field
           label="QC qty"
           htmlFor="qc_qty"
+          required
           hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : "Pre-filled from item default."}
         >
-          <Input id="qc_qty" name="qc_qty" type="number" step="any" min="0" value={qcQty} onChange={(e) => setQcQty(e.target.value)} />
+          <Input
+            id="qc_qty"
+            name="qc_qty"
+            type="number"
+            step="any"
+            min="0"
+            required
+            value={qcQty}
+            onChange={(e) => setQcQty(e.target.value)}
+          />
         </Field>
         <Field
           label="Stability qty"
           htmlFor="stability_qty"
+          required
           hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : "Pre-filled from item default."}
         >
           <Input
@@ -254,6 +275,7 @@ export function PurchaseLineForm({
             type="number"
             step="any"
             min="0"
+            required
             value={stabilityQty}
             onChange={(e) => setStabilityQty(e.target.value)}
           />
@@ -261,9 +283,19 @@ export function PurchaseLineForm({
         <Field
           label="R&D qty"
           htmlFor="rnd_qty"
+          required
           hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : "Pre-filled from item default."}
         >
-          <Input id="rnd_qty" name="rnd_qty" type="number" step="any" min="0" value={rndQty} onChange={(e) => setRndQty(e.target.value)} />
+          <Input
+            id="rnd_qty"
+            name="rnd_qty"
+            type="number"
+            step="any"
+            min="0"
+            required
+            value={rndQty}
+            onChange={(e) => setRndQty(e.target.value)}
+          />
         </Field>
           </>
         )}
@@ -385,6 +417,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
           <Field
             label="Sample unit"
             htmlFor="sample_unit"
+            required
             hint="For QC/Stability/R&D qty below — converted to the line unit above on save."
           >
             <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
@@ -413,12 +446,22 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         </Field>
         {isRaw && (
           <>
-        <Field label="QC qty" htmlFor="qc_qty" hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}>
-          <Input id="qc_qty" name="qc_qty" type="number" step="any" min="0" value={qcQty} onChange={(e) => setQcQty(e.target.value)} />
+        <Field label="QC qty" htmlFor="qc_qty" required hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}>
+          <Input
+            id="qc_qty"
+            name="qc_qty"
+            type="number"
+            step="any"
+            min="0"
+            required
+            value={qcQty}
+            onChange={(e) => setQcQty(e.target.value)}
+          />
         </Field>
         <Field
           label="Stability qty"
           htmlFor="stability_qty"
+          required
           hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : undefined}
         >
           <Input
@@ -427,12 +470,22 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
             type="number"
             step="any"
             min="0"
+            required
             value={stabilityQty}
             onChange={(e) => setStabilityQty(e.target.value)}
           />
         </Field>
-        <Field label="R&D qty" htmlFor="rnd_qty" hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}>
-          <Input id="rnd_qty" name="rnd_qty" type="number" step="any" min="0" value={rndQty} onChange={(e) => setRndQty(e.target.value)} />
+        <Field label="R&D qty" htmlFor="rnd_qty" required hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}>
+          <Input
+            id="rnd_qty"
+            name="rnd_qty"
+            type="number"
+            step="any"
+            min="0"
+            required
+            value={rndQty}
+            onChange={(e) => setRndQty(e.target.value)}
+          />
         </Field>
           </>
         )}

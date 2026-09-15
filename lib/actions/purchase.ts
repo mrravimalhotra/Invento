@@ -182,15 +182,50 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   const unitPriceRaw = formData.get("unit_price");
   const gstPctRaw = formData.get("gst_pct");
 
+  // Ravi (15 Sept 2026): "make QC, Stability & R&D Sample mandatory along
+  // with sample unit" on the Purchase line form. These three used to
+  // silently fall back to "0" whenever the field was blank/missing
+  // (`formData.get(...) || "0"`) — indistinguishable from someone
+  // deliberately entering 0. Scoped with Ravi: 0 stays a valid value
+  // (plenty of items legitimately need no QC/Stability/R&D sample,
+  // especially since Item Master stopped capturing default sample
+  // quantities at all on 2 Sept 2026 — docs/modules/items.md) — only a
+  // genuinely blank field is rejected now, checked explicitly here so an
+  // entered "0" is never confused with "not entered." sample_unit was
+  // already required (the zod schema below already has
+  // `.min(1, "Sample unit is required.")`) — this just adds the matching
+  // visual asterisk on the form (purchase-line-form.tsx).
+  //
+  // Packaging lines don't get a free pass on "required" — they simply
+  // never render these fields at all (the `isRaw` gate in
+  // purchase-line-form.tsx: packaging items never go through QC/
+  // Stability/R&D sampling, full stop). `formData.get(...)` comes back
+  // `null` for a field that was never in the DOM, vs `""` for one that
+  // was rendered and left blank — that distinction is what tells a
+  // packaging submission (silently 0, as always) apart from a raw-
+  // material one someone genuinely left empty (rejected below).
+  const qcQtyField = formData.get("qc_qty");
+  const stabilityQtyField = formData.get("stability_qty");
+  const rndQtyField = formData.get("rnd_qty");
+  if (qcQtyField !== null && String(qcQtyField).trim() === "") {
+    return { error: "QC quantity is required — enter 0 if this line needs no QC sample." };
+  }
+  if (stabilityQtyField !== null && String(stabilityQtyField).trim() === "") {
+    return { error: "Stability quantity is required — enter 0 if this line needs no stability sample." };
+  }
+  if (rndQtyField !== null && String(rndQtyField).trim() === "") {
+    return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample." };
+  }
+
   const parsed = lineSchema.safeParse({
     purchase_order_id: String(formData.get("purchase_order_id") || ""),
     item_id: String(formData.get("item_id") || ""),
     quantity: String(formData.get("quantity") || ""),
     unit: String(formData.get("unit") || ""),
     sample_unit: String(formData.get("sample_unit") || formData.get("unit") || ""),
-    qc_qty: String(formData.get("qc_qty") || "0"),
-    stability_qty: String(formData.get("stability_qty") || "0"),
-    rnd_qty: String(formData.get("rnd_qty") || "0"),
+    qc_qty: String(qcQtyField ?? "0"),
+    stability_qty: String(stabilityQtyField ?? "0"),
+    rnd_qty: String(rndQtyField ?? "0"),
     unit_price: unitPriceRaw ? String(unitPriceRaw) : undefined,
     gst_pct: gstPctRaw ? String(gstPctRaw) : undefined,
   });
@@ -372,12 +407,31 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
 
   const unitPriceRaw = formData.get("unit_price");
   const gstPctRaw = formData.get("gst_pct");
+
+  // Same mandatory-but-zero-is-fine rule as createPurchaseLine above,
+  // including the same null-vs-"" distinction for a packaging line's
+  // fields (never rendered at all, per EditPurchaseLineForm's own
+  // `isRaw` gate) vs a raw-material line's genuinely blank one — see
+  // that function's comment for the full reasoning.
+  const qcQtyField = formData.get("qc_qty");
+  const stabilityQtyField = formData.get("stability_qty");
+  const rndQtyField = formData.get("rnd_qty");
+  if (qcQtyField !== null && String(qcQtyField).trim() === "") {
+    return { error: "QC quantity is required — enter 0 if this line needs no QC sample." };
+  }
+  if (stabilityQtyField !== null && String(stabilityQtyField).trim() === "") {
+    return { error: "Stability quantity is required — enter 0 if this line needs no stability sample." };
+  }
+  if (rndQtyField !== null && String(rndQtyField).trim() === "") {
+    return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample." };
+  }
+
   const parsed = updateLineSchema.safeParse({
     quantity: String(formData.get("quantity") || ""),
     sample_unit: String(formData.get("sample_unit") || unit),
-    qc_qty: String(formData.get("qc_qty") || "0"),
-    stability_qty: String(formData.get("stability_qty") || "0"),
-    rnd_qty: String(formData.get("rnd_qty") || "0"),
+    qc_qty: String(qcQtyField ?? "0"),
+    stability_qty: String(stabilityQtyField ?? "0"),
+    rnd_qty: String(rndQtyField ?? "0"),
     unit_price: unitPriceRaw ? String(unitPriceRaw) : undefined,
     gst_pct: gstPctRaw ? String(gstPctRaw) : undefined,
   });
