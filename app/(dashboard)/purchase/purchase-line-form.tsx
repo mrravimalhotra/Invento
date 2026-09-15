@@ -96,9 +96,23 @@ export function PurchaseLineForm({
         // Pre-fill QC / Stability / R&D from the item's defaults — the
         // actual fix for the Automatic Sampling Deduction gap (DESIGN.md
         // §7.1). Still editable/overridable below.
-        setQcQty(numOrEmpty(item.default_qc_qty) || "0");
-        setStabilityQty(numOrEmpty(item.default_stability_qty) || "0");
-        setRndQty(numOrEmpty(item.default_rnd_qty) || "0");
+        //
+        // Ravi (15 Sept 2026): "all numerical value where i have to type
+        // values, quantity or price should not default to 0" — these
+        // three used to fall back to "0" whenever an item had no real
+        // configured default (numOrEmpty(...) || "0"), which is nearly
+        // every item now that Item Master stopped capturing default
+        // sample quantities at all (2 Sept 2026 — docs/modules/
+        // items.md). That silent "0" defeated the point of making these
+        // fields mandatory (FB pass earlier today): a user could submit
+        // without ever having looked at them. Dropped the `|| "0"` — a
+        // genuine configured default (a legacy item that still has one)
+        // still pre-fills, since that's real data, not a guess; an item
+        // with no default now leaves the field genuinely blank, forcing
+        // a conscious entry.
+        setQcQty(numOrEmpty(item.default_qc_qty));
+        setStabilityQty(numOrEmpty(item.default_stability_qty));
+        setRndQty(numOrEmpty(item.default_rnd_qty));
         // Default the sample unit to the item's own default — but only if
         // it's actually convertible into this line's unit (same guard as
         // the dropdown's own option list below); falls back to the line
@@ -318,31 +332,44 @@ export function PurchaseLineForm({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Unit Price (₹)" htmlFor="unit_price">
+        <Field label="Unit Price (₹)" htmlFor="unit_price" required>
           <Input
             id="unit_price"
             name="unit_price"
             type="number"
             step="any"
             min="0"
+            required
             value={unitPrice}
             onChange={(e) => setUnitPrice(e.target.value)}
           />
         </Field>
-        <Field label="GST %" htmlFor="gst_pct">
-          <Input id="gst_pct" name="gst_pct" type="number" step="any" min="0" value={gstPct} onChange={(e) => setGstPct(e.target.value)} />
+        <Field label="GST %" htmlFor="gst_pct" required>
+          <Input
+            id="gst_pct"
+            name="gst_pct"
+            type="number"
+            step="any"
+            min="0"
+            required
+            value={gstPct}
+            onChange={(e) => setGstPct(e.target.value)}
+          />
         </Field>
       </div>
 
+      {/* Ravi (15 Sept 2026): "Reorder amounts in this order (Rate inc
+          GST, Items Total Excl GST, GST Amount, Total Cost - do not
+          change labels)" — order only, every label below is unchanged. */}
       <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-4">
+        <span>
+          Rate incl. GST(₹): <strong>{formatNumber(priceInclGst)}</strong>
+        </span>
         <span>
           Item Total Excl GST (₹): <strong>{formatNumber(baseAmount)}</strong>
         </span>
         <span>
           GST amount(₹): <strong>{formatNumber(gstAmount)}</strong>
-        </span>
-        <span>
-          Rate incl. GST(₹): <strong>{formatNumber(priceInclGst)}</strong>
         </span>
         <span>
           Total Cost (₹): <strong>{formatNumber(lineTotal)}</strong>
@@ -508,31 +535,41 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Unit Price (₹)" htmlFor="unit_price">
+        <Field label="Unit Price (₹)" htmlFor="unit_price" required>
           <Input
             id="unit_price"
             name="unit_price"
             type="number"
             step="any"
             min="0"
+            required
             value={unitPrice}
             onChange={(e) => setUnitPrice(e.target.value)}
           />
         </Field>
-        <Field label="GST %" htmlFor="gst_pct">
-          <Input id="gst_pct" name="gst_pct" type="number" step="any" min="0" value={gstPct} onChange={(e) => setGstPct(e.target.value)} />
+        <Field label="GST %" htmlFor="gst_pct" required>
+          <Input
+            id="gst_pct"
+            name="gst_pct"
+            type="number"
+            step="any"
+            min="0"
+            required
+            value={gstPct}
+            onChange={(e) => setGstPct(e.target.value)}
+          />
         </Field>
       </div>
 
       <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-4">
         <span>
+          Rate incl. GST(₹): <strong>{formatNumber(priceInclGst)}</strong>
+        </span>
+        <span>
           Item Total Excl GST (₹): <strong>{formatNumber(baseAmount)}</strong>
         </span>
         <span>
           GST amount(₹): <strong>{formatNumber(gstAmount)}</strong>
-        </span>
-        <span>
-          Rate incl. GST(₹): <strong>{formatNumber(priceInclGst)}</strong>
         </span>
         <span>
           Total Cost (₹): <strong>{formatNumber(lineTotal)}</strong>

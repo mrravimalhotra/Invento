@@ -798,3 +798,62 @@ change; nothing about how the value is stored or what the DB allows
 changed. The Batch screen side of Ravi's request needed no further
 work — it was already fully mandatory (and already `> 0`) as of the
 Batch Start Date pass earlier the same day.
+
+## Unit Price / GST % made mandatory; no more silent zero defaults; amounts reordered (15 Sept 2026)
+
+Same day, immediate follow-up after the above, from a screenshot of the
+Add line form: *"unit price and gst should be mandatory. All mandatory
+fields in this form should have no default value. Reorder amounts in
+this order (Rate inc GST, Items Total Excl GST, GST Amount, Total Cost
+- do not change labels)."*
+
+Scoped the middle instruction via AskUserQuestion first — "no default
+value" could have meant every mandatory field (including Purchase type,
+which defaults to Raw Material, and Unit, auto-filled from the selected
+item) or something narrower. Ravi's answer: *"all numerical value where
+i have to type values, quantity or price should not default to 0"* —
+scoped to typed numeric fields specifically, not selectors. Purchase
+type (a two-option toggle) and Unit (read straight from the item's own
+real unit, not a guess) were intentionally left alone; Sample unit was
+also left alone for the same reason (a unit picker, not a typed
+quantity/price).
+
+**Unit Price / GST % mandatory** (`purchase-line-form.tsx`, both Add and
+Edit forms; `lib/actions/purchase.ts`, both `createPurchaseLine` and
+`updatePurchaseLine`): gained the same treatment QC/Stability/R&D qty
+got in the previous pass — visual asterisk, real `required` HTML
+attribute, and a server-side presence check reading the raw `FormData`
+value before it reaches zod (`unitPriceRaw === null || ...trim() === ""`
+→ rejected), replacing the old `unitPriceRaw ? String(unitPriceRaw) :
+undefined` which silently stored `null` for a blank field. `0` remains
+a valid, explicitly-entered value (0% GST is real, e.g. an exempt item)
+— only genuinely blank is rejected. Unlike QC/Stability/R&D, these two
+render unconditionally for both raw and packaging lines, so there's no
+`null`-vs-`""` packaging exemption to preserve here — always required,
+full stop. The zod schemas (`lineSchema`, `updateLineSchema`) dropped
+`.optional()` on both fields to match.
+
+**No default value on typed numeric fields** (`purchase-line-form.tsx`,
+Add form's `handleItemChange`): QC qty/Stability qty/R&D qty used to
+silently fall back to `"0"` when an item had no configured default
+(`numOrEmpty(item.default_qc_qty) || "0"`) — nearly always now, since
+Item Master stopped capturing these at all on 2 Sept 2026 ("Sampling &
+stock defaults removed from Item Master," above). That silent zero
+defeated the point of making the fields mandatory in the previous pass:
+a user could submit without ever having looked at them. Dropped the
+`|| "0"` — a genuine configured default on a legacy item still
+pre-fills (real data, not a guess); an item with no default now leaves
+the field truly blank, forcing a conscious entry. Quantity received and
+Unit Price/GST% already had no default (always started blank) — no
+change needed there.
+
+**Amount order** (`purchase-line-form.tsx`, both Add and Edit forms'
+summary box): reordered to Rate incl. GST, Item Total Excl GST, GST
+amount, Total Cost, per Ravi's explicit order — labels and computed
+values themselves are completely unchanged, this is a display-order-only
+edit.
+
+No migration — purely an app-layer change. Verified: `tsc`/`eslint`/
+`next build` all clean; a standalone Node check confirmed the required
+`null`-vs-blank-string branching for Unit Price/GST % behaves correctly
+(0 accepted, blank rejected) before committing.

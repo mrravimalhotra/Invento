@@ -156,8 +156,8 @@ const lineSchema = z.object({
   qc_qty: z.coerce.number().min(0, "QC quantity can't be negative.").default(0),
   stability_qty: z.coerce.number().min(0, "Stability quantity can't be negative.").default(0),
   rnd_qty: z.coerce.number().min(0, "R&D quantity can't be negative.").default(0),
-  unit_price: z.coerce.number().min(0, "Unit price can't be negative.").optional(),
-  gst_pct: z.coerce.number().min(0, "GST % can't be negative.").optional(),
+  unit_price: z.coerce.number().min(0, "Unit price can't be negative."),
+  gst_pct: z.coerce.number().min(0, "GST % can't be negative."),
 });
 
 export async function createPurchaseLine(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -216,6 +216,17 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   if (rndQtyField !== null && String(rndQtyField).trim() === "") {
     return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample." };
   }
+  // Ravi (15 Sept 2026): "unit price and gst should be mandatory" —
+  // these rendered for every line (raw or packaging) and were fully
+  // optional before, silently stored as null when left blank. Same
+  // required-but-zero-is-fine rule as above; unlike qc/stability/rnd
+  // there's no packaging-only exemption to preserve here.
+  if (unitPriceRaw === null || String(unitPriceRaw).trim() === "") {
+    return { error: "Unit price is required." };
+  }
+  if (gstPctRaw === null || String(gstPctRaw).trim() === "") {
+    return { error: "GST % is required." };
+  }
 
   const parsed = lineSchema.safeParse({
     purchase_order_id: String(formData.get("purchase_order_id") || ""),
@@ -226,8 +237,8 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
     qc_qty: String(qcQtyField ?? "0"),
     stability_qty: String(stabilityQtyField ?? "0"),
     rnd_qty: String(rndQtyField ?? "0"),
-    unit_price: unitPriceRaw ? String(unitPriceRaw) : undefined,
-    gst_pct: gstPctRaw ? String(gstPctRaw) : undefined,
+    unit_price: String(unitPriceRaw),
+    gst_pct: String(gstPctRaw),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -376,8 +387,8 @@ const updateLineSchema = z.object({
   qc_qty: z.coerce.number().min(0, "QC quantity can't be negative.").default(0),
   stability_qty: z.coerce.number().min(0, "Stability quantity can't be negative.").default(0),
   rnd_qty: z.coerce.number().min(0, "R&D quantity can't be negative.").default(0),
-  unit_price: z.coerce.number().min(0, "Unit price can't be negative.").optional(),
-  gst_pct: z.coerce.number().min(0, "GST % can't be negative.").optional(),
+  unit_price: z.coerce.number().min(0, "Unit price can't be negative."),
+  gst_pct: z.coerce.number().min(0, "GST % can't be negative."),
 });
 
 type LineWithPoStatus = {
@@ -425,6 +436,12 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
   if (rndQtyField !== null && String(rndQtyField).trim() === "") {
     return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample." };
   }
+  if (unitPriceRaw === null || String(unitPriceRaw).trim() === "") {
+    return { error: "Unit price is required." };
+  }
+  if (gstPctRaw === null || String(gstPctRaw).trim() === "") {
+    return { error: "GST % is required." };
+  }
 
   const parsed = updateLineSchema.safeParse({
     quantity: String(formData.get("quantity") || ""),
@@ -432,8 +449,8 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
     qc_qty: String(qcQtyField ?? "0"),
     stability_qty: String(stabilityQtyField ?? "0"),
     rnd_qty: String(rndQtyField ?? "0"),
-    unit_price: unitPriceRaw ? String(unitPriceRaw) : undefined,
-    gst_pct: gstPctRaw ? String(gstPctRaw) : undefined,
+    unit_price: String(unitPriceRaw),
+    gst_pct: String(gstPctRaw),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
