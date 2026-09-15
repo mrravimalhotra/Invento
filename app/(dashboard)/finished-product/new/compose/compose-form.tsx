@@ -44,14 +44,14 @@ export function ComposeForm({
   mfrVersion,
   targetQty,
   unit,
-  expiryDate,
+  batchStartDate,
   lines,
 }: {
   mfrDefinitionId: string;
   mfrVersion: number;
   targetQty: number;
   unit: string;
-  expiryDate: string;
+  batchStartDate: string;
   lines: ComposeLine[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createFinishedProductBatch, undefined);
@@ -78,7 +78,7 @@ export function ComposeForm({
       <input type="hidden" name="mfr_version" value={mfrVersion} />
       <input type="hidden" name="target_qty" value={targetQty} />
       <input type="hidden" name="unit" value={unit} />
-      <input type="hidden" name="expiry_date" value={expiryDate} />
+      <input type="hidden" name="batch_start_date" value={batchStartDate} />
       <input type="hidden" name="lineCount" value={components.length} />
       {components.map((c, i) => (
         <span key={i}>

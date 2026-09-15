@@ -43,30 +43,50 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      <p className="text-sm text-muted">
+        All fields below are required and saved together — the batch is only truly &ldquo;finished&rdquo; once every
+        one of them is known, so this screen doesn&apos;t support a partial/in-progress save.
+      </p>
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label={`Batch yield (${unit})`} htmlFor="batch_yield" hint="How much Finished Product this batch actually produced.">
-          <Input id="batch_yield" name="batch_yield" type="number" step="any" min="0" defaultValue={defaults.batch_yield ?? ""} />
+        <Field
+          label={`Batch yield (${unit})`}
+          htmlFor="batch_yield"
+          required
+          hint="How much Finished Product this batch actually produced."
+        >
+          <Input
+            id="batch_yield"
+            name="batch_yield"
+            type="number"
+            step="any"
+            min="0"
+            required
+            defaultValue={defaults.batch_yield ?? ""}
+          />
         </Field>
-        <Field label="Finish date" htmlFor="finish_date">
-          <Input id="finish_date" name="finish_date" type="date" defaultValue={defaults.finish_date ?? ""} />
+        <Field label="Finish date" htmlFor="finish_date" required>
+          <Input id="finish_date" name="finish_date" type="date" required defaultValue={defaults.finish_date ?? ""} />
         </Field>
-        {/* FB-0025 (12 Sept 2026): label text only — the field still stores
-            a full date (expiry_month is a `date` column name, not a display
-            label; see the "Best Before" month/year rendering in
-            labels/label-picker.tsx, which is unaffected by this rename).
-            The start-date column and future-date validation raised in the
-            same ticket are deferred pending more input from Ravi. */}
-        <Field label="Expiry date" htmlFor="expiry_month">
-          <Input id="expiry_month" name="expiry_month" type="date" defaultValue={defaults.expiry_month ?? ""} />
+        {/* Ravi (15 Sept 2026): Expiry date is now mandatory here and here
+            only — it's dropped entirely from batch creation (Step 1),
+            since it can only really be known once the batch is finished.
+            FB-0025 (12 Sept 2026) already renamed this field's label from
+            "Expiry Month" — the underlying column is still named
+            `expiry_month` (a real `date`, not a display label; see the
+            "Best Before" month/year rendering in labels/label-picker.tsx,
+            which reads this same column and is unaffected by any of this). */}
+        <Field label="Expiry date" htmlFor="expiry_month" required>
+          <Input id="expiry_month" name="expiry_month" type="date" required defaultValue={defaults.expiry_month ?? ""} />
         </Field>
         <Field
           label="Sample unit"
           htmlFor="sample_unit"
+          required
           hint="For QC/Stability/R&D sample qty below — converted to the batch's own unit on save."
         >
-          <Select id="sample_unit" name="sample_unit" value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
+          <Select id="sample_unit" name="sample_unit" required value={sampleUnit} onChange={(e) => setSampleUnit(e.target.value)}>
             {compatibleUnits(unit).map((u) => (
               <option key={u} value={u}>
                 {u}
@@ -77,6 +97,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
         <Field
           label="QC sample qty"
           htmlFor="qc_sample_qty"
+          required
           hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}
         >
           <Input
@@ -85,6 +106,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
             type="number"
             step="any"
             min="0"
+            required
             value={qcSampleQty}
             onChange={(e) => setQcSampleQty(e.target.value)}
           />
@@ -92,6 +114,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
         <Field
           label="Stability sample qty"
           htmlFor="stability_qty"
+          required
           hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : undefined}
         >
           <Input
@@ -100,6 +123,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
             type="number"
             step="any"
             min="0"
+            required
             value={stabilityQty}
             onChange={(e) => setStabilityQty(e.target.value)}
           />
@@ -107,6 +131,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
         <Field
           label="R&D sample qty"
           htmlFor="rnd_qty"
+          required
           hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}
         >
           <Input
@@ -115,6 +140,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
             type="number"
             step="any"
             min="0"
+            required
             value={rndQty}
             onChange={(e) => setRndQty(e.target.value)}
           />
@@ -128,7 +154,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
       )}
       <div>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save batch details"}
+          {pending ? "Completing…" : "Complete batch"}
         </Button>
       </div>
     </form>

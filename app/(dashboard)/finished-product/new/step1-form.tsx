@@ -23,6 +23,10 @@ export function Step1Form({ mfrDefinitions }: { mfrDefinitions: MfrOption[] }) {
   const [selectedId, setSelectedId] = useState("");
   const [unit, setUnit] = useState("");
   const selected = mfrDefinitions.find((m) => m.id === selectedId);
+  // Same "today" convention used elsewhere in this app (e.g. rm-report's
+  // todayIso(), compose/page.tsx) — defaults the field to today but stays
+  // a plain editable date input, same as every other date field here.
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
 
   return (
     <form action="/finished-product/new/compose" method="get" className="flex flex-col gap-4 max-w-lg">
@@ -77,8 +81,13 @@ export function Step1Form({ mfrDefinitions }: { mfrDefinitions: MfrOption[] }) {
           ))}
         </Select>
       </Field>
-      <Field label="Expiry date" htmlFor="expiry_date">
-        <Input id="expiry_date" name="expiry_date" type="date" />
+      {/* Ravi (15 Sept 2026): a batch's expiry can only be known once it's
+          actually finished — this screen used to collect it up front,
+          before a single day of processing had happened. Expiry date now
+          lives solely on the Complete Batch screen (mandatory there); this
+          screen instead records when the production run itself started. */}
+      <Field label="Batch start date" htmlFor="batch_start_date" required hint="When this batch's production run started.">
+        <Input id="batch_start_date" name="batch_start_date" type="date" defaultValue={today} required />
       </Field>
 
       <div className="flex gap-2">

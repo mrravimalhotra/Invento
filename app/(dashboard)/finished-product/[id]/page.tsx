@@ -18,7 +18,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
   const { data: batch } = await supabase
     .from("finished_product_batches")
     .select(
-      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, expiry_date, mfr_definitions(id, code, name)"
+      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, mfr_definitions(id, code, name)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -81,8 +81,8 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
               </p>
             </div>
             <div>
-              <span className="text-muted">Expiry date</span>
-              <p className="mt-1 font-medium">{formatDate(batch.expiry_date)}</p>
+              <span className="text-muted">Batch start date</span>
+              <p className="mt-1 font-medium">{formatDate(batch.batch_start_date)}</p>
             </div>
             <div>
               <span className="text-muted">Batch yield</span>
@@ -95,6 +95,13 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
             <div>
               <span className="text-muted">Finish date</span>
               <p className="mt-1 font-medium">{formatDate(batch.finish_date)}</p>
+            </div>
+            {/* expiry_month, not expiry_date — see migration 0044's comment.
+                Only known once Complete Batch has been saved; blank ("—")
+                until then, by design. */}
+            <div>
+              <span className="text-muted">Expiry date</span>
+              <p className="mt-1 font-medium">{formatDate(batch.expiry_month)}</p>
             </div>
           </CardBody>
         </Card>

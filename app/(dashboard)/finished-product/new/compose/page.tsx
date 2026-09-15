@@ -152,7 +152,7 @@ export default async function ComposeFinishedProductPage({
     mfr_version?: string;
     target_qty?: string;
     unit?: string;
-    expiry_date?: string;
+    batch_start_date?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -163,9 +163,9 @@ export default async function ComposeFinishedProductPage({
   const mfrVersion = Number(sp.mfr_version);
   const targetQty = Number(sp.target_qty);
   const unit = sp.unit ?? "";
-  const expiryDate = sp.expiry_date ?? "";
+  const batchStartDate = sp.batch_start_date ?? "";
 
-  if (!mfrDefinitionId || !mfrVersion || !targetQty || !unit) {
+  if (!mfrDefinitionId || !mfrVersion || !targetQty || !unit || !batchStartDate) {
     redirect("/finished-product/new");
   }
 
@@ -224,7 +224,7 @@ export default async function ComposeFinishedProductPage({
               mfrVersion={mfrVersion}
               targetQty={targetQty}
               unit={unit}
-              expiryDate={expiryDate}
+              batchStartDate={batchStartDate}
               lines={composeLines}
             />
           )}

@@ -43,7 +43,13 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   const mfrVersion = Number(formData.get("mfr_version"));
   const targetQty = Number(formData.get("target_qty"));
   const unit = String(formData.get("unit") || "");
-  const expiryDate = String(formData.get("expiry_date") || "") || null;
+  // Ravi (15 Sept 2026): Expiry date is no longer collected here — it can
+  // only be known once the batch is actually finished (see the Complete
+  // Batch fields below, and the migration 0044 comment for the full
+  // reasoning). Batch Start Date replaces it: when this batch's
+  // production run actually started, as distinct from `created_at`
+  // (a plain row-audit timestamp, not a value a user enters or sees).
+  const batchStartDate = String(formData.get("batch_start_date") || "") || null;
 
   if (!mfrDefinitionId) return { error: "MFR definition is required." };
   if (!mfrVersion || mfrVersion <= 0) return { error: "MFR version is missing — go back and reselect the MFR." };
@@ -51,6 +57,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
     return { error: "Target quantity must be greater than 0." };
   }
   if (!unit) return { error: "Unit is required." };
+  if (!batchStartDate) return { error: "Batch start date is required." };
 
   const componentsOrError = parseComponents(formData);
   if ("error" in componentsOrError) return componentsOrError;
@@ -71,7 +78,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
       mfr_version: mfrVersion,
       target_qty: targetQty,
       unit,
-      expiry_date: expiryDate,
+      batch_start_date: batchStartDate,
       status: "in_process",
     })
     .select("id")
@@ -111,6 +118,19 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
 // is entered here manually (same unit as the batch's own `unit`, i.e. the
 // Finished Product item's unit) — actual_yield_pct is a DB-generated column
 // (batch_yield / target_qty * 100); we never compute it client-side.
+//
+// Ravi (15 Sept 2026): "Once the batch is finished, 'Finish Date' will be
+// added along with 'Expiry Date'. Both of these fields should be
+// mandatory... all sample quantities and sample unit should be made
+// mandatory." Before this, every field on this screen was optional and
+// could be saved piecemeal across several visits while a batch was still
+// "in_process" — that partial-save shape is gone now: completing a batch
+// is one all-or-nothing action, matching the real-world process ("a
+// finished product can take a few days to get completed... once the
+// batch is finished" every one of these is known at the same time).
+// Mirrored at the DB level by fp_completion_fields_required_together
+// (0044_fp_batch_start_date.sql) as a defense-in-depth backstop against a
+// direct API call bypassing this action.
 export async function completeFinishedProductBatch(
   id: string,
   _prev: ActionState,
@@ -119,13 +139,33 @@ export async function completeFinishedProductBatch(
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Not authorized." };
 
-  const batchYield = formData.get("batch_yield");
+  const batchYieldRaw = formData.get("batch_yield");
   const finishDate = String(formData.get("finish_date") || "");
   const expiryMonth = String(formData.get("expiry_month") || "");
   const qcSampleQtyRaw = formData.get("qc_sample_qty");
   const stabilityQtyRaw = formData.get("stability_qty");
   const rndQtyRaw = formData.get("rnd_qty");
   const sampleUnitRaw = String(formData.get("sample_unit") || "");
+
+  const batchYield = batchYieldRaw ? Number(batchYieldRaw) : NaN;
+  if (!Number.isFinite(batchYield) || batchYield <= 0) {
+    return { error: "Batch yield is required and must be greater than 0." };
+  }
+  if (!finishDate) return { error: "Finish date is required." };
+  if (!expiryMonth) return { error: "Expiry date is required." };
+  if (!sampleUnitRaw) return { error: "Sample unit is required." };
+  const qcSampleQtyNum = qcSampleQtyRaw ? Number(qcSampleQtyRaw) : NaN;
+  const stabilityQtyNum = stabilityQtyRaw ? Number(stabilityQtyRaw) : NaN;
+  const rndQtyNum = rndQtyRaw ? Number(rndQtyRaw) : NaN;
+  if (!Number.isFinite(qcSampleQtyNum) || qcSampleQtyNum <= 0) {
+    return { error: "QC sample qty is required and must be greater than 0." };
+  }
+  if (!Number.isFinite(stabilityQtyNum) || stabilityQtyNum <= 0) {
+    return { error: "Stability sample qty is required and must be greater than 0." };
+  }
+  if (!Number.isFinite(rndQtyNum) || rndQtyNum <= 0) {
+    return { error: "R&D sample qty is required and must be greater than 0." };
+  }
 
   const supabase = await createClient();
   const { data: current, error: fetchError } = await supabase
@@ -141,22 +181,15 @@ export async function completeFinishedProductBatch(
   // 0021_fp_stability_rnd_qty.sql: QC sample / Stability sample / R&D
   // sample quantity can be entered in a "sample unit" that differs from
   // the batch's own `unit` (e.g. grams while the batch itself is tracked
-  // in kg) — same convention purchase_lines uses (FB-0017). Falls back
-  // to the batch's own unit when no sample unit is submitted (matches
-  // the pre-existing behavior, where qc_sample_qty was always assumed to
-  // already be in the batch's unit). Converted values are what's stored;
-  // no separate "as entered" unit column is kept on this table.
-  const fromUnit = sampleUnitRaw || current.unit;
-  const qcSampleQty = qcSampleQtyRaw ? convertUnit(Number(qcSampleQtyRaw), fromUnit, current.unit) : null;
-  const stabilityQty = stabilityQtyRaw ? convertUnit(Number(stabilityQtyRaw), fromUnit, current.unit) : null;
-  const rndQty = rndQtyRaw ? convertUnit(Number(rndQtyRaw), fromUnit, current.unit) : null;
-  if (
-    (qcSampleQtyRaw && qcSampleQty === null) ||
-    (stabilityQtyRaw && stabilityQty === null) ||
-    (rndQtyRaw && rndQty === null)
-  ) {
+  // in kg) — same convention purchase_lines uses (FB-0017). Converted
+  // values are what's stored; no separate "as entered" unit column is
+  // kept on this table.
+  const qcSampleQty = convertUnit(qcSampleQtyNum, sampleUnitRaw, current.unit);
+  const stabilityQty = convertUnit(stabilityQtyNum, sampleUnitRaw, current.unit);
+  const rndQty = convertUnit(rndQtyNum, sampleUnitRaw, current.unit);
+  if (qcSampleQty === null || stabilityQty === null || rndQty === null) {
     return {
-      error: `Sample unit "${fromUnit}" can't be converted to the batch's unit "${current.unit}" — pick a compatible unit.`,
+      error: `Sample unit "${sampleUnitRaw}" can't be converted to the batch's unit "${current.unit}" — pick a compatible unit.`,
     };
   }
 
@@ -175,9 +208,9 @@ export async function completeFinishedProductBatch(
   const { error } = await supabase
     .from("finished_product_batches")
     .update({
-      batch_yield: batchYield ? Number(batchYield) : null,
-      finish_date: finishDate || null,
-      expiry_month: expiryMonth || null,
+      batch_yield: batchYield,
+      finish_date: finishDate,
+      expiry_month: expiryMonth,
       qc_sample_qty: qcSampleQty,
       stability_qty: stabilityQty,
       rnd_qty: rndQty,
@@ -197,7 +230,7 @@ export async function completeFinishedProductBatch(
 
   revalidatePath(`/finished-product/${id}`);
   revalidatePath("/finished-product");
-  return { success: "Batch details saved." };
+  return { success: "Batch completed." };
 }
 
 // Status flow gap fix (DESIGN.md §4.8): in_process -> submitted_to_qc closes the
@@ -219,24 +252,27 @@ export async function submitFinishedProductToQc(
   const supabase = await createClient();
   const { data: batch, error: fetchError } = await supabase
     .from("finished_product_batches")
-    .select("status, batch_yield, finish_date, qc_sample_qty, unit, expiry_date")
+    .select("status, batch_yield, finish_date, qc_sample_qty, unit, expiry_month")
     .eq("id", id)
     .maybeSingle();
   if (fetchError || !batch) return { error: fetchError?.message || "Batch not found." };
   if (batch.status !== "in_process") return { error: "Only an in-process batch can be submitted to QC." };
   if (!batch.batch_yield || !batch.finish_date) {
-    return { error: "Complete the batch (batch yield, finish date) before submitting to QC." };
+    return { error: "Complete the batch (batch yield, finish date, expiry date, sample quantities) before submitting to QC." };
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
   if (arError || !arNumber) return { error: arError?.message || "Could not generate an AR number." };
 
+  // expiry_month (not expiry_date — see migration 0044's comment): the
+  // Complete Batch screen's Expiry date field is the batch's one real
+  // expiry value now, only knowable once the batch is actually finished.
   const { error: qcError } = await supabase.from("quality_checks").insert({
     ar_number: arNumber,
     finished_product_batch_id: id,
     sample_qty: batch.qc_sample_qty,
     sample_unit: batch.unit,
-    expiry_date: batch.expiry_date,
+    expiry_date: batch.expiry_month,
   });
   if (qcError) {
     if (qcError.code === "42501") {

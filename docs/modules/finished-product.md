@@ -17,7 +17,10 @@ Write (`finished_product` in `MODULE_WRITE_ROLES`): `system_admin`,
   qty/unit, actual yield %, finish date.
 - **New, step 1** — `/finished-product/new`. Plain fields: MFR dropdown
   (fetched with code/name/version/batch size), target quantity, unit,
-  expiry date. Selecting an MFR fills the unit field from that MFR's
+  **batch start date** (required; as of 15 Sept 2026 — see "Batch start
+  date replaces up-front Expiry date" below — this step no longer
+  collects an expiry date at all). Selecting an MFR fills the unit field
+  from that MFR's
   standard batch-size unit (editable) and shows its name + **locks the MFR
   version being used right now** into a hidden field — this step does no DB
   writes, it's a plain `GET` form handing everything to step 2 via the query
@@ -33,10 +36,14 @@ Write (`finished_product` in `MODULE_WRITE_ROLES`): `system_admin`,
   `finished_product_batches` header (status `in_process`) and then all
   `finished_product_components` rows — now possibly several per
   ingredient, one per batch drawn from — in a single bulk insert.
-- **Detail** — `/finished-product/[id]`. Header, composition table (item,
-  RM batch consumed, expiry, quantity), the linked QC record if one exists,
-  a **Complete batch** form (yield/wastage fields, shown while
-  `status = 'in_process'`), and a **Submit to QC** button (same condition).
+- **Detail** — `/finished-product/[id]`. Header (MFR, target quantity,
+  batch start date, batch yield, actual yield %, finish date, expiry
+  date), composition table (item, RM batch consumed, expiry, quantity),
+  the linked QC record if one exists, a **Complete batch** form (batch
+  yield, finish date, expiry date, sample unit, QC/Stability/R&D sample
+  qty — all mandatory and saved together as of 15 Sept 2026, shown while
+  `status = 'in_process'`), and a **Submit to QC** button (same
+  condition).
 
 ## FIFO default — the gap fix
 
@@ -476,3 +483,116 @@ quantities exceeding the entered batch yield) into a plain-language form
 error, same pattern as the two constraint translations just above. Full
 writeup, including the `finished_product_batches.status` sync this same
 migration adds, in `docs/modules/inventory.md`'s Phase 3 section.
+
+## Batch start date replaces up-front Expiry date; Complete Batch becomes one mandatory, all-at-once action (15 Sept 2026)
+
+Ravi, after live-testing the app end to end: "A finished product can take
+few days to get completed. Unless it is completed it is not available in
+inventory for packaging and to be issued to Store/R&D. also only when the
+batch process is complete 'Expiry Date' can be associated." Four concrete
+asks: (1) remove Expiry date from batch creation, (2) add a Batch Start
+Date field there instead, (3) confirm RM is deducted at start but FP yield
+isn't added to inventory until the batch is actually complete, with the
+batch showing "In Progress" in the meantime, and (4) once finished, Finish
+Date and Expiry Date are entered together and both mandatory — and on that
+same screen, all sample quantities and the sample unit become mandatory
+too.
+
+**(3) turned out to already be true, more strictly than asked — confirmed
+by reading the actual trigger code before writing anything, not assumed.**
+`finished_product_components` inserts (at batch creation, step 2) already
+pull raw material immediately via `trg_fp_component_live_remaining_pull`
+(`0029_purchase_line_live_remaining_qty.sql`). The Finished Product item's
+own `inventory_ledger` push doesn't even wait for Complete Batch, though —
+it only happens once the batch's QC record is **approved**
+(`trg_fn_qc_review_finished_product`, `0030_finished_product_ledger.sql`,
+see the Phase 3 section above). So a batch sitting `in_process` — or even
+`submitted_to_qc`, pending review — already contributes nothing to
+`stock_balance`, and Packaging already can't draw against it; no code
+change was needed for this part. The status Ravi describes as "In
+Progress" is also already the literal stored value
+(`finished_product_batches.status = 'in_process'`, unchanged since
+`0001_init.sql`) — no rename needed either.
+
+**What was actually missing: (1)/(2)/(4).** Before this pass, Expiry date
+was collected in Step 1 — before a single day of production had even
+happened — via `finished_product_batches.expiry_date`; a *second*,
+separately-named column, `expiry_month` (a real `date` despite the name;
+see the Complete Batch field below), was collected later at Complete
+Batch and was the value actually used for display (FB-0025, 12 Sept 2026)
+but not for the QC record's own expiry (`submitFinishedProductToQc` read
+the *creation-time* `expiry_date`, not the completion-time
+`expiry_month`) — an inconsistency that predates this pass. Rather than
+introduce a third column or a risky rename, the fix keeps both existing
+columns and repoints which one is live: `expiry_date` is no longer
+collected or read anywhere going forward (left in place, unused, same
+non-destructive precedent as `updateItem()`'s dropped sampling defaults
+and this module's own earlier wastage/`total_units`/`net_qty` removal —
+`claude/known-issues.md`, Seventh pass); `expiry_month` becomes the one
+live "Expiry date" for a batch, now read by `submitFinishedProductToQc`
+too, so the QC record's expiry finally matches what the Complete Batch
+screen actually shows.
+
+**Migration `0044_fp_batch_start_date.sql`:**
+- `finished_product_batches.batch_start_date` (nullable `date`), backfilled
+  for every existing row — including `LEG-FP-...` legacy batches — from
+  that row's own `created_at::date`: the best available, non-guessing
+  stand-in for "when this batch's production run started" for batches
+  that predate the column. Purely informational; nothing downstream keys
+  off it.
+- `fp_completion_fields_required_together`, a `not valid` CHECK (same
+  idiom as `wastage_requires_batch`, `0036_wastage_batch_required.sql`,
+  and every other "required together" rule in this project — applies only
+  to new writes, never scans or rejects an existing row): whenever
+  `finish_date` is set, `batch_yield`, `expiry_month`,
+  `qc_sample_qty`, `stability_qty`, and `rnd_qty` must all be set (and
+  each of the four numeric fields `> 0`) too. Defense-in-depth against a
+  direct API call bypassing the app-level check below — the real
+  enforcement, since this is a workflow-completeness rule rather than a
+  security boundary.
+
+**App-layer changes:**
+- **Step 1** (`step1-form.tsx`, `finished-product/new/page.tsx`) — the
+  Expiry date field is gone; a required **Batch start date** field
+  (defaulting to today, plain editable date input, same convention as
+  every other date field in this app) takes its place. The compose page
+  and form (`compose/page.tsx`, `compose-form.tsx`) carry
+  `batch_start_date` through as a hidden field the same way `expiry_date`
+  used to be carried, and now redirect back to Step 1 if it's missing
+  from the query string (previously only MFR/version/target qty/unit were
+  required to proceed).
+- **`createFinishedProductBatch`** (`lib/actions/finished-product.ts`) —
+  reads and requires `batch_start_date` instead of reading (optional)
+  `expiry_date`; the insert no longer writes `expiry_date` at all.
+- **`completeFinishedProductBatch`** — this is the bigger behavioral
+  change. Previously every field (batch yield, finish date, expiry month,
+  sample unit, QC/Stability/R&D sample qty) was optional and could be
+  saved piecemeal across several visits while a batch stayed
+  `in_process`. Per Ravi's "once the batch is finished" framing, that
+  partial-save shape is gone: completing a batch is now one all-or-nothing
+  action — every field is required (`Field`/`Input`/`Select` all gained
+  `required`, both the visual asterisk and the real HTML attribute), and
+  the server action independently validates all seven values are present
+  (and the four numeric ones `> 0`) before touching the database, mirrored
+  by `fp_completion_fields_required_together` above as a backstop. The
+  button's label changed from "Save batch details" to "Complete batch"
+  (pending state: "Completing…") and the form now carries a short note
+  explaining there's no partial/in-progress save, to match. The success
+  message changed from "Batch details saved." to "Batch completed."
+- **`submitFinishedProductToQc`** — now selects and uses `expiry_month`
+  (not the now-unused `expiry_date`) when seeding the QC record's own
+  expiry date; its own pre-submit error message was widened from
+  "Complete the batch (batch yield, finish date)" to also name expiry
+  date and sample quantities, since all of them are now required together
+  by the time `batch_yield`/`finish_date` are non-null anyway.
+- **Detail page** (`finished-product/[id]/page.tsx`) — the "Batch header"
+  card now shows **Batch start date** (new) instead of the old
+  creation-time Expiry date tile; its "Expiry date" tile moved next to
+  Finish date and now reads `expiry_month`, correctly showing "—" until
+  the batch has actually been completed rather than a value entered
+  before production even started.
+
+No changes were needed to the Packaging or Store/R&D issue path, or to
+`stock_balance`/Stock Position — as established above, those already
+correctly show zero for an FP item until its QC record is approved,
+regardless of anything on this screen.
