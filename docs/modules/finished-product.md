@@ -916,3 +916,97 @@ No change was needed to the packaging-issue eligibility filter
 react to the `quality_checks` row directly, neither of which reads or
 depends on the specific in-between status value a batch passes through
 before reaching `submitted_to_qc`.
+
+## Finish Product Intimation Slip (15 Sept 2026)
+
+Ravi: "when a Finished Product batch is submitted to QC, a Finish Product
+Intimation Slip should be generated and link should be available in
+Finished Product Screen similar to RM Intimation Slip," attaching a real
+sample of the legacy system's own export (`A.Jatamansi Tail_PR06-26...pdf`
+— a Crystal Reports "Finish Product Intimation Slip" for FP034 / batch
+`PR 06/26`, 59.000 Ltr batch, 0.300 Ltr QC sample).
+
+This is the Finished Product counterpart of the RM Intimation Slip
+(`docs/modules/purchase.md`, "RM Intimation slip", 3 Sept 2026) and
+follows the exact same pattern deliberately, not a fresh design:
+
+- **Client-side PDF generation, nothing persisted.** No new Server
+  Action, no migration, no stored file — the slip is drawn live in the
+  browser from data already on the page and downloaded via jsPDF's
+  `.save()`. Regenerating it later always reflects the batch's current
+  data (there's no separate "as generated on X date" snapshot).
+- **Exact visual reproduction of the attached sample** — same real
+  extracted Atharva logo, same monochrome black-ruled table (no
+  brand-green fill), same two-identical-copies-on-one-A4-page layout, and
+  company/Mfg-Lic text transcribed verbatim from this sample rather than
+  reused from `lib/pdf.ts`'s app-wide constants (same reasoning
+  `rm-intimation-pdf.ts` gives for its own local constants: this is one
+  specific legacy document being reproduced exactly, not a new app-native
+  export).
+- **Simpler than the RM slip**, matched to what this sample actually
+  shows rather than to every field this app tracks: no "Bill No" row
+  (Finished Product is manufactured, not purchased — no vendor invoice to
+  cite), and only one quantity column, "QCSample Qty" (no
+  Stability/R&D columns, even though `finished_product_batches` has
+  `stability_qty`/`rnd_qty` too).
+
+**New files:**
+
+- `app/(dashboard)/finished-product/[id]/fp-intimation-pdf.ts` — the
+  drawing module, `downloadFpIntimationPdf(data, filename)`. A plain
+  (not `"use client"`) `.ts` module, same convention as
+  `rm-intimation-pdf.ts`, so it can be called directly from a client
+  component without hitting the "can't call a client-file export from a
+  Server Component" trap (`lib/packaging-materials.ts`).
+- `app/(dashboard)/finished-product/[id]/fp-intimation-link.tsx` — the
+  small client component rendering the actual "Finish Product Intimation
+  Slip" text-link button and wiring its `onClick` to
+  `downloadFpIntimationPdf`.
+
+**Where the link lives, and why no extra status gate was needed:** it's
+rendered inside the FP detail page's existing "QC record" card
+(`app/(dashboard)/finished-product/[id]/page.tsx`), which itself only
+renders once a `quality_checks` row exists for this batch (`latestQc &&
+(...)`) — that row is created by `submitFinishedProductToQc()`
+(`lib/actions/finished-product.ts`) at the exact moment a batch is
+submitted to QC. So "the link is available once submitted to QC," per
+Ravi's ask, falls straight out of the card's own existing gating —
+nothing new to add there. Unlike the RM Intimation link (available on
+every raw-material purchase line regardless of QC state, since it's
+requesting sampling that hasn't happened yet), the FP slip's data
+includes QC sample qty already recorded on the batch, so it only makes
+sense once the batch has actually reached that point.
+
+**Field mapping** (`FpIntimationData` in `fp-intimation-pdf.ts`):
+
+| Slip field | Source |
+|---|---|
+| Date | `quality_checks.created_at` for this batch's latest QC row — the date it was actually submitted to QC, not today's download date and not `finish_date`/`expiry_month` |
+| Name of The Product | `mfr_definitions.finished_product_item_id → items.name`, via a new embedded select on the page's existing `mfr_definitions` join: `items:finished_product_item_id(item_code, name)` (same alias pattern `app/(dashboard)/mfr/[id]/page.tsx` already uses for this FK) |
+| F.P.Code | same join, `items.item_code` |
+| Batch No | `finished_product_batches.batch_number` |
+| Batch Qty | `finished_product_batches.batch_yield` |
+| QCSample Qty | `finished_product_batches.qc_sample_qty` |
+
+Both quantity columns are rendered to 3 decimal places (`qty3()`, e.g.
+"59.000 Ltr") to match the sample, the same deliberate departure from
+`formatNumber()`'s trimmed app-wide style that `rm-intimation-pdf.ts`
+already established.
+
+**Shared logo asset moved.** `atharva-logo.ts` (the real extracted PNG
+used for the letterhead) lived under
+`app/(dashboard)/purchase/[id]/` — a path that only made sense while RM
+Intimation was its sole user. Moved to `lib/atharva-logo.ts` now that a
+second, unrelated slip needs the same asset; `rm-intimation-pdf.ts`'s
+import was updated to the new path (`@/lib/atharva-logo`) with no change
+to the asset or its rendering.
+
+Verified locally: `npx tsc --noEmit` and `npx eslint` clean on every
+touched/new file, `npx next build` clean across all routes. Also
+rendered the slip standalone (a throwaway `tsx` script exercising the
+same `drawSlip` logic against the sample's own values — FP034 / A.
+Jatamansi Tail / PR 06/26 / 59.000 Ltr / 0.300 Ltr) and visually compared
+the output PDF against the attached sample: logo, letterhead text,
+title, To/QC Department/Respected Sir/Madam block, Date field, table
+columns and values, and the three-signature footer (Production Chemist /
+Sampled By / QC Incharge) all match.

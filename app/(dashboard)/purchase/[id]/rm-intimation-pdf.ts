@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "./atharva-logo";
+import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
 
 // "Against each raw material purchased under purchase lines, create Raw
 // Material Intimation slip as per attached sample. At the end of the Raw

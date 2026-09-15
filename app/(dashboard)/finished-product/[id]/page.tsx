@@ -11,6 +11,7 @@ import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-stat
 import { CompleteBatchForm } from "./complete-batch-form";
 import { SubmitToQcForm } from "./submit-to-qc-form";
 import { DraftActionsPanel } from "./draft-actions-panel";
+import { FpIntimationLink } from "./fp-intimation-link";
 
 export default async function FinishedProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,7 +29,12 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
   const { data: batch } = await supabase
     .from("finished_product_batches")
     .select(
-      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, created_at, mfr_definitions(id, code, name)"
+      // Ravi (15 Sept 2026): mfr_definitions -> items:finished_product_item_id
+      // added for the new Finish Product Intimation Slip (fp-intimation-pdf.ts)
+      // below, which needs the FP item's own code/name ("F.P.Code" / "Name of
+      // The Product" on the slip) — same embedded-select alias pattern
+      // app/(dashboard)/mfr/[id]/page.tsx already uses for the same FK.
+      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, created_at, mfr_definitions(id, code, name, items:finished_product_item_id(item_code, name))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -41,7 +47,9 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
       .eq("finished_product_batch_id", id),
     supabase
       .from("quality_checks")
-      .select("id, ar_number, status, reviewed_at, review_comments")
+      // created_at added for the Finish Product Intimation Slip's "Date"
+      // field below — the date this batch was actually submitted to QC.
+      .select("id, ar_number, status, reviewed_at, review_comments, created_at")
       .eq("finished_product_batch_id", id)
       .order("created_at", { ascending: false })
       .limit(1),
@@ -50,7 +58,13 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
   const latestQc = qcRows?.[0] ?? null;
   const displayStatus = resolveDisplayStatus(batch.status, latestQc);
   const canEdit = canWrite(user?.roles ?? [], "finished_product");
-  const mfr = batch.mfr_definitions as unknown as { id: string; code: string; name: string } | null;
+  const mfr = batch.mfr_definitions as unknown as {
+    id: string;
+    code: string;
+    name: string;
+    items: { item_code: string; name: string } | null;
+  } | null;
+  const fpItem = mfr?.items ?? null;
 
   type ComponentRow = {
     id: string;
@@ -170,6 +184,27 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
               <div>
                 <span className="text-muted">Reviewed</span>
                 <p className="mt-1 font-medium">{latestQc.reviewed_at ? formatDate(latestQc.reviewed_at) : "Pending review"}</p>
+              </div>
+              {/* Ravi (15 Sept 2026): "when a Finished Product batch is
+                  submitted to QC, a Finish Product Intimation Slip should be
+                  generated and link should be available in Finished Product
+                  Screen similar to RM Intimation Slip." This card only
+                  renders once latestQc exists (a quality_checks row was
+                  created), which is exactly the "submitted to QC" moment —
+                  so no extra status gate is needed for this link. */}
+              <div>
+                <span className="text-muted">Finish Product Intimation Slip</span>
+                <p className="mt-1">
+                  <FpIntimationLink
+                    itemName={fpItem?.name ?? "—"}
+                    itemCode={fpItem?.item_code ?? "—"}
+                    batchNumber={batch.batch_number}
+                    batchQty={batch.batch_yield}
+                    unit={batch.unit}
+                    qcSampleQty={batch.qc_sample_qty}
+                    submittedAt={latestQc.created_at}
+                  />
+                </p>
               </div>
               {latestQc.review_comments && (
                 <div className="sm:col-span-3">
