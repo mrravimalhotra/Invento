@@ -1010,3 +1010,109 @@ the output PDF against the attached sample: logo, letterhead text,
 title, To/QC Department/Respected Sir/Madam block, Date field, table
 columns and values, and the three-signature footer (Production Chemist /
 Sampled By / QC Incharge) all match.
+
+## Batch Manufacturing Record docx download, on the Batch header card (15 Sept 2026)
+
+Ravi: "Once Batch is in Completed - Awaiting QC, start showing link to
+'BATCH MANUFACTURING RECORD' as attached in the .docx format under Batch
+Header Section of Finished Product Screen. 'List of Raw Material
+Obtained from store on date' will be same as start date of batch,"
+attaching a real sample front page
+(`A.Jatamansi Tail_PR06-26.._front_page.docx` — FP034 / A.Jatamansi Tail
+/ PR 06/26, batch size 60.00 Ltr, yield 59.00, yield% 98.33%, start
+20-Jul-2026, end 29-Jul-2026, two raw materials consumed: Jatamansi
+15.00 from RM 04/26, Til Taila 60.00 from RM 05/26).
+
+**⚠️ Naming collision with the existing `/bmr` module — flagging, not
+guessing past it.** This app already has a fully separate, DB-backed
+"Batch Manufacturing Record" module at `/bmr` (`bmr_records`,
+`bmr_weighment_lines`, `bmr_observations`, a Prepared → Checked →
+Approved sign-off; `docs/modules/bmr.md`, Module 10), also scoped to
+`finished_product_batches` via its own FK. It has no document export of
+any kind. The feature this section documents is a **different, unrelated
+thing that happens to share the exact same name**: a stateless,
+client-generated `.docx` reproduction of one specific legacy paper form
+(this attached sample), with nothing written to the database — no link
+to or from a `bmr_records` row, no shared code. Both are legitimately
+about the same real-world FP batch, so a user seeing "Batch Manufacturing
+Record" on the FP detail page could reasonably expect it to open or
+reflect that batch's `/bmr` record — it doesn't. Built as asked, exactly
+as specified and against the attached sample, but this collision is real
+and worth a decision from Ravi: keep both as-is (they don't conflict
+technically), rename one of the two, or link them (e.g. this docx
+download could live inside the `/bmr` detail page instead of — or in
+addition to — the FP detail page).
+
+**Format is `.docx`, not PDF — genuinely different from the other two
+slips.** Unlike the RM and Finish Product Intimation Slips (jsPDF,
+`docs/modules/purchase.md` / the section above), Ravi explicitly asked
+for ".docx format" here. Added the `docx` npm package (`^9.7.1`) as a new
+dependency for this. Same overall architecture as the two PDF slips
+though: client-side generation via `Packer.toBlob()`, triggered from a
+plain button's `onClick`, no Server Action, no migration, nothing
+persisted — regenerating it later always reflects the batch's current
+data.
+
+**Text boxes reproduced as plain tables — a deliberate simplification,
+not an oversight.** Inspecting the attached sample's raw XML (not just a
+LibreOffice-rendered preview, which reorders text-box content
+misleadingly) showed its header/summary block is built from Word text
+boxes, each stored twice in the XML only because Word keeps a DrawingML
+version and a VML fallback of every shape for older-Word compatibility —
+not two visually-printed copies; the rendered page has exactly one copy
+of everything. `bmr-docx.ts` reproduces the same fields and grouping
+with plain Word tables instead of hand-positioned text boxes:
+functionally identical in Word and on paper, and far simpler to generate
+correctly from live data than replicating exact shape positioning.
+
+**New files:**
+
+- `app/(dashboard)/finished-product/[id]/bmr-docx.ts` — the document-
+  building module, `downloadBmrDocx(data, filename)`. A plain (not
+  `"use client"`) `.ts` module, same convention as the two PDF slips.
+- `app/(dashboard)/finished-product/[id]/bmr-download-link.tsx` — the
+  client component rendering the "Batch Manufacturing Record" text-link
+  button. Unlike jsPDF's synchronous `.save()`, `docx`'s `Packer.toBlob`
+  is async, so this component tracks a small `pending` state (disables
+  the button, swaps its label to "Preparing…") while the document is
+  being built, then triggers the download via a temporary `<a
+  download>` element + `URL.createObjectURL`.
+
+**Where the link lives, and the gating rule:** rendered as the `action`
+on the FP detail page's existing "Batch header" `CardHeader`
+(`app/(dashboard)/finished-product/[id]/page.tsx`). Gate:
+`!["draft", "in_process", "cancelled"].includes(batch.status)` — i.e.
+visible from `complete_awaiting_qc` onward and staying visible through
+`submitted_to_qc`/`approved`/`rejected`, matching the same "starts
+showing, then persists" behavior already established for the Finish
+Product Intimation Slip link, rather than only while the batch sits in
+that one exact status.
+
+**Field mapping** (`BmrData` in `bmr-docx.ts`):
+
+| Slip field | Source |
+|---|---|
+| FP Code / FP Name | `mfr_definitions.finished_product_item_id → items.item_code/name` (same join added for the Finish Product Intimation Slip, reused here) |
+| Batch No | `finished_product_batches.batch_number` |
+| Batch Size | `finished_product_batches.target_qty` + `unit` |
+| Start Date / End Date | `batch_start_date` / `finish_date`, via the app's own `formatDate()` — numeric `dd-mm-yyyy` (FB-0026), not the sample's own textual-month style ("20-Jul-2026"), same choice already made for the Intimation Slips' own date fields: only static letterhead *text* is transcribed verbatim from a legacy sample, live/dynamic date values stay in the app's standard format |
+| Yield / Yield % | `batch_yield` (with `unit` appended — the sample's own render appears to have truncated this, so it's included here for clarity) / `actual_yield_pct` (generated column) |
+| List of Raw Material Obtained from store on date | `batch_start_date` — per Ravi's explicit instruction, not `created_at` or any QC date |
+| RM table: RM Code / RM Name / Batch No / Qty. as per MFR | `finished_product_components` joined to `items`/`purchase_lines`, same rows already shown in the "Composition (RM batches consumed)" card above it |
+| RM table: AR No. | **New** — the QC record raised against that specific purchase line when it was originally received (not this FP batch's own, separate QC submission). A purchase line has at most one `quality_checks` row (`quality_checks_purchase_line_unique`, 0015), so `page.tsx` does one extra `quality_checks` query keyed by the batch's own `purchase_line_id`s and looks each one up by `purchase_line_id` |
+| RM table: Dispensed quantity / Checked By, and the bottom "Production Chemist" / "Date & Sign" lines | Left blank — hand-filled on the shop floor, same as the sample itself leaves them |
+| QTY (table total) | Sum of the RM table's own "Qty. as per MFR" column, computed client-side in `bmr-docx.ts`, not stored |
+
+**Shared logo asset reused as-is** — `lib/atharva-logo.ts` (already
+moved there for the Finish Product Intimation Slip, above), embedded via
+`docx`'s `ImageRun` after base64-decoding to a `Uint8Array` (`atob()`,
+this module runs client-side only).
+
+Verified locally: `npx tsc --noEmit` and `npx eslint` clean on every
+touched/new file, `npx next build` clean across all routes (confirms the
+new `docx` dependency bundles correctly for the client). Checked the
+`docx` package's own TypeScript definitions directly
+(`node_modules/docx/dist/index.d.ts`) before writing this, rather than
+guessing at API shapes, for `TableCell`/`ImageRun`/`Packer` — in
+particular confirmed `ImageRun`'s `type`/`data` fields, per-cell
+`borders` overrides, and that `Packer.toBlob()` exists for browser use.

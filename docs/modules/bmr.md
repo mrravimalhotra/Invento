@@ -2,6 +2,19 @@
 
 DESIGN.md cross-reference: §4.9.
 
+**⚠️ Naming collision, flagged 15 Sept 2026:** the Finished Product detail
+page (`app/(dashboard)/finished-product/[id]/page.tsx`) also has a link
+literally labeled "Batch Manufacturing Record," added the same day
+(`docs/modules/finished-product.md`, "Batch Manufacturing Record docx
+download"). It is **not this module** — it's a stateless `.docx`
+reproduction of one specific legacy paper front-page, generated
+client-side with nothing written to the database, unrelated to
+`bmr_records`/`bmr_weighment_lines`/`bmr_observations` below. Both are
+legitimately scoped to the same `finished_product_batches` row, so the
+overlap is real and was flagged to Ravi rather than resolved by guessing;
+see that doc's own note for the open question (keep both, rename one, or
+link them).
+
 **Newly-promoted module.** In the first requirements-review pass this was a
 "Not Yet Built" table row with no real source document behind it. The
 second pass turned up a printed Batch Manufacturing Record document (one of

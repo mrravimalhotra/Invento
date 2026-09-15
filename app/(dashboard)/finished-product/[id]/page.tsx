@@ -12,6 +12,7 @@ import { CompleteBatchForm } from "./complete-batch-form";
 import { SubmitToQcForm } from "./submit-to-qc-form";
 import { DraftActionsPanel } from "./draft-actions-panel";
 import { FpIntimationLink } from "./fp-intimation-link";
+import { BmrDownloadLink } from "./bmr-download-link";
 
 export default async function FinishedProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -43,7 +44,11 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
   const [{ data: components }, { data: qcRows }] = await Promise.all([
     supabase
       .from("finished_product_components")
-      .select("id, quantity, items(item_code, name, unit), purchase_lines(batch_number, expiry_date)")
+      // purchase_line_id added for the Batch Manufacturing Record below,
+      // which needs each consumed RM batch's own AR number — a second
+      // query, once these rows are in hand (see bmrArByPurchaseLine
+      // below).
+      .select("id, quantity, purchase_line_id, items(item_code, name, unit), purchase_lines(batch_number, expiry_date)")
       .eq("finished_product_batch_id", id),
     supabase
       .from("quality_checks")
@@ -69,10 +74,31 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
   type ComponentRow = {
     id: string;
     quantity: string | number;
+    purchase_line_id: string | null;
     items: { item_code: string; name: string; unit: string | null } | null;
     purchase_lines: { batch_number: string; expiry_date: string | null } | null;
   };
   const componentRows = (components ?? []) as unknown as ComponentRow[];
+
+  // Ravi (15 Sept 2026): the Batch Manufacturing Record's RM table has an
+  // "AR No." column per consumed RM batch — the QC record raised against
+  // that specific purchase line when it was originally received, not
+  // anything tied to this FP batch's own (separate) QC submission. A
+  // purchase line only ever has one quality_checks row
+  // (quality_checks_purchase_line_unique, 0015), so this is a plain
+  // lookup, not an aggregation.
+  const purchaseLineIds = [...new Set(componentRows.map((c) => c.purchase_line_id).filter((v): v is string => !!v))];
+  const { data: rmQcRows } = purchaseLineIds.length
+    ? await supabase.from("quality_checks").select("purchase_line_id, ar_number").in("purchase_line_id", purchaseLineIds)
+    : { data: [] };
+  const arByPurchaseLine = new Map((rmQcRows ?? []).map((r) => [r.purchase_line_id as string, r.ar_number as string]));
+
+  // "Once Batch is in Completed - Awaiting QC, start showing link" — and,
+  // per the same precedent set for the Finish Product Intimation Slip
+  // above, this stays available in every status reached from there
+  // onward (submitted_to_qc, approved, rejected), not only while the
+  // batch is in that exact one status.
+  const bmrEligible = !["draft", "in_process", "cancelled"].includes(batch.status);
 
   return (
     <div>
@@ -84,7 +110,36 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
 
       <div className="grid gap-6">
         <Card>
-          <CardHeader title="Batch header" />
+          <CardHeader
+            title="Batch header"
+            action={
+              bmrEligible ? (
+                <BmrDownloadLink
+                  fpCode={fpItem?.item_code ?? "—"}
+                  fpName={fpItem?.name ?? "—"}
+                  batchNo={batch.batch_number}
+                  batchSize={batch.target_qty}
+                  unit={batch.unit}
+                  startDate={formatDate(batch.batch_start_date)}
+                  endDate={formatDate(batch.finish_date)}
+                  batchYield={batch.batch_yield ?? 0}
+                  yieldPct={batch.actual_yield_pct ?? 0}
+                  // Ravi (15 Sept 2026): "'List of Raw Material Obtained
+                  // from store on date' will be same as start date of
+                  // batch" — batch_start_date, not created_at or any QC
+                  // date.
+                  rmObtainedDate={formatDate(batch.batch_start_date)}
+                  components={componentRows.map((c) => ({
+                    rmCode: c.items?.item_code ?? "—",
+                    rmName: c.items?.name ?? "—",
+                    batchNo: c.purchase_lines?.batch_number ?? "—",
+                    arNumber: c.purchase_line_id ? arByPurchaseLine.get(c.purchase_line_id) ?? "" : "",
+                    qtyAsPerMfr: c.quantity,
+                  }))}
+                />
+              ) : undefined
+            }
+          />
           <CardBody className="grid gap-3 text-sm sm:grid-cols-3">
             <div>
               <span className="text-muted">MFR</span>
