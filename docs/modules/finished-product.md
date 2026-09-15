@@ -769,3 +769,150 @@ deleted — the Composition table on the detail page still shows exactly
 what was drawn and then returned, same as this app never deletes
 historical consumption rows elsewhere (a rejected QC record, a wastage
 entry) even once their effect is reversed.
+
+## Complete Batch review/confirm screen, and a new "Complete - Awaiting QC" stage (15 Sept 2026)
+
+Ravi, on the Complete Batch screen (FP-0002 screenshots): "Once I click
+on complete batch, I should get option to review all information and
+confirm. In case I want to edit something, there should be a 'Back
+Button' button which will discard information put in Complete batch
+screen take me to original 'Complete Batch' screen. If Confirmed, the
+Batch Status should be updated to 'Complete - In QC' from 'In Progress'.
+Only Once batch is passed QC, it should be marked Complete and available
+in inventory for packaging."
+
+Scoped via `AskUserQuestion` (four open questions):
+
+1. Whether "Complete batch" and "Submit to QC" should merge into a
+   single Confirm action. Ravi: keep them **separate** manual steps —
+   unchanged from today's two-button flow (Complete Batch card, then a
+   separate Submit to QC card).
+2. Whether the new intermediate stage is just a relabel of the existing
+   `submitted_to_qc` status. Ravi: no — a **brand new label**, "Complete
+   - Awaiting QC", with the full flow spelled out explicitly: **Draft ->
+   In Progress -> Complete - Awaiting QC -> Submitted_to_QC -> Complete**.
+   So this is a genuinely new, distinct stored status value sitting
+   between `in_process` and `submitted_to_qc`, not a display-only rename
+   of either existing one.
+3. Whether QC-approved should be relabeled "Complete" in the UI to match
+   the flow diagram's final arrow. Ravi: **no, leave it as "approved"**.
+   This reply reads as in tension with the flow diagram's trailing "->
+   Complete" — resolved (without a further round-trip, per the working
+   agreement to flag rather than silently guess) as the diagram
+   describing the FP conceptually becoming complete/available for
+   packaging once QC clears it, not a literal rename of the
+   `quality_checks`/badge status text. The existing packaging-eligibility
+   filter (`app/(dashboard)/packaging/new/page.tsx`) already only offers
+   batches where `resolveDisplayStatus(...) === "approved"`, unaffected
+   by anything in this change — so "available in inventory for
+   packaging" was already true before this change and needed no code
+   change here. **Flagging to Ravi**: if "Complete" in the flow diagram
+   was meant as a literal on-screen relabel of "approved" after all, say
+   so and it's a one-line follow-up (badge label only, not a status
+   value change).
+4. What "Back" does on the review screen. Ravi: **keep what was typed**
+   — return to the editable Complete Batch form with every field still
+   filled in, never wipe it.
+
+**What this ships:**
+
+- `supabase/migrations/0047_fp_batch_complete_awaiting_qc.sql` — widens
+  `finished_product_batches_status_check` to add `'complete_awaiting_qc'`,
+  inserted between `'in_process'` and `'submitted_to_qc'`. Additive only:
+  every existing stored status value was already covered by the
+  pre-existing list, so nothing already in the table changes meaning or
+  needs backfilling. No default change — new batches still start at
+  `'draft'` (0046). Verified locally: existing status values still
+  accepted, `'complete_awaiting_qc'` now accepted, a bogus value still
+  rejected.
+- `lib/actions/finished-product.ts`:
+  - `completeFinishedProductBatch(id)` — its update now also sets
+    `status: "complete_awaiting_qc"` alongside the batch yield/finish
+    date/expiry date/sample fields it already saved. Previously this
+    action saved those fields but left `status` untouched at
+    `"in_process"`; a batch now visibly leaves "In Progress" the moment
+    it's completed, rather than only leaving it once separately
+    submitted to QC. Its guard changed from `current.status !==
+    "in_process"` (same condition, just an updated, more accurate error
+    message now that there are two possible "already moved past this"
+    states — completed or submitted — rather than one).
+  - `submitFinishedProductToQc(id)` — its gate changed from
+    `batch.status !== "in_process"` to `batch.status !==
+    "complete_awaiting_qc"`, since a batch now has to pass through
+    Complete - Awaiting QC first. The pre-existing
+    `!batch.batch_yield || !batch.finish_date` belt-and-suspenders check
+    stays as-is underneath it.
+- `lib/finished-product-status.ts` — new `fpStatusLabel(status)` helper.
+  Every other status keeps rendering through the existing generic
+  `status.replace(/_/g, " ")` + CSS `capitalize` combination used
+  app-wide, but that combination can't produce Ravi's exact requested
+  text for the new status ("Complete - Awaiting QC" — hyphen, "QC" fully
+  capitalized); `capitalize` alone would render it "Complete Awaiting
+  Qc". `fpStatusLabel` special-cases just this one status and falls back
+  to the generic behavior for every other one. Used by both the FP
+  detail page's header badge and the FP list table's Status column, in
+  place of the inline `.replace(/_/g, " ")` each previously did directly.
+- `components/ui/badge.tsx` — `complete_awaiting_qc` styled amber, same
+  "needs a next action" amber as `draft`/`submitted_to_qc`.
+- `app/(dashboard)/finished-product/[id]/page.tsx` — the "Submit to QC"
+  card's gate changed from `batch.status === "in_process"` to
+  `batch.status === "complete_awaiting_qc"`, matching the new status the
+  batch actually sits in once completed. The "Complete batch" card's own
+  gate (`batch.status === "in_process"`) is unchanged — once confirmed,
+  the batch leaves `in_process` for `complete_awaiting_qc` and that card
+  correctly stops rendering, since Ravi's four answers don't call for
+  re-editing a completed batch's fields from this screen.
+- `app/(dashboard)/finished-product/[id]/complete-batch-form.tsx` —
+  rewritten to add the review/confirm step, entirely client-side:
+  - Every field (batch yield, finish date, expiry date, sample unit, QC/
+    stability/R&D sample qty) is now `useState`-controlled instead of a
+    mix of controlled (the three sample-qty fields, already controlled
+    for live unit-conversion hints) and uncontrolled `defaultValue`
+    fields (batch yield, finish date, expiry date) — needed so "Back"
+    can restore the exact editable form with nothing lost, per Ravi's
+    answer to #4.
+  - A `step: "form" | "review"` state. The "Complete batch" button on
+    the form step is a plain `type="button"` that runs the same
+    required/greater-than-zero checks the server action already
+    enforces, then flips to `step: "review"` — no network request yet,
+    nothing saved.
+  - The review step renders a read-only summary of every value (with the
+    same "= X unit" converted-value hint the form shows when the sample
+    unit differs from the batch's own unit), plus **Back** (`type=
+    "button"`, flips back to `step: "form"` — the underlying state is
+    untouched, so every field is exactly as typed) and **Confirm**
+    (`type="submit"`, the only button that actually invokes
+    `completeFinishedProductBatch` and writes to the database).
+  - The editable field grid stays mounted (never unmounted) through both
+    steps — only visually hidden (`hidden` class) during the review
+    step — so its inputs' `name`/`value` pairs are still part of the one
+    `<form>` and get submitted on Confirm; HTML's constraint validation
+    correctly skips `display: none` fields, so the browser doesn't block
+    submission over "required" fields that are merely hidden, not
+    absent.
+  - If the server action itself returns an error (e.g. the pre-existing
+    `fp_batch_yield_not_negative` constraint — samples exceeding the
+    batch yield), the form drops back to `step: "form"` automatically so
+    the offending values are visible and editable, rather than leaving
+    the user stuck on a review screen with numbers but no inputs. This
+    is done by comparing the action's returned error against the
+    previous render's (a documented React pattern — adjusting state
+    during render in response to a changed value — rather than a
+    `useEffect`, which this repo's lint config flags for a synchronous
+    `setState`).
+- `app/(dashboard)/finished-product/finished-product-table.tsx` (list) —
+  switched to the same new `fpStatusLabel()` helper for its Status
+  column, for consistent labeling between the list and detail pages.
+
+Verified locally: `npx tsc --noEmit`, `npx eslint` (on every changed
+file), and `npx next build` all clean. The migration was applied to the
+local `invento_test` Postgres 16 database and the widened constraint's
+definition confirmed via `pg_get_constraintdef`.
+
+No change was needed to the packaging-issue eligibility filter
+(`app/(dashboard)/packaging/new/page.tsx`) or the QC review trigger
+(`trg_fn_qc_review_finished_product`, 0030) — both already key off
+`resolveDisplayStatus(...) === "approved"` (the QC-approved verdict) or
+react to the `quality_checks` row directly, neither of which reads or
+depends on the specific in-between status value a batch passes through
+before reaching `submitted_to_qc`.

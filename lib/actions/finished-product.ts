@@ -247,7 +247,9 @@ export async function completeFinishedProductBatch(
     .maybeSingle();
   if (fetchError || !current) return { error: fetchError?.message || "Batch not found." };
   if (current.status !== "in_process") {
-    return { error: "This batch has already been submitted to QC — details can no longer be edited." };
+    return {
+      error: "This batch is no longer in progress — it may already be completed or submitted to QC. Refresh to see its current status.",
+    };
   }
 
   // 0021_fp_stability_rnd_qty.sql: QC sample / Stability sample / R&D
@@ -286,6 +288,13 @@ export async function completeFinishedProductBatch(
       qc_sample_qty: qcSampleQty,
       stability_qty: stabilityQty,
       rnd_qty: rndQty,
+      // Ravi (15 Sept 2026): completing a batch now moves it straight to a
+      // new "Complete - Awaiting QC" stage rather than leaving it sitting
+      // at "in_process" — a genuinely new status value (0047_fp_batch_complete_awaiting_qc.sql),
+      // not a relabel of submitted_to_qc. "Submit to QC" (below) stays a
+      // separate, still-manual next step per Ravi's explicit answer to
+      // keep the two actions apart.
+      status: "complete_awaiting_qc",
     })
     .eq("id", id);
   if (error) {
@@ -302,7 +311,7 @@ export async function completeFinishedProductBatch(
 
   revalidatePath(`/finished-product/${id}`);
   revalidatePath("/finished-product");
-  return { success: "Batch completed." };
+  return { success: "Batch completed — now Complete - Awaiting QC." };
 }
 
 // Status flow gap fix (DESIGN.md §4.8): in_process -> submitted_to_qc closes the
@@ -328,7 +337,13 @@ export async function submitFinishedProductToQc(
     .eq("id", id)
     .maybeSingle();
   if (fetchError || !batch) return { error: fetchError?.message || "Batch not found." };
-  if (batch.status !== "in_process") return { error: "Only an in-process batch can be submitted to QC." };
+  // Ravi (15 Sept 2026): a batch now has to pass through "Complete -
+  // Awaiting QC" (set by completeFinishedProductBatch above) before it
+  // can be submitted to QC — this used to gate on "in_process" directly,
+  // back when completing a batch didn't move its status at all.
+  if (batch.status !== "complete_awaiting_qc") {
+    return { error: "Only a batch that has been completed (Complete - Awaiting QC) can be submitted to QC." };
+  }
   if (!batch.batch_yield || !batch.finish_date) {
     return { error: "Complete the batch (batch yield, finish date, expiry date, sample quantities) before submitting to QC." };
   }

@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { resolveDisplayStatus } from "@/lib/finished-product-status";
+import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 import { CompleteBatchForm } from "./complete-batch-form";
 import { SubmitToQcForm } from "./submit-to-qc-form";
 import { DraftActionsPanel } from "./draft-actions-panel";
@@ -65,7 +65,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
       <PageHeader
         title={batch.batch_number}
         description={mfr ? `Built from ${mfr.code} · ${mfr.name} (recipe v${batch.mfr_version})` : `Recipe v${batch.mfr_version}`}
-        action={<Badge status={displayStatus}>{displayStatus.replace(/_/g, " ")}</Badge>}
+        action={<Badge status={displayStatus}>{fpStatusLabel(displayStatus)}</Badge>}
       />
 
       <div className="grid gap-6">
@@ -208,7 +208,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
           </Card>
         )}
 
-        {canEdit && batch.status === "in_process" && (
+        {canEdit && batch.status === "complete_awaiting_qc" && (
           <Card>
             <CardHeader
               title="Submit to QC"

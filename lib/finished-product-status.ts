@@ -45,3 +45,15 @@ export function latestQcByBatch(rows: QcStatusRow[]): Map<string, QcStatusRow> {
   }
   return map;
 }
+
+// Ravi (15 Sept 2026): the new "Complete - Awaiting QC" stage
+// (0047_fp_batch_complete_awaiting_qc.sql) needs its exact stated label —
+// "Complete - Awaiting QC", with the hyphen and QC fully capitalized —
+// which the generic `status.replace(/_/g, " ")` + CSS `capitalize` used
+// everywhere else can't produce (that combination would render it
+// "Complete Awaiting Qc"). Every other status keeps using the generic
+// underscore-to-space fallback unchanged.
+export function fpStatusLabel(status: string): string {
+  if (status === "complete_awaiting_qc") return "Complete - Awaiting QC";
+  return status.replace(/_/g, " ");
+}

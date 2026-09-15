@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
-import { resolveDisplayStatus } from "@/lib/finished-product-status";
+import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 
 export type FpRow = {
   id: string;
@@ -34,7 +34,7 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
       header: "Status",
       accessor: (r) => {
         const status = resolveDisplayStatus(r.status, r.latestQcStatus ? { status: r.latestQcStatus } : undefined);
-        return <Badge status={status}>{status.replace(/_/g, " ")}</Badge>;
+        return <Badge status={status}>{fpStatusLabel(status)}</Badge>;
       },
     },
     { header: "Target qty", accessor: (r) => `${formatNumber(r.target_qty)} ${r.unit}` },
