@@ -250,7 +250,7 @@ export function PurchaseLineForm({
           label="QC qty"
           htmlFor="qc_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : "Pre-filled from item default."}
+          hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}
         >
           <Input
             id="qc_qty"
@@ -267,7 +267,7 @@ export function PurchaseLineForm({
           label="Stability qty"
           htmlFor="stability_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : "Pre-filled from item default."}
+          hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : undefined}
         >
           <Input
             id="stability_qty"
@@ -284,7 +284,7 @@ export function PurchaseLineForm({
           label="R&D qty"
           htmlFor="rnd_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : "Pre-filled from item default."}
+          hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}
         >
           <Input
             id="rnd_qty"
