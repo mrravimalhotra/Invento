@@ -390,7 +390,8 @@ AskUserQuestion before building:
 - **No Prepared/Checked/Approved sign-off block**, even though the
   existing PDF report has one and MFRs track approval — the sample simply
   doesn't have one, and this reproduces the sample exactly rather than
-  adding to it.
+  adding to it. **Reversed same-day — see "Correction" below**: a
+  re-attached copy of the same sample did have one, in its footer.
 - **The `/mfr/[id]/report` preview page and its PDF download are
   untouched**, just no longer linked from "Print MFR" — see the Report
   screen entry above.
@@ -436,6 +437,47 @@ PROCEDURE" heading, no second table). Inspected both generated `.docx`
 files' real XML content via `python-docx` to confirm structure, not just
 that the code ran without throwing. `npx next build` and `npx eslint`
 clean.
+
+### Correction: logo, footer sign-off table, fonts (16 Sept 2026, same day)
+
+Ravi, after seeing the actual generated document: "MFR is not printing in
+correct format. Pls take reference of attached again. Use similar Logo,
+color scheme, header, footer etc," re-attaching the sample. The first pass
+above only reproduced the sample's header/footer **text** — inspecting the
+re-attached copy's raw XML (not just python-docx's higher-level text/table
+view) turned up three things the first inspection missed entirely:
+
+- **The header has the real ATHARVA logo as an embedded image**, not just
+  text — the exact same logo already used elsewhere in this app
+  (`lib/atharva-logo.ts`, already reused by `bmr-docx.ts` and the RM/FP
+  intimation PDFs), just never placed inside a real Word `Header` before.
+  Reused directly rather than extracting a duplicate asset. Laid out as a
+  borderless two-column table inside the header (logo left, company text
+  block right), same pattern `bmr-docx.ts`'s inlined `letterheadTable`
+  already uses in this app.
+- **The footer has a blank Prepared-by/Checked-by/Approved-by sign-off
+  table** (Name/Designation/Sign./Date columns, light shaded header row —
+  `w:shd w:fill="EEECE1"` in the sample's own XML) above the "Page X of Y"
+  line — found via `python-docx`'s `section.footer.tables`, which the
+  first pass's inspection never checked (only `footer.paragraphs`). This
+  directly reverses the "no sign-off block" decision above, not because
+  Ravi changed his mind but because the first inspection was incomplete.
+- **The header and body/footer use different explicit fonts**, confirmed
+  by diffing `w:rFonts` declarations across `header1.xml`/`document.xml`/
+  `footer1.xml`: the header is Arial, the body and footer are both Times
+  New Roman. Set as Times New Roman document-wide (`styles.default.
+  document.run`), with Arial layered on per-run only for the three header
+  lines. The company name is left its default (black) color — an earlier
+  version of this fix colored it this app's brand green
+  (`lib/pdf.ts`'s `PDF_BRAND`) to match the jsPDF letterheads' own
+  convention, but the sample's header XML has no explicit `w:color` at
+  all, and "similar" here means matching what the reference actually is.
+
+Re-verified the same way as the first pass — standalone `tsx` run of the
+corrected logic, this time also converted to PDF via LibreOffice
+(`soffice --headless --convert-to pdf`) and rendered to PNG for a direct
+visual side-by-side against the sample, rather than only checking XML
+structure. `npx next build` and `npx eslint` clean.
 
 ## Files
 
