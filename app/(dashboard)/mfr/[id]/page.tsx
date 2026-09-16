@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { ApproveForm } from "./approve-form";
 import { EditRecipeForm } from "./edit-recipe-form";
+import { EditProcedureForm } from "./edit-procedure-form";
 import { DeleteMfrForm } from "./delete-mfr-form";
 import { ToggleMfrActiveForm } from "./toggle-active-form";
 import type { EditableLine } from "../mfr-line-editor";
+import type { EditableStep } from "../mfr-procedure-editor";
 
 export default async function MfrDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,14 +23,14 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   const { data: def } = await supabase
     .from("mfr_definitions")
     .select(
-      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, active, items:finished_product_item_id(id, item_code, name, item_types(description))"
+      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, active, procedure_intro, theoretical_yield_pct, permissible_yield_pct, items:finished_product_item_id(id, item_code, name, item_types(description))"
     )
     .eq("id", id)
     .maybeSingle();
 
   if (!def) notFound();
 
-  const [{ data: lines }, { data: rawItems }, approverProfile] = await Promise.all([
+  const [{ data: lines }, { data: rawItems }, approverProfile, { data: procedureSteps }] = await Promise.all([
     supabase
       .from("mfr_lines")
       .select("id, quantity, unit, items(id, item_code, name, unit)")
@@ -44,6 +46,11 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
     def.approved_by
       ? supabase.from("profiles").select("full_name").eq("id", def.approved_by).maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase
+      .from("mfr_procedure_steps")
+      .select("id, step_no, stage, operation")
+      .eq("mfr_definition_id", id)
+      .order("step_no"),
   ]);
 
   const canEdit = canWrite(user?.roles ?? [], "mfr");
@@ -72,6 +79,11 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
     quantity: String(l.quantity),
     unit: l.unit,
   }));
+
+  type ProcedureStepRow = { id: string; step_no: number; stage: string; operation: string };
+  const stepRows = (procedureSteps ?? []) as unknown as ProcedureStepRow[];
+  const hasProcedure = stepRows.length > 0 || !!def.procedure_intro;
+  const initialSteps: EditableStep[] = stepRows.map((s) => ({ stage: s.stage, operation: s.operation }));
 
   return (
     <div>
@@ -195,6 +207,68 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
                 This recipe is locked — approved MFRs can&apos;t be edited. Deactivate this MFR and create a new one
                 if the recipe needs to change.
               </p>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Ravi (16 Sept 2026), via a sample Master Formula Record Word
+            document: the manufacturing procedure (Sr.No / Stage /
+            Operation steps, an intro line, a closing yield line) — see
+            0048_mfr_procedure.sql and docs/modules/mfr.md. Optional:
+            shows an empty-state + "Add procedure" when nothing's been
+            entered yet, rather than an empty table. Editable at any
+            time, including after approval — unlike the recipe above,
+            there's no lock here. */}
+        <Card>
+          <CardHeader title="Manufacturing Procedure" />
+          <CardBody className="flex flex-col gap-4">
+            {!hasProcedure ? (
+              <p className="text-sm text-muted">No manufacturing procedure entered yet.</p>
+            ) : (
+              <>
+                {def.procedure_intro && <p className="text-sm">{def.procedure_intro}</p>}
+                {stepRows.length > 0 && (
+                  <div className="overflow-x-auto rounded-md border border-border">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-black/[0.02] text-left text-xs font-semibold uppercase tracking-wide text-muted">
+                          <th className="px-3 py-2 w-12">Sr.No</th>
+                          <th className="px-3 py-2 w-48">Stage</th>
+                          <th className="px-3 py-2">Operation</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stepRows.map((s) => (
+                          <tr key={s.id} className="border-b border-border last:border-0 align-top">
+                            <td className="px-3 py-2.5">{s.step_no}.</td>
+                            <td className="px-3 py-2.5 font-medium">{s.stage}</td>
+                            <td className="px-3 py-2.5 whitespace-pre-wrap">{s.operation}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {(def.theoretical_yield_pct != null || def.permissible_yield_pct != null) && (
+                  <p className="text-sm">
+                    {def.theoretical_yield_pct != null && `Theoretical Yield = ${formatNumber(def.theoretical_yield_pct)}%`}
+                    {def.theoretical_yield_pct != null && def.permissible_yield_pct != null && "    "}
+                    {def.permissible_yield_pct != null && `Permissible yield = NLT ${formatNumber(def.permissible_yield_pct)}%`}
+                  </p>
+                )}
+              </>
+            )}
+            {canEdit && (
+              <div>
+                <EditProcedureForm
+                  mfrId={id}
+                  hasProcedure={hasProcedure}
+                  initialIntro={def.procedure_intro ?? ""}
+                  initialTheoreticalYieldPct={def.theoretical_yield_pct != null ? String(def.theoretical_yield_pct) : ""}
+                  initialPermissibleYieldPct={def.permissible_yield_pct != null ? String(def.permissible_yield_pct) : ""}
+                  initialSteps={initialSteps}
+                />
+              </div>
             )}
           </CardBody>
         </Card>

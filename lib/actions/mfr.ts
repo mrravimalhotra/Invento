@@ -138,6 +138,81 @@ export async function updateMfrLines(id: string, _prev: ActionState, formData: F
   redirect(`/mfr/${id}`);
 }
 
+type ProcedureStepInput = { stage: string; operation: string };
+
+// Steps are submitted as stage_0/operation_0 .. stage_N/operation_N, with
+// stepCount telling us how many slots the client rendered — same
+// removed-row-is-simply-absent convention as parseLines() above. Unlike
+// parseLines(), an empty result is NOT an error: the procedure is
+// optional (a row with neither field filled is silently dropped, and a
+// procedure with zero steps just means "not entered yet" or "cleared").
+function parseProcedureSteps(formData: FormData): ProcedureStepInput[] | { error: string } {
+  const count = Number(formData.get("stepCount") || 0);
+  const steps: ProcedureStepInput[] = [];
+  for (let i = 0; i < count; i++) {
+    const stage = String(formData.get(`stage_${i}`) || "").trim();
+    const operation = String(formData.get(`operation_${i}`) || "").trim();
+    if (!stage && !operation) continue; // removed row
+    if (!stage) return { error: `Step ${i + 1}: stage is required.` };
+    if (!operation) return { error: `Step ${i + 1}: operation is required.` };
+    steps.push({ stage, operation });
+  }
+  return steps;
+}
+
+// Ravi (16 Sept 2026), via a sample Master Formula Record Word document:
+// "suggest a way to input and store 'MANUFACTURING PROCEDURE' against
+// each MFR." See 0048_mfr_procedure.sql for the full design story
+// (confirmed via AskUserQuestion) and docs/modules/mfr.md's "Manufacturing
+// procedure" section. Unlike updateMfrLines(), this is NOT locked once
+// the MFR is approved — Ravi's call: the procedure documents how the
+// batch is made, not the signed-off formula, so production-time
+// corrections shouldn't be blocked just because the MFR is in use. Also
+// unlike updateMfrLines(), this doesn't redirect — it's an inline
+// edit-in-place panel on the detail page (see edit-procedure-form.tsx),
+// so a plain success message + revalidatePath is enough.
+export async function updateMfrProcedure(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const stepsOrError = parseProcedureSteps(formData);
+  if ("error" in stepsOrError) return stepsOrError;
+  const steps = stepsOrError;
+
+  const intro = String(formData.get("procedure_intro") || "").trim();
+  const theoreticalRaw = String(formData.get("theoretical_yield_pct") || "").trim();
+  const permissibleRaw = String(formData.get("permissible_yield_pct") || "").trim();
+
+  let theoreticalYieldPct: number | null = null;
+  if (theoreticalRaw) {
+    theoreticalYieldPct = Number(theoreticalRaw);
+    if (!Number.isFinite(theoreticalYieldPct) || theoreticalYieldPct <= 0) {
+      return { error: "Theoretical yield must be a number greater than 0." };
+    }
+  }
+  let permissibleYieldPct: number | null = null;
+  if (permissibleRaw) {
+    permissibleYieldPct = Number(permissibleRaw);
+    if (!Number.isFinite(permissibleYieldPct) || permissibleYieldPct <= 0) {
+      return { error: "Permissible yield must be a number greater than 0." };
+    }
+  }
+
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_mfr_procedure", {
+    p_id: id,
+    p_intro: intro || null,
+    p_theoretical_yield_pct: theoreticalYieldPct,
+    p_permissible_yield_pct: permissibleYieldPct,
+    p_steps: steps.map((s) => ({ stage: s.stage, operation: s.operation })),
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/mfr/${id}`);
+  revalidatePath(`/mfr/${id}/report`);
+  return { success: "Manufacturing procedure saved." };
+}
+
 // Delete is Admin-only, same convention as deleteItemType()/deleteItem()/
 // deleteVendor() — canWrite() allows system_admin and mfr_manager, but
 // delete is tighter. Matches the mfr_def_delete RLS policy in

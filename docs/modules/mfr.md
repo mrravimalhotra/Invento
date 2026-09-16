@@ -269,17 +269,119 @@ MFRs created before this migration keep their existing `F-####` codes
 (codes are never rewritten retroactively anywhere in this app); only MFRs
 created from now on get `MFR-####`.
 
+## Manufacturing procedure (16 Sept 2026)
+
+Ravi, via a sample "Master Formula Record" Word document (A. Jatamansi
+Tail Procedure.docx): "suggest a way to input and store 'MANUFACTURING
+PROCEDURE' against each MFR." The sample is a Sr.No / Stage / Operation
+table (Cleaning → Pulverisation → Preparation of Kwath → ... → Packing),
+preceded by an intro line about weighing raw materials at production
+level and closed by a yield line ("Theoretical Yield = 100%, Permissible
+yield = NLT 98%") — none of which the MFR module had anywhere to live
+before this; `mfr_definitions`/`mfr_lines` only ever stored the *recipe*
+(raw materials + quantities), not the *procedure* (the steps to make it).
+
+Confirmed via AskUserQuestion before building:
+
+- **Entered from the MFR Detail page, after the MFR already exists** —
+  not bundled into `/mfr/new`. `create_mfr_definition()`'s signature and
+  the New MFR screen are untouched; the procedure is purely additive,
+  addable (and skippable) at any point in an MFR's life.
+- **Yield stored as two structured numeric percentages** —
+  `theoretical_yield_pct` / `permissible_yield_pct` — rather than one
+  free-text line. The sample's "NLT 98%" reads as a not-less-than
+  minimum, so `permissible_yield_pct` is that threshold, printed as
+  "Permissible yield = NLT {value}%"; `theoretical_yield_pct` prints as
+  "Theoretical Yield = {value}%". Either or both can be left blank — the
+  line is only shown/printed with whichever parts are filled in.
+- **Editable at any time, including after approval — deliberately NOT
+  locked like the recipe.** Ravi's call: the procedure documents *how*
+  the batch is made, not the signed-off formula itself, so a
+  production-time correction shouldn't be blocked just because the MFR
+  is already approved and in use. `update_mfr_procedure()` has no
+  "already approved" guard, unlike `update_mfr_recipe()`
+  (0043_mfr_recipe_edit_lock.sql).
+
+**Schema (`0048_mfr_procedure.sql`).** Three new nullable columns on
+`mfr_definitions` (`procedure_intro`, `theoretical_yield_pct`,
+`permissible_yield_pct`) — additive, no backfill: every MFR that existed
+before this migration simply has no procedure until one is entered. A new
+child table, `mfr_procedure_steps` (`mfr_definition_id`, `version`
+default 1 — unused beyond that, same "left in place for possible future
+versioning" reasoning as `mfr_lines`, see Versioning above — `step_no`,
+`stage`, `operation`), cascade-deleted with its MFR, same RLS shape as
+`mfr_lines` (`system_admin`/`mfr_manager` write, any signed-in user
+read).
+
+**Write path.** `update_mfr_procedure()` (called by `updateMfrProcedure()`
+in `lib/actions/mfr.ts`) is a `security definer` RPC, sibling to
+`update_mfr_recipe()`: same replace-in-place shape (delete every step for
+this MFR, then re-insert the submitted set, all in one transaction), same
+role check. Two differences from the recipe's version: no
+already-approved lock (see above), and an empty/null step list is valid
+(the procedure is optional — a recipe with zero lines is rejected;
+a procedure with zero steps just means "not entered yet" or "cleared").
+Validates each step needs both a stage and an operation, and that either
+yield percentage, if given, is greater than 0.
+
+**UI.** A "Manufacturing Procedure" card on `/mfr/[id]`, below the recipe
+table: read-only display (intro line, Sr.No/Stage/Operation table, yield
+line) when a procedure exists, an empty-state message when it doesn't,
+and an "Add procedure"/"Edit procedure" button (`canWrite`-gated, same as
+the recipe) that opens `EditProcedureForm` — an intro textarea, the
+dynamic step editor (`MfrProcedureEditor`, same add/remove-row UX as
+`MfrLineEditor` but Stage/Operation text fields instead of item/qty/unit
+pickers; `Operation` supports multi-line text, rendered `whitespace-pre-
+wrap` for sub-bullets like the sample's Agni/Fena/Varti Pariksha lines),
+and the two yield-percentage inputs. Unlike `EditRecipeForm` (which
+redirects on save, so its open/closed state resets for free on the fresh
+page load), `updateMfrProcedure()` doesn't redirect — the panel stays
+open after a successful save (same "keep editing" pattern the old BMR
+add-line forms used) with an inline success message, closed by an
+explicit Close button.
+
+**Report/PDF.** `/mfr/[id]/report` and its PDF download (`MfrPdfButton`)
+both add the procedure — intro line, Sr.No/Stage/Operation table (via the
+same `jspdf-autotable` approach as the recipe), yield line — beneath the
+recipe table and above the signature block, matching the sample document.
+The whole section is skipped (no empty heading) when nothing's been
+entered for that MFR yet.
+
+**Local verification (before shipping).** A fresh local Postgres replay
+of all 48 migrations in order (including `0001_init.sql`'s handle_new_user
+trigger, via the project's existing `auth` schema stub for RLS/RPC
+testing outside Supabase) applied cleanly end-to-end. Exercised
+`update_mfr_procedure()` directly: intro/yields/two steps (one with a
+literal newline in its operation text) saved and read back correctly;
+approving the MFR and then editing the procedure again succeeded and left
+`approved_by` untouched (confirming the "no lock" design actually holds,
+not just that the code compiles); clearing back to `null`/empty removed
+all steps; a step missing `operation`, and a yield ≤ 0, each raised the
+expected clean validation error; a `quality_checker`-only user (not
+`system_admin`/`mfr_manager`) was correctly rejected with "Not authorized
+to edit an MFR procedure." `npx next build` and `npx eslint` both clean
+(only the pre-existing `_prev`/`_formData` unused-arg warnings in
+`lib/actions/mfr.ts`, same six now joined by no new ones).
+
 ## Files
 
 - `lib/actions/mfr.ts` — `createMfrDefinition`, `updateMfrLines`,
   `approveMfrDefinition`, `setMfrActive` (each re-checks
   `canWrite(user.roles, "mfr")` server-side), `deleteMfrDefinition` (checks
-  `system_admin` directly, same as the other three master-data deletes).
+  `system_admin` directly, same as the other three master-data deletes),
+  `updateMfrProcedure` (see "Manufacturing procedure" above — also
+  `canWrite`-gated, thin wrapper around `update_mfr_procedure()`).
   `createMfrDefinition`/`approveMfrDefinition`/`updateMfrLines` are now thin
   wrappers around the `create_mfr_definition()`/`approve_mfr_definition()`/
   `update_mfr_recipe()` RPCs (`0041_mfr_deferred_approval.sql` /
   `0043_mfr_recipe_edit_lock.sql`) — see "When the item is actually
   created" and "Versioning" above.
+- `app/(dashboard)/mfr/mfr-procedure-editor.tsx` — shared dynamic
+  procedure-step editor (`MfrProcedureEditor`, `stage_i`/`operation_i`
+  fields + `stepCount`), used by `EditProcedureForm`.
+- `app/(dashboard)/mfr/[id]/edit-procedure-form.tsx` — the intro/steps/
+  yield edit panel, open behind an "Add procedure"/"Edit procedure"
+  button.
 - `app/(dashboard)/mfr/[id]/delete-mfr-form.tsx` — two-step-confirm Delete UI.
 - `app/(dashboard)/mfr/[id]/toggle-active-form.tsx` — one-click
   Deactivate/Reactivate UI.
