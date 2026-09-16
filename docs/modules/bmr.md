@@ -2,18 +2,21 @@
 
 DESIGN.md cross-reference: §4.9.
 
-**⚠️ Naming collision, flagged 15 Sept 2026:** the Finished Product detail
-page (`app/(dashboard)/finished-product/[id]/page.tsx`) also has a link
-literally labeled "Batch Manufacturing Record," added the same day
-(`docs/modules/finished-product.md`, "Batch Manufacturing Record docx
-download"). It is **not this module** — it's a stateless `.docx`
-reproduction of one specific legacy paper front-page, generated
-client-side with nothing written to the database, unrelated to
-`bmr_records`/`bmr_weighment_lines`/`bmr_observations` below. Both are
-legitimately scoped to the same `finished_product_batches` row, so the
-overlap is real and was flagged to Ravi rather than resolved by guessing;
-see that doc's own note for the open question (keep both, rename one, or
-link them).
+**⚠️ Naming collision, flagged 15 Sept 2026, resolved 16 Sept 2026:** a
+stateless `.docx` reproduction of one specific legacy paper front-page
+(nothing written to the database, unrelated to
+`bmr_records`/`bmr_weighment_lines`/`bmr_observations` below) briefly
+lived on the Finished Product detail page under the same "Batch
+Manufacturing Record" name as this module — added 15 Sept 2026, flagged
+the same day as a real naming collision rather than resolved by
+guessing. Ravi's resolution: it moved to its own Admin-only page,
+`/admin/batch-mfg-record-deprecated`, and was renamed "Batch Mfg.
+Record- Deprecated" (nav module 21) to make the distinction from this
+module unmissable, with an explicit note that the whole feature will be
+removed from the app later. Full writeup:
+`docs/modules/finished-product.md`, "Moved to Admin and renamed 'Batch
+Mfg. Record- Deprecated' (16 Sept 2026)." It remains unrelated to this
+module — no shared code, no link to or from a `bmr_records` row.
 
 **Newly-promoted module.** In the first requirements-review pass this was a
 "Not Yet Built" table row with no real source document behind it. The

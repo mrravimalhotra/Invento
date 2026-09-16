@@ -32,6 +32,13 @@ import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo
 // onClick, no Server Action, no migration, nothing persisted — see
 // bmr-download-link.tsx) rather than jsPDF.
 //
+// Ravi (16 Sept 2026): moved here from
+// app/(dashboard)/finished-product/[id]/ to its own Admin-only page and
+// relabeled "Batch Mfg. Record- Deprecated," to resolve a naming collision
+// with the real, unrelated `/bmr` module — flagged for future removal.
+// See bmr-download-link.tsx and this route's page.tsx for the full story.
+// Nothing about the document-generation logic below changed.
+//
 // Inspecting the attached sample's raw XML (not just its rendered PDF —
 // LibreOffice's own text extraction reorders text-box content in a
 // misleading way) showed its header/summary block is built from Word

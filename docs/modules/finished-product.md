@@ -1011,7 +1011,14 @@ title, To/QC Department/Respected Sir/Madam block, Date field, table
 columns and values, and the three-signature footer (Production Chemist /
 Sampled By / QC Incharge) all match.
 
-## Batch Manufacturing Record docx download, on the Batch header card (15 Sept 2026)
+## Batch Manufacturing Record docx download — moved to Admin, deprecated (15–16 Sept 2026)
+
+**Superseded by the section immediately below on 16 Sept 2026 — moved off
+this page entirely.** Everything below this note describes how the
+feature originally shipped on 15 Sept 2026, on this page's "Batch header"
+card; kept for history. As of 16 Sept 2026 the download no longer lives
+here — see "Moved to Admin and renamed 'Batch Mfg. Record- Deprecated'
+(16 Sept 2026)" at the end of this section for where it went and why.
 
 Ravi: "Once Batch is in Completed - Awaiting QC, start showing link to
 'BATCH MANUFACTURING RECORD' as attached in the .docx format under Batch
@@ -1023,8 +1030,9 @@ attaching a real sample front page
 20-Jul-2026, end 29-Jul-2026, two raw materials consumed: Jatamansi
 15.00 from RM 04/26, Til Taila 60.00 from RM 05/26).
 
-**⚠️ Naming collision with the existing `/bmr` module — flagging, not
-guessing past it.** This app already has a fully separate, DB-backed
+**⚠️ Naming collision with the existing `/bmr` module — flagged 15 Sept
+2026, resolved by Ravi 16 Sept 2026 (see the resolution note at the end
+of this section).** This app already has a fully separate, DB-backed
 "Batch Manufacturing Record" module at `/bmr` (`bmr_records`,
 `bmr_weighment_lines`, `bmr_observations`, a Prepared → Checked →
 Approved sign-off; `docs/modules/bmr.md`, Module 10), also scoped to
@@ -1037,11 +1045,9 @@ to or from a `bmr_records` row, no shared code. Both are legitimately
 about the same real-world FP batch, so a user seeing "Batch Manufacturing
 Record" on the FP detail page could reasonably expect it to open or
 reflect that batch's `/bmr` record — it doesn't. Built as asked, exactly
-as specified and against the attached sample, but this collision is real
-and worth a decision from Ravi: keep both as-is (they don't conflict
-technically), rename one of the two, or link them (e.g. this docx
-download could live inside the `/bmr` detail page instead of — or in
-addition to — the FP detail page).
+as specified and against the attached sample; this collision was flagged
+to Ravi as an open question (keep both as-is, rename one, or link them)
+rather than resolved by guessing.
 
 **Format is `.docx`, not PDF — genuinely different from the other two
 slips.** Unlike the RM and Finish Product Intimation Slips (jsPDF,
@@ -1078,15 +1084,17 @@ correctly from live data than replicating exact shape positioning.
   being built, then triggers the download via a temporary `<a
   download>` element + `URL.createObjectURL`.
 
-**Where the link lives, and the gating rule:** rendered as the `action`
-on the FP detail page's existing "Batch header" `CardHeader`
+**Where the link lived, and the gating rule (as originally shipped —
+see the resolution note below for where it lives now):** rendered as the
+`action` on the FP detail page's existing "Batch header" `CardHeader`
 (`app/(dashboard)/finished-product/[id]/page.tsx`). Gate:
 `!["draft", "in_process", "cancelled"].includes(batch.status)` — i.e.
 visible from `complete_awaiting_qc` onward and staying visible through
 `submitted_to_qc`/`approved`/`rejected`, matching the same "starts
 showing, then persists" behavior already established for the Finish
 Product Intimation Slip link, rather than only while the batch sits in
-that one exact status.
+that one exact status. (This same eligibility rule carried over to the
+new Admin page's batch picker — see below.)
 
 **Field mapping** (`BmrData` in `bmr-docx.ts`):
 
@@ -1116,3 +1124,44 @@ new `docx` dependency bundles correctly for the client). Checked the
 guessing at API shapes, for `TableCell`/`ImageRun`/`Packer` — in
 particular confirmed `ImageRun`'s `type`/`data` fields, per-cell
 `borders` overrides, and that `Packer.toBlob()` exists for browser use.
+
+### Moved to Admin and renamed "Batch Mfg. Record- Deprecated" (16 Sept 2026)
+
+Ravi's resolution to the naming collision flagged above: "Move
+highlighted to Admin page and rename this to 'Batch Mfg. Record-
+Deprecated' we will later remove this functionality. Make a note that
+this needs to be removed from app later."
+
+- **Moved off this page entirely.** `bmr-docx.ts` and
+  `bmr-download-link.tsx` are now under
+  `app/(dashboard)/admin/batch-mfg-record-deprecated/`, not
+  `app/(dashboard)/finished-product/[id]/`. This page (`page.tsx`) no
+  longer imports or renders `BmrDownloadLink`, and the `bmrEligible`
+  computation and the extra `quality_checks`/AR-number lookup query it
+  needed were removed along with it (the `purchase_line_id` column was
+  also dropped back out of the `finished_product_components` select on
+  this page — it was only ever added for this feature).
+- **New home:** `/admin/batch-mfg-record-deprecated`, a new
+  `system_admin`-only Admin page (same access-gate pattern as
+  `/admin/purge-test-data`). Because it's no longer scoped to one FP
+  batch by the URL, the page fetches every eligible batch
+  (`status` in `complete_awaiting_qc`/`submitted_to_qc`/`approved`/
+  `rejected` — same rule as before) and offers a searchable batch picker
+  (`batch-picker.tsx`, reusing the app's shared `<Select>` combobox)
+  instead of the FP detail page just knowing which batch it's on.
+- **Renamed** from "Batch Manufacturing Record" to "Batch Mfg.
+  Record- Deprecated" (exact casing/spacing/hyphen as Ravi stated it),
+  both the nav entry (`lib/constants/nav.ts`, module 21) and the button
+  label itself, to make the distinction from the real `/bmr` module
+  unmissable at a glance.
+- **Flagged for future removal, not just renamed.** Ravi said this
+  functionality will be removed from the app later. An amber warning
+  banner on the new page says so explicitly, a `TODO(remove-later)`
+  comment sits at the top of the new page's `page.tsx`, and it's tracked
+  in the project's `claude/known-issues.md` so it isn't lost track of.
+  Nothing about the document-generation logic itself (`bmr-docx.ts`)
+  changed in this move — same fields, same `.docx` output, same
+  client-side-only architecture with nothing persisted.
+- **`docs/modules/bmr.md`'s own naming-collision note** was updated to
+  point here instead of describing the now-stale FP-detail-page
+  location.

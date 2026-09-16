@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
   Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
-  UploadCloud, Trash2,
+  UploadCloud, Trash2, FileWarning,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -72,6 +72,22 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // module number 20 follows Bulk Data Upload (19)'s precedent for
       // post-baseline additions.
       { href: "/admin/purge-test-data", label: "Purge Test Data", icon: Trash2, module: 20 },
+      // Not part of the original 15-module baseline — added per Ravi's
+      // 16 Sept 2026 request to move the legacy Batch Mfg. Record .docx
+      // download (previously on the Finished Product detail page) here and
+      // rename it, since it collided in name with the real "Batch Mfg.
+      // Record" module above (/bmr, module 10); module number 21 follows
+      // Purge Test Data (20)'s precedent for post-baseline additions.
+      // FileWarning (rather than reusing Boxes, module 10's icon) marks
+      // this one as the deprecated stand-in at a glance. Ravi said this
+      // whole entry — page, route, and this nav item — should be removed
+      // once the feature itself is retired; see this route's page.tsx.
+      {
+        href: "/admin/batch-mfg-record-deprecated",
+        label: "Batch Mfg. Record- Deprecated",
+        icon: FileWarning,
+        module: 21,
+      },
     ],
   },
 ];
