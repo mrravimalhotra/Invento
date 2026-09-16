@@ -43,7 +43,7 @@ export function NewBmrForm({ batches }: { batches: { id: string; batch_number: s
         <Button type="submit" disabled={pending || batches.length === 0}>
           {pending ? "Creating…" : "Create BMR"}
         </Button>
-        <LinkButton href="/bmr" variant="secondary">
+        <LinkButton href="/admin/bmr-deprecated" variant="secondary">
           Cancel
         </LinkButton>
       </div>

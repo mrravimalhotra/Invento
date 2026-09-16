@@ -24,7 +24,7 @@ export function BmrTable({ rows }: { rows: BmrRow[] }) {
     {
       header: "FP Batch",
       accessor: (r) => (
-        <Link href={`/bmr/${r.id}`} className="font-medium text-brand hover:underline">
+        <Link href={`/admin/bmr-deprecated/${r.id}`} className="font-medium text-brand hover:underline">
           {r.finished_product_batches?.batch_number ?? "—"}
         </Link>
       ),
@@ -40,7 +40,7 @@ export function BmrTable({ rows }: { rows: BmrRow[] }) {
     {
       header: "",
       accessor: (r) => (
-        <Link href={`/bmr/${r.id}`} className="text-sm text-brand hover:underline">
+        <Link href={`/admin/bmr-deprecated/${r.id}`} className="text-sm text-brand hover:underline">
           Open
         </Link>
       ),

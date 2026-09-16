@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { formatDate, formatNumber } from "@/lib/utils";
@@ -10,10 +9,14 @@ import { WeighmentLineForm, ObservationForm, SignOffPanel } from "../bmr-forms";
 type ItemRow = { id: string; name: string; item_code: string; unit: string | null };
 type ApprovedBatch = { id: string; batch_number: string; expiry_date: string | null; item_id: string };
 
+// System Admin-only, not the wider canWrite(..., "bmr") set — see the
+// comment atop ../page.tsx for the full 16 Sept 2026 deprecation/move
+// story.
 export default async function BmrDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (!user.roles.includes("system_admin")) redirect("/admin/bmr-deprecated");
 
   const supabase = await createClient();
 
@@ -29,7 +32,10 @@ export default async function BmrDetailPage({ params }: { params: Promise<{ id: 
 
   const fp = (record as unknown as { finished_product_batches: { batch_number: string; mfr_definition_id: string; mfr_version: number } | null })
     .finished_product_batches;
-  const canEdit = canWrite(user.roles, "bmr");
+  // Always true here — the redirect above already turned away anyone who
+  // isn't system_admin — kept as an explicit variable (rather than
+  // inlining `true`) so the JSX below reads the same as it always has.
+  const canEdit = user.roles.includes("system_admin");
 
   const [
     { data: weighmentLinesRaw },

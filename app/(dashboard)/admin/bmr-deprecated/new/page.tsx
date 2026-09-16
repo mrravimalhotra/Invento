@@ -1,15 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { NewBmrForm } from "../bmr-forms";
 
+// System Admin-only, not the wider canWrite(..., "bmr") set — see the
+// comment atop ../page.tsx for the full 16 Sept 2026 deprecation/move
+// story.
 export default async function NewBmrPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!canWrite(user.roles, "bmr")) redirect("/bmr");
+  if (!user.roles.includes("system_admin")) redirect("/admin/bmr-deprecated");
 
   const supabase = await createClient();
   const [{ data: fpBatches }, { data: bmrRows }] = await Promise.all([

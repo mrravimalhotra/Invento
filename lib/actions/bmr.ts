@@ -2,11 +2,21 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export type ActionState = { error?: string; success?: string } | undefined;
+
+// Ravi (16 Sept 2026): moved this whole module to /admin/bmr-deprecated
+// and restricted it to System Admin only — see
+// app/(dashboard)/admin/bmr-deprecated/page.tsx for the full story. Every
+// action below now checks `system_admin` directly instead of the wider
+// `canWrite(..., "bmr")` (MODULE_WRITE_ROLES.bmr) set, which is left
+// unchanged since it still documents the real RLS policy on
+// bmr_records/etc. — not touched by this move.
+function isBmrAdmin(roles: string[] | undefined): boolean {
+  return (roles ?? []).includes("system_admin");
+}
 
 // Postgres raises this text (see check_batch_qc_approved() in
 // supabase/migrations/0001_init.sql) when a weighment line's chosen batch
@@ -20,7 +30,7 @@ export async function createBmrRecord(_prev: ActionState, formData: FormData): P
   if (!fpBatchId) return { error: "Select a finished product batch." };
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "bmr")) return { error: "Not authorized." };
+  if (!isBmrAdmin(user?.roles)) return { error: "Not authorized." };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -30,18 +40,18 @@ export async function createBmrRecord(_prev: ActionState, formData: FormData): P
     .single();
   if (error) {
     if (error.code === "23505") {
-      // bmr_records_one_per_batch — /bmr/new already filters out batches
-      // that already have a BMR, but that's a page-load-time check, not a
-      // lock: two tabs (or a double-submit) against the same batch can
-      // both pass it. Translate the raw constraint-violation text instead
-      // of letting it reach the user.
+      // bmr_records_one_per_batch — /admin/bmr-deprecated/new already
+      // filters out batches that already have a BMR, but that's a
+      // page-load-time check, not a lock: two tabs (or a double-submit)
+      // against the same batch can both pass it. Translate the raw
+      // constraint-violation text instead of letting it reach the user.
       return { error: "This finished product batch already has a BMR record." };
     }
     return { error: error.message };
   }
 
-  revalidatePath("/bmr");
-  redirect(`/bmr/${data.id}`);
+  revalidatePath("/admin/bmr-deprecated");
+  redirect(`/admin/bmr-deprecated/${data.id}`);
 }
 
 export async function addWeighmentLine(
@@ -68,7 +78,7 @@ export async function addWeighmentLine(
   }
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "bmr")) return { error: "Not authorized." };
+  if (!isBmrAdmin(user?.roles)) return { error: "Not authorized." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("bmr_weighment_lines").insert({
@@ -85,7 +95,7 @@ export async function addWeighmentLine(
     return { error: error.message };
   }
 
-  revalidatePath(`/bmr/${bmrRecordId}`);
+  revalidatePath(`/admin/bmr-deprecated/${bmrRecordId}`);
   return { success: "Weighment line added." };
 }
 
@@ -99,7 +109,7 @@ export async function addObservation(
   if (!stepLabel) return { error: "Step label is required." };
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "bmr")) return { error: "Not authorized." };
+  if (!isBmrAdmin(user?.roles)) return { error: "Not authorized." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("bmr_observations").insert({
@@ -110,7 +120,7 @@ export async function addObservation(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/bmr/${bmrRecordId}`);
+  revalidatePath(`/admin/bmr-deprecated/${bmrRecordId}`);
   return { success: "Observation added." };
 }
 
@@ -120,7 +130,7 @@ async function signOffStep(
   requiredPriorStep: "prepared" | "checked" | null
 ): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "bmr")) return { error: "Not authorized." };
+  if (!isBmrAdmin(user?.roles)) return { error: "Not authorized." };
 
   const supabase = await createClient();
   const { data: record } = await supabase
@@ -142,8 +152,8 @@ async function signOffStep(
     .eq("id", bmrRecordId);
   if (error) return { error: error.message };
 
-  revalidatePath(`/bmr/${bmrRecordId}`);
-  revalidatePath("/bmr");
+  revalidatePath(`/admin/bmr-deprecated/${bmrRecordId}`);
+  revalidatePath("/admin/bmr-deprecated");
   return { success: `Marked ${step}.` };
 }
 

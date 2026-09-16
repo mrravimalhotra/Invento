@@ -40,7 +40,8 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/mfr", label: "MFR", icon: ClipboardList, module: 8 },
       { href: "/finished-product", label: "Finished Product", icon: FileBadge, module: 9 },
-      { href: "/bmr", label: "Batch Mfg. Record", icon: Boxes, module: 10 },
+      // Batch Mfg. Record (module 10) moved to the Admin group below, 16
+      // Sept 2026 — see that entry's comment.
       { href: "/packaging", label: "Packaging", icon: PackageCheck, module: 11 },
     ],
   },
@@ -72,6 +73,16 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // module number 20 follows Bulk Data Upload (19)'s precedent for
       // post-baseline additions.
       { href: "/admin/purge-test-data", label: "Purge Test Data", icon: Trash2, module: 20 },
+      // Ravi (16 Sept 2026): "move the highlighted 'Batch Mfg. Record' to
+      // Admin page and rename this to 'Batch Mfg. Record- Deprecated' we
+      // will later remove this functionality." This is the real BMR
+      // module (bmr_records/weighment lines/observations/sign-off) that
+      // used to be module 10 under Manufacturing at /bmr — not the
+      // separate, stateless .docx download that stayed on the Finished
+      // Product screen (see docs/modules/finished-product.md). Kept
+      // module number 10 (its original slot), not renumbered to 21, since
+      // this is a relocation of an existing module rather than a new one.
+      { href: "/admin/bmr-deprecated", label: "Batch Mfg. Record- Deprecated", icon: Boxes, module: 10 },
     ],
   },
 ];

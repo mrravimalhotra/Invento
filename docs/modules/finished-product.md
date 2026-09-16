@@ -1023,25 +1023,38 @@ attaching a real sample front page
 20-Jul-2026, end 29-Jul-2026, two raw materials consumed: Jatamansi
 15.00 from RM 04/26, Til Taila 60.00 from RM 05/26).
 
-**⚠️ Naming collision with the existing `/bmr` module — flagging, not
-guessing past it.** This app already has a fully separate, DB-backed
-"Batch Manufacturing Record" module at `/bmr` (`bmr_records`,
-`bmr_weighment_lines`, `bmr_observations`, a Prepared → Checked →
-Approved sign-off; `docs/modules/bmr.md`, Module 10), also scoped to
-`finished_product_batches` via its own FK. It has no document export of
-any kind. The feature this section documents is a **different, unrelated
-thing that happens to share the exact same name**: a stateless,
-client-generated `.docx` reproduction of one specific legacy paper form
-(this attached sample), with nothing written to the database — no link
-to or from a `bmr_records` row, no shared code. Both are legitimately
-about the same real-world FP batch, so a user seeing "Batch Manufacturing
-Record" on the FP detail page could reasonably expect it to open or
-reflect that batch's `/bmr` record — it doesn't. Built as asked, exactly
-as specified and against the attached sample, but this collision is real
-and worth a decision from Ravi: keep both as-is (they don't conflict
-technically), rename one of the two, or link them (e.g. this docx
-download could live inside the `/bmr` detail page instead of — or in
-addition to — the FP detail page).
+**⚠️ Naming collision with the existing `/bmr` module — flagged 15 Sept
+2026, resolved 16 Sept 2026 by moving and deprecating the *other* module,
+not this one.** This app already has a fully separate, DB-backed
+"Batch Manufacturing Record" module (`bmr_records`, `bmr_weighment_lines`,
+`bmr_observations`, a Prepared → Checked → Approved sign-off;
+`docs/modules/bmr.md`, Module 10), also scoped to `finished_product_batches`
+via its own FK. It has no document export of any kind. The feature this
+section documents is a **different, unrelated thing that happens to share
+the exact same name**: a stateless, client-generated `.docx` reproduction
+of one specific legacy paper form (this attached sample), with nothing
+written to the database — no link to or from a `bmr_records` row, no
+shared code. Both are legitimately about the same real-world FP batch, so
+a user seeing "Batch Manufacturing Record" on the FP detail page could
+reasonably expect it to open or reflect that batch's other module's
+record — it doesn't.
+
+**Resolution history, in order — this feature (the one on THIS page) was
+moved once, then reverted, and is otherwise unchanged.** First attempt
+(15→16 Sept 2026): moved this .docx download off the Finished Product
+page to an Admin-only page and renamed it "Batch Mfg. Record- Deprecated."
+Ravi reverted that ("you did the wrong thing - should not have moved
+Batch Manufacturing Record download functionality from Finished product
+screen"), and it was restored exactly to this card, byte-for-byte — see
+the git history around commits `5b7a496`/`a3c692a`. Ravi's actual
+resolution, given right after: **deprecate and relocate the *other*
+module instead** — the real, DB-backed `/bmr` module now lives at
+`/admin/bmr-deprecated`, relabeled "Batch Mfg. Record- Deprecated,"
+restricted to System Admin, and flagged for future removal. Full writeup:
+`docs/modules/bmr.md`'s own top section. **This feature — the download
+documented in the rest of this section — was explicitly left untouched
+both times Ravi asked for it to stay put**, and remains exactly where and
+how it's described below.
 
 **Format is `.docx`, not PDF — genuinely different from the other two
 slips.** Unlike the RM and Finish Product Intimation Slips (jsPDF,
