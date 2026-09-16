@@ -5,7 +5,6 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { LinkButton } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { ApproveForm } from "./approve-form";
@@ -13,8 +12,10 @@ import { EditRecipeForm } from "./edit-recipe-form";
 import { EditProcedureForm } from "./edit-procedure-form";
 import { DeleteMfrForm } from "./delete-mfr-form";
 import { ToggleMfrActiveForm } from "./toggle-active-form";
+import { PrintMfrButton } from "./print-mfr-button";
 import type { EditableLine } from "../mfr-line-editor";
 import type { EditableStep } from "../mfr-procedure-editor";
+import type { MfrDocxData } from "./mfr-docx";
 
 export default async function MfrDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,7 +34,11 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   const [{ data: lines }, { data: rawItems }, approverProfile, { data: procedureSteps }] = await Promise.all([
     supabase
       .from("mfr_lines")
-      .select("id, quantity, unit, items(id, item_code, name, unit)")
+      // botanical_alias added 16 Sept 2026 for the "Print MFR" .docx
+      // download's Botanical Name column (mfr-docx.ts) — the column
+      // itself already existed on items, just wasn't selected here
+      // before.
+      .select("id, quantity, unit, items(id, item_code, name, unit, botanical_alias)")
       .eq("mfr_definition_id", id)
       .eq("version", def.version)
       .order("id"),
@@ -71,7 +76,12 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   // message stays accurate if it's ever seen).
   const noItemReason = def.approved_by ? "created before this MFR/item link existed" : "created on approval";
 
-  type LineRow = { id: string; quantity: string | number; unit: string; items: { id: string; item_code: string; name: string; unit: string | null } | null };
+  type LineRow = {
+    id: string;
+    quantity: string | number;
+    unit: string;
+    items: { id: string; item_code: string; name: string; unit: string | null; botanical_alias: string | null } | null;
+  };
   const lineRows = (lines ?? []) as unknown as LineRow[];
 
   const initialLines: EditableLine[] = lineRows.map((l) => ({
@@ -85,12 +95,38 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   const hasProcedure = stepRows.length > 0 || !!def.procedure_intro;
   const initialSteps: EditableStep[] = stepRows.map((s) => ({ stage: s.stage, operation: s.operation }));
 
+  // Ravi (16 Sept 2026): "Print MFR option should give me .docx document
+  // in attached format... pick up data already entered as part of MFR
+  // and recipe" — see mfr-docx.ts. Falls back to the same auto-generated
+  // intro line the procedure card would show if procedure_intro was never
+  // overridden, so the printed document reads correctly even for an MFR
+  // whose procedure intro was left at its default.
+  const mfrDocxData: MfrDocxData = {
+    productName: def.name,
+    batchSizeQty: def.batch_size_qty,
+    batchSizeUnit: def.batch_size_unit,
+    formulaLines: lineRows.map((l) => ({
+      ingredient: l.items?.name ?? "—",
+      botanicalName: l.items?.botanical_alias ?? null,
+      qty: l.quantity,
+      unit: l.unit,
+    })),
+    procedureIntro:
+      def.procedure_intro ??
+      (hasProcedure
+        ? `Weigh/measure all raw materials at production level. (Batch size ${formatNumber(def.batch_size_qty)} ${def.batch_size_unit})`
+        : null),
+    procedureSteps: stepRows.map((s) => ({ stage: s.stage, operation: s.operation })),
+    theoreticalYieldPct: def.theoretical_yield_pct,
+    permissibleYieldPct: def.permissible_yield_pct,
+  };
+
   return (
     <div>
       <PageHeader
         title={`${def.code} · ${def.name}`}
         description={finishedProduct ? finishedProduct.item_code : `No Finished Product item — ${noItemReason}`}
-        action={<LinkButton href={`/mfr/${id}/report`}>Print MFR</LinkButton>}
+        action={<PrintMfrButton data={mfrDocxData} filename={`MFR-${def.code}.docx`} />}
       />
 
       <div className="grid gap-6">

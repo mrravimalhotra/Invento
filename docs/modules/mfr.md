@@ -38,7 +38,11 @@ mirrors the RLS policies `mfr_def_write` / `mfr_lines_write` in
   **Download PDF** button that renders the same content via `lib/pdf.ts`'s
   `letterhead()` + `jspdf-autotable`, plus a hand-drawn three-line signature
   block (jsPDF has no React component to reuse, so the PDF version reproduces
-  `SignatureBlock`'s layout directly with `doc.line()`/`doc.text()`).
+  `SignatureBlock`'s layout directly with `doc.line()`/`doc.text()`). **As
+  of 16 Sept 2026, no longer linked from the Detail screen's "Print MFR"
+  button** — see "Print MFR .docx download" below — but the route, its
+  on-screen preview, and its PDF download are otherwise untouched and
+  still reachable by URL.
 
 ## Versioning — built, then turned off (14 Sept 2026)
 
@@ -363,6 +367,76 @@ to edit an MFR procedure." `npx next build` and `npx eslint` both clean
 (only the pre-existing `_prev`/`_formData` unused-arg warnings in
 `lib/actions/mfr.ts`, same six now joined by no new ones).
 
+## Print MFR .docx download (16 Sept 2026)
+
+Ravi, attaching a real sample "Master Formula Record" (A.Jatamansi_Tail.docx,
+a fuller document than the earlier procedure-only sample above — the same
+product's complete MFR): "Print MFR option should give me .docx document
+in attached format. It should pick up data already entered as part of MFR
+and recipe and print the MFR in attached format."
+
+**"Print MFR" on `/mfr/[id]` is now a direct one-click .docx download**
+(`mfr-docx.ts` + `print-mfr-button.tsx`) — same architecture as the
+Finished Product screen's existing BMR `.docx` download (`bmr-docx.ts`):
+the `docx` npm package, `Packer.toBlob()` run client-side, no Server
+Action, no migration for the document generation itself. Confirmed via
+AskUserQuestion before building:
+
+- **The sample's closing "Label Specimen" section (a photo of the
+  physical product label) is omitted.** Nothing in the app stores a label
+  image anywhere — adding that would be its own separate feature, not
+  something to fold into "generate a document from data that already
+  exists."
+- **No Prepared/Checked/Approved sign-off block**, even though the
+  existing PDF report has one and MFRs track approval — the sample simply
+  doesn't have one, and this reproduces the sample exactly rather than
+  adding to it.
+- **The `/mfr/[id]/report` preview page and its PDF download are
+  untouched**, just no longer linked from "Print MFR" — see the Report
+  screen entry above.
+
+**What's in the document, in order:** company letterhead in a true
+repeating Word header (not inlined per page like the BMR download's
+letterhead table — this sample's header/footer are real Word header/
+footer parts) with a "Page X of Y" footer via `docx`'s `PageNumber.CURRENT`/
+`TOTAL_PAGES` fields; "Master Formula Record" + product name; a
+"Composition:" list of bare ingredient names (from the recipe); "Manufacturing
+Formula" + batch size + the formula table (Sr.No / Ingredients / **Botanical
+Name** / Qty) + the REMARK line about proportionate scaling on a batch-size
+change; then, only if a procedure has actually been entered (see
+"Manufacturing procedure" above) — the whole section is skipped, not shown
+empty, for an MFR with none — "MANUFACTURING PROCEDURE", the intro line,
+and the Sr.No/Stage/OPERATION table with the yield line folded into its own
+final row (`"", "Theoretical Yield = X %", "Permissible yield = NLT Y %"`),
+matching how the sample itself lays that line out.
+
+**Botanical Name column — no new column needed.** `items.botanical_alias`
+already existed in the schema (`0001_init.sql`) and has its own field on
+Item Master's New/Edit forms and detail screen — it just wasn't selected
+by this page's recipe-line query before. `/mfr/[id]`'s `mfr_lines` query
+now also selects it, and it flows straight into the docx (falls back to
+"—" when an ingredient has none set).
+
+Company letterhead text (`DOC_COMPANY_NAME`/`DOC_MFG_LIC`/`DOC_EMAIL_WEB`
+in `mfr-docx.ts`) is transcribed verbatim from this sample's own header
+and kept local rather than shared with `lib/pdf.ts`'s differently-cased
+versions — same "each legacy document reproduces its own sample exactly"
+precedent `bmr-docx.ts` established for the BMR download.
+
+**Local verification (before shipping).** Ran the exact same document-
+building logic standalone under `tsx` (writing to a file via
+`Packer.toBuffer` instead of the browser download flow, since the real
+module's tail uses browser-only globals) against two cases: the full
+sample data including an ingredient with no botanical name set (correctly
+printed "—"), a multi-line Operation cell (the Agni/Fena/Varti Pariksha
+sub-lines, correctly preserved as separate lines within the same table
+cell), and the closing yield row; and an MFR with no procedure entered at
+all (correctly produced zero procedure content — no "MANUFACTURING
+PROCEDURE" heading, no second table). Inspected both generated `.docx`
+files' real XML content via `python-docx` to confirm structure, not just
+that the code ran without throwing. `npx next build` and `npx eslint`
+clean.
+
 ## Files
 
 - `lib/actions/mfr.ts` — `createMfrDefinition`, `updateMfrLines`,
@@ -382,6 +456,8 @@ to edit an MFR procedure." `npx next build` and `npx eslint` both clean
 - `app/(dashboard)/mfr/[id]/edit-procedure-form.tsx` — the intro/steps/
   yield edit panel, open behind an "Add procedure"/"Edit procedure"
   button.
+- `app/(dashboard)/mfr/[id]/mfr-docx.ts` + `print-mfr-button.tsx` — the
+  "Print MFR" `.docx` download (see "Print MFR .docx download" above).
 - `app/(dashboard)/mfr/[id]/delete-mfr-form.tsx` — two-step-confirm Delete UI.
 - `app/(dashboard)/mfr/[id]/toggle-active-form.tsx` — one-click
   Deactivate/Reactivate UI.
