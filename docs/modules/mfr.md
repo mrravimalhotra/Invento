@@ -479,6 +479,35 @@ corrected logic, this time also converted to PDF via LibreOffice
 visual side-by-side against the sample, rather than only checking XML
 structure. `npx next build` and `npx eslint` clean.
 
+### Correction: spacing, forced page break, filename (16 Sept 2026, same day)
+
+Ravi, re-attaching the sample a third time: "give enough space as
+attached, Composition should be in first page, and MANUFACTURING
+PROCEDURE should start from next page. The name of the document will be
+same as Name of MFR e.g. A. Jatamansi Tail.docx." Three changes:
+
+- **More generous spacing throughout the body**, matching the sample's
+  own — the first two passes fixed the header/footer/fonts but left the
+  body's paragraph spacing noticeably tighter than the sample's (small
+  `spacing.after`/`before` values chosen without comparing against the
+  actual gaps in the reference). Widened the gaps around the title block,
+  the Composition list lines, and before "Manufacturing Formula" and
+  "REMARK" to match.
+- **An explicit `pageBreakBefore: true` on the "MANUFACTURING PROCEDURE"
+  heading**, rather than relying on natural pagination to push it to page
+  2. The sample happens to fill page 1 closely enough that it naturally
+  breaks there, but that's not reliable for every MFR — a short recipe
+  or procedure would let "MANUFACTURING PROCEDURE" start partway down
+  page 1 without an explicit break. Verified with a deliberately short
+  2-line composition / 2-step procedure that a natural page-fill approach
+  would keep on page 1: the explicit break correctly still starts a fresh
+  page 2.
+- **Download filename is now the MFR's own name** (`mfrDocxFilename()` in
+  `mfr-docx.ts`, e.g. "A. Jatamansi Tail.docx"), replacing the earlier
+  `MFR-<code>.docx`. Strips the characters Windows rejects in a filename
+  (`< > : " / \ | ?` and `*`, plus control characters) and a trailing dot,
+  falling back to "MFR.docx" if a name were ever to clean out to nothing.
+
 ## Files
 
 - `lib/actions/mfr.ts` — `createMfrDefinition`, `updateMfrLines`,

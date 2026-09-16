@@ -15,7 +15,7 @@ import { ToggleMfrActiveForm } from "./toggle-active-form";
 import { PrintMfrButton } from "./print-mfr-button";
 import type { EditableLine } from "../mfr-line-editor";
 import type { EditableStep } from "../mfr-procedure-editor";
-import type { MfrDocxData } from "./mfr-docx";
+import { mfrDocxFilename, type MfrDocxData } from "./mfr-docx";
 
 export default async function MfrDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -126,7 +126,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
       <PageHeader
         title={`${def.code} · ${def.name}`}
         description={finishedProduct ? finishedProduct.item_code : `No Finished Product item — ${noItemReason}`}
-        action={<PrintMfrButton data={mfrDocxData} filename={`MFR-${def.code}.docx`} />}
+        action={<PrintMfrButton data={mfrDocxData} filename={mfrDocxFilename(def.name)} />}
       />
 
       <div className="grid gap-6">

@@ -122,6 +122,19 @@ function qty(n: string | number): string {
   return Number.isFinite(num) ? String(num) : String(n);
 }
 
+// Ravi (16 Sept 2026): "The name of the document will be same as Name of
+// MFR e.g. A. Jatamansi Tail.docx" — replaces the earlier `MFR-<code>.docx`
+// filename. Strips characters Windows rejects in a filename
+// (`< > : " / \ | ?` and `*`, plus control characters) and any trailing
+// dot Windows would otherwise silently drop, so "A. Jatamansi Tail" still
+// comes through with its internal period intact.
+const WINDOWS_INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
+
+export function mfrDocxFilename(productName: string): string {
+  const cleaned = productName.replace(WINDOWS_INVALID_FILENAME_CHARS, "").trim().replace(/\.+$/, "");
+  return `${cleaned || "MFR"}.docx`;
+}
+
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -279,27 +292,27 @@ export async function downloadMfrDocx(data: MfrDocxData, filename: string) {
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 60 },
+      spacing: { after: 120 },
       children: [new TextRun({ text: "Master Formula Record", bold: true, size: 32 })],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
+      spacing: { after: 320 },
       children: [new TextRun({ text: data.productName, bold: true, size: 28 })],
     }),
-    new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: "Composition:", bold: true, size: 28 })] }),
-    ...data.formulaLines.map((l) => new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: l.ingredient, size: 28 })] })),
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: "Composition:", bold: true, size: 28 })] }),
+    ...data.formulaLines.map((l) => new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: l.ingredient, size: 28 })] })),
     new Paragraph({
-      spacing: { before: 160, after: 100 },
+      spacing: { before: 240, after: 120 },
       children: [new TextRun({ text: "Manufacturing Formula", bold: true, size: 28 })],
     }),
     new Paragraph({
-      spacing: { after: 100 },
+      spacing: { after: 120 },
       children: [new TextRun({ text: `Batch Size –${qty(data.batchSizeQty)} ${data.batchSizeUnit}`, bold: true, size: 24 })],
     }),
     formulaTable,
     new Paragraph({
-      spacing: { before: 160, after: 200 },
+      spacing: { before: 240, after: 200 },
       children: [
         new TextRun({ text: "REMARK: ", bold: true, size: 24 }),
         new TextRun({
@@ -317,12 +330,20 @@ export async function downloadMfrDocx(data: MfrDocxData, filename: string) {
     !!data.procedureIntro || data.procedureSteps.length > 0 || data.theoreticalYieldPct != null || data.permissibleYieldPct != null;
 
   if (hasProcedureContent) {
+    // Ravi (16 Sept 2026): "Composition should be in first page, and
+    // MANUFACTURING PROCEDURE should start from next page" — an explicit
+    // page break rather than relying on natural pagination, so this holds
+    // for every MFR regardless of how much or little fits on page one.
     children.push(
-      new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: "MANUFACTURING PROCEDURE", bold: true, size: 26 })] })
+      new Paragraph({
+        pageBreakBefore: true,
+        spacing: { after: 140 },
+        children: [new TextRun({ text: "MANUFACTURING PROCEDURE", bold: true, size: 26 })],
+      })
     );
     if (data.procedureIntro) {
       children.push(
-        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: data.procedureIntro, bold: true, size: 24 })] })
+        new Paragraph({ spacing: { after: 160 }, children: [new TextRun({ text: data.procedureIntro, bold: true, size: 24 })] })
       );
     }
     if (data.procedureSteps.length > 0 || data.theoreticalYieldPct != null || data.permissibleYieldPct != null) {
