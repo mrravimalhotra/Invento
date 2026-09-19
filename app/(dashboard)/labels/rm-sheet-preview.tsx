@@ -1,26 +1,23 @@
 "use client";
 
-// On-screen preview + JPEG-export source for the Approved Raw Material
-// label sheet (19 Sept 2026: "print label should same format, same size
-// for both pdf and jpg, 6 labels per page as per template"). Deliberately
-// reuses generate-label-pdf.ts's exported layout constants and
-// buildRmLines() rather than re-deriving positions here, so the PDF and
-// this HTML/JPEG rendering can't drift apart into two different "pixel
-// perfect" layouts.
+// On-screen preview for the Approved Raw Material label sheet (19 Sept
+// 2026: "print label should same format, same size for both pdf and jpg,
+// 6 labels per page as per template"; JPEG export was removed 19 Sept 2026
+// — see docs/modules/labels.md — but this preview stayed, since it's also
+// what the user sees before downloading the PDF). Deliberately reuses
+// generate-label-pdf.ts's exported layout constants and buildRmLines()
+// rather than re-deriving positions here, so the PDF and this on-screen
+// rendering can't drift apart into two different "pixel perfect" layouts.
 //
 // Unlike the PDF (built in physical mm via jsPDF), this renders at a fixed
 // on-screen pixel width and scales every mm measurement into px against
-// that width — the exported JPEG's absolute on-screen size doesn't need to
-// literally be A4; what "same format, same size" means for a raster image
-// is the same 6-up grid, aspect ratio and field layout, which this
-// guarantees since it's driven by the identical constants. html2canvas's
-// `scale` option (see label-picker.tsx) upscales the actual capture for
-// print-usable resolution regardless of the on-screen preview size.
+// that width, giving the same 6-up grid, aspect ratio and field layout as
+// the PDF.
 //
 // The embedded Carlito TTF (see lib/fonts/carlito-bold.ts, the same
 // Calibri-substitute the PDF embeds) is loaded here as a CSS @font-face
-// from the same base64 data, so the JPEG uses the identical typeface as
-// the PDF rather than a browser default.
+// from the same base64 data, so the on-screen preview uses the identical
+// typeface as the PDF rather than a browser default.
 import { forwardRef, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 import {
@@ -40,17 +37,15 @@ import { CARLITO_BOLD_TTF_BASE64 } from "@/lib/fonts/carlito-bold";
 
 // The CSS @font-face below is declared but browsers only start downloading
 // a data: URI font lazily, once layout actually needs it to paint text —
-// there's no guarantee it's ready by the time "Download JPEG" fires
-// html2canvas, and a race here is exactly what caused the bug Ravi hit
-// ("letters going out of border"): with Carlito not yet loaded,
-// html2canvas fell back to a generic bold sans-serif for the capture,
-// which measures ~2.6mm wider than Carlito for a typical field line —
-// just enough to push text past the 87.9mm cell's right edge even though
-// both the PDF and this preview's own layout math say it fits. This
+// without an explicit await, the preview can briefly paint with a fallback
+// font before Carlito loads, which is exactly what caused the bug Ravi hit
+// ("letters going out of border") back when this preview also fed a JPEG
+// export: the fallback measures ~2.6mm wider than Carlito for a typical
+// field line, just enough to push text past the 87.9mm cell's right edge
+// even though the PDF and this preview's own layout math say it fits. This
 // loader uses the explicit CSS Font Loading API instead of the passive
-// @font-face so callers can actually await completion; the promise is
-// cached so repeated calls (component mount, then again right before
-// capture) share one load.
+// @font-face so the component can await completion on mount; the promise
+// is cached so repeated calls share one load.
 let rmFontLoadPromise: Promise<void> | null = null;
 export function loadRmCarlitoFont(): Promise<void> {
   if (typeof document === "undefined" || typeof FontFace === "undefined") return Promise.resolve();
@@ -73,10 +68,9 @@ export function loadRmCarlitoFont(): Promise<void> {
 }
 
 // ~A4 at 96 CSS-px/inch (210mm * 96/25.4) — an arbitrary but clean base
-// resolution; html2canvas's `scale` option (see label-picker.tsx) upscales
-// the actual JPEG export well past this, and the on-screen card displays
-// this node scaled *down* via a wrapping CSS transform rather than
-// rendering it at this full size — see RM_PREVIEW_WIDTH_PX's usage there.
+// resolution; the on-screen card displays this node scaled *down* via a
+// wrapping CSS transform rather than rendering it at this full size — see
+// RM_PREVIEW_WIDTH_PX's usage in label-picker.tsx.
 export const RM_PREVIEW_WIDTH_PX = 794;
 const PX_PER_MM = RM_PREVIEW_WIDTH_PX / RM_PAGE_WIDTH_MM;
 export const RM_PREVIEW_HEIGHT_PX = RM_PAGE_HEIGHT_MM * PX_PER_MM;

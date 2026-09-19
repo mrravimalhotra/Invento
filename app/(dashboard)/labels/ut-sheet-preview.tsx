@@ -1,7 +1,9 @@
 "use client";
 
-// On-screen preview + JPEG-export source for the Under Test label sheet
-// (19 Sept 2026: "do same for under test labels"). Same approach as
+// On-screen preview for the Under Test label sheet (19 Sept 2026: "do
+// same for under test labels"; JPEG export was removed 19 Sept 2026 — see
+// docs/modules/labels.md — but this preview stayed, since it's also what
+// the user sees before downloading the PDF). Same approach as
 // rm-sheet-preview.tsx / fp-ip-sheet-preview.tsx: reuses
 // generate-label-pdf.ts's exported layout constants and buildUtLines()
 // rather than re-deriving positions here.

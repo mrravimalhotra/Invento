@@ -470,3 +470,36 @@ Verified the same way as FP/IP: rendered sample + long-value stress-test
 PDFs, rasterized at 600 DPI, numerically compared against the reference
 measurements — max deviation 0.043mm across every line — and confirmed
 the long-value stress test shrinks/truncates cleanly with no overflow.
+
+## JPEG download removed from all four label types (19 Sept 2026)
+
+Ravi: *"remove jpg download from all four labels printing"*. JPEG had
+already been hidden for Approved Raw Material specifically ("Remove jpg
+download option for now", while that sheet's layout was still being
+dialed in — see above); this removes it for the remaining three
+(Finished Product, In-process, Under Test) as well, so no label type
+offers a JPEG export any more. Only "Download PDF" remains.
+
+Removed from `label-picker.tsx`: the `previewRef` ref, `downloadingJpeg`
+state, the `handleDownloadJpeg` function (html2canvas capture, font-load
+awaiting, `.jpg` download link), the conditionally-rendered "Download
+JPEG" button, and the `ref={previewRef}` prop on each of
+`RmSheetPreview`/`FpIpSheetPreview`/`UtSheetPreview`. The `html2canvas`
+dependency itself is left in `package.json` (unused for now, cheap to
+leave, one less file to touch) rather than removed.
+
+The three sheet preview components (`rm-sheet-preview.tsx`,
+`fp-ip-sheet-preview.tsx`, `ut-sheet-preview.tsx`) are unchanged apart
+from comment cleanup — they're still needed for the on-screen "2.
+Preview" card the user sees before downloading the PDF, independent of
+JPEG capture. In particular their exported `loadXxxFont()` functions stay:
+each component still calls its own loader from a `useEffect` on mount, to
+avoid the on-screen preview briefly painting with a fallback font before
+the embedded Liberation Serif/Carlito TTF loads (the same font-race class
+of bug as the original RM "letters going out of border" issue, just for
+on-screen accuracy now rather than capture accuracy).
+
+Verified with `tsc --noEmit`, `eslint`, and a full `next build` — all
+clean, no other consumer of `previewRef`/`downloadingJpeg`/
+`handleDownloadJpeg` remained, and no other file dynamically imports
+`html2canvas` any more.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -16,21 +16,14 @@ import {
   type LabelField,
   type LabelType,
 } from "./generate-label-pdf";
-import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX, loadRmCarlitoFont } from "./rm-sheet-preview";
-import {
-  FpIpSheetPreview,
-  FPIP_PREVIEW_WIDTH_PX,
-  FPIP_PREVIEW_HEIGHT_PX,
-  loadFpIpLiberationSerifFont,
-} from "./fp-ip-sheet-preview";
-import { UtSheetPreview, UT_PREVIEW_WIDTH_PX, UT_PREVIEW_HEIGHT_PX, loadUtLiberationSerifFonts } from "./ut-sheet-preview";
+import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX } from "./rm-sheet-preview";
+import { FpIpSheetPreview, FPIP_PREVIEW_WIDTH_PX, FPIP_PREVIEW_HEIGHT_PX } from "./fp-ip-sheet-preview";
+import { UtSheetPreview, UT_PREVIEW_WIDTH_PX, UT_PREVIEW_HEIGHT_PX } from "./ut-sheet-preview";
 
 // The Approved Raw Material sheet preview renders at a fixed native size
-// (RM_PREVIEW_WIDTH_PX, chosen for export resolution — see
-// rm-sheet-preview.tsx) that's too wide for this card, so it's displayed
-// scaled down via a CSS transform on a *wrapper*, not on the ref'd node
-// itself — html2canvas captures the ref'd node's own unscaled layout, so
-// the JPEG export stays full resolution regardless of this display scale.
+// (RM_PREVIEW_WIDTH_PX — see rm-sheet-preview.tsx) that's too wide for this
+// card, so it's displayed scaled down via a CSS transform on a wrapper
+// around the preview rather than shrinking the preview's own layout.
 const RM_PREVIEW_DISPLAY_WIDTH_PX = 320;
 const RM_PREVIEW_DISPLAY_SCALE = RM_PREVIEW_DISPLAY_WIDTH_PX / RM_PREVIEW_WIDTH_PX;
 // Same display-scaling approach for the Finished Product / In-process
@@ -97,15 +90,6 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
   // as before this existed.
   const [nameFilter, setNameFilter] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string>("");
-  // FB-0037 (12 Sept 2026, Namrata Gaikwad): a JPEG download alongside the
-  // existing PDF, for pasting the label straight into a chat/doc without a
-  // PDF viewer. Captures the already-rendered on-screen preview below
-  // (ref'd via previewRef) with html2canvas rather than re-implementing the
-  // jsPDF vector layout a second time — the two exports can drift slightly
-  // in typography since one is a canvas rasterization of HTML/CSS and the
-  // other is native PDF vector drawing, but they show the same fields.
-  const previewRef = useRef<HTMLDivElement>(null);
-  const [downloadingJpeg, setDownloadingJpeg] = useState(false);
 
   const isFp = labelType === "finished_product";
   const rm = !isFp ? rmRecords.find((r) => r.id === selectedId) : undefined;
@@ -189,37 +173,6 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
   function handleDownload() {
     const safeBatch = batchNumberForFilename.replace(/[^\w.-]+/g, "_");
     downloadLabelPdf(labelType, fields, `label-${labelType}-${safeBatch}.pdf`);
-  }
-
-  async function handleDownloadJpeg() {
-    const node = previewRef.current;
-    if (!node) return;
-    setDownloadingJpeg(true);
-    try {
-      // The Approved Raw Material preview embeds Carlito (matching the
-      // PDF's font) as a data: URI font. A passive CSS @font-face alone
-      // doesn't guarantee it's loaded by the time html2canvas fires — that
-      // race is what caused Ravi's "letters going out of border" bug: with
-      // Carlito not yet loaded, html2canvas captured a wider fallback font
-      // that no longer fit the cell, even though both the PDF and this
-      // preview's own layout math say the text fits. loadRmCarlitoFont()
-      // explicitly awaits the font via the Font Loading API (and was
-      // already kicked off when the preview mounted, so this is usually an
-      // instant no-op by the time the user clicks Download).
-      if (labelType === "approved_rm") await loadRmCarlitoFont();
-      if (labelType === "finished_product" || labelType === "inprocess") await loadFpIpLiberationSerifFont();
-      if (labelType === "under_test") await loadUtLiberationSerifFonts();
-      if (document.fonts?.ready) await document.fonts.ready;
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(node, { scale: 3, backgroundColor: "#ffffff" });
-      const safeBatch = batchNumberForFilename.replace(/[^\w.-]+/g, "_");
-      const link = document.createElement("a");
-      link.download = `label-${labelType}-${safeBatch}.jpg`;
-      link.href = canvas.toDataURL("image/jpeg", 0.92);
-      link.click();
-    } finally {
-      setDownloadingJpeg(false);
-    }
   }
 
   return (
@@ -309,21 +262,6 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             <Button onClick={handleDownload} disabled={!canDownload} className="self-start">
               Download PDF
             </Button>
-            {/* JPEG download removed for Approved Raw Material only (19 Sept
-                2026, Ravi: "Remove jpg download option for now") while the
-                sheet layout is still being dialed in — the other three
-                label types keep it, since the issues so far have all been
-                specific to the RM sheet's rendering path. */}
-            {labelType !== "approved_rm" && (
-              <Button
-                onClick={handleDownloadJpeg}
-                disabled={!canDownload || downloadingJpeg}
-                variant="secondary"
-                className="self-start"
-              >
-                {downloadingJpeg ? "Preparing…" : "Download JPEG"}
-              </Button>
-            )}
           </div>
         </CardBody>
       </Card>
@@ -345,7 +283,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
               style={{ width: RM_PREVIEW_DISPLAY_WIDTH_PX, height: RM_PREVIEW_HEIGHT_PX * RM_PREVIEW_DISPLAY_SCALE }}
             >
               <div style={{ transform: `scale(${RM_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
-                <RmSheetPreview ref={previewRef} fields={fields} />
+                <RmSheetPreview fields={fields} />
               </div>
             </div>
           ) : labelType === "finished_product" || labelType === "inprocess" ? (
@@ -362,7 +300,6 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             >
               <div style={{ transform: `scale(${FPIP_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
                 <FpIpSheetPreview
-                  ref={previewRef}
                   fields={fields}
                   title={HEADER_TEXT[labelType]}
                   fieldPrefix={labelType === "finished_product" ? FP_FIELD_PREFIX : IP_FIELD_PREFIX}
@@ -381,7 +318,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
               style={{ width: UT_PREVIEW_DISPLAY_WIDTH_PX, height: UT_PREVIEW_HEIGHT_PX * UT_PREVIEW_DISPLAY_SCALE }}
             >
               <div style={{ transform: `scale(${UT_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
-                <UtSheetPreview ref={previewRef} fields={fields} />
+                <UtSheetPreview fields={fields} />
               </div>
             </div>
           ) : null}

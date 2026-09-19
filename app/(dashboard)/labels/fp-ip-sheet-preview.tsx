@@ -1,11 +1,13 @@
 "use client";
 
-// On-screen preview + JPEG-export source for the Finished Product and
-// In-process label sheets (19 Sept 2026: "Apply similar formatting for
-// Finished Product & In Process Labels. Use attached as template"). Same
-// approach as rm-sheet-preview.tsx: reuses generate-label-pdf.ts's exported
-// layout constants and buildFpIpLines() rather than re-deriving positions
-// here, so the PDF and this HTML/JPEG rendering can't drift apart.
+// On-screen preview for the Finished Product and In-process label sheets
+// (19 Sept 2026: "Apply similar formatting for Finished Product & In
+// Process Labels. Use attached as template"; JPEG export was removed 19
+// Sept 2026 — see docs/modules/labels.md — but this preview stayed, since
+// it's also what the user sees before downloading the PDF). Same approach
+// as rm-sheet-preview.tsx: reuses generate-label-pdf.ts's exported layout
+// constants and buildFpIpLines() rather than re-deriving positions here,
+// so the PDF and this on-screen rendering can't drift apart.
 //
 // One component serves both label types (unlike RM, which is its own
 // single type) since Finished Product and In-process are otherwise
@@ -32,11 +34,10 @@ import {
 import { LIBERATION_SERIF_BOLD_TTF_BASE64 } from "@/lib/fonts/liberation-serif-bold";
 
 // Same rationale as loadRmCarlitoFont in rm-sheet-preview.tsx: a passive
-// CSS @font-face data: URI isn't guaranteed loaded before html2canvas
-// fires, which is exactly the race that caused Ravi's "letters going out
-// of border" bug on the RM label. Using the explicit Font Loading API and
-// awaiting it (component mount, then again right before capture) avoids
-// repeating that bug here from the start.
+// CSS @font-face data: URI isn't guaranteed loaded before first paint,
+// which is the kind of race that caused Ravi's "letters going out of
+// border" bug on the RM label. Using the explicit Font Loading API and
+// awaiting it on mount avoids repeating that bug here.
 let fpIpFontLoadPromise: Promise<void> | null = null;
 export function loadFpIpLiberationSerifFont(): Promise<void> {
   if (typeof document === "undefined" || typeof FontFace === "undefined") return Promise.resolve();
