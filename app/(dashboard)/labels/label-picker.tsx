@@ -6,8 +6,23 @@ import { Field, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
-import { downloadLabelPdf, type LabelField, type LabelType } from "./generate-label-pdf";
+import {
+  downloadLabelPdf,
+  HEADER_TEXT,
+  FP_FIELD_PREFIX,
+  IP_FIELD_PREFIX,
+  FP_CELL_HEIGHT_MM,
+  IP_CELL_HEIGHT_MM,
+  type LabelField,
+  type LabelType,
+} from "./generate-label-pdf";
 import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX, loadRmCarlitoFont } from "./rm-sheet-preview";
+import {
+  FpIpSheetPreview,
+  FPIP_PREVIEW_WIDTH_PX,
+  FPIP_PREVIEW_HEIGHT_PX,
+  loadFpIpLiberationSerifFont,
+} from "./fp-ip-sheet-preview";
 
 // The Approved Raw Material sheet preview renders at a fixed native size
 // (RM_PREVIEW_WIDTH_PX, chosen for export resolution — see
@@ -17,6 +32,10 @@ import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX, loadRmCarlit
 // the JPEG export stays full resolution regardless of this display scale.
 const RM_PREVIEW_DISPLAY_WIDTH_PX = 320;
 const RM_PREVIEW_DISPLAY_SCALE = RM_PREVIEW_DISPLAY_WIDTH_PX / RM_PREVIEW_WIDTH_PX;
+// Same display-scaling approach for the Finished Product / In-process
+// sheet preview (see fp-ip-sheet-preview.tsx).
+const FPIP_PREVIEW_DISPLAY_WIDTH_PX = 320;
+const FPIP_PREVIEW_DISPLAY_SCALE = FPIP_PREVIEW_DISPLAY_WIDTH_PX / FPIP_PREVIEW_WIDTH_PX;
 
 export type RmRecord = {
   id: string;
@@ -183,6 +202,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
       // already kicked off when the preview mounted, so this is usually an
       // instant no-op by the time the user clicks Download).
       if (labelType === "approved_rm") await loadRmCarlitoFont();
+      if (labelType === "finished_product" || labelType === "inprocess") await loadFpIpLiberationSerifFont();
       if (document.fonts?.ready) await document.fonts.ready;
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(node, { scale: 3, backgroundColor: "#ffffff" });
@@ -320,6 +340,30 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             >
               <div style={{ transform: `scale(${RM_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
                 <RmSheetPreview ref={previewRef} fields={fields} />
+              </div>
+            </div>
+          ) : labelType === "finished_product" || labelType === "inprocess" ? (
+            // Finished Product / In-process (19 Sept 2026): same treatment
+            // as Approved Raw Material above — a dedicated 6-up US Letter
+            // sheet preview matching Ravi's reference templates, see
+            // fp-ip-sheet-preview.tsx. Only Under Test (not part of either
+            // request) keeps the original single-label brand-styled preview
+            // below.
+            <div
+              className="overflow-hidden rounded-md border-2 border-border shadow-sm"
+              style={{
+                width: FPIP_PREVIEW_DISPLAY_WIDTH_PX,
+                height: FPIP_PREVIEW_HEIGHT_PX * FPIP_PREVIEW_DISPLAY_SCALE,
+              }}
+            >
+              <div style={{ transform: `scale(${FPIP_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
+                <FpIpSheetPreview
+                  ref={previewRef}
+                  fields={fields}
+                  title={HEADER_TEXT[labelType]}
+                  fieldPrefix={labelType === "finished_product" ? FP_FIELD_PREFIX : IP_FIELD_PREFIX}
+                  cellHeightMm={labelType === "finished_product" ? FP_CELL_HEIGHT_MM : IP_CELL_HEIGHT_MM}
+                />
               </div>
             </div>
           ) : (

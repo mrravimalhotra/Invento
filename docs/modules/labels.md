@@ -280,3 +280,102 @@ when `labelType === "approved_rm"` (`Download PDF` and the on-screen
 preview are unaffected); the other three label types keep JPEG export
 unchanged. The underlying `RmSheetPreview/loadRmCarlitoFont` machinery is
 untouched, so re-enabling it later is just restoring that one button.
+
+### Finished Product & In-process — pixel-perfect 6-up sheets (19 Sept 2026)
+
+Ravi supplied two more reference templates —
+`finish_products_GREEN_label_111.docx` and `in-process_label.docx` — and
+asked: *"Apply similar formatting for Finished Product & In Process
+Labels. Use attached as template for Finished Product and In Progress
+Labels."* Same treatment as Approved Raw Material above: a dedicated 6-up
+sheet PDF plus a matching HTML/JPEG preview, built from measurements taken
+off the references (LibreOffice conversion + `python-docx` structural
+inspection + 600 DPI pixel measurement, baselines cross-checked against
+font-file glyph metrics via `fontTools` the same way as the ascender fix
+above — not the flawed ink-band-only method from RM's first pass).
+
+**Page/grid differs from RM.** Both references are US Letter (215.9 ×
+279.4mm), not A4 — same 2-col × 3-row grid shape, but its own constants
+(`FPIP_*` in `generate-label-pdf.ts`) rather than reusing `RM_*`. Measured
+grid: origin (6.33mm, 25.46mm), 100.01mm-wide cells. Row height is
+per-type — Finished Product has 10 lines per cell (67.03mm rows),
+In-process has 9 (60.35mm rows) — sized to each type's own content, the
+same way RM's cells are sized to its.
+
+**One uniform font size.** Unlike RM (13pt headers / 11pt fields, a couple
+of mixed-size lines), every line in both references — headers and fields
+alike — measured out to a single uniform 11pt (`FPIP_FONT_SIZE_PT`); no
+per-line size table needed. Baselines for all 19 measured lines (10 from
+Finished Product, 9 from In-process) fit a single shared line pitch and
+first-line offset via least-squares — `FPIP_LINE_PITCH_MM` (6.685mm) and
+`FPIP_LINE0_Y_MM` (3.685mm) — with a max residual of 0.028mm across every
+point, including cross-checking that both references' header lines land
+within 0.02mm of each other despite differing field-line counts below.
+
+**Font: Liberation Serif, not Carlito.** Both references specify Times New
+Roman (bold, every run) — inherited from the document's default run
+properties (`docDefaults sz=22` = 11pt) rather than an explicit per-run
+override anywhere in either `.docx`. Times New Roman is a Microsoft-
+licensed font not available for redistribution, so this embeds Liberation
+Serif instead: the metrically-compatible, SIL OFL-1.1 licensed open
+substitute (same lineage/approach as Carlito for Calibri on RM), and
+confirmed to be what LibreOffice actually substituted when rendering both
+references for measurement (`fc-match "Times New Roman"` → Liberation
+Serif in this environment). New file: `lib/fonts/liberation-serif-bold.ts`
+(same embedded-base64-TTF pattern as `carlito-bold.ts`), used by both the
+PDF path and `fp-ip-sheet-preview.tsx`'s CSS `@font-face`.
+
+**Horizontal layout has an indent RM doesn't.** The "Mfg. Lic. No." line,
+and the centered title line below it, both carry the reference's own
+0.5in (720 twips) first-line paragraph indent — confirmed in the pixel
+measurements (both land 12.7mm further right than the unindented lines
+above/below them), and reproduced as `FPIP_INDENT_MM`. The centered title
+line turned out to be centered *within that indented region*, not the
+full cell width — its measured center matches `(indent-start +
+cell-right-margin) / 2` to within 0.02mm, not the cell's own midpoint.
+`drawFpIpCell()`/`FpIpSheetPreview` model this with a third horizontal
+mode (`"center-indent"`, alongside `"left"` and `"left-indent"`) rather
+than RM's plain `"center"` vs `"left"`.
+
+**One shared preview component for both types.** `fp-ip-sheet-preview.tsx`
+serves both Finished Product and In-process (unlike RM, which is its own
+single type) since they're otherwise structurally identical — same page,
+grid, font, column positions — differing only in title text, field
+list/prefixes, and cell height, passed in as props
+(`FpIpSheetPreviewProps`). `loadFpIpLiberationSerifFont()` uses the same
+explicit Font Loading API pattern as `loadRmCarlitoFont()` from the start,
+to avoid RM's font-loading-race bug rather than rediscover it.
+
+**Deliberate deviations from the reference's literal text**, same
+rationale as RM: both references run the company name and address onto
+one line as `"Atharva Nature Healthcare Pvt. Ltd.,Wagholi, Pune."` (comma
+with no following space) and give the Mfg. Lic. No. with a slash
+(`"PD/AYU/111"`) rather than the app's canonical dash (`"PD/AYU-111"`).
+This renders the canonical `COMPANY_NAME` / `COMPANY_ADDRESS` /
+`MFG_LIC_NO` constants in the same one-line position instead.
+
+**In-process's reference table starts ~14.6mm further down the page than
+Finished Product's** — traced to 3 stray empty paragraphs above its table
+in that one source document (confirmed via the raw document XML), not
+present in the Finished Product reference and not matched by any other
+structural difference between the two. Read as a copy/paste artifact
+rather than an intentional difference, so both label types share the same
+`FPIP_GRID_ORIGIN_Y_MM` (both sheets' grids start at the same point on the
+page) rather than In-process inheriting that offset — flagged here rather
+than silently normalized.
+
+**JPEG stays enabled** for both new types (unlike RM, which currently has
+it removed "for now" — see above). Nothing about this build reproduces
+RM's original bugs (the font-loading race is avoided from the start here,
+and every baseline already has correct ascender clearance from the
+references' own measurements), so there was no specific reason found to
+disable it; flagged to Ravi as a default worth confirming, not a silent
+choice.
+
+Verified the same way as RM's fixes: rendered both PDFs from realistic
+sample data (script not kept in the repo), rasterized at 600 DPI, and
+numerically compared line positions against the reference measurements —
+max deviation 0.17mm across every line in both label types, and confirmed
+a long-value stress test (long product name, long batch code, long
+quantity string) shrinks/truncates correctly without overflowing any
+cell's border.

@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/pdf";
 import { CARLITO_BOLD_TTF_BASE64 } from "@/lib/fonts/carlito-bold";
+import { LIBERATION_SERIF_BOLD_TTF_BASE64 } from "@/lib/fonts/liberation-serif-bold";
 
 // Compact ~4in x 3in label layout, built directly with jsPDF (not the full
 // letterhead() masthead in lib/pdf.ts — this is a small physical label, not
@@ -15,7 +16,7 @@ const BRAND_R = 31;
 const BRAND_G = 111;
 const BRAND_B = 78;
 
-const HEADER_TEXT: Record<LabelType, string> = {
+export const HEADER_TEXT: Record<LabelType, string> = {
   approved_rm: "APPROVED RAW MATERIAL",
   under_test: "UNDER TEST",
   inprocess: "INPROCESS",
@@ -271,9 +272,263 @@ function downloadApprovedRmLabel(fields: LabelField[], filename: string) {
   doc.save(filename);
 }
 
+// Finished Product & In-process labels (19 Sept 2026): Ravi supplied two
+// more reference templates ("finish_products_GREEN_label_111.docx" and
+// "in-process_label.docx") and asked to "Apply similar formatting for
+// Finished Product & In Process Labels. Use attached as template" — the
+// same pixel-perfect treatment as Approved Raw Material, for these other
+// two label types. Measured the same way: LibreOffice conversion +
+// python-docx structural inspection + 600 DPI pixel measurement of a
+// single cell, cross-checked against font-file glyph metrics (fontTools)
+// to derive true baselines rather than eyeballing the ink band. See
+// docs/modules/labels.md for the full write-up.
+//
+// Both references are US Letter (215.9 x 279.4mm), not A4 — a 2-col x
+// 3-row grid of the identical label, same shape as the RM sheet but a
+// different page size/grid, so this gets its own constants rather than
+// reusing RM_*. Unlike RM (13pt headers / 11pt fields, a couple of
+// mixed-size lines), every line in both references is a single uniform
+// 11pt — no per-line size table needed.
+//
+// Font: both specify Times New Roman (bold, every run), inherited from
+// the document's default run properties rather than an explicit
+// per-run override. Times New Roman isn't licensed for redistribution;
+// this embeds Liberation Serif instead — metrically identical, OFL-1.1
+// licensed, and what LibreOffice actually substituted when rendering
+// the references for measurement (fc-match confirms it in this
+// environment) — see lib/fonts/liberation-serif-bold.ts.
+//
+// Company header text: same deliberate deviation as RM. The references
+// run the company name and address on one line as literal text
+// "Atharva Nature Healthcare Pvt. Ltd.,Wagholi, Pune." (comma with no
+// following space, before "Wagholi") and give the Mfg. Lic. No. with a
+// slash ("PD/AYU/111") rather than the app's canonical dash
+// ("PD/AYU-111"). This uses the canonical COMPANY_NAME / COMPANY_ADDRESS
+// / MFG_LIC_NO constants (composed onto the same one-line / one-line
+// layout and position) instead of reproducing those literal quirks —
+// flagged here as with RM, not an oversight.
+export const FPIP_PAGE_WIDTH_MM = 215.9; // US Letter
+export const FPIP_PAGE_HEIGHT_MM = 279.4;
+export const FPIP_GRID_COLS = 2;
+export const FPIP_GRID_ROWS = 3;
+export const FPIP_GRID_ORIGIN_X_MM = 6.33;
+export const FPIP_CELL_WIDTH_MM = 100.01;
+export const FPIP_GRID_ORIGIN_Y_MM = 25.46;
+export const FPIP_LEFT_PAD_MM = 2.0;
+export const FPIP_RIGHT_PAD_MM = 2.0;
+// The reference's "Mfg. Lic. No." line, and the centered title line below
+// it, both carry a 0.5in (720 twips) first-line indent in the source
+// paragraph properties — confirmed in the rendering (measured 12.7mm
+// further right than the un-indented lines above/below them), so it's
+// reproduced as a real offset rather than dropped.
+export const FPIP_INDENT_MM = 12.7;
+export const FPIP_FONT_SIZE_PT = 11;
+const FPIP_MIN_VALUE_SIZE_PT = 7;
+// Baseline of the first line (company name) and the uniform line-to-line
+// pitch, both in mm from the top of a cell — least-squares fit across all
+// 19 measured lines (10 from the Finished Product reference, 9 from
+// In-process; they share identical header-line positions, confirmed to
+// within 0.02mm of each other) against each line's fontTools-derived
+// ascender/descender-corrected baseline. Max residual across all 19
+// points: 0.028mm.
+const FPIP_LINE0_Y_MM = 3.685;
+const FPIP_LINE_PITCH_MM = 6.685;
+
+// Finished Product's reference table lays out at the very top of the page
+// (table starts right at the 25.4mm top margin, same as RM). In-process's
+// reference has 3 stray empty paragraphs above its table pushing it down
+// ~14.6mm further — almost certainly a leftover copy/paste artifact in
+// that one source document rather than an intentional difference (nothing
+// else about the two documents' table/paragraph structure differs), so
+// both label types share the same FPIP_GRID_ORIGIN_Y_MM above rather than
+// In-process inheriting that offset. Flagged to Ravi rather than silently
+// normalized.
+export const FP_CELL_HEIGHT_MM = 67.03;
+export const IP_CELL_HEIGHT_MM = 60.35;
+
+export const FP_FIELD_PREFIX: Record<string, string> = {
+  Name: "Name                  :",
+  Status: "Status                  :",
+  "Batch No.": "Batch No.            :",
+  "Batch Quantity": "Batch Quantity   :",
+  "Month of Manufacture": "Month of Manufacture:",
+  "Best Before": "Best Before          :",
+  Sign: "Sign                      :",
+};
+export const IP_FIELD_PREFIX: Record<string, string> = {
+  Name: "Name                  :",
+  Status: "Status                  :",
+  "Batch No.": "Batch No.            :",
+  "Batch Quantity": "Batch Quantity  :",
+  "Start Date": "Start Date           :",
+  Sign: "Sign                     :",
+};
+
+// Same shrink-to-fit / truncate-as-last-resort approach as RM's
+// fitRmValueRun (see there for the rationale), parameterized here since
+// Finished Product and In-process share one cell width and a single
+// uniform font size rather than RM's per-field-line size.
+function fitFpIpValueRun(doc: jsPDF, prefixWithGap: string, value: string): RmLineRun {
+  doc.setFontSize(FPIP_FONT_SIZE_PT);
+  const prefixWidth = doc.getTextWidth(prefixWithGap);
+  const maxValueWidth = Math.max(0, FPIP_CELL_WIDTH_MM - FPIP_LEFT_PAD_MM - FPIP_RIGHT_PAD_MM - prefixWidth);
+
+  let width = doc.getTextWidth(value);
+  if (width <= maxValueWidth) return { text: value, sizePt: FPIP_FONT_SIZE_PT };
+
+  let size = Math.max(FPIP_MIN_VALUE_SIZE_PT, Math.floor((FPIP_FONT_SIZE_PT * (maxValueWidth / width)) * 2) / 2);
+  doc.setFontSize(size);
+  width = doc.getTextWidth(value);
+  while (width > maxValueWidth && size > FPIP_MIN_VALUE_SIZE_PT) {
+    size -= 0.5;
+    doc.setFontSize(size);
+    width = doc.getTextWidth(value);
+  }
+  if (width <= maxValueWidth) return { text: value, sizePt: size };
+
+  doc.setFontSize(FPIP_MIN_VALUE_SIZE_PT);
+  let truncated = value;
+  while (truncated.length > 1 && doc.getTextWidth(truncated + "…") > maxValueWidth) {
+    truncated = truncated.slice(0, -1);
+  }
+  return { text: truncated + "…", sizePt: FPIP_MIN_VALUE_SIZE_PT };
+}
+
+// One printed line within a Finished Product / In-process cell. Unlike RM,
+// every line here is a single run at one uniform size, but the three
+// reference-measured horizontal positions (see FPIP_INDENT_MM above)
+// aren't just "left" vs "center" the way RM's are — "left-indent" is the
+// Mfg. Lic. line's indent, and "center-indent" is the title line centered
+// within the indented region rather than the full cell width.
+export type FpIpLine = { yMm: number; x: "left" | "left-indent" | "center-indent"; text: string; sizePt: number };
+export type FpIpValueLine = { yMm: number; runs: RmLineRun[] };
+
+export function buildFpIpLines(
+  fields: LabelField[],
+  doc: jsPDF,
+  opts: { title: string; fieldPrefix: Record<string, string> }
+): (FpIpLine | FpIpValueLine)[] {
+  const lines: (FpIpLine | FpIpValueLine)[] = [
+    {
+      yMm: FPIP_LINE0_Y_MM,
+      x: "left",
+      text: `${COMPANY_NAME},${COMPANY_ADDRESS}.`,
+      sizePt: FPIP_FONT_SIZE_PT,
+    },
+    {
+      yMm: FPIP_LINE0_Y_MM + FPIP_LINE_PITCH_MM,
+      x: "left-indent",
+      text: `Mfg. Lic. No. : ${MFG_LIC_NO}`,
+      sizePt: FPIP_FONT_SIZE_PT,
+    },
+    {
+      yMm: FPIP_LINE0_Y_MM + 2 * FPIP_LINE_PITCH_MM,
+      x: "center-indent",
+      text: opts.title,
+      sizePt: FPIP_FONT_SIZE_PT,
+    },
+  ];
+
+  fields.forEach((f, i) => {
+    const prefix = opts.fieldPrefix[f.label];
+    const yMm = FPIP_LINE0_Y_MM + (3 + i) * FPIP_LINE_PITCH_MM;
+    if (prefix === undefined) return; // unexpected field — skip rather than misplace it
+    if (!f.value) {
+      lines.push({ yMm, x: "left", text: prefix, sizePt: FPIP_FONT_SIZE_PT });
+      return;
+    }
+    const prefixWithGap = `${prefix}  `;
+    const valueRun = fitFpIpValueRun(doc, prefixWithGap, f.value);
+    lines.push({
+      yMm,
+      runs: [{ text: prefixWithGap, sizePt: FPIP_FONT_SIZE_PT }, valueRun],
+    });
+  });
+
+  return lines;
+}
+
+function drawFpIpCell(
+  doc: jsPDF,
+  lines: (FpIpLine | FpIpValueLine)[],
+  originX: number,
+  originY: number,
+  cellHeightMm: number
+) {
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.2);
+  doc.rect(originX + 0.15, originY + 0.15, FPIP_CELL_WIDTH_MM - 0.3, cellHeightMm - 0.3);
+  doc.setTextColor(0, 0, 0);
+
+  const leftX = originX + FPIP_LEFT_PAD_MM;
+  const indentX = leftX + FPIP_INDENT_MM;
+  const centerIndentX = (indentX + (originX + FPIP_CELL_WIDTH_MM - FPIP_RIGHT_PAD_MM)) / 2;
+
+  for (const line of lines) {
+    const y = originY + line.yMm;
+    if ("runs" in line) {
+      // A field line with a value: prefix + (possibly shrunk) value, both
+      // at FPIP_FONT_SIZE_PT here, left-aligned from the same x as every
+      // other unindented line.
+      let x = leftX;
+      line.runs.forEach((r) => {
+        doc.setFontSize(r.sizePt);
+        doc.text(r.text, x, y, { align: "left" });
+        x += doc.getTextWidth(r.text);
+      });
+      continue;
+    }
+    doc.setFontSize(line.sizePt);
+    if (line.x === "center-indent") {
+      doc.text(line.text, centerIndentX, y, { align: "center" });
+    } else {
+      doc.text(line.text, line.x === "left-indent" ? indentX : leftX, y, { align: "left" });
+    }
+  }
+}
+
+function downloadFpIpLabel(
+  fields: LabelField[],
+  filename: string,
+  opts: { title: string; fieldPrefix: Record<string, string>; cellHeightMm: number }
+) {
+  const doc = new jsPDF({ unit: "mm", format: [FPIP_PAGE_WIDTH_MM, FPIP_PAGE_HEIGHT_MM] });
+  doc.addFileToVFS("LiberationSerif-Bold.ttf", LIBERATION_SERIF_BOLD_TTF_BASE64);
+  doc.addFont("LiberationSerif-Bold.ttf", "LiberationSerif", "bold");
+  doc.setFont("LiberationSerif", "bold");
+
+  const lines = buildFpIpLines(fields, doc, opts);
+
+  for (let row = 0; row < FPIP_GRID_ROWS; row++) {
+    for (let col = 0; col < FPIP_GRID_COLS; col++) {
+      const originX = FPIP_GRID_ORIGIN_X_MM + col * FPIP_CELL_WIDTH_MM;
+      const originY = FPIP_GRID_ORIGIN_Y_MM + row * opts.cellHeightMm;
+      drawFpIpCell(doc, lines, originX, originY, opts.cellHeightMm);
+    }
+  }
+
+  doc.save(filename);
+}
+
 export function downloadLabelPdf(type: LabelType, fields: LabelField[], filename: string) {
   if (type === "approved_rm") {
     downloadApprovedRmLabel(fields, filename);
+    return;
+  }
+  if (type === "finished_product") {
+    downloadFpIpLabel(fields, filename, {
+      title: HEADER_TEXT.finished_product,
+      fieldPrefix: FP_FIELD_PREFIX,
+      cellHeightMm: FP_CELL_HEIGHT_MM,
+    });
+    return;
+  }
+  if (type === "inprocess") {
+    downloadFpIpLabel(fields, filename, {
+      title: HEADER_TEXT.inprocess,
+      fieldPrefix: IP_FIELD_PREFIX,
+      cellHeightMm: IP_CELL_HEIGHT_MM,
+    });
     return;
   }
 
