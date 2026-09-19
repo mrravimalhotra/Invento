@@ -188,3 +188,43 @@ lines are positioned with an empirically-chosen offset
 (`BASELINE_OFFSET_FACTOR`) rather than the pixel-verified baselines the
 PDF uses — close enough for a shareable raster copy; the PDF remains the
 source of print-accurate positioning.
+
+### Bug fix — values overflowing the cell border (19 Sept 2026)
+
+Ravi hit real batch data ("Aditya Ayurvedic Supply co" as Purchased From)
+printing past the label's right border, both in the PDF and the JPEG.
+Two separate things were going on, both now fixed:
+
+1. **No shrink-to-fit for long values.** The original field-line rendering
+   just concatenated `prefix + value` into one fixed-11pt string with no
+   width check — any value long enough (a long vendor name, a long batch
+   code) would run past the cell's right edge with no fallback.
+   `fitRmValueRun()` in `generate-label-pdf.ts` now measures each value
+   against the width actually left over after its prefix (cell width minus
+   left/right margins minus the prefix's own width, using the real Carlito
+   metrics) and shrinks the value's font size to fit, down to a 7pt floor;
+   if it's still too long even at 7pt, it's truncated with an ellipsis
+   rather than left to bleed off the label. `buildRmLines()` now takes a
+   `jsPDF` instance (font already selected) purely to measure with, so the
+   PDF path and the HTML preview path make the identical shrink/truncate
+   decision for the same data — `rm-sheet-preview.tsx` builds its own
+   throwaway (never rendered) jsPDF instance for this.
+2. **A font-loading race in the JPEG path specifically.** Investigating
+   Ravi's exact reported string turned up something more interesting: at
+   Carlito's real metrics, `"Purchased From :  Aditya Ayurvedic Supply
+   co"` measures 73.5mm — comfortably inside the ~83.9mm budget, no shrink
+   needed. But measured in a generic fallback bold sans-serif, that same
+   string is 86.1mm — which, added to the 2mm left margin, exceeds the
+   87.9mm cell width. The preview's Carlito `@font-face` was declared
+   passively in a `<style>` tag, which browsers only start fetching once
+   layout actually needs to paint text with it — there was no guarantee it
+   had finished loading by the time `html2canvas` fired, so the JPEG could
+   capture a frame still on the fallback font. `loadRmCarlitoFont()` (in
+   `rm-sheet-preview.tsx`) now loads the same embedded TTF explicitly via
+   the CSS Font Loading API (`new FontFace(...).load()`), kicked off as
+   soon as the preview mounts and awaited again immediately before
+   `html2canvas` runs in `label-picker.tsx` — so capture can't proceed on
+   the fallback font. The shrink-to-fit fix (above) is a real, independent
+   improvement for genuinely long values either way — this second fix
+   addresses why Ravi's reported value, which didn't actually need
+   shrinking, still overflowed.

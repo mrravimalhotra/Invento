@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 import { downloadLabelPdf, type LabelField, type LabelType } from "./generate-label-pdf";
-import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX } from "./rm-sheet-preview";
+import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX, loadRmCarlitoFont } from "./rm-sheet-preview";
 
 // The Approved Raw Material sheet preview renders at a fixed native size
 // (RM_PREVIEW_WIDTH_PX, chosen for export resolution — see
@@ -172,10 +172,17 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
     if (!node) return;
     setDownloadingJpeg(true);
     try {
-      // The Approved Raw Material preview loads an embedded @font-face
-      // (Carlito, matching the PDF's font) from a data: URI — wait for it
-      // to finish loading before rasterizing, or html2canvas can capture a
-      // frame with the browser's fallback font still showing.
+      // The Approved Raw Material preview embeds Carlito (matching the
+      // PDF's font) as a data: URI font. A passive CSS @font-face alone
+      // doesn't guarantee it's loaded by the time html2canvas fires — that
+      // race is what caused Ravi's "letters going out of border" bug: with
+      // Carlito not yet loaded, html2canvas captured a wider fallback font
+      // that no longer fit the cell, even though both the PDF and this
+      // preview's own layout math say the text fits. loadRmCarlitoFont()
+      // explicitly awaits the font via the Font Loading API (and was
+      // already kicked off when the preview mounted, so this is usually an
+      // instant no-op by the time the user clicks Download).
+      if (labelType === "approved_rm") await loadRmCarlitoFont();
       if (document.fonts?.ready) await document.fonts.ready;
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(node, { scale: 3, backgroundColor: "#ffffff" });

@@ -21,7 +21,8 @@
 // Calibri-substitute the PDF embeds) is loaded here as a CSS @font-face
 // from the same base64 data, so the JPEG uses the identical typeface as
 // the PDF rather than a browser default.
-import { forwardRef } from "react";
+import { forwardRef, useEffect, useMemo } from "react";
+import { jsPDF } from "jspdf";
 import {
   RM_PAGE_WIDTH_MM,
   RM_PAGE_HEIGHT_MM,
@@ -36,6 +37,40 @@ import {
   type LabelField,
 } from "./generate-label-pdf";
 import { CARLITO_BOLD_TTF_BASE64 } from "@/lib/fonts/carlito-bold";
+
+// The CSS @font-face below is declared but browsers only start downloading
+// a data: URI font lazily, once layout actually needs it to paint text —
+// there's no guarantee it's ready by the time "Download JPEG" fires
+// html2canvas, and a race here is exactly what caused the bug Ravi hit
+// ("letters going out of border"): with Carlito not yet loaded,
+// html2canvas fell back to a generic bold sans-serif for the capture,
+// which measures ~2.6mm wider than Carlito for a typical field line —
+// just enough to push text past the 87.9mm cell's right edge even though
+// both the PDF and this preview's own layout math say it fits. This
+// loader uses the explicit CSS Font Loading API instead of the passive
+// @font-face so callers can actually await completion; the promise is
+// cached so repeated calls (component mount, then again right before
+// capture) share one load.
+let rmFontLoadPromise: Promise<void> | null = null;
+export function loadRmCarlitoFont(): Promise<void> {
+  if (typeof document === "undefined" || typeof FontFace === "undefined") return Promise.resolve();
+  if (!rmFontLoadPromise) {
+    rmFontLoadPromise = (async () => {
+      try {
+        const face = new FontFace("RmCarlito", `url(data:font/ttf;base64,${CARLITO_BOLD_TTF_BASE64})`, {
+          weight: "700",
+          style: "normal",
+        });
+        const loaded = await face.load();
+        document.fonts.add(loaded);
+      } catch {
+        // Best-effort — the passive @font-face declaration is still in
+        // place as a fallback if this ever fails.
+      }
+    })();
+  }
+  return rmFontLoadPromise;
+}
 
 // ~A4 at 96 CSS-px/inch (210mm * 96/25.4) — an arbitrary but clean base
 // resolution; html2canvas's `scale` option (see label-picker.tsx) upscales
@@ -57,11 +92,34 @@ function ptToPx(sizePt: number) {
 // source of print-accurate positioning.
 const BASELINE_OFFSET_FACTOR = 0.78;
 
+// A throwaway jsPDF instance used only to measure text (never rendered to
+// a page or saved) — buildRmLines() uses it to decide whether a field's
+// value needs to shrink or truncate to fit, via the exact same font
+// metrics the real PDF export measures with, so this preview and the PDF
+// make identical shrink/truncate decisions for the same data.
+function useRmMeasurer() {
+  return useMemo(() => {
+    const doc = new jsPDF({ unit: "mm" });
+    doc.addFileToVFS("Carlito-Bold.ttf", CARLITO_BOLD_TTF_BASE64);
+    doc.addFont("Carlito-Bold.ttf", "Carlito", "bold");
+    doc.setFont("Carlito", "bold");
+    return doc;
+  }, []);
+}
+
 export const RmSheetPreview = forwardRef<HTMLDivElement, { fields: LabelField[] }>(function RmSheetPreview(
   { fields },
   ref
 ) {
-  const lines = buildRmLines(fields);
+  const measurer = useRmMeasurer();
+  const lines = useMemo(() => buildRmLines(fields, measurer), [fields, measurer]);
+  // Start loading Carlito as soon as this preview is on screen, well
+  // before the user clicks "Download JPEG" — label-picker.tsx also awaits
+  // loadRmCarlitoFont() right before capture as a backstop, but starting
+  // it here means it's very likely already resolved by then.
+  useEffect(() => {
+    void loadRmCarlitoFont();
+  }, []);
   const cellWpx = RM_CELL_WIDTH_MM * PX_PER_MM;
   const cellHpx = RM_CELL_HEIGHT_MM * PX_PER_MM;
   const leftPadPx = RM_LEFT_PAD_MM * PX_PER_MM;

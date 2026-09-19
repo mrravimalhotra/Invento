@@ -98,18 +98,71 @@ const RM_FIELD_PREFIX: Record<string, string> = {
 // fields array.
 const RM_FIELD_Y_MM = [28.89, 36.27, 43.12, 50.63, 57.48, 64.65, 72.22, 79.02, 86.57];
 
+const RM_VALUE_SIZE_PT = 11;
+// A real batch's data (long vendor names, long batch codes, etc.) can be
+// wider than the fixed prefix column leaves room for at 11pt — first
+// found by Ravi with "Aditya Ayurvedic Supply co" as Purchased From,
+// running past the cell's right border. Values now shrink to fit,
+// stopping at this floor, well before wrapping to a second line would
+// risk colliding with the field below it (only ~7mm of vertical gap
+// between lines).
+const RM_MIN_VALUE_SIZE_PT = 7;
+// Right-hand safety margin, symmetric with RM_LEFT_PAD_MM.
+const RM_RIGHT_PAD_MM = 2.0;
+
 export type RmLineRun = { text: string; sizePt: number };
 // One printed line within a single label cell. `runs` is normally one run;
 // the "Mfg. Lic. No. : PD/AYU-111" line has two, at different sizes on a
-// shared baseline — neither jsPDF's text() nor a plain CSS span centers a
-// mixed-size string as a unit, so both renderers measure/center it from
-// this same run list instead of hand-picking an x position twice.
+// shared baseline, and a field line with a value has two (a fixed-size
+// prefix + a value that may have been shrunk/truncated to fit) — neither
+// jsPDF's text() nor a plain CSS span centers/sizes a mixed-run string as
+// a unit, so both renderers measure/lay out from this same run list
+// instead of hand-picking an x position or font size twice.
 export type RmLine = { yMm: number; align: "center" | "left"; runs: RmLineRun[] };
+
+// Shrinks (and, as a last resort, truncates with an ellipsis) `value` so it
+// fits in the width left over after `prefixWithGap` on an 87.9mm-wide
+// label cell — using `doc`'s own font metrics (Carlito Bold must already
+// be selected on it) so the PDF and the on-screen/JPEG preview, which
+// passes in its own measuring jsPDF instance, make the exact same
+// shrink/truncate decision for the same data.
+function fitRmValueRun(doc: jsPDF, prefixWithGap: string, value: string): RmLineRun {
+  doc.setFontSize(RM_VALUE_SIZE_PT);
+  const prefixWidth = doc.getTextWidth(prefixWithGap);
+  const maxValueWidth = Math.max(0, RM_CELL_WIDTH_MM - RM_LEFT_PAD_MM - RM_RIGHT_PAD_MM - prefixWidth);
+
+  let width = doc.getTextWidth(value);
+  if (width <= maxValueWidth) return { text: value, sizePt: RM_VALUE_SIZE_PT };
+
+  // Shrink proportionally to an estimate, then step down until it actually
+  // measures within budget — font metrics aren't perfectly linear with size.
+  let size = Math.max(RM_MIN_VALUE_SIZE_PT, Math.floor((RM_VALUE_SIZE_PT * (maxValueWidth / width)) * 2) / 2);
+  doc.setFontSize(size);
+  width = doc.getTextWidth(value);
+  while (width > maxValueWidth && size > RM_MIN_VALUE_SIZE_PT) {
+    size -= 0.5;
+    doc.setFontSize(size);
+    width = doc.getTextWidth(value);
+  }
+  if (width <= maxValueWidth) return { text: value, sizePt: size };
+
+  // Still doesn't fit at the floor size — truncate rather than let it
+  // bleed past the label's edge.
+  doc.setFontSize(RM_MIN_VALUE_SIZE_PT);
+  let truncated = value;
+  while (truncated.length > 1 && doc.getTextWidth(truncated + "…") > maxValueWidth) {
+    truncated = truncated.slice(0, -1);
+  }
+  return { text: truncated + "…", sizePt: RM_MIN_VALUE_SIZE_PT };
+}
 
 // Builds the ordered list of lines for one label cell — shared by the PDF
 // renderer below and rm-sheet-preview.tsx's on-screen/JPEG renderer, so
-// both draw from the exact same content and position numbers.
-export function buildRmLines(fields: LabelField[]): RmLine[] {
+// both draw from the exact same content and position numbers. `doc` is
+// used only for text-width measurement (shrink-to-fit values, and
+// centering the mixed-size Mfg. Lic. line) and must already have Carlito
+// Bold selected as its current font.
+export function buildRmLines(fields: LabelField[], doc: jsPDF): RmLine[] {
   const lines: RmLine[] = [
     { yMm: 3.08, align: "center", runs: [{ text: COMPANY_NAME, sizePt: 13 }] },
     { yMm: 8.4, align: "center", runs: [{ text: COMPANY_ADDRESS, sizePt: 13 }] },
@@ -128,14 +181,23 @@ export function buildRmLines(fields: LabelField[]): RmLine[] {
     const prefix = RM_FIELD_PREFIX[f.label];
     const y = RM_FIELD_Y_MM[i];
     if (prefix === undefined || y === undefined) return; // unexpected field — skip rather than misplace it
-    const text = f.value ? `${prefix}  ${f.value}` : prefix;
-    lines.push({ yMm: y, align: "left", runs: [{ text, sizePt: 11 }] });
+    if (!f.value) {
+      lines.push({ yMm: y, align: "left", runs: [{ text: prefix, sizePt: 11 }] });
+      return;
+    }
+    const prefixWithGap = `${prefix}  `;
+    const valueRun = fitRmValueRun(doc, prefixWithGap, f.value);
+    lines.push({
+      yMm: y,
+      align: "left",
+      runs: [{ text: prefixWithGap, sizePt: 11 }, valueRun],
+    });
   });
 
   return lines;
 }
 
-function drawRmCell(doc: jsPDF, fields: LabelField[], originX: number, originY: number) {
+function drawRmCell(doc: jsPDF, lines: RmLine[], originX: number, originY: number) {
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.2);
   doc.rect(originX + 0.15, originY + 0.15, RM_CELL_WIDTH_MM - 0.3, RM_CELL_HEIGHT_MM - 0.3);
@@ -143,7 +205,7 @@ function drawRmCell(doc: jsPDF, fields: LabelField[], originX: number, originY: 
   const centerX = originX + RM_CELL_WIDTH_MM / 2;
   doc.setTextColor(0, 0, 0);
 
-  for (const line of buildRmLines(fields)) {
+  for (const line of lines) {
     const y = originY + line.yMm;
     if (line.runs.length === 1) {
       doc.setFontSize(line.runs[0].sizePt);
@@ -174,13 +236,18 @@ function downloadApprovedRmLabel(fields: LabelField[], filename: string) {
   doc.addFont("Carlito-Bold.ttf", "Carlito", "bold");
   doc.setFont("Carlito", "bold");
 
+  // Computed once (not per cell) — all 6 cells show identical content, and
+  // this keeps the shrink-to-fit measurement pass a single source of truth
+  // for the whole page.
+  const lines = buildRmLines(fields, doc);
+
   // One A4 page, the same label repeated in every cell of the reference's
   // 2-col x 3-row grid (Ravi: "6 labels per page as per template").
   for (let row = 0; row < RM_GRID_ROWS; row++) {
     for (let col = 0; col < RM_GRID_COLS; col++) {
       const originX = RM_GRID_ORIGIN_X_MM + col * RM_CELL_WIDTH_MM;
       const originY = RM_GRID_ORIGIN_Y_MM + row * RM_CELL_HEIGHT_MM;
-      drawRmCell(doc, fields, originX, originY);
+      drawRmCell(doc, lines, originX, originY);
     }
   }
 
