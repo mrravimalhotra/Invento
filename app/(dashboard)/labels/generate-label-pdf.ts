@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/pdf";
 import { CARLITO_BOLD_TTF_BASE64 } from "@/lib/fonts/carlito-bold";
 import { LIBERATION_SERIF_BOLD_TTF_BASE64 } from "@/lib/fonts/liberation-serif-bold";
+import { LIBERATION_SERIF_REGULAR_TTF_BASE64 } from "@/lib/fonts/liberation-serif-regular";
 
 // Compact ~4in x 3in label layout, built directly with jsPDF (not the full
 // letterhead() masthead in lib/pdf.ts — this is a small physical label, not
@@ -510,6 +511,188 @@ function downloadFpIpLabel(
   doc.save(filename);
 }
 
+// Under Test (19 Sept 2026: "do same for under test labels"). The
+// reference this time — "RM  UNDER TEST LABEL.docx" — wasn't attached to
+// the chat; it turned up in Ravi's "Invento Requ" folder (the same source
+// requirements-gap-analysis.md lists it from). Unlike the other three
+// references, it isn't a clean, self-consistent 6-up design: it's 5 table
+// rows x 2 cols (10 cells) on US Legal paper, and the rows alternate
+// between two different cell contents — 3 rows have the full 7 fields
+// ending in "Sign" ("Name of RM/FP", matching the app's existing
+// under_test field list exactly), and 2 rows are missing the Sign line
+// entirely, say "Name of RM" instead of "Name of RM/FP", and have a
+// stray leftover "RM" typed into the Batch No. value — plus one outright
+// typo ("Sign ::", a double colon) in a single cell. Confirmed with Ravi
+// via AskUserQuestion before building anything: use the complete 7-field
+// "Name of RM/FP" cell as the canonical design (the other variant reads
+// as an abandoned copy/paste edit, not an intentional second format —
+// nothing about it would make sense as a real printed label, e.g. no
+// signature line), and keep the reference's own page size and 10-per-page
+// count ("Print 10 labels per page as in the template") rather than
+// normalizing it to RM's 6-up A4 the way the grid/page size question
+// defaulted for Finished Product/In-process.
+//
+// Measured the same way as the other three: LibreOffice conversion,
+// python-docx structural inspection, 600 DPI pixel measurement of the
+// three "complete" rows (0, 2, 4 — all three cross-checked against each
+// other) with baselines corrected via Liberation Serif's fontTools glyph
+// metrics.
+//
+// Font weight is genuinely mixed here — unlike RM/FP/IP (bold
+// throughout), only the company-name and "UNDER TEST" title lines are
+// bold in the reference; the Mfg. Lic. line and all seven field lines are
+// regular weight (confirmed from the reference's own run properties, no
+// <w:b/> on those runs). Both weights are embedded:
+// lib/fonts/liberation-serif-bold.ts (reused from Finished Product/
+// In-process) and the new lib/fonts/liberation-serif-regular.ts.
+export const UT_PAGE_WIDTH_MM = 215.9; // US Legal
+export const UT_PAGE_HEIGHT_MM = 355.6;
+export const UT_GRID_COLS = 2;
+export const UT_GRID_ROWS = 5;
+export const UT_GRID_ORIGIN_X_MM = 11.45;
+export const UT_GRID_ORIGIN_Y_MM = 6.65;
+export const UT_CELL_WIDTH_MM = 93.1;
+export const UT_CELL_HEIGHT_MM = 67.17;
+export const UT_FONT_SIZE_PT = 11;
+export const UT_LEFT_PAD_MM = 2.0;
+const UT_RIGHT_PAD_MM = 2.0;
+const UT_MIN_VALUE_SIZE_PT = 7;
+// The Mfg. Lic. line sits well right of the field lines below it — in the
+// reference this comes from a mix of a paragraph indent and literal
+// leading spaces baked into the run text; reproduced here as a single
+// measured offset (on top of UT_LEFT_PAD_MM) rather than replicating that
+// mechanism, since the pixel position is what has to match, not how the
+// source document arrived at it.
+export const UT_MFGLIC_INDENT_MM = 21.81;
+// Baseline of the first line (company name) and the uniform line-to-line
+// pitch, both mm from the top of a cell — least-squares fit across all 3
+// "complete" reference rows' 10 lines each (30 points), the same method
+// as Finished Product/In-process. Max residual: 0.145mm.
+const UT_LINE0_Y_MM = 3.748;
+const UT_LINE_PITCH_MM = 6.686;
+
+export const UT_FIELD_PREFIX: Record<string, string> = {
+  "Name of RM/FP": "Name of RM/FP :",
+  "Batch No.": "Batch No.      :",
+  "Batch Quantity": "Batch Quantity :",
+  "Purchased From": "Purchased From :",
+  "Invoice/Ch. No.": "Invoice Ch. No. :",
+  "Date of Receipt": "Date Of Receipt :",
+  Sign: "Sign                    :",
+};
+
+// Same shrink-to-fit / truncate approach as fitFpIpValueRun, parameterized
+// for Under Test's cell width/font size.
+function fitUtValueRun(doc: jsPDF, prefixWithGap: string, value: string): RmLineRun {
+  doc.setFontSize(UT_FONT_SIZE_PT);
+  const prefixWidth = doc.getTextWidth(prefixWithGap);
+  const maxValueWidth = Math.max(0, UT_CELL_WIDTH_MM - UT_LEFT_PAD_MM - UT_RIGHT_PAD_MM - prefixWidth);
+
+  let width = doc.getTextWidth(value);
+  if (width <= maxValueWidth) return { text: value, sizePt: UT_FONT_SIZE_PT };
+
+  let size = Math.max(UT_MIN_VALUE_SIZE_PT, Math.floor((UT_FONT_SIZE_PT * (maxValueWidth / width)) * 2) / 2);
+  doc.setFontSize(size);
+  width = doc.getTextWidth(value);
+  while (width > maxValueWidth && size > UT_MIN_VALUE_SIZE_PT) {
+    size -= 0.5;
+    doc.setFontSize(size);
+    width = doc.getTextWidth(value);
+  }
+  if (width <= maxValueWidth) return { text: value, sizePt: size };
+
+  doc.setFontSize(UT_MIN_VALUE_SIZE_PT);
+  let truncated = value;
+  while (truncated.length > 1 && doc.getTextWidth(truncated + "…") > maxValueWidth) {
+    truncated = truncated.slice(0, -1);
+  }
+  return { text: truncated + "…", sizePt: UT_MIN_VALUE_SIZE_PT };
+}
+
+// One printed line within a cell. `bold` picks which embedded weight to
+// select before drawing/measuring this line — the mix RM/FP/IP don't
+// need. Field lines with a value use `runs` (prefix + value, both
+// regular weight, the value possibly shrunk) the same way FP/IP's do.
+export type UtLine = { yMm: number; x: "left" | "mfglic-indent" | "center"; text: string; bold: boolean };
+export type UtValueLine = { yMm: number; runs: RmLineRun[] };
+
+export function buildUtLines(fields: LabelField[], doc: jsPDF): (UtLine | UtValueLine)[] {
+  const lines: (UtLine | UtValueLine)[] = [
+    { yMm: UT_LINE0_Y_MM, x: "center", text: `${COMPANY_NAME},${COMPANY_ADDRESS}.`, bold: true },
+    { yMm: UT_LINE0_Y_MM + UT_LINE_PITCH_MM, x: "mfglic-indent", text: `Mfg. Lic. No. : ${MFG_LIC_NO}`, bold: false },
+    { yMm: UT_LINE0_Y_MM + 2 * UT_LINE_PITCH_MM, x: "center", text: HEADER_TEXT.under_test, bold: true },
+  ];
+
+  fields.forEach((f, i) => {
+    const prefix = UT_FIELD_PREFIX[f.label];
+    const yMm = UT_LINE0_Y_MM + (3 + i) * UT_LINE_PITCH_MM;
+    if (prefix === undefined) return; // unexpected field — skip rather than misplace it
+    doc.setFont("LiberationSerif", "normal");
+    if (!f.value) {
+      lines.push({ yMm, x: "left", text: prefix, bold: false });
+      return;
+    }
+    const prefixWithGap = `${prefix}  `;
+    const valueRun = fitUtValueRun(doc, prefixWithGap, f.value);
+    lines.push({ yMm, runs: [{ text: prefixWithGap, sizePt: UT_FONT_SIZE_PT }, valueRun] });
+  });
+
+  return lines;
+}
+
+function drawUtCell(doc: jsPDF, lines: (UtLine | UtValueLine)[], originX: number, originY: number) {
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.2);
+  doc.rect(originX + 0.15, originY + 0.15, UT_CELL_WIDTH_MM - 0.3, UT_CELL_HEIGHT_MM - 0.3);
+  doc.setTextColor(0, 0, 0);
+
+  const leftX = originX + UT_LEFT_PAD_MM;
+  const mfgLicX = leftX + UT_MFGLIC_INDENT_MM;
+  const centerX = originX + UT_CELL_WIDTH_MM / 2;
+
+  for (const line of lines) {
+    const y = originY + line.yMm;
+    if ("runs" in line) {
+      doc.setFont("LiberationSerif", "normal");
+      let x = leftX;
+      line.runs.forEach((r) => {
+        doc.setFontSize(r.sizePt);
+        doc.text(r.text, x, y, { align: "left" });
+        x += doc.getTextWidth(r.text);
+      });
+      continue;
+    }
+    doc.setFont("LiberationSerif", line.bold ? "bold" : "normal");
+    doc.setFontSize(UT_FONT_SIZE_PT);
+    if (line.x === "center") {
+      doc.text(line.text, centerX, y, { align: "center" });
+    } else {
+      doc.text(line.text, line.x === "mfglic-indent" ? mfgLicX : leftX, y, { align: "left" });
+    }
+  }
+}
+
+function downloadUnderTestLabel(fields: LabelField[], filename: string) {
+  const doc = new jsPDF({ unit: "mm", format: [UT_PAGE_WIDTH_MM, UT_PAGE_HEIGHT_MM] });
+  doc.addFileToVFS("LiberationSerif-Bold.ttf", LIBERATION_SERIF_BOLD_TTF_BASE64);
+  doc.addFont("LiberationSerif-Bold.ttf", "LiberationSerif", "bold");
+  doc.addFileToVFS("LiberationSerif-Regular.ttf", LIBERATION_SERIF_REGULAR_TTF_BASE64);
+  doc.addFont("LiberationSerif-Regular.ttf", "LiberationSerif", "normal");
+  doc.setFont("LiberationSerif", "normal");
+
+  const lines = buildUtLines(fields, doc);
+
+  for (let row = 0; row < UT_GRID_ROWS; row++) {
+    for (let col = 0; col < UT_GRID_COLS; col++) {
+      const originX = UT_GRID_ORIGIN_X_MM + col * UT_CELL_WIDTH_MM;
+      const originY = UT_GRID_ORIGIN_Y_MM + row * UT_CELL_HEIGHT_MM;
+      drawUtCell(doc, lines, originX, originY);
+    }
+  }
+
+  doc.save(filename);
+}
+
 export function downloadLabelPdf(type: LabelType, fields: LabelField[], filename: string) {
   if (type === "approved_rm") {
     downloadApprovedRmLabel(fields, filename);
@@ -529,6 +712,10 @@ export function downloadLabelPdf(type: LabelType, fields: LabelField[], filename
       fieldPrefix: IP_FIELD_PREFIX,
       cellHeightMm: IP_CELL_HEIGHT_MM,
     });
+    return;
+  }
+  if (type === "under_test") {
+    downloadUnderTestLabel(fields, filename);
     return;
   }
 

@@ -23,6 +23,7 @@ import {
   FPIP_PREVIEW_HEIGHT_PX,
   loadFpIpLiberationSerifFont,
 } from "./fp-ip-sheet-preview";
+import { UtSheetPreview, UT_PREVIEW_WIDTH_PX, UT_PREVIEW_HEIGHT_PX, loadUtLiberationSerifFonts } from "./ut-sheet-preview";
 
 // The Approved Raw Material sheet preview renders at a fixed native size
 // (RM_PREVIEW_WIDTH_PX, chosen for export resolution — see
@@ -36,6 +37,10 @@ const RM_PREVIEW_DISPLAY_SCALE = RM_PREVIEW_DISPLAY_WIDTH_PX / RM_PREVIEW_WIDTH_
 // sheet preview (see fp-ip-sheet-preview.tsx).
 const FPIP_PREVIEW_DISPLAY_WIDTH_PX = 320;
 const FPIP_PREVIEW_DISPLAY_SCALE = FPIP_PREVIEW_DISPLAY_WIDTH_PX / FPIP_PREVIEW_WIDTH_PX;
+// Same display-scaling approach for the Under Test sheet preview (see
+// ut-sheet-preview.tsx).
+const UT_PREVIEW_DISPLAY_WIDTH_PX = 320;
+const UT_PREVIEW_DISPLAY_SCALE = UT_PREVIEW_DISPLAY_WIDTH_PX / UT_PREVIEW_WIDTH_PX;
 
 export type RmRecord = {
   id: string;
@@ -203,6 +208,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
       // instant no-op by the time the user clicks Download).
       if (labelType === "approved_rm") await loadRmCarlitoFont();
       if (labelType === "finished_product" || labelType === "inprocess") await loadFpIpLiberationSerifFont();
+      if (labelType === "under_test") await loadUtLiberationSerifFonts();
       if (document.fonts?.ready) await document.fonts.ready;
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(node, { scale: 3, backgroundColor: "#ffffff" });
@@ -346,9 +352,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             // Finished Product / In-process (19 Sept 2026): same treatment
             // as Approved Raw Material above — a dedicated 6-up US Letter
             // sheet preview matching Ravi's reference templates, see
-            // fp-ip-sheet-preview.tsx. Only Under Test (not part of either
-            // request) keeps the original single-label brand-styled preview
-            // below.
+            // fp-ip-sheet-preview.tsx.
             <div
               className="overflow-hidden rounded-md border-2 border-border shadow-sm"
               style={{
@@ -366,42 +370,23 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
                 />
               </div>
             </div>
-          ) : (
+          ) : labelType === "under_test" ? (
+            // Under Test (19 Sept 2026): same treatment again — a
+            // dedicated 10-up US Legal sheet preview matching Ravi's
+            // reference template, see ut-sheet-preview.tsx. No label type
+            // is left on the original generic single-label preview below
+            // any more.
             <div
-              ref={previewRef}
-              className="w-full max-w-sm rounded-md border-2 border-brand bg-white p-3 text-foreground shadow-sm"
+              className="overflow-hidden rounded-md border-2 border-border shadow-sm"
+              style={{ width: UT_PREVIEW_DISPLAY_WIDTH_PX, height: UT_PREVIEW_HEIGHT_PX * UT_PREVIEW_DISPLAY_SCALE }}
             >
-              <p className="text-center text-[11px] font-bold text-brand-dark leading-tight">
-                Atharva Nature Healthcare Pvt. Ltd.
-              </p>
-              <p className="text-center text-[9px] text-muted leading-tight">
-                Wagholi, Pune · Mfg. Lic. No.: PD/AYU-111
-              </p>
-              <div className="my-1.5 border-t border-brand" />
-              <p className="text-center text-sm font-bold text-brand-dark mb-2">
-                {LABEL_HEADER[labelType]}
-              </p>
-              <dl className="flex flex-col gap-1 text-[11px]">
-                {fields.map((f) => (
-                  <div key={f.label} className="flex gap-1">
-                    <dt className="font-semibold shrink-0">{f.label}:</dt>
-                    <dd className={f.value ? "" : "flex-1 border-b border-black/30"}>
-                      {f.value ?? " "}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              <div style={{ transform: `scale(${UT_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
+                <UtSheetPreview ref={previewRef} fields={fields} />
+              </div>
             </div>
-          )}
+          ) : null}
         </CardBody>
       </Card>
     </div>
   );
 }
-
-const LABEL_HEADER: Record<LabelType, string> = {
-  approved_rm: "APPROVED RAW MATERIAL",
-  under_test: "UNDER TEST",
-  inprocess: "INPROCESS",
-  finished_product: "Finished Product",
-};

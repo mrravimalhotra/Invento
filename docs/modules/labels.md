@@ -379,3 +379,94 @@ max deviation 0.17mm across every line in both label types, and confirmed
 a long-value stress test (long product name, long batch code, long
 quantity string) shrinks/truncates correctly without overflowing any
 cell's border.
+
+### Under Test — pixel-perfect 10-up sheet, from an inconsistent reference (19 Sept 2026)
+
+Ravi: *"do same for under test labels."* This time the reference —
+`RM  UNDER TEST LABEL.docx` — wasn't attached to the chat; it turned up
+in Ravi's "Invento Requ" folder (the same source
+`requirements-gap-analysis.md` lists it from, alongside the other three).
+
+**This reference is qualitatively different from the other three: it's
+internally inconsistent, not a clean single-cell design.** It's 5 table
+rows × 2 cols (10 cells) on **US Legal paper** (215.9 × 355.6mm) — not the
+6-up A4/Letter grids of RM/FP/IP — and the 5 rows alternate between two
+different cell contents:
+- 3 rows: the full 7 fields ending in "Sign" ("Name of RM/FP", matching
+  the app's existing `under_test` field list exactly).
+- 2 rows: missing the Sign line entirely, say "Name of RM" instead of
+  "Name of RM/FP", and have a stray leftover "RM" typed into the Batch
+  No. value (`"Batch No.      :  RM "`) — reads as an abandoned
+  copy/paste edit, not a second intentional format.
+
+One cell also has an outright typo: `"Sign                    ::  "` (a
+double colon) where every other Sign line has one colon.
+
+**Asked Ravi before writing any code** (`AskUserQuestion`, since this is
+genuinely ambiguous rather than a matter of judgment): which cell variant
+is the real template, and whether to replicate the reference's own
+Legal-size/10-cell layout or normalize it to RM's 6-up A4 the way the
+page-size question was decided for Finished Product/In-process. Answer:
+*"Use attached template as reference. Print 10 labels per page as in the
+template"* — confirms the reference's own 10-per-page Legal layout, and
+(combined with the 7-field variant being both the more complete design
+and the one already matching the app's field list) the complete
+"Name of RM/FP" cell is what gets built, uniformly, in all 10 positions —
+not the alternating pattern.
+
+**Measured the same way** as the other three: LibreOffice conversion,
+python-docx structural inspection, 600 DPI pixel measurement of all three
+"complete" rows (0, 2, 4 — cross-checked against each other, 30 baseline
+points total), baselines corrected via Liberation Serif's `fontTools`
+glyph metrics. Grid: origin (11.45mm, 6.65mm), 93.1mm-wide × 67.17mm-tall
+cells (`UT_*` constants). Font size is the familiar uniform 11pt
+(`UT_FONT_SIZE_PT`); line pitch 6.686mm, first-line baseline 3.748mm from
+cell top (`UT_LINE_PITCH_MM` / a private line-0 offset), least-squares
+fit with a 0.145mm max residual across all 30 points.
+
+**Font weight is genuinely mixed here, unlike RM/FP/IP.** Only the
+company-name and "UNDER TEST" title lines are bold; the Mfg. Lic. line
+and all seven field lines are regular weight — confirmed from the
+reference's own run properties (no `<w:b/>` on those runs). Both weights
+are embedded: `lib/fonts/liberation-serif-bold.ts` (reused from
+Finished Product/In-process) and the new
+`lib/fonts/liberation-serif-regular.ts`. `UtLine`/`buildUtLines()` carry
+a `bold` flag per line so `drawUtCell()` and `UtSheetPreview` select the
+matching weight before drawing/measuring.
+
+**Horizontal layout is simpler than FP/IP's.** Only two paragraph
+alignments are actually in play — "center" (company name, title; centered
+within the full cell width, no indent trick) and "left" (field lines,
+`UT_LEFT_PAD_MM`). The Mfg. Lic. line's rightward shift doesn't come from
+FP/IP's paragraph-indent-plus-centering mechanism; in this reference it's
+a left-aligned line whose text run itself has 10 literal leading spaces
+on top of a 0.5in paragraph indent. Rather than reproduce that mechanism
+(baking literal spaces into the string), this reproduces the *resulting
+pixel position* directly as a single measured offset,
+`UT_MFGLIC_INDENT_MM` (21.81mm beyond `UT_LEFT_PAD_MM`) — the position is
+what has to match, not how the source document arrived at it.
+
+**Deliberate deviations from the reference's literal text**, same
+rationale as RM/FP/IP: the reference's company-name line has the same
+"Pvt. Ltd, Wagholi,Pune." run-on as FP/IP, and gives the Mfg. Lic. No.
+with a slash (`"PD/AYU/111"`, in the 3 "complete" rows — the 2 "broken"
+rows actually use the canonical dash) rather than the app's canonical
+dash. Renders `COMPANY_NAME` / `COMPANY_ADDRESS` / `MFG_LIC_NO` instead,
+identically to how FP/IP compose their header line.
+
+**JPEG stays enabled**, consistent with the Finished Product/In-process
+decision (same reasoning: nothing here reproduces RM's original
+font-race bug, since the Font Loading API is used from the start).
+
+With this, `label-picker.tsx`'s old generic single-label brand-styled
+preview (the `dl`-based fallback at the bottom of the Preview card) is no
+longer reachable by any label type — all four now have a dedicated sheet
+preview — and has been removed, along with the now-unused `LABEL_HEADER`
+constant it was the last user of (`HEADER_TEXT`, exported from
+`generate-label-pdf.ts`, is the single source of truth for header text
+across all four types now).
+
+Verified the same way as FP/IP: rendered sample + long-value stress-test
+PDFs, rasterized at 600 DPI, numerically compared against the reference
+measurements — max deviation 0.043mm across every line — and confirmed
+the long-value stress test shrinks/truncates cleanly with no overflow.
