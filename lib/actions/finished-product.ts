@@ -360,6 +360,10 @@ export async function submitFinishedProductToQc(
     sample_qty: batch.qc_sample_qty,
     sample_unit: batch.unit,
     expiry_date: batch.expiry_month,
+    // Maker/checker (17 Sept 2026): see the matching comment in
+    // lib/actions/qc.ts's createQualityCheck — whoever submits this batch
+    // to QC is its maker.
+    created_by: user.id,
   });
   if (qcError) {
     if (qcError.code === "42501") {

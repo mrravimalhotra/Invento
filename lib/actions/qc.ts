@@ -65,6 +65,10 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
       // by trg_qc_compute_retest_date from Retest period (days) + the
       // review date at approval time (reviewQualityCheck below); nothing
       // needs a manually-entered expiry to work.
+      // Maker/checker (17 Sept 2026): the "maker" identity — this column
+      // already existed but nothing ever wrote to it before this. See
+      // 0049_qc_maker_checker.sql for the matching enforcement.
+      created_by: user!.id,
     })
     .select("id")
     .single();
@@ -119,12 +123,24 @@ export async function reviewQualityCheck(
 
   const { data: existing, error: existingError } = await supabase
     .from("quality_checks")
-    .select("status")
+    .select("status, created_by")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) return { error: "Record not found." };
   if (existing.status !== "submitted") {
     return { error: "This record has already been reviewed and cannot be changed." };
+  }
+  // Maker/checker (17 Sept 2026): the reviewer must be a different person
+  // from whoever assigned this AR — System Admin is exempt (confirmed via
+  // AskUserQuestion). This is the friendly, early version of the check;
+  // 0049_qc_maker_checker.sql's trigger is the real backstop that can't be
+  // bypassed even if this check is ever skipped by a bug here. A record
+  // with no created_by on file (created before this fix shipped) has
+  // nothing to compare against and is let through unchanged.
+  const isSelfReview = existing.created_by != null && existing.created_by === user!.id;
+  const isAdmin = (user!.roles ?? []).includes("system_admin");
+  if (isSelfReview && !isAdmin) {
+    return { error: "You assigned this AR — a different Quality Checker/Reviewer must review it." };
   }
 
   const { error } = await supabase
@@ -201,6 +217,9 @@ export async function startRetestQualityCheck(
       sample_qty: stabilityQty,
       sample_unit: line.unit,
       is_retest: true,
+      // Maker/checker (17 Sept 2026): see the matching comment in
+      // createQualityCheck above — whoever starts the retest is its maker.
+      created_by: user!.id,
     })
     .select("id")
     .single();

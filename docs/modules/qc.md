@@ -374,3 +374,66 @@ This is DB-level, `SECURITY DEFINER` — a `quality_checker`/`qc_reviewer`
 approving a batch does not need any Finished Product write role for it
 to take effect. Full writeup in `docs/modules/inventory.md`'s Phase 3
 section.
+
+## Maker/checker segregation of duties (17 Sept 2026)
+
+Ravi: "Every QC (Raw material or Finished Product) done should go through
+maker/checker check — that means should be approved by two people. The Id
+of both should be captured from the app and the login credentials they
+have used." Design presented and confirmed via `AskUserQuestion` before
+building: one maker + one independent checker (the existing Assign/Review
+two-step, not a second checker), System Admin exempt from the maker ≠
+checker rule, no re-authentication ("e-signature") step — the existing
+logged-in session is enough.
+
+**What was actually missing.** The Assign ("maker") / Review ("checker")
+two-step already existed, and `quality_checks.created_by` already existed
+in the schema since `0001_init.sql` — but nothing ever wrote to it (RM
+assign, FP submit-to-QC, and retest all skipped it), and nothing stopped
+the same person from being both the AR's maker and its checker, since
+`qc_assign`/`qc_review` deliberately share role members
+(`quality_checker`, `qc_reviewer`, `system_admin`). A single Quality
+Checker could submit their own sample and then approve their own result.
+
+**What changed:**
+
+- **`created_by` is now actually written** — `createQualityCheck()`
+  (`lib/actions/qc.ts`), `submitFinishedProductToQc()`
+  (`lib/actions/finished-product.ts`), and `startRetestQualityCheck()`
+  (`lib/actions/qc.ts`) all now stamp `created_by: user.id` on insert,
+  taken from the verified server-side session, never a form field.
+- **`0049_qc_maker_checker.sql`** adds `trg_qc_enforce_maker_checker`, a
+  `before update` trigger on `quality_checks`: when a review decision is
+  being recorded (`status` moving to `approved`/`rejected`) and the acting
+  user (`auth.uid()`) is the same as the AR's `created_by`, the update is
+  rejected — unless the acting user holds `system_admin`. This is the real
+  backstop, structurally impossible to bypass from the app layer, same
+  posture as this module's existing QC-gates-consumption trigger. A record
+  with no `created_by` on file (every AR created before this shipped) has
+  nothing to compare against and is let through unchanged — no retroactive
+  identity was invented for existing data.
+- **`reviewQualityCheck()`** re-checks the same condition first and
+  returns a clean message ("You assigned this AR — a different Quality
+  Checker/Reviewer must review it.") instead of surfacing the trigger's
+  raw Postgres error.
+- **`/qc/[id]`** now shows "Assigned by (maker)" on the Assign record card
+  and "Reviewed by (checker)" on the Review decision card, resolved via
+  `profiles.full_name` (two separate lookups, not an embedded join, since
+  `quality_checks` has two different foreign keys into `auth.users` — same
+  pattern MFR's `approved_by` → `profiles.full_name` lookup already uses).
+  If the signed-in user is the AR's own maker, the review form is replaced
+  with an explanatory note instead of just being hidden.
+
+**Verification.** Full local Postgres replay of all 49 migrations, then
+four scenarios exercised directly against `trg_qc_enforce_maker_checker`
+via `SET request.jwt.claim.sub`: maker reviewing their own AR (correctly
+rejected), a different checker reviewing it (correctly allowed), a
+System Admin who is also the maker reviewing their own AR (correctly
+allowed — the exemption), and a legacy row with `created_by` left `null`
+reviewed by anyone (correctly allowed — nothing to compare). `npx tsc
+--noEmit`, `npx eslint`, and `npx next build` all clean.
+
+**Operational note, not something code can enforce**: this control is
+only meaningful if each Quality Checker/Reviewer signs in with their own
+account — a shared login would defeat the identity capture above no
+matter what the database says.
