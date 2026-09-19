@@ -90,3 +90,64 @@ should be printable as an "Approved Raw Material" label. Fixed by
 switching the `items` embed to `items!inner(name, category)` with
 `.eq("items.category", "raw")` added — the same fix already applied to
 QC's "New Assign Record" picker for the same reason.
+
+## Approved Raw Material — pixel-perfect reference match (19 Sept 2026)
+
+Ravi supplied the physical template actually used on the shop floor
+(`Approved RAW MATERIAL LABELS.doc`, a 4-up A4 sheet — 4 copies of the same
+label per page) and asked for the PDF output to be "exact pixel perfect
+copy of attached template": same size, format and font. **Scoped to this
+one label type only** — Under Test, In-process and Finished Product were
+not part of the request and are untouched, still on the original compact
+4in×3in brand-styled layout below.
+
+`downloadApprovedRmLabel()` in `generate-label-pdf.ts` is a dedicated
+renderer for `approved_rm`, built entirely from measurements taken off the
+reference (not eyeballed): the `.doc` was converted with LibreOffice
+(`soffice --headless --convert-to pdf/docx`), inspected structurally with
+`python-docx` (font, size, bold, table cell margins) and rasterized at 200
+DPI for pixel-level line-position and left-margin measurement.
+
+- **Label size**: 87.9mm × 96.0mm — notably not the 4in×3in (101.6×76.2mm)
+  size the other three templates use; measured directly off the rendered
+  reference, not a nominal label-stock size.
+- **Font**: the reference specifies Calibri, bold, every run. Calibri is a
+  proprietary Microsoft font not licensed for redistribution/embedding, so
+  this embeds **Carlito** instead (`lib/fonts/carlito-bold.ts`) —
+  metrically identical to Calibri by design, SIL Open Font License 1.1, and
+  literally what LibreOffice substituted when rendering the reference (so
+  the pixel measurements below are Carlito's own metrics, not an
+  approximation of Calibri's).
+- **Colors / border**: plain black text on a thin black hairline border —
+  no brand green, unlike the other three templates.
+- **Field prefixes**: reproduced as literal strings including their
+  original padding spaces (e.g. `"Purchased From :"` vs `"Batch No.           :"`)
+  exactly as extracted from the reference's runs — this is what reproduces
+  the reference's colon alignment in the same font, rather than
+  recomputing alignment. A couple of the app's own field labels differ
+  slightly in wording from the reference's printed prefix (no slash in
+  "Invoice/Ch. No." → prints as "Invoice Ch. No.", "Date of Receipt" →
+  prints as "Date Of Receipt") — `RM_FIELD_PREFIX` maps app label to
+  reference prefix explicitly.
+- **Line positions**: each field's baseline Y position (`RM_FIELD_Y_MM`) was
+  measured off the rasterized reference and verified numerically (band
+  detection + line-pitch comparison), not just eyeballed.
+- **"Mfg. Lic. No. : PD/AYU-111"**: the reference renders the label at 13pt
+  and the license number at 11pt, on one shared baseline, both runs
+  centered as a unit — jsPDF only centers a single run, so both runs'
+  widths are measured (`getTextWidth`) and centered manually.
+- **Deliberate deviation — company name/address text**: the reference's own
+  text has an apparent copy/paste artifact — `"Atharva Nature Healthcare
+  Pvt,Ltd.Wagholi"` on one line (comma instead of period, no space, address
+  run onto the name) and `"Pune"` alone on the next. Rather than reproduce
+  that glitch, this renderer uses the app's canonical `COMPANY_NAME` /
+  `COMPANY_ADDRESS` constants from `lib/pdf.ts` (`"Atharva Nature
+  Healthcare Pvt. Ltd."` / `"Wagholi, Pune"`) in the same two-line
+  position/font/size. Flagging this explicitly since "pixel perfect" was
+  the instruction — happy to switch to the literal reference text if Ravi
+  prefers it reproduced as-is.
+- **Out of scope, not decided silently**: the on-screen HTML preview and
+  JPEG export in `label-picker.tsx` (both still brand-styled, unchanged) —
+  Ravi's request was about the printed/PDF label specifically ("under label
+  printing... label size, format, font"), so this was left as the existing
+  generic preview rather than assumed to need matching too.
