@@ -95,8 +95,14 @@ const RM_FIELD_PREFIX: Record<string, string> = {
 
 // Y position (mm from the top of a single cell) of each field line's text
 // baseline, in the same order label-picker.tsx builds the approved_rm
-// fields array.
-const RM_FIELD_Y_MM = [28.89, 36.27, 43.12, 50.63, 57.48, 64.65, 72.22, 79.02, 86.57];
+// fields array. Revised 19 Sept 2026 (see the header-line baselines below
+// for why) — these values, and the header ones, are baselines proper:
+// each was derived from the reference's rasterized glyph ink extents
+// (topmost/bottommost dark pixel per line) plus Carlito's own font-file
+// metrics (ascender/descender depth per glyph, via fontTools) to convert
+// that ink bounding box into a true baseline position, not eyeballed from
+// the band itself the way the original measurement pass did.
+const RM_FIELD_Y_MM = [30.14, 37.19, 44.32, 51.38, 58.55, 65.66, 72.71, 79.88, 86.93];
 
 const RM_VALUE_SIZE_PT = 11;
 // A real batch's data (long vendor names, long batch codes, etc.) can be
@@ -164,17 +170,17 @@ function fitRmValueRun(doc: jsPDF, prefixWithGap: string, value: string): RmLine
 // Bold selected as its current font.
 export function buildRmLines(fields: LabelField[], doc: jsPDF): RmLine[] {
   const lines: RmLine[] = [
-    { yMm: 3.08, align: "center", runs: [{ text: COMPANY_NAME, sizePt: 13 }] },
-    { yMm: 8.4, align: "center", runs: [{ text: COMPANY_ADDRESS, sizePt: 13 }] },
+    { yMm: 4.5, align: "center", runs: [{ text: COMPANY_NAME, sizePt: 13 }] },
+    { yMm: 10.12, align: "center", runs: [{ text: COMPANY_ADDRESS, sizePt: 13 }] },
     {
-      yMm: 14.35,
+      yMm: 15.65,
       align: "center",
       runs: [
         { text: "Mfg. Lic. No. :", sizePt: 13 },
         { text: ` ${MFG_LIC_NO}`, sizePt: 11 },
       ],
     },
-    { yMm: 19.28, align: "center", runs: [{ text: "APPROVED  RAW MATERIAL", sizePt: 11 }] },
+    { yMm: 20.62, align: "center", runs: [{ text: "APPROVED  RAW MATERIAL", sizePt: 11 }] },
   ];
 
   fields.forEach((f, i) => {

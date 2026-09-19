@@ -228,3 +228,31 @@ Two separate things were going on, both now fixed:
    improvement for genuinely long values either way — this second fix
    addresses why Ravi's reported value, which didn't actually need
    shrinking, still overflowed.
+
+### Follow-up bug fix — company name touching the top border (19 Sept 2026)
+
+After the fix above, Ravi reported the overflow was still happening — but
+his follow-up screenshot showed it wasn't a horizontal overflow at all:
+the ascenders of "t", "h", "l" in "Atharva Nature Healthcare Pvt. Ltd."
+were touching/poking through the cell's *top* border. This traced back to
+the original reference measurement pass having derived every line's
+baseline Y position from the *visual band* (topmost/bottommost dark pixel
+of that line) without correcting for ascenders/descenders — reasonably
+close for line-to-line *spacing* (which is why it passed the earlier pitch
+check) but not accurate for the *first* line's clearance from the cell's
+top edge, which is exactly where the error was most visible.
+
+Re-derived properly this time: rasterized the reference at 600 DPI (3x the
+original pass), measured each line's ink bounding box (topmost/bottommost
+dark pixel, cell-relative to the measured top border row), and combined
+that with Carlito's own font-file metrics (glyph ink bounding boxes read
+via `fontTools`, e.g. "h"/"l" ascend to 0.702em, "g"/"p"/"y" descend to
+about -0.16 to -0.17em) to convert each line's ink box into its true
+baseline — correctly accounting for which specific letters (not just
+"has an ascender" vs not) are present in the reference's own text for that
+line, including its already-filled-in "Status : Approved" value. All 13
+line positions (4 header lines + 9 field lines) in `generate-label-pdf.ts`
+were updated to these corrected baselines; verified by rasterizing the
+corrected output at 600 DPI and confirming a clear gap above the
+company-name line (and no new bottom-of-cell overflow either) on both the
+PDF and the shared HTML/JPEG rendering path.
