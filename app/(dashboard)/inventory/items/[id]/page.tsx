@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { ItemPositionSummary, type Position } from "./item-position-summary";
 import { PurchaseBatchesTable, type PurchaseBatchRow } from "./purchase-batches-table";
+import { ProductionBatchesTable, type ProductionBatchRow } from "./production-batches-table";
 import { FpBatchesTable, type FpBatchRow } from "./fp-batches-table";
 import { InventoryLedgerTable, type LedgerRow } from "@/app/(dashboard)/inventory/(tabs)/inventory-ledger-table";
 import { enrichLedgerRows, type RawLedgerRow } from "@/lib/ledger-enrich";
@@ -115,6 +116,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
   // mfr_definitions.finished_product_item_id (Phase 3's own linkage —
   // 0010_mfr_finished_product_link.sql).
   let purchaseBatches: PurchaseBatchRow[] = [];
+  let productionBatches: ProductionBatchRow[] = [];
   let fpBatches: FpBatchRow[] = [];
 
   if (item.category === "raw" || item.category === "packaging") {
@@ -157,6 +159,24 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
         retest_date: status?.retest_date ?? null,
       };
     });
+
+    // Production-sourced Raw Material batches (19 Sept 2026 — "Packaging
+    // issued to Production"): a Raw Material item created this way (e.g.
+    // RM-FP-00001) is never purchased, so purchaseBatches above is always
+    // empty for it — its batches live in production_issue_batches instead.
+    // Only 'raw' items can ever be paired via production_rm_item_id
+    // (0050_production_rm_from_packaging.sql), so this is skipped for
+    // Packaging items.
+    if (item.category === "raw") {
+      const { data: prodBatches } = await supabase
+        .from("production_issue_batches")
+        .select("id, batch_number, quantity, live_remaining_qty, unit, created_at")
+        .eq("item_id", id)
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .returns<ProductionBatchRow[]>();
+      productionBatches = prodBatches ?? [];
+    }
   } else if (item.category === "processed") {
     const { data: mfrDef } = await supabase
       .from("mfr_definitions")
@@ -191,7 +211,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
   const { data: ledgerData } = await supabase
     .from("inventory_ledger_with_balance")
     .select(
-      "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, running_balance, items(name, item_code), purchase_lines(batch_number)"
+      "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, running_balance, items(name, item_code), purchase_lines(batch_number), production_issue_batches(batch_number)"
     )
     .eq("item_id", id)
     .order("event_at", { ascending: false })
@@ -224,6 +244,13 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
         <Card className="mb-6">
           <CardHeader title="Purchase batches" />
           <PurchaseBatchesTable rows={purchaseBatches} showQcStatus={item.category === "raw"} />
+        </Card>
+      )}
+
+      {productionBatches.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader title="Production batches" />
+          <ProductionBatchesTable rows={productionBatches} />
         </Card>
       )}
 

@@ -19,6 +19,9 @@ type MaterialInput = { itemId: string; quantity: number; unit: string };
 // 2026) — same lineCount + item_id_i/quantity_i/unit_i shape as
 // finished-product.ts's parseComponents(), read by
 // packaging-materials-editor.tsx's PackagingMaterialsEditor.
+//
+// Only called for Store/R&D issues (19 Sept 2026 Production redesign
+// below) — Production no longer uses packaging materials at all.
 function parseMaterials(formData: FormData): MaterialInput[] | { error: string } {
   const count = Number(formData.get("lineCount") || 0);
   const materials: MaterialInput[] = [];
@@ -44,9 +47,7 @@ function parseMaterials(formData: FormData): MaterialInput[] | { error: string }
 // restructures "pack size" from free text into a real quantity + unit, so
 // "how much bulk Finished Product this run consumed" can be computed
 // automatically (Ravi's explicit choice, overriding the safer manual-entry
-// option). Production is untouched and keeps the free-text-only pack_size
-// this function always accepted before this feature — this parses the
-// two new fields but only when department calls for them.
+// option).
 function parseStructuredPackSize(formData: FormData): { qty: number; unit: string } | { error: string } {
   const rawQty = String(formData.get("pack_size_qty") || "").trim();
   const unit = String(formData.get("pack_size_unit") || "").trim();
@@ -58,9 +59,33 @@ function parseStructuredPackSize(formData: FormData): { qty: number; unit: strin
   return { qty, unit };
 }
 
+// Production redesign (Ravi, 19 Sept 2026): "when Packaging is issued to
+// production - it would become available as Raw material for another
+// Finished Product... similar to how PKG-FP-00001 is created, we should
+// create a new Raw Material code example RM-FP-00001... There are no
+// packaging items required when a finished product is issued to
+// Production." Confirmed 19 Sept: this REPLACES Production's earlier
+// materials-only packaging behavior entirely (never fully developed —
+// no UI ever shipped a distinct treatment for it beyond the generic
+// free-text pack-size path every non-transform department fell into) —
+// there's no toggle back to the old shape.
+//
+// A Production issue is a single, direct, same-unit quantity: no pack
+// size multiplication, no unit selector (the paired Raw Material item
+// always shares the Finished Product item's own unit — see the DB
+// trigger in 0050_production_rm_from_packaging.sql), no packaging
+// materials.
+function parseProductionQty(formData: FormData): number | { error: string } {
+  const raw = String(formData.get("production_qty") || "").trim();
+  const qty = Number(raw);
+  if (!raw || !Number.isFinite(qty) || qty <= 0) {
+    return { error: "Quantity to convert must be a positive number." };
+  }
+  return qty;
+}
+
 export async function createPackagingIssue(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const fpBatchId = String(formData.get("finished_product_batch_id") || "");
-  const unitCountRaw = String(formData.get("unit_count") || "").trim();
   const department = String(formData.get("department") || "");
   const transactionType = String(formData.get("transaction_type") || "pack");
 
@@ -70,32 +95,52 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
     return { error: "Invalid transaction type." };
   }
 
-  const unitCount = Number(unitCountRaw);
-  if (!unitCountRaw || Number.isNaN(unitCount) || unitCount <= 0) {
-    return { error: "Unit count must be a positive number." };
-  }
+  const isStoreOrRnd = department === "store" || department === "rnd";
+  const isProduction = department === "production";
 
   // Store/R&D: pack size is captured structured (qty + unit) so the bulk
-  // FP consumed can be computed; the free-text pack_size column is then
-  // derived from it for display, matching every other row's shape.
-  // Production: free text only, exactly as before this feature.
-  const isTransformDepartment = department === "store" || department === "rnd";
-  let packSize = String(formData.get("pack_size") || "").trim();
+  // FP consumed can be computed, plus a separate "unit count" (how many
+  // packaged units this run produced) and packaging materials.
+  // Production: one direct "quantity to convert" field — see
+  // parseProductionQty() above — no separate unit count field, no
+  // materials.
+  let packSize: string;
   let packSizeQty: number | null = null;
   let packSizeUnit: string | null = null;
-  if (isTransformDepartment) {
+  let unitCount: number;
+  let materials: MaterialInput[] = [];
+  let productionQty = 0;
+
+  if (isStoreOrRnd) {
     const structured = parseStructuredPackSize(formData);
     if ("error" in structured) return structured;
     packSizeQty = structured.qty;
     packSizeUnit = structured.unit;
     packSize = `${structured.qty} ${structured.unit}`;
-  } else if (!packSize) {
-    return { error: "Pack size is required." };
-  }
 
-  const materialsOrError = parseMaterials(formData);
-  if ("error" in materialsOrError) return materialsOrError;
-  const materials = materialsOrError;
+    const unitCountRaw = String(formData.get("unit_count") || "").trim();
+    unitCount = Number(unitCountRaw);
+    if (!unitCountRaw || Number.isNaN(unitCount) || unitCount <= 0) {
+      return { error: "Unit count must be a positive number." };
+    }
+
+    const materialsOrError = parseMaterials(formData);
+    if ("error" in materialsOrError) return materialsOrError;
+    materials = materialsOrError;
+  } else {
+    // isProduction — DEPARTMENTS is exactly ["production", "rnd", "store"],
+    // so this is the only remaining case, but keep it as an explicit branch
+    // (rather than assuming) in case DEPARTMENTS ever grows.
+    if (!isProduction) return { error: "Select a department." };
+    const qtyOrError = parseProductionQty(formData);
+    if (typeof qtyOrError !== "number") return qtyOrError;
+    productionQty = qtyOrError;
+    unitCount = productionQty;
+    // pack_size stays a required text column for every department
+    // (0001_init.sql) — filled in below once the Finished Product's own
+    // unit is known, e.g. "20 kg".
+    packSize = "";
+  }
 
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Not authorized." };
@@ -126,44 +171,47 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
     return { error: "Packaging can only be issued against an Approved finished product batch." };
   }
 
-  // Task F: Store/R&D consume bulk Finished Product too, computed as
-  // pack_size_qty * unit_count. Resolve the batch's own FP item (same
-  // mfr_definitions.finished_product_item_id link Phase 3's fp_yield push
-  // uses) to get its base unit for the conversion, and its paired
-  // Packaged FP item (items.packaged_item_id, Task F) — the DB trigger
+  // Every department now consumes bulk Finished Product (19 Sept 2026 —
+  // previously only Store/R&D did; Production's old materials-only,
+  // FP-untouched behavior is retired). Resolve the batch's own FP item
+  // (same mfr_definitions.finished_product_item_id link Phase 3's fp_yield
+  // push uses) to get its unit and, for Store/R&D, its paired Packaged FP
+  // item (items.packaged_item_id, Task F) — the DB trigger
   // (trg_fn_packaging_transform_and_issue) silently skips the transform if
-  // that pairing is missing, which would look like a no-op success from
-  // here, so this is checked and reported up front instead.
-  let fpQtyConsumed: number | null = null;
-  if (isTransformDepartment) {
-    const { data: batchRow } = await supabase
-      .from("finished_product_batches")
-      .select("mfr_definition_id")
-      .eq("id", fpBatchId)
-      .maybeSingle();
-    const { data: mfrDef } = batchRow
-      ? await supabase
-          .from("mfr_definitions")
-          .select("finished_product_item_id")
-          .eq("id", batchRow.mfr_definition_id)
-          .maybeSingle()
-      : { data: null };
-    const fpItemId = mfrDef?.finished_product_item_id ?? null;
-    if (!fpItemId) {
-      return { error: "This batch's MFR has no linked Finished Product item — can't compute quantity consumed." };
-    }
-    const { data: fpItem } = await supabase
-      .from("items")
-      .select("unit, packaged_item_id")
-      .eq("id", fpItemId)
-      .maybeSingle();
+  // fp_qty_consumed isn't set, which would look like a no-op success from
+  // here, so every precondition it needs is checked and reported up front
+  // instead.
+  const { data: batchRow } = await supabase
+    .from("finished_product_batches")
+    .select("mfr_definition_id")
+    .eq("id", fpBatchId)
+    .maybeSingle();
+  const { data: mfrDef } = batchRow
+    ? await supabase
+        .from("mfr_definitions")
+        .select("finished_product_item_id")
+        .eq("id", batchRow.mfr_definition_id)
+        .maybeSingle()
+    : { data: null };
+  const fpItemId = mfrDef?.finished_product_item_id ?? null;
+  if (!fpItemId) {
+    return { error: "This batch's MFR has no linked Finished Product item — can't compute quantity consumed." };
+  }
+  const { data: fpItem } = await supabase
+    .from("items")
+    .select("unit, packaged_item_id")
+    .eq("id", fpItemId)
+    .maybeSingle();
+  const fpUnit = fpItem?.unit ?? null;
+
+  let fpQtyConsumed: number;
+  if (isStoreOrRnd) {
     if (!fpItem?.packaged_item_id) {
       return {
         error:
           "This Finished Product has no paired Packaged Finished Product item on file yet (older MFR) — Store/R&D issue isn't available for it.",
       };
     }
-    const fpUnit = fpItem.unit;
     const converted = fpUnit ? convertUnit(packSizeQty as number, packSizeUnit as string, fpUnit) : null;
     if (!fpUnit || converted === null) {
       return {
@@ -171,6 +219,16 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
       };
     }
     fpQtyConsumed = converted * unitCount;
+  } else {
+    // Production: no unit selector was offered, so productionQty is
+    // already in the Finished Product's own unit by construction — a
+    // straight same-unit conversion (Ravi, 19 Sept 2026), never a
+    // pack-size multiplication. Its paired Raw Material item
+    // (production_rm_item_id) is lazily created by the DB trigger itself
+    // on first use, so — unlike Store/R&D's packaged_item_id — there's no
+    // "not paired yet" precondition to check here.
+    fpQtyConsumed = productionQty;
+    packSize = fpUnit ? `${productionQty} ${fpUnit}` : String(productionQty);
   }
 
   // packaging_item_id / packaging_qty_used (0027_packaging_multi_material.sql)
@@ -178,7 +236,7 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
   // header (FP batch, pack size, unit count, department, type); the
   // materials themselves go into packaging_issue_items below, one row per
   // line, same header/lines split already used for MFR recipe lines and FP
-  // composition.
+  // composition. Production issues have zero material lines.
   const { data: issue, error } = await supabase
     .from("packaging_issues")
     .insert({
@@ -195,20 +253,22 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
     .single();
   if (error || !issue) return { error: error?.message || "Could not create the packaging issue." };
 
-  const { error: materialsError } = await supabase.from("packaging_issue_items").insert(
-    materials.map((m) => ({
-      packaging_issue_id: issue.id,
-      item_id: m.itemId,
-      quantity: m.quantity,
-      unit: m.unit,
-    }))
-  );
-  if (materialsError) {
-    // Same best-effort cleanup as createFinishedProductBatch(): don't leave
-    // a materials-free packaging_issues header behind if the lines insert
-    // fails partway through.
-    await supabase.from("packaging_issues").delete().eq("id", issue.id);
-    return { error: materialsError.message };
+  if (materials.length > 0) {
+    const { error: materialsError } = await supabase.from("packaging_issue_items").insert(
+      materials.map((m) => ({
+        packaging_issue_id: issue.id,
+        item_id: m.itemId,
+        quantity: m.quantity,
+        unit: m.unit,
+      }))
+    );
+    if (materialsError) {
+      // Same best-effort cleanup as createFinishedProductBatch(): don't leave
+      // a materials-free packaging_issues header behind if the lines insert
+      // fails partway through.
+      await supabase.from("packaging_issues").delete().eq("id", issue.id);
+      return { error: materialsError.message };
+    }
   }
 
   revalidatePath("/packaging");

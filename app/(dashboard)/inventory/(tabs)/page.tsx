@@ -77,7 +77,7 @@ export default async function InventoryLedgerPage({
   let query = supabase
     .from("inventory_ledger_with_balance")
     .select(
-      "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, running_balance, items(name, item_code), purchase_lines(batch_number)"
+      "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, running_balance, items(name, item_code), purchase_lines(batch_number), production_issue_batches(batch_number)"
     )
     .order("event_at", { ascending: false })
     .order("seq", { ascending: false })

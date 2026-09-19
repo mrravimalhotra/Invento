@@ -7,7 +7,17 @@ import { Card, CardBody } from "@/components/ui/card";
 import { ComposeForm, type ComposeLine, type Allocation } from "./compose-form";
 
 type Candidate = {
-  purchaseLineId: string;
+  // Which table this batch's live_remaining_qty is tracked in — Ravi (19
+  // Sept 2026, "Packaging issued to Production" — see
+  // supabase/migrations/0050_production_rm_from_packaging.sql): a
+  // Production packaging issue converts bulk Finished Product into a new
+  // Raw Material item's standing stock, tracked in production_issue_batches
+  // rather than purchase_lines (that Raw Material item is never actually
+  // purchased). A recipe ingredient can in principle draw from either table
+  // — most items will only ever have one kind of batch, but the FIFO
+  // allocator below treats them uniformly.
+  source: "purchase" | "production";
+  id: string;
   batchNumber: string;
   remainingQty: string | number;
 };
@@ -39,26 +49,42 @@ async function getCandidateBatches(
   supabase: Awaited<ReturnType<typeof createClient>>,
   itemId: string
 ): Promise<Candidate[]> {
-  const { data: lines } = await supabase
-    .from("purchase_lines")
-    // live_remaining_qty (Phase 2, claude/inventory-ledger-redesign.md
-    // Gap 2), not the static remaining_qty: this is the picker that
-    // decides how much of a batch someone can consume for FP composition
-    // — the exact gap this phase exists to close. The DB-level guard
-    // (0029_purchase_line_live_remaining_qty.sql's live_remaining_not_negative
-    // check) is the real enforcement; this keeps the picker's own "X
-    // avail." hint from suggesting more than a batch actually has left.
-    .select("id, batch_number, created_at, live_remaining_qty, unit")
-    .eq("item_id", itemId)
-    .eq("active", true);
-  if (!lines || lines.length === 0) return [];
-
-  const lineIds = lines.map((l) => l.id);
-  const [{ data: statuses }, { data: balance }] = await Promise.all([
+  const [{ data: lines }, { data: productionBatches }] = await Promise.all([
     supabase
-      .from("purchase_batch_status")
-      .select("purchase_line_id, qc_status, retest_date")
-      .in("purchase_line_id", lineIds),
+      .from("purchase_lines")
+      // live_remaining_qty (Phase 2, claude/inventory-ledger-redesign.md
+      // Gap 2), not the static remaining_qty: this is the picker that
+      // decides how much of a batch someone can consume for FP composition
+      // — the exact gap this phase exists to close. The DB-level guard
+      // (0029_purchase_line_live_remaining_qty.sql's live_remaining_not_negative
+      // check) is the real enforcement; this keeps the picker's own "X
+      // avail." hint from suggesting more than a batch actually has left.
+      .select("id, batch_number, created_at, live_remaining_qty, unit")
+      .eq("item_id", itemId)
+      .eq("active", true),
+    // Production-sourced Raw Material batches (Ravi, 19 Sept 2026 —
+    // "Packaging issued to Production"; supabase/migrations/
+    // 0050_production_rm_from_packaging.sql). These never go through
+    // Purchase/QC — the confirmed decision is that the original Finished
+    // Product batch's own QC approval already cleared this material before
+    // it could be converted, so unlike purchase_lines below there's no
+    // QC-status/retest filtering to apply here; every active batch with
+    // stock left is a valid candidate.
+    supabase
+      .from("production_issue_batches")
+      .select("id, batch_number, created_at, live_remaining_qty, unit")
+      .eq("item_id", itemId)
+      .eq("active", true),
+  ]);
+
+  const hasCandidateRows = (lines?.length ?? 0) > 0 || (productionBatches?.length ?? 0) > 0;
+  if (!hasCandidateRows) return [];
+
+  const lineIds = (lines ?? []).map((l) => l.id);
+  const [{ data: statuses }, { data: balance }] = await Promise.all([
+    lineIds.length
+      ? supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date").in("purchase_line_id", lineIds)
+      : Promise.resolve({ data: [] }),
     supabase.from("stock_balance").select("on_hand").eq("item_id", itemId).maybeSingle(),
   ]);
 
@@ -85,7 +111,8 @@ async function getCandidateBatches(
   // of what this query returns. No code change was needed for this half
   // of the request — only the display cleanup above.
   const today = new Date().toISOString().slice(0, 10);
-  return lines
+  type DatedCandidate = Candidate & { createdAt: string };
+  const purchaseCandidates: DatedCandidate[] = (lines ?? [])
     .filter((l) => {
       const status = statusByLine.get(l.id);
       if (status?.qc_status !== "approved") return false;
@@ -98,12 +125,29 @@ async function getCandidateBatches(
       if (Number(l.live_remaining_qty) <= 0) return false;
       return true;
     })
-    .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))
     .map((l) => ({
-      purchaseLineId: l.id,
+      source: "purchase" as const,
+      id: l.id,
       batchNumber: l.batch_number,
       remainingQty: l.live_remaining_qty,
+      createdAt: l.created_at ?? "",
     }));
+
+  const productionCandidates: DatedCandidate[] = (productionBatches ?? [])
+    .filter((b) => Number(b.live_remaining_qty) > 0)
+    .map((b) => ({
+      source: "production" as const,
+      id: b.id,
+      batchNumber: b.batch_number,
+      remainingQty: b.live_remaining_qty,
+      createdAt: b.created_at ?? "",
+    }));
+
+  // Merged, oldest-first across both sources — same FIFO ordering as
+  // before, just drawing from two tables instead of one.
+  return [...purchaseCandidates, ...productionCandidates]
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map(({ source, id, batchNumber, remainingQty }) => ({ source, id, batchNumber, remainingQty }));
 }
 
 // Ravi (14 Sept 2026): "while creating a finished product batch, it should
@@ -135,7 +179,7 @@ function allocateFifo(
     const avail = Number(c.remainingQty);
     if (avail <= 0) continue;
     const take = Math.min(avail, remaining);
-    allocations.push({ purchaseLineId: c.purchaseLineId, batchNumber: c.batchNumber, qty: take });
+    allocations.push({ source: c.source, id: c.id, batchNumber: c.batchNumber, qty: take });
     remaining -= take;
   }
   // Guard against floating-point dust (e.g. an exact match leaving

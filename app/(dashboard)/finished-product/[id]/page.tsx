@@ -47,8 +47,17 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
       // purchase_line_id added for the Batch Manufacturing Record below,
       // which needs each consumed RM batch's own AR number — a second
       // query, once these rows are in hand (see bmrArByPurchaseLine
-      // below).
-      .select("id, quantity, purchase_line_id, items(item_code, name, unit), purchase_lines(batch_number, expiry_date)")
+      // below). production_batch_id / production_issue_batches (19 Sept
+      // 2026 — "Packaging issued to Production", see supabase/migrations/
+      // 0050_production_rm_from_packaging.sql): a component can instead be
+      // sourced from a Production-converted Raw Material batch, which has
+      // no purchase_lines row and no AR number (no QC record — its
+      // clearance came from the original Finished Product batch's own QC
+      // approval) but still has its own batch number, needed here for
+      // traceability.
+      .select(
+        "id, quantity, purchase_line_id, production_batch_id, items(item_code, name, unit), purchase_lines(batch_number, expiry_date), production_issue_batches(batch_number)"
+      )
       .eq("finished_product_batch_id", id),
     supabase
       .from("quality_checks")
@@ -75,8 +84,10 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
     id: string;
     quantity: string | number;
     purchase_line_id: string | null;
+    production_batch_id: string | null;
     items: { item_code: string; name: string; unit: string | null } | null;
     purchase_lines: { batch_number: string; expiry_date: string | null } | null;
+    production_issue_batches: { batch_number: string } | null;
   };
   const componentRows = (components ?? []) as unknown as ComponentRow[];
 
@@ -132,7 +143,10 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
                   components={componentRows.map((c) => ({
                     rmCode: c.items?.item_code ?? "—",
                     rmName: c.items?.name ?? "—",
-                    batchNo: c.purchase_lines?.batch_number ?? "—",
+                    batchNo: c.purchase_lines?.batch_number ?? c.production_issue_batches?.batch_number ?? "—",
+                    // A Production-sourced component has no AR number — it was
+                    // never QC-checked on its own; the original Finished
+                    // Product batch's QC approval already cleared it.
                     arNumber: c.purchase_line_id ? arByPurchaseLine.get(c.purchase_line_id) ?? "" : "",
                     qtyAsPerMfr: c.quantity,
                   }))}
@@ -209,7 +223,10 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
                   {componentRows.map((c) => (
                     <tr key={c.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-2.5">{c.items ? `${c.items.item_code} · ${c.items.name}` : "—"}</td>
-                      <td className="px-4 py-2.5">{c.purchase_lines?.batch_number ?? "—"}</td>
+                      <td className="px-4 py-2.5">
+                        {c.purchase_lines?.batch_number ?? c.production_issue_batches?.batch_number ?? "—"}
+                        {c.production_batch_id && <span className="text-muted"> (from Production)</span>}
+                      </td>
                       <td className="px-4 py-2.5">{formatDate(c.purchase_lines?.expiry_date)}</td>
                       <td className="px-4 py-2.5">
                         {formatNumber(c.quantity)} {c.items?.unit ?? ""}

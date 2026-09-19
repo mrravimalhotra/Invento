@@ -24,6 +24,13 @@ export type RawLedgerRow = {
   event_by: string | null;
   items: { name: string; item_code: string } | null;
   purchase_lines: { batch_number: string } | null;
+  // Production-sourced Raw Material batch context (19 Sept 2026 —
+  // "Packaging issued to Production", supabase/migrations/
+  // 0050_production_rm_from_packaging.sql) — the production_batch_id
+  // counterpart to purchase_lines above, populated instead of it whenever
+  // a 'finished_product' pull/push traces back to a Production-converted
+  // batch rather than a purchased one.
+  production_issue_batches: { batch_number: string } | null;
   running_balance?: string | number | null;
 };
 

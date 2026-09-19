@@ -11,10 +11,9 @@ import { PackagingMaterialsEditor, type PackagingItemOption } from "./packaging-
 
 // Task F (claude/packaged-fp-redesign.md) — department Store/R&D transform
 // bulk Finished Product into a Packaged Finished Product and immediately
-// issue it out, computed from pack size (qty × unit) × unit count.
-// Production keeps this screen's original free-text-only pack size and is
-// otherwise untouched.
-function isTransformDepartment(d: string) {
+// issue it out, computed from pack size (qty × unit) × unit count, with
+// packaging materials (bottles, caps, …) pulled alongside.
+function isStoreOrRnd(d: string) {
   return d === "store" || d === "rnd";
 }
 
@@ -28,7 +27,8 @@ export function PackagingForm({
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createPackagingIssue, undefined);
   const [department, setDepartment] = useState("");
   const [batchId, setBatchId] = useState("");
-  const transform = isTransformDepartment(department);
+  const storeOrRnd = isStoreOrRnd(department);
+  const production = department === "production";
   const selectedBatch = fpBatches.find((b) => b.id === batchId);
 
   return (
@@ -90,53 +90,76 @@ export function PackagingForm({
         </Field>
       </div>
 
-      {transform ? (
-        <div className="grid grid-cols-2 gap-4">
+      {storeOrRnd && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              label="Pack size quantity"
+              htmlFor="pack_size_qty"
+              required
+              hint={
+                selectedBatch?.fp_unit
+                  ? `Bulk Finished Product per packaged unit, in a unit compatible with ${selectedBatch.fp_unit}.`
+                  : "Bulk Finished Product consumed per packaged unit."
+              }
+            >
+              <Input id="pack_size_qty" name="pack_size_qty" type="number" step="any" min="0" required />
+            </Field>
+            <Field label="Pack size unit" htmlFor="pack_size_unit" required>
+              <Select id="pack_size_unit" name="pack_size_unit" required defaultValue={selectedBatch?.fp_unit ?? ""}>
+                <option value="" disabled>
+                  Select…
+                </option>
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <Field label="Unit count" htmlFor="unit_count" required hint="Number of packaged units produced (bottles, packs, …) — this is also what gets issued out.">
+            <Input id="unit_count" name="unit_count" type="number" step="any" min="0" required />
+          </Field>
+
+          <Field label="Packaging materials" required hint="Item Master rows with category = packaging — add one line per material (bottles, caps, labels, …), each with its own quantity and unit.">
+            <PackagingMaterialsEditor packagingItems={packagingItems} />
+          </Field>
+
+          <p className="text-xs text-muted">
+            This will pull the computed Finished Product quantity and the packaging materials above, create the
+            paired Packaged Finished Product, and immediately record it as issued to{" "}
+            {department === "rnd" ? "R&D" : "Store"}.
+          </p>
+        </>
+      )}
+
+      {production && (
+        <>
           <Field
-            label="Pack size quantity"
-            htmlFor="pack_size_qty"
+            label="Quantity to convert"
+            htmlFor="production_qty"
             required
             hint={
               selectedBatch?.fp_unit
-                ? `Bulk Finished Product per packaged unit, in a unit compatible with ${selectedBatch.fp_unit}.`
-                : "Bulk Finished Product consumed per packaged unit."
+                ? `How much of this Finished Product, in ${selectedBatch.fp_unit}, is being issued to Production.`
+                : "How much of this Finished Product is being issued to Production."
             }
           >
-            <Input id="pack_size_qty" name="pack_size_qty" type="number" step="any" min="0" required />
+            <Input id="production_qty" name="production_qty" type="number" step="any" min="0" required />
           </Field>
-          <Field label="Pack size unit" htmlFor="pack_size_unit" required>
-            <Select id="pack_size_unit" name="pack_size_unit" required defaultValue={selectedBatch?.fp_unit ?? ""}>
-              <option value="" disabled>
-                Select…
-              </option>
-              {UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-      ) : (
-        <Field label="Pack size" htmlFor="pack_size" required hint='Free text, e.g. "100ml bottle".'>
-          <Input id="pack_size" name="pack_size" required />
-        </Field>
+
+          <p className="text-xs text-muted">
+            This will deduct the quantity above from the Finished Product and add it as new Raw Material stock (a
+            Raw Material item paired to this Finished Product, created automatically on first use) — available as an
+            ingredient for another Finished Product&apos;s recipe. No packaging materials are used for a Production
+            issue.
+          </p>
+        </>
       )}
 
-      <Field label="Unit count" htmlFor="unit_count" required hint={transform ? "Number of packaged units produced (bottles, packs, …) — this is also what gets issued out." : undefined}>
-        <Input id="unit_count" name="unit_count" type="number" step="any" min="0" required />
-      </Field>
-
-      <Field label="Packaging materials" required hint="Item Master rows with category = packaging — add one line per material (bottles, caps, labels, …), each with its own quantity and unit.">
-        <PackagingMaterialsEditor packagingItems={packagingItems} />
-      </Field>
-
-      {transform && (
-        <p className="text-xs text-muted">
-          This will pull the computed Finished Product quantity and the packaging materials above, create the paired
-          Packaged Finished Product, and immediately record it as issued to {department === "rnd" ? "R&D" : "Store"}.
-        </p>
-      )}
+      {department === "" && <p className="text-xs text-muted">Select a department to continue.</p>}
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending || fpBatches.length === 0}>

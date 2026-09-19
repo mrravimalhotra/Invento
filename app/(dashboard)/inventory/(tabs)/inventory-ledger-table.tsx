@@ -71,14 +71,16 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
             {r.items?.name ?? "—"}{" "}
             <span className="text-xs font-normal text-muted">{r.items?.item_code}</span>
           </div>
-          {r.purchase_lines?.batch_number && (
-            <div className="text-xs text-muted">Batch {r.purchase_lines.batch_number}</div>
+          {(r.purchase_lines?.batch_number || r.production_issue_batches?.batch_number) && (
+            <div className="text-xs text-muted">
+              Batch {r.purchase_lines?.batch_number ?? r.production_issue_batches?.batch_number}
+            </div>
           )}
           {r.fpBatchNumber && <div className="text-xs text-muted">FP batch {r.fpBatchNumber}</div>}
         </div>
       ),
       searchValue: (r) =>
-        `${r.items?.name ?? ""} ${r.items?.item_code ?? ""} ${r.purchase_lines?.batch_number ?? ""} ${r.fpBatchNumber ?? ""}`,
+        `${r.items?.name ?? ""} ${r.items?.item_code ?? ""} ${r.purchase_lines?.batch_number ?? ""} ${r.production_issue_batches?.batch_number ?? ""} ${r.fpBatchNumber ?? ""}`,
     },
     {
       header: "Quantity",
@@ -136,7 +138,10 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
         // "Hide legacy data" preference every other list already reads
         // (lib/hooks/use-hide-legacy.ts), not a separate toggle.
         isLegacy={(r) =>
-          isLegacyCode(r.items?.item_code) || isLegacyCode(r.purchase_lines?.batch_number) || isLegacyCode(r.fpBatchNumber)
+          isLegacyCode(r.items?.item_code) ||
+          isLegacyCode(r.purchase_lines?.batch_number) ||
+          isLegacyCode(r.production_issue_batches?.batch_number) ||
+          isLegacyCode(r.fpBatchNumber)
         }
       />
       {rows.length === ledgerLimit && (

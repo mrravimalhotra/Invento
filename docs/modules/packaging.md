@@ -298,3 +298,203 @@ second case.
 `packaged_item_id` for MFRs created before this migration — they simply
 can't take a Store/R&D packaging issue until paired (the server action
 reports this clearly rather than silently skipping the transform).
+
+## Packaging issued to Production — replaces the old materials-only flow (19 Sept 2026)
+
+Full design rationale, including the four confirmed decisions, is in
+`claude/packaged-fp-redesign.md`'s "Packaging issued to Production"
+addendum (project doc). Short version: Ravi — *"when Packaging is issued
+to production - it would become available as Raw material for another
+Finished Product... similar to how PKG-FP-00001 is created, we should
+create a new Raw Material code example RM-FP-00001 when a finished
+product is issued to Production. In this case the finished Product
+FP-00001 quantity issued to production will be deducted from inventory
+and new Raw Material RM-FP-00001 will be added to inventory. There are no
+packaging items required when a finished product is issued to
+Production."*
+
+**This replaces Department = Production's old behavior entirely** — the
+"Department = Production is explicitly untouched" note in the Packaged
+Finished Product section above no longer applies; it described the state
+of things from 3 Sept 2026 up to this change. Confirmed explicitly with
+Ravi on 19 Sept 2026 ("discard current behavior of how packaging is done
+for Production as we never fully developed it") — there is no toggle back
+to the old materials-only shape, and no department-level flag to pick
+between them.
+
+**The mechanic.** A Production packaging issue is a single, direct,
+same-unit conversion — no pack size multiplication (unlike Store/R&D), no
+unit selector, no packaging materials:
+
+1. Pulls the entered quantity of bulk Finished Product (e.g. FP-00001, in
+   its own unit).
+2. Pushes the same quantity into a paired Raw Material item — **created
+   lazily, the first time this specific Finished Product is ever issued to
+   Production**, not eagerly at MFR approval time (unlike PKG-FP). Code
+   format `RM-FP-00001`, own dedicated sequence/prefix, distinct from the
+   `RM-00001` prefix ordinary purchased raw materials get.
+3. Unlike Packaged FP, this stock is **not** immediately re-issued — it
+   stays on hand as real, standing Raw Material stock, recorded as a new
+   batch in a dedicated tracking table so it can be drawn on later.
+
+**Why a new item is created at all, rather than just crediting quantity
+back onto the Finished Product item itself**: the whole point is for this
+material to become usable as an *ingredient* in a different Finished
+Product's MFR recipe — MFR recipe-line pickers and FP composition's
+ingredient-eligibility filtering both already scope strictly to
+`category = 'raw'` items, so the converted stock has to genuinely be a
+`raw` item, not a second pile of the same `processed` Finished Product
+item, for those existing screens to pick it up with zero changes.
+
+**Four decisions confirmed via `AskUserQuestion` before writing any code:**
+
+1. **No new QC step.** The underlying Finished Product batch was already
+   QC-approved before Packaging could touch it at all (see the "Only
+   Approved batches are listed" precondition in this module's New screen,
+   above) — that clearance carries through to the Raw Material it's
+   converted into. `check_batch_qc_approved()` (shared with
+   `bmr_weighment_lines`) now returns immediately for any
+   `finished_product_components` row with no `purchase_line_id` — a
+   Production-sourced component has nothing to check against
+   (`production_issue_batches` carries no QC state at all).
+2. **A new, lightweight batch table** (`production_issue_batches`) tracks
+   the produced/remaining quantity — not a synthetic `purchase_lines`/
+   vendor row. Keeps Purchase Register (`rm-report/page.tsx`) and RM Stock
+   reports untouched by internal repackaging: both explicitly filter to
+   `items.category = 'raw'` *and* real `purchase_lines` rows, so an RM-FP
+   item (which never has any) simply never appears there — by construction,
+   not by an extra filter.
+3. **Replaces the old Production flow entirely**, confirmed twice (14 and
+   19 Sept 2026) — no coexistence, no per-issue toggle.
+4. **Lazy creation** — `RM-FP-00001` (and its pairing to `FP-00001` via
+   `items.production_rm_item_id`) is created the first time that specific
+   Finished Product is actually issued to Production, not for every
+   Finished Product up front. Confirmed explicitly: *"Not all finished
+   products will be issued to production so best to create as needed."*
+   The DB trigger locks the Finished Product item's own row (`for update`)
+   before checking whether it's already paired, so two concurrent first-
+   ever Production issues for the same FP can't both try to create the
+   Raw Material item.
+
+**Schema (`supabase/migrations/0050_production_rm_from_packaging.sql`)**:
+- `items.production_rm_item_id` — nullable, unique, self-check FK, second
+  pairing slot alongside `packaged_item_id` (a bulk FP item can have both
+  a Packaged FP pairing and a Production-RM pairing, set independently).
+- `get_next_production_rm_item_code()` — own sequence
+  (`item_code_seq_rmfp`), prefix `RM-FP-`, deliberately not folded into
+  `get_next_item_code(p_category)` since `category = 'raw'` already maps
+  to plain `RM-` there for ordinary purchased raw material.
+- `production_issue_batches` — new table (`packaging_issue_id`, `item_id`,
+  `batch_number`, `quantity`, `unit`, `live_remaining_qty`, `active`) —
+  plays the role `purchase_lines` plays for purchased Raw Material.
+  `get_next_production_batch_number(item_id)` — item-scoped, year-suffixed
+  (`PROD-01/26`), same idiom as `get_next_batch_number()`; race-safe
+  without a retry backstop because the caller always holds the target
+  item's row locked first.
+- `finished_product_components.purchase_line_id` is now nullable, with a
+  new `production_batch_id` column and a
+  `fp_components_exactly_one_source` CHECK — exactly one of the two must
+  be set. `trg_fn_fp_component_pull()`,
+  `trg_fn_fp_component_live_remaining_pull()`, and
+  `trg_fn_fp_batch_draft_cancel_reversal()` (the 30-minute/manual draft
+  cancel reversal, `0046`) all branch on which source column is set.
+- `inventory_ledger` gains a matching `production_batch_id` column and one
+  new `reference_type`, `production_rm_yield` (the RM-FP push itself).
+- `trg_fn_packaging_transform_and_issue()` — the same trigger Task F's
+  Store/R&D transform uses, now branches on `department = 'production'`
+  before falling through to the unchanged Store/R&D body.
+- `trg_fn_packaging_pull()` (the `packaged_qty` bump) now skips Production
+  issues entirely — `packaged_qty` means "packaged into materials for
+  distribution," which a Production conversion isn't. (`packaged_qty` has
+  no UI consumer today — grepped, nothing reads it yet — so this is a
+  correctness fix ahead of a future reader, not a visible behavior
+  change.)
+- `item_position` gains one more additive column, `production_rm_yield`
+  (appended after `issued_rnd`, the view's prior last column — `create or
+  replace view` requires every existing column to keep its exact name/
+  type/position).
+
+**Verified locally** (fresh Postgres 16, all 50 migrations replayed from
+scratch, then a hand-written test script run against them): lazy
+`RM-FP-00001` creation on first Production issue (code/unit/pairing all
+correct); FP-item deduction and RM-FP-item credit both numerically
+correct; sequential batch numbering (`PROD-01/26`, `PROD-02/26`) with no
+duplicate item created on the second issue; `packaged_qty` correctly not
+bumped; `RM-FP-00001` successfully consumed as a raw-material ingredient
+in a second Finished Product batch via the new `production_batch_id`
+path, with the QC gate correctly skipped (no `quality_checks` row
+created) and `live_remaining_qty` correctly decremented; the mutual-
+exclusivity CHECK correctly rejects a component row with both/neither
+source set; over-consuming a production batch correctly rejected
+(`production_live_remaining_not_negative`); the 30-minute/manual
+draft-cancel reversal correctly restores a production batch's
+`live_remaining_qty`; `check_sufficient_stock()` correctly guards the
+Production FP-pull the same way it guards every other pull in this app;
+and `item_position`'s `on_hand`/`production_rm_yield` columns reconcile
+correctly for the RM-FP item.
+
+**App-layer changes:**
+- `lib/actions/packaging.ts` — `createPackagingIssue()` restructured:
+  the FP-item/unit lookup (previously only run for Store/R&D) now runs for
+  every department, since Production consumes bulk FP too now.
+  `parseProductionQty()` (new) reads a single `production_qty` field for
+  Production issues — no unit selector, since the paired Raw Material
+  always shares the FP item's own unit. `parseMaterials()` is only called
+  for Store/R&D now; a Production issue writes zero
+  `packaging_issue_items` rows.
+- `app/(dashboard)/packaging/packaging-form.tsx` — the old always-visible
+  free-text "Pack size" + generic "Packaging materials" block (which,
+  since `DEPARTMENTS` is exactly `production`/`rnd`/`store`, was in
+  practice only ever reachable by Production) is gone. Three states now:
+  nothing shown until a department is picked, the existing Store/R&D
+  structured block, or a new single "Quantity to convert" field for
+  Production with no materials editor at all.
+- `app/(dashboard)/finished-product/new/compose/page.tsx` —
+  `getCandidateBatches()` now merges candidates from both `purchase_lines`
+  (QC-gated, as before) and `production_issue_batches` (no QC gate, by
+  design), sorted oldest-first across both; `allocateFifo()` unchanged in
+  behavior, just carries a `source`/`id` pair per allocation instead of a
+  bare `purchaseLineId`.
+- `app/(dashboard)/finished-product/new/compose/compose-form.tsx` — the
+  `Allocation` type and hidden-field serialization now send either
+  `purchase_line_id_i` or `production_batch_id_i` per line depending on
+  `source`; a Production-sourced batch in the breakdown shows a small
+  "(from Production)" suffix next to its batch number.
+- `lib/actions/finished-product.ts` — `parseComponents()`/
+  `createFinishedProductBatch()` read and insert whichever of
+  `purchase_line_id`/`production_batch_id` the line actually carries.
+- `app/(dashboard)/finished-product/[id]/page.tsx` — the Composition table
+  and the Batch Manufacturing Record export both now show the production
+  batch number (and, in the Composition table, a "(from Production)" tag)
+  for a Production-sourced component; its "AR No." is correctly blank
+  (no QC record exists for a Production-sourced batch).
+- `app/(dashboard)/inventory/items/[id]/page.tsx` (Item detail) — a Raw
+  Material item paired via `production_rm_item_id` (e.g. RM-FP-00001)
+  never has `purchase_lines` rows, so the existing "Purchase batches" card
+  would always show empty for it. A new `production-batches-table.tsx` /
+  "Production batches" card renders instead whenever an item has any
+  `production_issue_batches` rows.
+- `lib/ledger-enrich.ts` and both Ledger-tab query sites
+  (`inventory/(tabs)/page.tsx`, `inventory/items/[id]/page.tsx`) now also
+  embed `production_issue_batches(batch_number)` alongside the existing
+  `purchase_lines(batch_number)`, so a ledger row sourced from a
+  Production-converted batch shows its batch number too, not a blank.
+
+**Flagged, not implemented this pass** (adjacent gaps noticed while
+building, deliberately not acted on without asking first, per the working
+agreement):
+- **Wastage** (`inventory/wastage`) currently only lets a user record
+  wastage against a `purchase_lines` batch — there's no equivalent picker
+  for a `production_issue_batches` batch, so wastage against RM-FP stock
+  specifically can't be recorded yet.
+- **Labels** (`/labels`) only prints RM/packaging labels sourced from
+  `purchase_lines` — no label flow exists yet for a
+  `production_issue_batches` batch.
+- **Packaging list table** (`packaging-table.tsx`) doesn't show the
+  created RM-FP item code/batch number for a Production row — a
+  nice-to-have surfaced during design, not required by the four confirmed
+  decisions above.
+
+None of these block the core flow Ravi asked for (FP → RM-FP conversion,
+usable as another Finished Product's ingredient) — flagging them here so
+they're not silently forgotten.

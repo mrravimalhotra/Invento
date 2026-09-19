@@ -21,8 +21,18 @@ import { formatNumber } from "@/lib/utils";
 // is what prompted this cleanup. Dropped end-to-end rather than just
 // hidden: no more expiry_date column fetched in getCandidateBatches()
 // (page.tsx), no more field on Candidate/Allocation.
+//
+// `source`/`id` (19 Sept 2026, replacing the old `purchaseLineId`-only
+// shape) — a batch drawn from can now be either a purchased Raw Material
+// lot (source: "purchase", id = purchase_lines.id) or a Production-sourced
+// one (source: "production", id = production_issue_batches.id; see
+// "Packaging issued to Production" in supabase/migrations/
+// 0050_production_rm_from_packaging.sql). Exactly one of
+// finished_product_components.purchase_line_id / production_batch_id gets
+// set server-side depending on which this is.
 export type Allocation = {
-  purchaseLineId: string;
+  source: "purchase" | "production";
+  id: string;
   batchNumber: string;
   qty: number;
 };
@@ -64,12 +74,13 @@ export function ComposeForm({
 
   // Flatten each ingredient's (possibly multi-batch) allocation into one
   // finished_product_components row per batch drawn from. The server
-  // action (parseComponents in lib/actions/finished-product.ts) already
-  // just reads item_id_i/quantity_i/purchase_line_id_i for i in
-  // [0, lineCount) with no assumption that each item_id is unique — it
-  // never needed a change for this.
+  // action (parseComponents in lib/actions/finished-product.ts) reads
+  // item_id_i/quantity_i for i in [0, lineCount) with no assumption that
+  // each item_id is unique, plus exactly one of purchase_line_id_i /
+  // production_batch_id_i depending on the allocation's source (19 Sept
+  // 2026 — see the Allocation type above).
   const components = lines.flatMap((line) =>
-    line.allocations.map((a) => ({ itemId: line.itemId, purchaseLineId: a.purchaseLineId, quantity: a.qty }))
+    line.allocations.map((a) => ({ itemId: line.itemId, source: a.source, sourceId: a.id, quantity: a.qty }))
   );
 
   return (
@@ -84,14 +95,18 @@ export function ComposeForm({
         <span key={i}>
           <input type="hidden" name={`item_id_${i}`} value={c.itemId} />
           <input type="hidden" name={`quantity_${i}`} value={c.quantity} />
-          <input type="hidden" name={`purchase_line_id_${i}`} value={c.purchaseLineId} />
+          {c.source === "purchase" ? (
+            <input type="hidden" name={`purchase_line_id_${i}`} value={c.sourceId} />
+          ) : (
+            <input type="hidden" name={`production_batch_id_${i}`} value={c.sourceId} />
+          )}
         </span>
       ))}
 
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {blockedLines.length > 0 && (
         <p className="text-sm text-red">
-          Not enough QC-Approved stock for: {blockedLines.map((l) => l.itemLabel).join(", ")}. This batch cannot be
+          Not enough available stock for: {blockedLines.map((l) => l.itemLabel).join(", ")}. This batch cannot be
           submitted until stock is available.
         </p>
       )}
@@ -114,17 +129,18 @@ export function ComposeForm({
                 </td>
                 <td className="px-3 py-2">
                   {line.allocations.length === 0 ? (
-                    <span className="text-red">No QC-Approved batch available</span>
+                    <span className="text-red">No available batch</span>
                   ) : (
                     <div className="flex flex-col gap-0.5">
                       {line.allocations.map((a) => (
-                        <div key={a.purchaseLineId}>
+                        <div key={`${a.source}-${a.id}`}>
                           {a.batchNumber} · {formatNumber(a.qty)} {line.unit}
+                          {a.source === "production" && <span className="text-muted"> (from Production)</span>}
                         </div>
                       ))}
                       {line.shortfallQty > 0 && (
                         <div className="text-red">
-                          Short by {formatNumber(line.shortfallQty)} {line.unit} — no further QC-Approved stock
+                          Short by {formatNumber(line.shortfallQty)} {line.unit} — no further stock available
                         </div>
                       )}
                     </div>

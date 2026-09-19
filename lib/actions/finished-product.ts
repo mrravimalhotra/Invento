@@ -9,7 +9,14 @@ import { redirect } from "next/navigation";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
-type ComponentInput = { itemId: string; quantity: number; purchaseLineId: string };
+// A component can be sourced from either a purchased Raw Material batch
+// (purchaseLineId) or a Production-sourced one (productionBatchId, 19 Sept
+// 2026 — "Packaging issued to Production", see supabase/migrations/
+// 0050_production_rm_from_packaging.sql) — never both, never neither,
+// mirroring finished_product_components' fp_components_exactly_one_source
+// check constraint. compose-form.tsx only ever sends one of the two hidden
+// fields per line (purchase_line_id_i or production_batch_id_i).
+type ComponentInput = { itemId: string; quantity: number; purchaseLineId: string | null; productionBatchId: string | null };
 
 function parseComponents(formData: FormData): ComponentInput[] | { error: string } {
   const count = Number(formData.get("lineCount") || 0);
@@ -19,14 +26,18 @@ function parseComponents(formData: FormData): ComponentInput[] | { error: string
     if (!itemId) continue;
     const rawQty = formData.get(`quantity_${i}`);
     const quantity = Number(rawQty);
-    const purchaseLineId = String(formData.get(`purchase_line_id_${i}`) || "");
+    const purchaseLineId = String(formData.get(`purchase_line_id_${i}`) || "") || null;
+    const productionBatchId = String(formData.get(`production_batch_id_${i}`) || "") || null;
     if (!Number.isFinite(quantity) || quantity <= 0) {
       return { error: `Line ${i + 1}: invalid quantity.` };
     }
-    if (!purchaseLineId) {
-      return { error: `Line ${i + 1}: choose a QC-Approved batch — none is currently selected.` };
+    if (!purchaseLineId && !productionBatchId) {
+      return { error: `Line ${i + 1}: choose a batch — none is currently selected.` };
     }
-    components.push({ itemId, quantity, purchaseLineId });
+    if (purchaseLineId && productionBatchId) {
+      return { error: `Line ${i + 1}: a component can't draw from two batch sources at once.` };
+    }
+    components.push({ itemId, quantity, purchaseLineId, productionBatchId });
   }
   if (components.length === 0) return { error: "This MFR has no recipe lines to consume." };
   return components;
@@ -99,6 +110,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
       finished_product_batch_id: batch.id,
       item_id: c.itemId,
       purchase_line_id: c.purchaseLineId,
+      production_batch_id: c.productionBatchId,
       quantity: c.quantity,
     }))
   );
@@ -109,10 +121,13 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
     if (componentsError.message.includes("is not QC-Approved")) {
       return { error: "That batch is no longer QC-Approved — refresh and pick another." };
     }
-    // Phase 2 (0029_purchase_line_live_remaining_qty.sql) — the new
+    // Phase 2 (0029_purchase_line_live_remaining_qty.sql) — the
     // live_remaining_not_negative check constraint, a real DB-level guard
-    // against consuming more of a batch than it actually has left
-    // (previously nothing enforced this at all).
+    // against consuming more of a batch than it actually has left.
+    // Production-sourced batches (0050_production_rm_from_packaging.sql)
+    // reuse the same substring in their own constraint name
+    // (production_live_remaining_not_negative), so this branch already
+    // covers both.
     if (componentsError.message.includes("live_remaining_not_negative")) {
       return { error: "Not enough of that batch remaining — refresh and pick another batch or a smaller quantity." };
     }
