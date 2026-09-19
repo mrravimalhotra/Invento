@@ -25,23 +25,30 @@ const HEADER_TEXT: Record<LabelType, string> = {
 const WIDTH_MM = 101.6; // 4in
 const HEIGHT_MM = 76.2; // 3in
 
-// Approved Raw Material label (19 Sept 2026): Ravi supplied a reference
-// template ("Approved RAW MATERIAL LABELS.doc") and asked for "exact pixel
-// perfect copy" of its size, format and font — so this type gets its own
-// dedicated renderer instead of the generic layout below, built entirely
-// from measurements taken off that reference (font, sizes, exact label
-// text incl. its literal padding spaces, line positions, border, and the
-// physical label size of 87.9mm x 96.0mm, which is notably not the 4x3in
-// size the other three label types use). See docs/modules/labels.md for
-// the full measurement method. Deliberately scoped to this one label type
-// — the other three (Under Test, In-process, Finished Product) were not
-// part of the request and keep the original brand-styled layout.
+// Approved Raw Material label (19 Sept 2026, revised 19 Sept 2026): Ravi
+// supplied the actual print template ("Approved RAW MATERIAL LABELS.doc")
+// and asked for an exact pixel-perfect copy of its size, format and font.
+// It turned out to be a 6-up A4 sheet (2 cols x 3 rows of the identical
+// label, for printing a batch's run of labels on one sheet and cutting
+// them apart) rather than a single-label page — confirmed from Ravi's own
+// screenshot of the template and cross-checked against the .doc's table
+// structure (3 rows x 2 cols) and page size (A4). This renderer reproduces
+// that: one A4 page, the same label content repeated in all 6 cells at the
+// reference's measured grid position, built entirely from measurements
+// taken off the reference (LibreOffice conversion + python-docx structural
+// inspection + 200 DPI pixel measurement of both a single cell and the
+// full page). See docs/modules/labels.md for the full measurement method.
+// Deliberately scoped to this one label type — the other three (Under
+// Test, In-process, Finished Product) were not part of the request and
+// keep the original single-label brand-styled layout below.
 //
 // Font: the reference specifies Calibri (bold, every run) throughout.
 // Calibri itself isn't licensed for redistribution, so this embeds Carlito
 // — metrically identical, OFL-1.1 licensed, and what LibreOffice actually
 // substitutes for Calibri (confirmed: it's what rendered the reference PDF
 // used to take the measurements below) — see lib/fonts/carlito-bold.ts.
+// The on-screen preview / JPEG export (rm-sheet-preview.tsx) embeds the
+// same TTF as a CSS @font-face so both outputs use the identical typeface.
 //
 // Company name/address text: the reference's own text for this has an
 // apparent copy/paste artifact — "Atharva Nature Healthcare Pvt,Ltd.Wagholi"
@@ -51,9 +58,20 @@ const HEIGHT_MM = 76.2; // 3in
 // constants (same ones the rest of the app's PDFs use) in the same
 // two-line position/font/size — flagging this as a deliberate deviation
 // from the literal reference text, not an oversight.
-const RM_WIDTH_MM = 87.9;
-const RM_HEIGHT_MM = 96.0;
-const RM_LEFT_PAD_MM = 2.0;
+//
+// All layout constants and the per-cell line list (`buildRmLines`) are
+// exported so rm-sheet-preview.tsx's on-screen/JPEG rendering shares the
+// exact same numbers as this PDF path, rather than a second hand-tuned
+// copy that could drift from it.
+export const RM_PAGE_WIDTH_MM = 210;
+export const RM_PAGE_HEIGHT_MM = 297;
+export const RM_GRID_COLS = 2;
+export const RM_GRID_ROWS = 3;
+export const RM_GRID_ORIGIN_X_MM = 17.02;
+export const RM_GRID_ORIGIN_Y_MM = 5.08;
+export const RM_CELL_WIDTH_MM = 87.9;
+export const RM_CELL_HEIGHT_MM = 96.0;
+export const RM_LEFT_PAD_MM = 2.0;
 
 // Literal field-prefix strings (label + padding spaces + colon) as measured
 // from the reference document's runs — reproducing them exactly, spaces
@@ -75,56 +93,96 @@ const RM_FIELD_PREFIX: Record<string, string> = {
   Sign: "Sign                        :",
 };
 
-// Y position (mm from top) of each field line's text baseline, in the same
-// order label-picker.tsx builds the approved_rm fields array.
+// Y position (mm from the top of a single cell) of each field line's text
+// baseline, in the same order label-picker.tsx builds the approved_rm
+// fields array.
 const RM_FIELD_Y_MM = [28.89, 36.27, 43.12, 50.63, 57.48, 64.65, 72.22, 79.02, 86.57];
 
-function downloadApprovedRmLabel(fields: LabelField[], filename: string) {
-  const doc = new jsPDF({ unit: "mm", format: [RM_WIDTH_MM, RM_HEIGHT_MM] });
-  doc.addFileToVFS("Carlito-Bold.ttf", CARLITO_BOLD_TTF_BASE64);
-  doc.addFont("Carlito-Bold.ttf", "Carlito", "bold");
-  doc.setFont("Carlito", "bold");
-  doc.setTextColor(0, 0, 0);
+export type RmLineRun = { text: string; sizePt: number };
+// One printed line within a single label cell. `runs` is normally one run;
+// the "Mfg. Lic. No. : PD/AYU-111" line has two, at different sizes on a
+// shared baseline — neither jsPDF's text() nor a plain CSS span centers a
+// mixed-size string as a unit, so both renderers measure/center it from
+// this same run list instead of hand-picking an x position twice.
+export type RmLine = { yMm: number; align: "center" | "left"; runs: RmLineRun[] };
 
-  // Plain black hairline border, matching the reference (not the brand
-  // green/thicker border the other three label types use).
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.2);
-  doc.rect(0.15, 0.15, RM_WIDTH_MM - 0.3, RM_HEIGHT_MM - 0.3);
-
-  const centerX = RM_WIDTH_MM / 2;
-
-  doc.setFontSize(13);
-  doc.text(COMPANY_NAME, centerX, 3.08, { align: "center" });
-  doc.text(COMPANY_ADDRESS, centerX, 8.4, { align: "center" });
-
-  // "Mfg. Lic. No. : PD/AYU-111" — the reference renders the label prefix
-  // at 13pt and the license number itself at 11pt, both on one line and
-  // both on the same baseline, with the pair centered as a unit. jsPDF's
-  // text() only centers a single run, so the two runs' widths are measured
-  // and centered manually here.
-  const mfgPrefix = "Mfg. Lic. No. :";
-  const mfgValue = ` ${MFG_LIC_NO}`;
-  doc.setFontSize(13);
-  const mfgPrefixWidth = doc.getTextWidth(mfgPrefix);
-  doc.setFontSize(11);
-  const mfgValueWidth = doc.getTextWidth(mfgValue);
-  const mfgStartX = centerX - (mfgPrefixWidth + mfgValueWidth) / 2;
-  doc.setFontSize(13);
-  doc.text(mfgPrefix, mfgStartX, 14.35, { align: "left" });
-  doc.setFontSize(11);
-  doc.text(mfgValue, mfgStartX + mfgPrefixWidth, 14.35, { align: "left" });
-
-  doc.setFontSize(11);
-  doc.text("APPROVED  RAW MATERIAL", centerX, 19.28, { align: "center" });
+// Builds the ordered list of lines for one label cell — shared by the PDF
+// renderer below and rm-sheet-preview.tsx's on-screen/JPEG renderer, so
+// both draw from the exact same content and position numbers.
+export function buildRmLines(fields: LabelField[]): RmLine[] {
+  const lines: RmLine[] = [
+    { yMm: 3.08, align: "center", runs: [{ text: COMPANY_NAME, sizePt: 13 }] },
+    { yMm: 8.4, align: "center", runs: [{ text: COMPANY_ADDRESS, sizePt: 13 }] },
+    {
+      yMm: 14.35,
+      align: "center",
+      runs: [
+        { text: "Mfg. Lic. No. :", sizePt: 13 },
+        { text: ` ${MFG_LIC_NO}`, sizePt: 11 },
+      ],
+    },
+    { yMm: 19.28, align: "center", runs: [{ text: "APPROVED  RAW MATERIAL", sizePt: 11 }] },
+  ];
 
   fields.forEach((f, i) => {
     const prefix = RM_FIELD_PREFIX[f.label];
     const y = RM_FIELD_Y_MM[i];
     if (prefix === undefined || y === undefined) return; // unexpected field — skip rather than misplace it
     const text = f.value ? `${prefix}  ${f.value}` : prefix;
-    doc.text(text, RM_LEFT_PAD_MM, y, { align: "left" });
+    lines.push({ yMm: y, align: "left", runs: [{ text, sizePt: 11 }] });
   });
+
+  return lines;
+}
+
+function drawRmCell(doc: jsPDF, fields: LabelField[], originX: number, originY: number) {
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.2);
+  doc.rect(originX + 0.15, originY + 0.15, RM_CELL_WIDTH_MM - 0.3, RM_CELL_HEIGHT_MM - 0.3);
+
+  const centerX = originX + RM_CELL_WIDTH_MM / 2;
+  doc.setTextColor(0, 0, 0);
+
+  for (const line of buildRmLines(fields)) {
+    const y = originY + line.yMm;
+    if (line.runs.length === 1) {
+      doc.setFontSize(line.runs[0].sizePt);
+      const x = line.align === "center" ? centerX : originX + RM_LEFT_PAD_MM;
+      doc.text(line.runs[0].text, x, y, { align: line.align });
+      continue;
+    }
+    // Multi-run line (the mixed-size Mfg. Lic. No. line) — measure each
+    // run's width at its own size, then lay the runs out left-to-right
+    // starting from a point that centers the whole group as a unit.
+    const widths = line.runs.map((r) => {
+      doc.setFontSize(r.sizePt);
+      return doc.getTextWidth(r.text);
+    });
+    const totalWidth = widths.reduce((a, b) => a + b, 0);
+    let x = line.align === "center" ? centerX - totalWidth / 2 : originX + RM_LEFT_PAD_MM;
+    line.runs.forEach((r, i) => {
+      doc.setFontSize(r.sizePt);
+      doc.text(r.text, x, y, { align: "left" });
+      x += widths[i];
+    });
+  }
+}
+
+function downloadApprovedRmLabel(fields: LabelField[], filename: string) {
+  const doc = new jsPDF({ unit: "mm", format: [RM_PAGE_WIDTH_MM, RM_PAGE_HEIGHT_MM] });
+  doc.addFileToVFS("Carlito-Bold.ttf", CARLITO_BOLD_TTF_BASE64);
+  doc.addFont("Carlito-Bold.ttf", "Carlito", "bold");
+  doc.setFont("Carlito", "bold");
+
+  // One A4 page, the same label repeated in every cell of the reference's
+  // 2-col x 3-row grid (Ravi: "6 labels per page as per template").
+  for (let row = 0; row < RM_GRID_ROWS; row++) {
+    for (let col = 0; col < RM_GRID_COLS; col++) {
+      const originX = RM_GRID_ORIGIN_X_MM + col * RM_CELL_WIDTH_MM;
+      const originY = RM_GRID_ORIGIN_Y_MM + row * RM_CELL_HEIGHT_MM;
+      drawRmCell(doc, fields, originX, originY);
+    }
+  }
 
   doc.save(filename);
 }

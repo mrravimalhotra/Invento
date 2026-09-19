@@ -7,6 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 import { downloadLabelPdf, type LabelField, type LabelType } from "./generate-label-pdf";
+import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX } from "./rm-sheet-preview";
+
+// The Approved Raw Material sheet preview renders at a fixed native size
+// (RM_PREVIEW_WIDTH_PX, chosen for export resolution — see
+// rm-sheet-preview.tsx) that's too wide for this card, so it's displayed
+// scaled down via a CSS transform on a *wrapper*, not on the ref'd node
+// itself — html2canvas captures the ref'd node's own unscaled layout, so
+// the JPEG export stays full resolution regardless of this display scale.
+const RM_PREVIEW_DISPLAY_WIDTH_PX = 320;
+const RM_PREVIEW_DISPLAY_SCALE = RM_PREVIEW_DISPLAY_WIDTH_PX / RM_PREVIEW_WIDTH_PX;
 
 export type RmRecord = {
   id: string;
@@ -162,6 +172,11 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
     if (!node) return;
     setDownloadingJpeg(true);
     try {
+      // The Approved Raw Material preview loads an embedded @font-face
+      // (Carlito, matching the PDF's font) from a data: URI — wait for it
+      // to finish loading before rasterizing, or html2canvas can capture a
+      // frame with the browser's fallback font still showing.
+      if (document.fonts?.ready) await document.fonts.ready;
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(node, { scale: 3, backgroundColor: "#ffffff" });
       const safeBatch = batchNumberForFilename.replace(/[^\w.-]+/g, "_");
@@ -279,6 +294,19 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
           {fields.length === 0 ? (
             <div className="flex aspect-[4/3] w-full max-w-sm items-center justify-center rounded-md border border-dashed border-border text-sm text-muted">
               Select a batch to preview the label.
+            </div>
+          ) : labelType === "approved_rm" ? (
+            // Approved Raw Material (19 Sept 2026): a dedicated 6-up A4
+            // sheet preview matching Ravi's reference template — see
+            // rm-sheet-preview.tsx. Every other label type below keeps the
+            // original single-label brand-styled preview.
+            <div
+              className="overflow-hidden rounded-md border-2 border-border shadow-sm"
+              style={{ width: RM_PREVIEW_DISPLAY_WIDTH_PX, height: RM_PREVIEW_HEIGHT_PX * RM_PREVIEW_DISPLAY_SCALE }}
+            >
+              <div style={{ transform: `scale(${RM_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
+                <RmSheetPreview ref={previewRef} fields={fields} />
+              </div>
             </div>
           ) : (
             <div

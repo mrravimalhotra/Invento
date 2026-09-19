@@ -91,35 +91,52 @@ switching the `items` embed to `items!inner(name, category)` with
 `.eq("items.category", "raw")` added — the same fix already applied to
 QC's "New Assign Record" picker for the same reason.
 
-## Approved Raw Material — pixel-perfect reference match (19 Sept 2026)
+## Approved Raw Material — pixel-perfect reference match (19 Sept 2026, revised same day)
 
 Ravi supplied the physical template actually used on the shop floor
-(`Approved RAW MATERIAL LABELS.doc`, a 4-up A4 sheet — 4 copies of the same
-label per page) and asked for the PDF output to be "exact pixel perfect
-copy of attached template": same size, format and font. **Scoped to this
-one label type only** — Under Test, In-process and Finished Product were
-not part of the request and are untouched, still on the original compact
-4in×3in brand-styled layout below.
+(`Approved RAW MATERIAL LABELS.doc`) and asked for the output to be "exact
+pixel perfect copy of attached template": same size, format and font.
+**Scoped to this one label type only** — Under Test, In-process and
+Finished Product were not part of the request and are untouched, still on
+the original compact 4in×3in brand-styled layout below.
 
-`downloadApprovedRmLabel()` in `generate-label-pdf.ts` is a dedicated
-renderer for `approved_rm`, built entirely from measurements taken off the
-reference (not eyeballed): the `.doc` was converted with LibreOffice
-(`soffice --headless --convert-to pdf/docx`), inspected structurally with
-`python-docx` (font, size, bold, table cell margins) and rasterized at 200
-DPI for pixel-level line-position and left-margin measurement.
+The reference turned out to be **a 6-up A4 sheet** — 2 columns x 3 rows of
+the identical label, for printing a batch's run of labels on one sheet and
+cutting them apart — not a single-label page (an initial reading of the
+reference read it as a 4-up sheet; Ravi's own screenshot of the template
+plus a re-check of the `.doc`'s table structure, 3 rows x 2 cols on an A4
+page, corrected this the same day). Ravi separately asked that the JPEG
+export match the PDF's format and size too, not just look similar — both
+now render from the same shared layout numbers (see below), including all
+6 cells.
 
-- **Label size**: 87.9mm × 96.0mm — notably not the 4in×3in (101.6×76.2mm)
-  size the other three templates use; measured directly off the rendered
-  reference, not a nominal label-stock size.
+Measurements were taken off the reference throughout, not eyeballed: the
+`.doc` was converted with LibreOffice (`soffice --headless --convert-to
+pdf/docx`), inspected structurally with `python-docx` (page size/margins,
+table row/column count and widths, font, size, bold, cell margins) and
+rasterized at 200 DPI for pixel-level measurement of both a single cell
+and the full-page grid (line/column boundary detection by dark-pixel
+density, clustered into border positions).
+
+- **Page / grid**: A4 (210mm × 297mm), 2 columns × 3 rows, grid origin at
+  (17.02mm, 5.08mm) from the page's top-left, each cell 87.9mm × 96.0mm —
+  all measured directly off the rasterized reference page, cross-checked
+  against the `.doc`'s table column-width/row-height XML (`tblLayout
+  type="fixed"`) and found consistent to within ~0.5mm.
+- **Per-cell content**: identical across all 6 cells — the selected
+  batch's fields repeated, matching how the reference sheet itself is a
+  repeated single template, printed for one batch's full label run.
 - **Font**: the reference specifies Calibri, bold, every run. Calibri is a
   proprietary Microsoft font not licensed for redistribution/embedding, so
   this embeds **Carlito** instead (`lib/fonts/carlito-bold.ts`) —
   metrically identical to Calibri by design, SIL Open Font License 1.1, and
   literally what LibreOffice substituted when rendering the reference (so
-  the pixel measurements below are Carlito's own metrics, not an
-  approximation of Calibri's).
-- **Colors / border**: plain black text on a thin black hairline border —
-  no brand green, unlike the other three templates.
+  the pixel measurements are Carlito's own metrics, not an approximation
+  of Calibri's). The same TTF is embedded a second time as a CSS
+  `@font-face` (data URI) in the on-screen preview/JPEG path, so both
+  outputs use the identical typeface.
+- **Colors / border**: plain black text on a thin black hairline border per
+  cell — no brand green, unlike the other three templates.
 - **Field prefixes**: reproduced as literal strings including their
   original padding spaces (e.g. `"Purchased From :"` vs `"Batch No.           :"`)
   exactly as extracted from the reference's runs — this is what reproduces
@@ -129,13 +146,16 @@ DPI for pixel-level line-position and left-margin measurement.
   "Invoice/Ch. No." → prints as "Invoice Ch. No.", "Date of Receipt" →
   prints as "Date Of Receipt") — `RM_FIELD_PREFIX` maps app label to
   reference prefix explicitly.
-- **Line positions**: each field's baseline Y position (`RM_FIELD_Y_MM`) was
-  measured off the rasterized reference and verified numerically (band
-  detection + line-pitch comparison), not just eyeballed.
+- **Line positions**: each field's baseline Y position within a cell
+  (`RM_FIELD_Y_MM`) was measured off the rasterized reference and verified
+  numerically (band detection + line-pitch comparison), not just
+  eyeballed.
 - **"Mfg. Lic. No. : PD/AYU-111"**: the reference renders the label at 13pt
   and the license number at 11pt, on one shared baseline, both runs
-  centered as a unit — jsPDF only centers a single run, so both runs'
-  widths are measured (`getTextWidth`) and centered manually.
+  centered as a unit. jsPDF only centers a single run, so the PDF path
+  measures both runs' widths (`getTextWidth`) and centers them manually;
+  the HTML preview gets the same effect natively via a flex row with
+  `align-items: baseline` + `justify-content: center`.
 - **Deliberate deviation — company name/address text**: the reference's own
   text has an apparent copy/paste artifact — `"Atharva Nature Healthcare
   Pvt,Ltd.Wagholi"` on one line (comma instead of period, no space, address
@@ -143,11 +163,28 @@ DPI for pixel-level line-position and left-margin measurement.
   that glitch, this renderer uses the app's canonical `COMPANY_NAME` /
   `COMPANY_ADDRESS` constants from `lib/pdf.ts` (`"Atharva Nature
   Healthcare Pvt. Ltd."` / `"Wagholi, Pune"`) in the same two-line
-  position/font/size. Flagging this explicitly since "pixel perfect" was
-  the instruction — happy to switch to the literal reference text if Ravi
+  position/font/size. Flagged explicitly for Ravi since "pixel perfect" was
+  the instruction — happy to switch to the literal reference text if he
   prefers it reproduced as-is.
-- **Out of scope, not decided silently**: the on-screen HTML preview and
-  JPEG export in `label-picker.tsx` (both still brand-styled, unchanged) —
-  Ravi's request was about the printed/PDF label specifically ("under label
-  printing... label size, format, font"), so this was left as the existing
-  generic preview rather than assumed to need matching too.
+
+### Implementation notes
+
+`generate-label-pdf.ts` exports the grid/cell layout constants and
+`buildRmLines(fields)` (the ordered per-cell line/run list) so the PDF
+renderer (`downloadApprovedRmLabel` → `drawRmCell`, looped over all 6 grid
+positions) and the on-screen/JPEG renderer (`rm-sheet-preview.tsx`'s
+`RmSheetPreview`) are both driven from the same numbers rather than two
+hand-tuned layouts that could drift apart.
+
+`RmSheetPreview` renders at a fixed native width (794px, ~A4 at 96 CSS
+px/inch) converting every mm measurement to px against that width; on
+screen it's displayed scaled *down* to fit the Preview card via a CSS
+`transform` on a wrapper `div` — not on the previewed node itself, so
+`html2canvas`'s capture (in `label-picker.tsx`, `scale: 3`) reads the
+node's own unscaled layout and the JPEG comes out at full export
+resolution regardless of how small the on-screen card is. CSS can't
+position text by baseline the way jsPDF's `text()` does, so single-run
+lines are positioned with an empirically-chosen offset
+(`BASELINE_OFFSET_FACTOR`) rather than the pixel-verified baselines the
+PDF uses — close enough for a shareable raster copy; the PDF remains the
+source of print-accurate positioning.
