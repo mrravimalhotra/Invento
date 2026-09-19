@@ -283,14 +283,21 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             <Button onClick={handleDownload} disabled={!canDownload} className="self-start">
               Download PDF
             </Button>
-            <Button
-              onClick={handleDownloadJpeg}
-              disabled={!canDownload || downloadingJpeg}
-              variant="secondary"
-              className="self-start"
-            >
-              {downloadingJpeg ? "Preparing…" : "Download JPEG"}
-            </Button>
+            {/* JPEG download removed for Approved Raw Material only (19 Sept
+                2026, Ravi: "Remove jpg download option for now") while the
+                sheet layout is still being dialed in — the other three
+                label types keep it, since the issues so far have all been
+                specific to the RM sheet's rendering path. */}
+            {labelType !== "approved_rm" && (
+              <Button
+                onClick={handleDownloadJpeg}
+                disabled={!canDownload || downloadingJpeg}
+                variant="secondary"
+                className="self-start"
+              >
+                {downloadingJpeg ? "Preparing…" : "Download JPEG"}
+              </Button>
+            )}
           </div>
         </CardBody>
       </Card>

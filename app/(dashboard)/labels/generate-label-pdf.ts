@@ -162,6 +162,17 @@ function fitRmValueRun(doc: jsPDF, prefixWithGap: string, value: string): RmLine
   return { text: truncated + "…", sizePt: RM_MIN_VALUE_SIZE_PT };
 }
 
+// Extra breathing room (19 Sept 2026, Ravi, after the ascender fix above
+// still looked too tight to him visually): shifts the whole content block
+// down by this much, uniformly, so every line keeps its measured spacing
+// relative to the others — only the gap between the top border and the
+// company name line (and correspondingly, the gap below Sign at the
+// bottom, which had plenty of slack to spare) actually changes. Kept as
+// its own named constant, separate from the reference-measured
+// RM_FIELD_Y_MM / header values above, since it's a deliberate design
+// choice layered on top of those, not a measurement.
+const RM_TOP_MARGIN_EXTRA_MM = 2.0;
+
 // Builds the ordered list of lines for one label cell — shared by the PDF
 // renderer below and rm-sheet-preview.tsx's on-screen/JPEG renderer, so
 // both draw from the exact same content and position numbers. `doc` is
@@ -200,7 +211,7 @@ export function buildRmLines(fields: LabelField[], doc: jsPDF): RmLine[] {
     });
   });
 
-  return lines;
+  return lines.map((line) => ({ ...line, yMm: line.yMm + RM_TOP_MARGIN_EXTRA_MM }));
 }
 
 function drawRmCell(doc: jsPDF, lines: RmLine[], originX: number, originY: number) {

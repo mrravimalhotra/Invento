@@ -256,3 +256,27 @@ were updated to these corrected baselines; verified by rasterizing the
 corrected output at 600 DPI and confirming a clear gap above the
 company-name line (and no new bottom-of-cell overflow either) on both the
 PDF and the shared HTML/JPEG rendering path.
+
+### Extra top margin + JPEG temporarily disabled (19 Sept 2026)
+
+Even after the fix above, Ravi felt the gap above the company name still
+looked too tight and asked to "bring text little down by adding some
+space between top border and header." `RM_TOP_MARGIN_EXTRA_MM` (2.0mm) in
+`generate-label-pdf.ts` now shifts the whole content block down by this
+much uniformly (applied once, at the end of `buildRmLines()`, to every
+line) rather than only the first line — every line keeps its
+reference-measured spacing relative to the others; only the margin above
+the first line (and, incidentally, below Sign at the bottom, which had
+plenty of slack to spare) actually grows. Kept as its own named constant
+rather than folded into the measured `RM_FIELD_Y_MM`/header values, since
+it's a deliberate design choice on top of those, not a measurement — easy
+to tune again if Ravi wants more or less.
+
+Ravi separately asked to remove the JPEG download for this label type "for
+now," while the sheet layout is still being dialed in — the font-loading
+race and the ascender-clipping bug were both specific to the JPEG/preview
+rendering path. `label-picker.tsx` now hides the "Download JPEG" button
+when `labelType === "approved_rm"` (`Download PDF` and the on-screen
+preview are unaffected); the other three label types keep JPEG export
+unchanged. The underlying `RmSheetPreview/loadRmCarlitoFont` machinery is
+untouched, so re-enabling it later is just restoring that one button.
