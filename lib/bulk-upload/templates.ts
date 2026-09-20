@@ -269,18 +269,19 @@ async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workb
   const workbook = new ExcelJS.Workbook();
   const [{ data: itemTypes }, { data: rawItems }] = await Promise.all([
     supabase.from("item_types").select("description").eq("active", true).order("description"),
-    supabase
-      .from("items")
-      .select("item_code, name")
-      .eq("category", "raw")
-      .eq("active", true)
-      .order("item_code")
-      .limit(2000),
+    supabase.from("items").select("name").eq("category", "raw").eq("active", true).order("name").limit(2000),
   ]);
+  const itemTypeNames = (itemTypes ?? []).map((t) => t.description);
+  const rawItemNames = (rawItems ?? []).map((i) => i.name);
 
   addInstructionsSheet(workbook, "MFR", MFR_COLUMNS_WITH_EXAMPLE.columns, [
-    "Each row is one recipe line. To create an MFR with more than one ingredient, add one row per ingredient and repeat the exact same MFR Name (and the same Batch Size Qty / Batch Size Unit / Item Type) on every one of those rows — the upload groups rows into one MFR by matching MFR Name text exactly.",
+    "Each row is either one recipe line or one Manufacturing Process step for the same MFR — never both. Fill Line Item Name / Line Quantity / Line Unit for a recipe line, or Stage / Operation for a process step, and leave the other group blank on that row.",
+    "To create an MFR with more than one ingredient and/or more than one process step, add one row per ingredient or step and repeat the exact same MFR Name on every one of those rows — the upload groups rows into one MFR by matching MFR Name text exactly.",
+    "Batch Size Qty / Batch Size Unit / Item Type are header-level and required on every row for one MFR — repeat the exact same value on all of them. Procedure Intro / Theoretical Yield % / Permissible Yield % are also header-level but optional: fill each one on any single row for that MFR (commonly the first) and leave it blank on the rest — a DIFFERENT non-blank value on another row for the same MFR is treated as a mistake and rejected.",
+    "The Manufacturing Process fields (Procedure Intro, Theoretical Yield %, Permissible Yield %, Stage, Operation) are all optional — leave every one of them blank if you just want the recipe, exactly like today. Process steps are numbered automatically in the order their rows appear in the file.",
     "Only active Raw Material items can be recipe lines (matching what the MFR screen itself offers) — Packaging and Finished Product items cannot.",
+    "Batch Size Unit, Item Type, Line Item Name, and Line Unit all have a dropdown in this template (click the cell, then the small arrow) sourced from what's currently active — but you can still type a value that isn't in the list if you need to; it's checked for real when you upload.",
+    "Line Item Name must uniquely identify one active Raw Material item — if two active Raw Material items share the exact same name, the upload will reject that row and ask you to use a more specific name (or fix the duplicate in Item Master first).",
     "This also creates the MFR's Finished Product item and its paired Packaged Finished Product item automatically, the same way creating an MFR by hand does.",
   ]);
 
@@ -288,20 +289,20 @@ async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workb
   addHeaderRow(sheet, MFR_COLUMNS_WITH_EXAMPLE.columns);
   MFR_COLUMNS_WITH_EXAMPLE.example.forEach((row) => sheet.addRow(exampleRowValues(MFR_COLUMNS_WITH_EXAMPLE.columns, row)));
 
+  // Column positions match MFR_COLUMNS' order 1:1 (1-indexed): 3 Batch
+  // Size Unit, 4 Item Type, 8 Line Item Name, 10 Line Unit.
+  const dataEndRow = 1 + MAX_UPLOAD_ROWS;
+  const unitFormula = [`"${UNITS.join(",")}"`];
+
   const refSheet = workbook.addWorksheet("Reference");
-  addReferenceSheet(refSheet, "Valid Unit values", [...UNITS]);
-  refSheet.addRow([]);
-  addReferenceSheet(
-    refSheet,
-    "Existing Item Types (must match exactly if used)",
-    (itemTypes ?? []).map((t) => t.description)
-  );
-  refSheet.addRow([]);
-  addReferenceSheet(
-    refSheet,
-    "Active Raw Material item codes (for Line Item Code)",
-    (rawItems ?? []).map((i) => `${i.item_code} — ${i.name}`)
-  );
+  addReferenceColumn(refSheet, 1, "Valid Unit values", [...UNITS]);
+  const itemTypeLastRow = addReferenceColumn(refSheet, 2, "Existing Item Types", itemTypeNames);
+  const rawItemLastRow = addReferenceColumn(refSheet, 3, "Active Raw Material Item Names", rawItemNames);
+
+  applyDropdownColumn(sheet, 3, 2, dataEndRow, unitFormula);
+  applyDropdownColumn(sheet, 4, 2, dataEndRow, [`Reference!$B$2:$B$${itemTypeLastRow}`]);
+  applyDropdownColumn(sheet, 8, 2, dataEndRow, [`Reference!$C$2:$C$${rawItemLastRow}`]);
+  applyDropdownColumn(sheet, 10, 2, dataEndRow, unitFormula);
 
   return workbook;
 }
@@ -322,8 +323,12 @@ const ITEM_TYPE_COLUMNS_WITH_EXAMPLE = {
 const MFR_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS.mfr,
   example: [
-    ["A. Jatamansi Tail", "100", "ltr", "", "RM-00002", "20", "kg"],
-    ["A. Jatamansi Tail", "100", "ltr", "", "RM-00005", "5", "ltr"],
+    // Recipe lines — Line Item Name/Quantity/Unit filled, Stage/Operation blank.
+    ["A. Jatamansi Tail", "100", "ltr", "", "Weigh/measure all raw materials at production level (Batch size 100 ltr)", "100", "98", "Til Taila", "80", "ltr", "", ""],
+    ["A. Jatamansi Tail", "100", "ltr", "", "", "", "", "Jatamansi", "20", "kg", "", ""],
+    // Manufacturing Process steps — Stage/Operation filled, recipe fields blank.
+    ["A. Jatamansi Tail", "100", "ltr", "", "", "", "", "", "", "", "Cleaning", "Clean and sieve Jatamansi to remove foreign matter"],
+    ["A. Jatamansi Tail", "100", "ltr", "", "", "", "", "", "", "", "Preparation of Kwath", "Boil Til Taila with Jatamansi as per SOP until moisture content is nil"],
   ],
 };
 const PURCHASE_COLUMNS_WITH_EXAMPLE = {

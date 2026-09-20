@@ -438,12 +438,23 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
 // MFR
 // ------------------------------------------------------------------
 type MfrLinePayload = { item_id: string; quantity: number; unit: Unit };
+type MfrProcedureStepPayload = { stage: string; operation: string };
 type MfrDefPayload = {
   name: string;
   batch_size_qty: number;
   batch_size_unit: Unit;
   item_type_id: string | null;
   lines: MfrLinePayload[];
+  // Manufacturing Process (0048_mfr_procedure.sql) — all optional, added
+  // 20 Sept 2026 (Ravi: "Also include template to upload 'Manufacturing
+  // Process' along with recipe"). Left null/empty exactly like a
+  // manually-created MFR that's never had its procedure filled in when
+  // the file carries no procedure data for that MFR — see
+  // bulk_create_mfr_definitions() in 0054_bulk_upload_mfr_procedure.sql.
+  procedure_intro: string | null;
+  theoretical_yield_pct: number | null;
+  permissible_yield_pct: number | null;
+  procedure_steps: MfrProcedureStepPayload[];
 };
 
 export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
@@ -457,11 +468,22 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   const supabase = await createClient();
   const [{ data: itemTypes }, { data: rawItems }, { data: existingMfrRows }] = await Promise.all([
     supabase.from("item_types").select("id, description").eq("active", true),
-    supabase.from("items").select("id, item_code").eq("category", "raw").eq("active", true),
+    supabase.from("items").select("id, item_code, name").eq("category", "raw").eq("active", true),
     supabase.from("mfr_definitions").select("name"),
   ]);
   const itemTypeByName = new Map((itemTypes ?? []).map((t) => [t.description.trim().toLowerCase(), t.id]));
-  const rawItemByCode = new Map((rawItems ?? []).map((it) => [it.item_code.trim().toLowerCase(), it.id]));
+  // Keyed by name (not code), 20 Sept 2026 — Ravi: "Replace Line Item Code
+  // by Line Item Name," same "similar changes" pattern as Purchase (see
+  // that function's own comment above). Several active raw items can
+  // share a name, so each key maps to an array; a row is only usable once
+  // it resolves to exactly one match.
+  const rawItemByName = new Map<string, { id: string; item_code: string }[]>();
+  (rawItems ?? []).forEach((it) => {
+    const key = it.name.trim().toLowerCase();
+    const arr = rawItemByName.get(key) ?? [];
+    arr.push({ id: it.id, item_code: it.item_code });
+    rawItemByName.set(key, arr);
+  });
   // mfr_definitions.name has no DB-level unique constraint — same reasoning
   // as Item/Vendor's name dedup. Checked only when a NEW group is opened
   // below (i.e. against the DB, not within-file — repeating the same MFR
@@ -473,9 +495,9 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
 
   const rowErrors: string[] = [];
   // Groups keyed by exact (trimmed) MFR Name text — repeating the same
-  // name across rows is how one MFR's multiple recipe lines are
-  // expressed in a flat spreadsheet (see the template's Instructions
-  // sheet).
+  // name across rows is how one MFR's multiple recipe lines AND/OR
+  // Manufacturing Process steps are expressed in a flat spreadsheet (see
+  // the template's Instructions sheet).
   const groups = new Map<string, { firstRow: number; def: MfrDefPayload }>();
 
   rows.forEach((row, i) => {
@@ -484,9 +506,14 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
     const batchQtyRaw = cell(row, headers, MFR_COLUMNS[1]);
     const batchUnitRaw = cell(row, headers, MFR_COLUMNS[2]);
     const itemTypeRaw = cell(row, headers, MFR_COLUMNS[3]);
-    const lineCodeRaw = cell(row, headers, MFR_COLUMNS[4]);
-    const lineQtyRaw = cell(row, headers, MFR_COLUMNS[5]);
-    const lineUnitRaw = cell(row, headers, MFR_COLUMNS[6]);
+    const procedureIntroRaw = cell(row, headers, MFR_COLUMNS[4]);
+    const theoreticalYieldRaw = cell(row, headers, MFR_COLUMNS[5]);
+    const permissibleYieldRaw = cell(row, headers, MFR_COLUMNS[6]);
+    const lineNameRaw = cell(row, headers, MFR_COLUMNS[7]);
+    const lineQtyRaw = cell(row, headers, MFR_COLUMNS[8]);
+    const lineUnitRaw = cell(row, headers, MFR_COLUMNS[9]);
+    const stageRaw = cell(row, headers, MFR_COLUMNS[10]);
+    const operationRaw = cell(row, headers, MFR_COLUMNS[11]);
 
     if (!name) {
       rowErrors.push(`Row ${r}: MFR Name is required.`);
@@ -514,20 +541,78 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
       item_type_id = match;
     }
 
-    const rawItemId = rawItemByCode.get(lineCodeRaw.trim().toLowerCase());
-    if (!lineCodeRaw || !rawItemId) {
-      rowErrors.push(`Row ${r} ("${name}"): Line Item Code "${lineCodeRaw}" doesn't match an existing active Raw Material item code.`);
+    // Manufacturing Process header fields — all optional. Unlike Batch
+    // Size Qty/Unit/Item Type (required, so every row provides one),
+    // these are only expected to be filled on ONE row for the MFR
+    // (typically the first) — see below for how a blank on a later row
+    // is handled (no-op, not a mismatch).
+    let theoretical_yield_pct: number | null = null;
+    if (theoreticalYieldRaw) {
+      const n = Number(theoreticalYieldRaw);
+      if (!Number.isFinite(n) || n <= 0) {
+        rowErrors.push(`Row ${r} ("${name}"): Theoretical Yield % must be a number greater than 0.`);
+        return;
+      }
+      theoretical_yield_pct = n;
+    }
+    let permissible_yield_pct: number | null = null;
+    if (permissibleYieldRaw) {
+      const n = Number(permissibleYieldRaw);
+      if (!Number.isFinite(n) || n <= 0) {
+        rowErrors.push(`Row ${r} ("${name}"): Permissible Yield % must be a number greater than 0.`);
+        return;
+      }
+      permissible_yield_pct = n;
+    }
+    const procedure_intro = procedureIntroRaw.trim() || null;
+
+    // Every row is either a recipe line, a Manufacturing Process step, or
+    // (having none of either group filled) an error — never both at once.
+    const hasRecipeFields = !!(lineNameRaw || lineQtyRaw || lineUnitRaw);
+    const hasStepFields = !!(stageRaw || operationRaw);
+    if (hasRecipeFields && hasStepFields) {
+      rowErrors.push(
+        `Row ${r} ("${name}"): a row can't be both a recipe line and a Manufacturing Process step — leave Line Item Name/Line Quantity/Line Unit blank for a process-step row, or leave Stage/Operation blank for a recipe-line row.`
+      );
       return;
     }
-    const lineQty = Number(lineQtyRaw);
-    if (!lineQtyRaw || Number.isNaN(lineQty) || lineQty <= 0) {
-      rowErrors.push(`Row ${r} ("${name}"): Line Quantity must be a number greater than 0.`);
+    if (!hasRecipeFields && !hasStepFields) {
+      rowErrors.push(`Row ${r} ("${name}"): fill either Line Item Name/Line Quantity/Line Unit (a recipe line) or Stage/Operation (a process step).`);
       return;
     }
-    const lineUnit = matchUnit(lineUnitRaw);
-    if (!lineUnit) {
-      rowErrors.push(`Row ${r} ("${name}"): Line Unit "${lineUnitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
-      return;
+
+    let newLine: MfrLinePayload | null = null;
+    let newStep: MfrProcedureStepPayload | null = null;
+
+    if (hasRecipeFields) {
+      const lineMatches = rawItemByName.get(lineNameRaw.trim().toLowerCase()) ?? [];
+      if (!lineNameRaw || lineMatches.length === 0) {
+        rowErrors.push(`Row ${r} ("${name}"): Line Item Name "${lineNameRaw}" doesn't match an existing active Raw Material item.`);
+        return;
+      }
+      if (lineMatches.length > 1) {
+        rowErrors.push(
+          `Row ${r} ("${name}"): Line Item Name "${lineNameRaw}" matches ${lineMatches.length} active Raw Material items (${lineMatches.map((it) => it.item_code).join(", ")}) — use a more specific/unique name, or fix the duplicate in Item Master first.`
+        );
+        return;
+      }
+      const lineQty = Number(lineQtyRaw);
+      if (!lineQtyRaw || Number.isNaN(lineQty) || lineQty <= 0) {
+        rowErrors.push(`Row ${r} ("${name}"): Line Quantity must be a number greater than 0.`);
+        return;
+      }
+      const lineUnit = matchUnit(lineUnitRaw);
+      if (!lineUnit) {
+        rowErrors.push(`Row ${r} ("${name}"): Line Unit "${lineUnitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
+        return;
+      }
+      newLine = { item_id: lineMatches[0].id, quantity: lineQty, unit: lineUnit };
+    } else {
+      if (!stageRaw || !operationRaw) {
+        rowErrors.push(`Row ${r} ("${name}"): a Manufacturing Process step needs both Stage and Operation.`);
+        return;
+      }
+      newStep = { stage: stageRaw, operation: operationRaw };
     }
 
     const key = name.trim();
@@ -539,33 +624,76 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
       }
       groups.set(key, {
         firstRow: r,
-        def: { name: key, batch_size_qty: batchQty, batch_size_unit: batchUnit, item_type_id, lines: [{ item_id: rawItemId, quantity: lineQty, unit: lineUnit }] },
+        def: {
+          name: key,
+          batch_size_qty: batchQty,
+          batch_size_unit: batchUnit,
+          item_type_id,
+          lines: newLine ? [newLine] : [],
+          procedure_intro,
+          theoretical_yield_pct,
+          permissible_yield_pct,
+          procedure_steps: newStep ? [newStep] : [],
+        },
       });
       return;
     }
 
-    // Every row for the same MFR Name must repeat the same header fields
-    // (batch size, unit, item type) — catches a typo/copy-paste slip
-    // before it silently changes the header based on whichever row
-    // happened to be inserted, since only the first row's values are
-    // actually used.
+    // Every row for the same MFR Name must repeat the same required
+    // header fields (batch size, unit, item type) — catches a typo/
+    // copy-paste slip before it silently changes the header based on
+    // whichever row happened to be inserted first.
     if (existing.def.batch_size_qty !== batchQty || existing.def.batch_size_unit !== batchUnit || existing.def.item_type_id !== item_type_id) {
       rowErrors.push(
         `Row ${r} ("${name}"): Batch Size Qty / Batch Size Unit / Item Type must match row ${existing.firstRow} — every line for the same MFR Name must repeat the same header values.`
       );
       return;
     }
-    // Same Raw Material item added twice as two separate lines under one
-    // MFR is almost always a copy-paste slip, not an intentional recipe —
-    // rejected so a duplicated ingredient doesn't silently double-count
-    // when the batch is actually produced. Combine into one line instead.
-    if (existing.def.lines.some((l) => l.item_id === rawItemId)) {
-      rowErrors.push(
-        `Row ${r} ("${name}"): Line Item Code "${lineCodeRaw}" is already a recipe line for this MFR (see an earlier row) — combine into one line instead of repeating it.`
-      );
+    // The optional Manufacturing Process header fields are handled
+    // differently: a blank on this row is a no-op (not every row needs to
+    // repeat them), but a DIFFERENT non-blank value than what an earlier
+    // row already set is a real conflict — same "catch a typo before it
+    // silently picks one value" reasoning, just tolerant of "only filled
+    // once."
+    if (procedure_intro !== null && existing.def.procedure_intro !== null && procedure_intro !== existing.def.procedure_intro) {
+      rowErrors.push(`Row ${r} ("${name}"): Procedure Intro differs from row ${existing.firstRow} — fill it once per MFR, not with two different values.`);
       return;
     }
-    existing.def.lines.push({ item_id: rawItemId, quantity: lineQty, unit: lineUnit });
+    if (procedure_intro !== null && existing.def.procedure_intro === null) existing.def.procedure_intro = procedure_intro;
+    if (
+      theoretical_yield_pct !== null &&
+      existing.def.theoretical_yield_pct !== null &&
+      theoretical_yield_pct !== existing.def.theoretical_yield_pct
+    ) {
+      rowErrors.push(`Row ${r} ("${name}"): Theoretical Yield % differs from row ${existing.firstRow} — fill it once per MFR, not with two different values.`);
+      return;
+    }
+    if (theoretical_yield_pct !== null && existing.def.theoretical_yield_pct === null) existing.def.theoretical_yield_pct = theoretical_yield_pct;
+    if (
+      permissible_yield_pct !== null &&
+      existing.def.permissible_yield_pct !== null &&
+      permissible_yield_pct !== existing.def.permissible_yield_pct
+    ) {
+      rowErrors.push(`Row ${r} ("${name}"): Permissible Yield % differs from row ${existing.firstRow} — fill it once per MFR, not with two different values.`);
+      return;
+    }
+    if (permissible_yield_pct !== null && existing.def.permissible_yield_pct === null) existing.def.permissible_yield_pct = permissible_yield_pct;
+
+    if (newLine) {
+      // Same Raw Material item added twice as two separate lines under one
+      // MFR is almost always a copy-paste slip, not an intentional recipe —
+      // rejected so a duplicated ingredient doesn't silently double-count
+      // when the batch is actually produced. Combine into one line instead.
+      if (existing.def.lines.some((l) => l.item_id === newLine!.item_id)) {
+        rowErrors.push(
+          `Row ${r} ("${name}"): Line Item Name "${lineNameRaw}" is already a recipe line for this MFR (see an earlier row) — combine into one line instead of repeating it.`
+        );
+        return;
+      }
+      existing.def.lines.push(newLine);
+    } else if (newStep) {
+      existing.def.procedure_steps.push(newStep);
+    }
   });
 
   if (rowErrors.length > 0) {
@@ -574,6 +702,10 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
 
   const payload = Array.from(groups.values()).map((g) => g.def);
   if (payload.length === 0) return { error: "No MFR rows found in that file." };
+  const noRecipeGroup = Array.from(groups.entries()).find(([, g]) => g.def.lines.length === 0);
+  if (noRecipeGroup) {
+    return { error: `"${noRecipeGroup[0]}" has no recipe lines — every MFR needs at least one (Manufacturing Process steps alone aren't enough).` };
+  }
 
   const { data, error } = await supabase.rpc("bulk_create_mfr_definitions", { p_payload: payload });
   if (error) return { error: error.message };

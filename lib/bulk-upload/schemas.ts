@@ -94,14 +94,31 @@ export const VENDOR_COLUMNS: ColumnDef[] = [
 
 export const ITEM_TYPE_COLUMNS: ColumnDef[] = [{ header: "Description", required: true }];
 
+// Line Item Name (not Line Item Code), and dropdowns on Batch Size Unit /
+// Item Type / Line Unit — same "similar changes" pattern as Purchase's
+// Vendor Name / Item Name (20 Sept 2026, Ravi). Also extended to add the
+// Manufacturing Process (a.k.a. Manufacturing Procedure — see
+// 0048_mfr_procedure.sql) alongside the recipe, requested in the same
+// message: "Also include template to upload 'Manufacturing Process'
+// along with recipe." One row is still either one recipe line OR one
+// procedure step — never both — distinguished by which of Line Item
+// Name/Line Quantity/Line Unit vs. Stage/Operation are filled; the three
+// procedure-level fields (Procedure Intro, Theoretical/Permissible Yield
+// %) are header-level, like MFR Name/Batch Size/Item Type, and repeat
+// (or stay blank) identically on every row for one MFR.
 export const MFR_COLUMNS: ColumnDef[] = [
   { header: "MFR Name", required: true, hint: "repeat the exact same text on every line row belonging to this MFR" },
   { header: "Batch Size Qty", required: true, hint: "same value on every line row for one MFR", numeric: true },
-  { header: "Batch Size Unit", required: true, hint: "same value on every line row for one MFR — see the Reference sheet" },
-  { header: "Item Type", required: false, hint: "applies to the Finished Product item this MFR creates — same value on every line row for one MFR; must match an existing Item Type Master description" },
-  { header: "Line Item Code", required: true, hint: "an existing, active Raw Material item code — see the Reference sheet" },
-  { header: "Line Quantity", required: true, hint: "a number greater than 0", numeric: true },
-  { header: "Line Unit", required: true, hint: "kg, g, mg, ltr, ml, count, bottle, or pack" },
+  { header: "Batch Size Unit", required: true, hint: "same value on every line row for one MFR — pick from the dropdown" },
+  { header: "Item Type", required: false, hint: "applies to the Finished Product item this MFR creates — same value on every line row for one MFR; pick from the dropdown, or type a new/different one" },
+  { header: "Procedure Intro", required: false, hint: "optional — the standard opening line (e.g. \"Weigh/measure all raw materials at production level\"); fill it on any one row for this MFR and leave it blank on the rest" },
+  { header: "Theoretical Yield %", required: false, hint: "optional — fill it on any one row for this MFR and leave it blank on the rest", numeric: true },
+  { header: "Permissible Yield %", required: false, hint: "optional — the NLT (not less than) minimum; fill it on any one row for this MFR and leave it blank on the rest", numeric: true },
+  { header: "Line Item Name", required: false, hint: "an existing, active Raw Material item name — pick from the dropdown, or type a new/different one; leave blank (with Line Quantity/Line Unit) for a pure procedure-step row" },
+  { header: "Line Quantity", required: false, hint: "a number greater than 0 — required together with Line Item Name/Line Unit for a recipe line", numeric: true },
+  { header: "Line Unit", required: false, hint: "required together with Line Item Name/Line Quantity for a recipe line — pick from the dropdown" },
+  { header: "Stage", required: false, hint: "fill together with Operation for a procedure step row; leave blank for a pure recipe-line row" },
+  { header: "Operation", required: false, hint: "fill together with Stage for a procedure step row; leave blank for a pure recipe-line row" },
 ];
 
 // Purchase order codes and batch numbers are ALWAYS auto-generated on
