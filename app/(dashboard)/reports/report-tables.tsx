@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Field, Select } from "@/components/ui/form";
 import { formatDate, formatNumber } from "@/lib/utils";
+import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 import { ReportSection, type ReportColumn } from "./report-section";
 
 // ---------- RM Stock report ----------
@@ -83,7 +84,7 @@ export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
       cell: (r) => r.purchase_line?.batch_number ?? r.fp_batch?.batch_number ?? "—",
       pdfValue: (r) => r.purchase_line?.batch_number ?? r.fp_batch?.batch_number ?? "—",
     },
-    { header: "Status", cell: (r) => <Badge status={r.status}>{r.status.replace("_", " ")}</Badge>, pdfValue: (r) => r.status },
+    { header: "Status", cell: (r) => <Badge status={r.status}>{qcRecordStatusLabel(r.status)}</Badge>, pdfValue: (r) => qcRecordStatusLabel(r.status) },
     { header: "Reviewed At", cell: (r) => formatDate(r.reviewed_at), pdfValue: (r) => formatDate(r.reviewed_at) },
     { header: "Retest Date", cell: (r) => formatDate(r.retest_date), pdfValue: (r) => formatDate(r.retest_date) },
   ];

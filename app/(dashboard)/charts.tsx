@@ -11,6 +11,10 @@ const BRAND = "#1f6f4e";
 const AMBER = "#b45309";
 const RED = "#b91c1c";
 const MUTED = "#94a3a0";
+// Two-round QC review (20 Sept 2026) — distinct color for the new
+// "checker_approved / Awaiting Review" slice, so it reads apart from the
+// pre-existing amber "Submitted" slice on the same pie.
+const BLUE = "#2563eb";
 
 function byDay<T>(rows: T[], dateKey: keyof T, valueFn: (r: T) => number) {
   const map = new Map<string, number>();
@@ -27,7 +31,7 @@ export function DashboardCharts({
   purchase30,
   fp30,
 }: {
-  qcCounts: { submitted: number; approved: number; rejected: number };
+  qcCounts: { submitted: number; checker_approved: number; approved: number; rejected: number };
   ledger30: { event_type: string; event_at: string; quantity: number }[];
   purchase30: { created_at: string; quantity: number; unit_price: number | null }[];
   fp30: { created_at: string }[];
@@ -54,6 +58,7 @@ export function DashboardCharts({
 
   const qcPie = [
     { name: "Submitted", value: qcCounts.submitted, color: AMBER },
+    { name: "Awaiting Review", value: qcCounts.checker_approved, color: BLUE },
     { name: "Approved", value: qcCounts.approved, color: BRAND },
     { name: "Rejected", value: qcCounts.rejected, color: RED },
   ];

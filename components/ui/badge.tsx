@@ -5,6 +5,10 @@ const STATUS_STYLES: Record<string, string> = {
   clear: "bg-brand-light text-brand-dark",
   submitted: "bg-amber-bg text-amber",
   submitted_to_qc: "bg-amber-bg text-amber",
+  // Two-round QC review (20 Sept 2026) — Round 1 (QC Checker) approved,
+  // waiting on Round 2 (QC Reviewer). Same amber as the other "needs a
+  // next action" statuses (submitted, complete_awaiting_qc, draft).
+  checker_approved: "bg-amber-bg text-amber",
   pending: "bg-amber-bg text-amber",
   not_submitted: "bg-black/5 text-muted",
   in_process: "bg-black/5 text-muted",

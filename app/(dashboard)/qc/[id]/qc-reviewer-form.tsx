@@ -1,13 +1,17 @@
 "use client";
 
+// Round 2 — "QC Reviewer": the final decision. Approve (-> approved, the
+// batch is added to inventory) or reject (-> rejected, terminal). Retest
+// period is mandatory on approve, same rule the old single-step review
+// form had.
 import { useActionState, useState } from "react";
-import { reviewQualityCheck, type ActionState } from "@/lib/actions/qc";
+import { reviewQcRound2, type ActionState } from "@/lib/actions/qc";
 import { Field, Textarea, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function QcReviewForm({ id }: { id: string }) {
-  const boundAction = reviewQualityCheck.bind(null, id);
+export function QcReviewerForm({ id }: { id: string }) {
+  const boundAction = reviewQcRound2.bind(null, id);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
   const [status, setStatus] = useState<"approved" | "rejected" | "">("");
   const [retestPeriodDays, setRetestPeriodDays] = useState("");
@@ -46,7 +50,7 @@ export function QcReviewForm({ id }: { id: string }) {
         </div>
       </Field>
 
-      <Field label="Review comments" htmlFor="review_comments">
+      <Field label="Comments" htmlFor="review_comments">
         <Textarea id="review_comments" name="review_comments" rows={3} />
       </Field>
 
@@ -54,7 +58,7 @@ export function QcReviewForm({ id }: { id: string }) {
         label="Retest period (days)"
         htmlFor="retest_period_days"
         required={status === "approved"}
-        hint="Entered manually per batch — retest interval varies by material and test result, so it is not auto-computed (see DESIGN.md Open Question 1). Retest date is derived from this plus the review date once saved. Required to approve a batch; not required to reject one, since a rejected batch is never retested."
+        hint="Entered manually per batch — retest interval varies by material and test result, so it is not auto-computed (see DESIGN.md Open Question 1). Retest date is derived from this plus today's date once saved. Required to approve a batch; not required to reject one, since a rejected batch is never retested."
       >
         <Input
           id="retest_period_days"
@@ -69,7 +73,8 @@ export function QcReviewForm({ id }: { id: string }) {
       </Field>
 
       <p className="text-xs text-muted">
-        This decision is final — once saved, this record can no longer be edited.
+        This is the final decision — approving adds the batch to inventory; either choice is final and this
+        record can no longer be edited.
       </p>
 
       <div>

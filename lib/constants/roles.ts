@@ -27,7 +27,13 @@ export const MODULE_WRITE_ROLES = {
   vendors: ["system_admin", "inventory_manager"],
   purchase: ["system_admin", "inventory_manager"],
   qc_assign: ["system_admin", "inventory_manager", "quality_checker", "qc_reviewer"],
-  qc_review: ["system_admin", "quality_checker", "qc_reviewer"],
+  // Two-round QC review (20 Sept 2026, replacing the old single-decision
+  // qc_review key, removed since nothing else referenced it): Round 1
+  // ("QC Checker") and Round 2 ("QC Reviewer") each need their OWN role,
+  // not a shared set — see docs/modules/qc.md and
+  // 0054_qc_two_round_review.sql.
+  qc_review_round1: ["system_admin", "quality_checker"],
+  qc_review_round2: ["system_admin", "qc_reviewer"],
   // Mirrors record_wastage()'s own has_any_role check in 0002_transactions.sql —
   // the only write this module owns (everything else in inventory_ledger is
   // written by triggers, not by this module's UI).

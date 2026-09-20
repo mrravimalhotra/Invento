@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 
 export type QcListRow = {
   id: string;
@@ -52,7 +53,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
     },
     {
       header: "Status",
-      accessor: (r) => <Badge status={r.status}>{r.status.replace("_", " ")}</Badge>,
+      accessor: (r) => <Badge status={r.status}>{qcRecordStatusLabel(r.status)}</Badge>,
       searchValue: (r) => r.status,
     },
     {

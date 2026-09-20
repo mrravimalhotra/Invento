@@ -6,7 +6,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { QcReviewForm } from "./qc-review-form";
+import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
+import { QcCheckerForm } from "./qc-checker-form";
+import { QcReviewerForm } from "./qc-reviewer-form";
 
 type QcDetail = {
   id: string;
@@ -15,6 +17,9 @@ type QcDetail = {
   sample_qty: string | number | null;
   sample_unit: string | null;
   expiry_date: string | null;
+  checker_comments: string | null;
+  checker_by: string | null;
+  checker_at: string | null;
   review_comments: string | null;
   retest_period_days: number | null;
   retest_date: string | null;
@@ -36,7 +41,7 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
   const { data } = await supabase
     .from("quality_checks")
     .select(
-      "id, ar_number, status, sample_qty, sample_unit, expiry_date, review_comments, retest_period_days, retest_date, is_retest, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number)"
+      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -44,31 +49,38 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
   if (!data) notFound();
   const record = data as unknown as QcDetail;
   const batchLabel = record.purchase_lines?.batch_number ?? record.finished_product_batches?.batch_number ?? "—";
-  const canReview = canWrite(user.roles, "qc_review");
+  const canRound1 = canWrite(user.roles, "qc_review_round1");
+  const canRound2 = canWrite(user.roles, "qc_review_round2");
 
-  // Maker/checker (17 Sept 2026): resolve both identities' display names —
-  // two separate lookups (not an embedded join) since quality_checks has
-  // two different foreign keys into auth.users/profiles, same pattern
-  // MFR's approved_by -> profiles.full_name lookup already uses. A record
-  // with no created_by on file predates this fix (see
-  // 0049_qc_maker_checker.sql) and just shows "—".
-  const [makerProfile, checkerProfile] = await Promise.all([
+  // Two-round review (20 Sept 2026): three identities to resolve — who
+  // assigned the AR (audit only, no longer enforced as a distinct
+  // "maker"), who made the Round 1 (QC Checker) decision, and who made
+  // the Round 2 (QC Reviewer) decision. Three separate lookups (not an
+  // embedded join) since quality_checks has three different foreign keys
+  // into auth.users/profiles, same pattern MFR's approved_by ->
+  // profiles.full_name lookup already uses.
+  const [assignerProfile, checkerProfile, reviewerProfile] = await Promise.all([
     record.created_by
       ? supabase.from("profiles").select("full_name").eq("id", record.created_by).maybeSingle()
+      : Promise.resolve({ data: null }),
+    record.checker_by
+      ? supabase.from("profiles").select("full_name").eq("id", record.checker_by).maybeSingle()
       : Promise.resolve({ data: null }),
     record.reviewed_by
       ? supabase.from("profiles").select("full_name").eq("id", record.reviewed_by).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
-  const makerName = makerProfile?.data?.full_name ?? "—";
+  const assignerName = assignerProfile?.data?.full_name ?? "—";
   const checkerName = checkerProfile?.data?.full_name ?? "—";
+  const reviewerName = reviewerProfile?.data?.full_name ?? "—";
 
-  // Maker/checker (17 Sept 2026): a System Admin is exempt (matches the DB
-  // trigger and the app-level check in reviewQualityCheck()) — everyone
-  // else who assigned this AR is blocked from also being its reviewer,
-  // with an explanation instead of just hiding the form.
+  // Round 1 -> Round 2 distinctness (20 Sept 2026) — a System Admin is
+  // exempt (matches the DB trigger and the app-level check in
+  // reviewQcRound2()); everyone else who made the Round 1 decision is
+  // blocked from also being its Round 2 reviewer, with an explanation
+  // instead of just hiding the form.
   const isSystemAdmin = user.roles.includes("system_admin");
-  const isSelfReview = record.created_by != null && record.created_by === user.id && !isSystemAdmin;
+  const isSameAsChecker = record.checker_by != null && record.checker_by === user.id && !isSystemAdmin;
 
   return (
     <div>
@@ -78,7 +90,7 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
         action={
           <div className="flex items-center gap-2">
             {record.is_retest && <Badge status="pending">Retest</Badge>}
-            <Badge status={record.status}>{record.status}</Badge>
+            <Badge status={record.status}>{qcRecordStatusLabel(record.status)}</Badge>
           </div>
         }
       />
@@ -94,45 +106,83 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
               value={record.sample_qty !== null ? `${formatNumber(record.sample_qty)} ${record.sample_unit ?? ""}` : "—"}
             />
             <Field label="Expiry date" value={formatDate(record.expiry_date)} />
-            <Field label="Assigned by (maker)" value={makerName} />
+            <Field label="Assigned by" value={assignerName} />
           </CardBody>
         </Card>
 
-        {record.status === "submitted" && canReview && isSelfReview && (
+        {/* Round 1 — QC Checker */}
+        {record.status === "submitted" && canRound1 && (
+          <Card>
+            <CardHeader title="Round 1 decision — QC Checker" />
+            <CardBody>
+              <QcCheckerForm id={record.id} />
+            </CardBody>
+          </Card>
+        )}
+
+        {record.status === "submitted" && !canRound1 && (
+          <Card>
+            <CardBody>
+              <p className="text-sm text-muted">Awaiting Round 1 review — you don&apos;t have the QC Checker role.</p>
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Once Round 1 has happened (checker_approved, approved or rejected), show its decision read-only. */}
+        {record.status !== "submitted" && (
+          <Card>
+            <CardHeader title="Round 1 decision — QC Checker" />
+            <CardBody className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <Field
+                label="Decision"
+                value={<Badge status={record.status === "checker_approved" ? "checker_approved" : record.status}>{record.status === "rejected" ? "Rejected" : "Approved"}</Badge>}
+              />
+              <Field label="Decided by" value={checkerName} />
+              <Field label="Decided at" value={formatDate(record.checker_at)} />
+              <div className="col-span-2">
+                <p className="text-xs font-medium text-muted uppercase tracking-wide">Comments</p>
+                <p className="mt-1 whitespace-pre-wrap">{record.checker_comments || "—"}</p>
+              </div>
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Round 2 — QC Reviewer, only reachable once Round 1 has approved. */}
+        {record.status === "checker_approved" && canRound2 && !isSameAsChecker && (
+          <Card>
+            <CardHeader title="Round 2 decision — QC Reviewer" />
+            <CardBody>
+              <QcReviewerForm id={record.id} />
+            </CardBody>
+          </Card>
+        )}
+
+        {record.status === "checker_approved" && canRound2 && isSameAsChecker && (
           <Card>
             <CardBody>
               <p className="text-sm text-muted">
-                You assigned this AR — a different Quality Checker/Reviewer must review it (maker/checker
-                segregation of duties).
+                You made the Round 1 decision — a different QC Reviewer must make the final decision.
               </p>
             </CardBody>
           </Card>
         )}
 
-        {record.status === "submitted" && canReview && !isSelfReview && (
+        {record.status === "checker_approved" && !canRound2 && (
           <Card>
-            <CardHeader title="Review decision" />
             <CardBody>
-              <QcReviewForm id={record.id} />
+              <p className="text-sm text-muted">Awaiting final review — you don&apos;t have the QC Reviewer role.</p>
             </CardBody>
           </Card>
         )}
 
-        {record.status === "submitted" && !canReview && (
+        {/* Once Round 2 has happened, show its decision read-only. */}
+        {(record.status === "approved" || record.status === "rejected") && (
           <Card>
-            <CardBody>
-              <p className="text-sm text-muted">Awaiting review — you don&apos;t have the QC Reviewer role.</p>
-            </CardBody>
-          </Card>
-        )}
-
-        {record.status !== "submitted" && (
-          <Card>
-            <CardHeader title="Review decision" />
+            <CardHeader title="Round 2 decision — QC Reviewer" />
             <CardBody className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <Field label="Decision" value={<Badge status={record.status}>{record.status}</Badge>} />
-              <Field label="Reviewed by (checker)" value={checkerName} />
-              <Field label="Reviewed at" value={formatDate(record.reviewed_at)} />
+              <Field label="Decided by" value={reviewerName} />
+              <Field label="Decided at" value={formatDate(record.reviewed_at)} />
               <Field label="Retest period (days)" value={record.retest_period_days ?? "—"} />
               <Field label="Retest date" value={formatDate(record.retest_date)} />
               <div className="col-span-2">

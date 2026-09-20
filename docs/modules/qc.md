@@ -61,13 +61,22 @@ layer.
 - Guards against double-submission: re-checks `purchase_batch_status` at
   submit time and rejects if the batch is no longer `not_submitted`.
 
-### Review ("checker" step) — `/qc/[id]`
-- Role: `qc_review` (`system_admin`, `quality_checker`, `qc_reviewer`).
+### Review — `/qc/[id]` (two-round, see "Two-round QC review" below)
+- Round 1 role: `qc_review_round1` (`system_admin`, `quality_checker`).
+  Round 2 role: `qc_review_round2` (`system_admin`, `qc_reviewer`).
 - Shows the assign record read-only (AR number, item, batch, sample qty,
   expiry) always.
-- While `status = 'submitted'`: shows the review form — Approved/Rejected
-  toggle buttons, review comments (textarea), and **Retest Period (days)**,
-  a plain numeric input.
+- While `status = 'submitted'`: shows the Round 1 (QC Checker) form —
+  Approved/Rejected toggle buttons and comments (textarea). No retest
+  period here — see below.
+- On Round 1 approve, `status` moves to `checker_approved` ("Approved -
+  Awaiting Review" — `qcRecordStatusLabel()`, `lib/batch-qc-status.ts`) and
+  the Round 1 decision (who, when, comments) renders read-only above the
+  Round 2 form. Round 1's decision is shown read-only for every later
+  state (`checker_approved`, `approved`, `rejected`) — it's never re-hidden.
+- While `status = 'checker_approved'`: shows the Round 2 (QC Reviewer) form
+  — Approved/Rejected toggle buttons, review comments (textarea), and
+  **Retest Period (days)**, a plain numeric input, required on approve.
   - This field is *deliberately* manual, not auto-computed from a fixed
     interval — DESIGN.md's Open Question 1: retest interval genuinely
     varies by material and by what the test found, and the physical
@@ -78,28 +87,35 @@ layer.
     directly; it appears automatically once the record is saved and
     re-rendered.
 - Once `status` is `approved` or `rejected`, the record is final: the page
-  renders read-only (decision, reviewed-at, retest period + date, comments)
-  and the review form is gone — there is no re-edit path, matching the
-  existing baseline behavior, kept as-is per the module brief.
-- The Server Action re-checks the row is still `'submitted'` before writing,
-  so this is enforced server-side too, not just by hiding the form.
+  renders both rounds' decisions read-only (Round 1: decided by/at,
+  comments; Round 2: decision, decided by/at, retest period + date,
+  comments) and neither form is shown — there is no re-edit path at either
+  round, matching the existing baseline behavior, kept as-is per the
+  module brief.
+- Both Server Actions (`reviewQcRound1`, `reviewQcRound2`) re-check the
+  row is still in the expected state (`submitted` / `checker_approved`)
+  before writing, so this is enforced server-side too, not just by hiding
+  the form — and the DB trigger (`trg_fn_qc_enforce_review_stages`,
+  `0054_qc_two_round_review.sql`) is the real backstop underneath both.
 
 ## Role note (flag for reconciliation)
 
 The module brief asked me to check whether `qc_assign` exists as a key in
 `lib/constants/roles.ts` → `MODULE_WRITE_ROLES`, since it wasn't expected to
-be there. **It already exists**, and so does `qc_review`:
+be there. **It already exists**:
 
 ```
 qc_assign: ["system_admin", "inventory_manager", "quality_checker", "qc_reviewer"],
-qc_review: ["system_admin", "quality_checker", "qc_reviewer"],
 ```
 
-Both match the role sets specified in this module's brief exactly, so no
-inline-array workaround was needed — both screens call `canWrite(user.roles,
-"qc_assign" | "qc_review")` directly. Only noting this so whoever
-reconciles the roles file knows the keys were already present (added by
-another agent before this module was built) and don't need to be re-added.
+Matches the role set specified in this module's brief exactly, so no
+inline-array workaround was needed. Only noting this so whoever reconciles
+the roles file knows the key was already present (added by another agent
+before this module was built) and doesn't need to be re-added.
+
+The single shared `qc_review` key this section originally documented was
+retired 20 Sept 2026 — see "Two-round QC review" below for its two
+replacements, `qc_review_round1` and `qc_review_round2`.
 
 ## Integrity fixes (1 Sept 2026)
 
@@ -119,11 +135,13 @@ From a full-app audit (`claude/known-issues.md`):
 
 ## Files
 
-- `lib/actions/qc.ts` — `createQualityCheck`, `reviewQualityCheck`.
+- `lib/actions/qc.ts` — `createQualityCheck`, `reviewQcRound1`,
+  `reviewQcRound2` (the old single-decision `reviewQualityCheck` was
+  retired 20 Sept 2026 — see "Two-round QC review" below).
 - `app/(dashboard)/qc/page.tsx` — list.
 - `app/(dashboard)/qc/new/page.tsx` + `qc-assign-form.tsx` — assign step.
-- `app/(dashboard)/qc/[id]/page.tsx` + `qc-review-form.tsx` — review step /
-  read-only view.
+- `app/(dashboard)/qc/[id]/page.tsx` + `qc-checker-form.tsx` (Round 1) +
+  `qc-reviewer-form.tsx` (Round 2) — review steps / read-only view.
 
 ## Searchable, legacy-aware item/batch pickers (1 Sept 2026)
 
@@ -375,7 +393,15 @@ approving a batch does not need any Finished Product write role for it
 to take effect. Full writeup in `docs/modules/inventory.md`'s Phase 3
 section.
 
-## Maker/checker segregation of duties (17 Sept 2026)
+## Maker/checker segregation of duties (17 Sept 2026) — superseded 20 Sept 2026
+
+**Superseded** by "Two-round QC review" below: the single Assign/Review
+maker≠checker rule described in this section was retired and replaced
+with two independent, explicitly-named review rounds. Kept here as
+historical record of the earlier design and the reasoning behind it, since
+some of it (identity capture, the trigger-as-real-backstop posture)
+carried forward unchanged into the new design. Do not implement against
+this section — see below for what's actually live.
 
 Ravi: "Every QC (Raw material or Finished Product) done should go through
 maker/checker check — that means should be approved by two people. The Id
@@ -437,3 +463,110 @@ reviewed by anyone (correctly allowed — nothing to compare). `npx tsc
 only meaningful if each Quality Checker/Reviewer signs in with their own
 account — a shared login would defeat the identity capture above no
 matter what the database says.
+
+## Two-round QC review (20 Sept 2026)
+
+Ravi: "In QC, the first round of approval will be given by Quality
+Checker, He will put his comments and will hit on approve or reject
+button. If rejected, Raw Material Batch will be Rejected. If approved, it
+will show as approved - Awaiting Review and will be moved from QC
+Checker's queue to QC Reviewer's queue. It will go through same cycle and
+One QC Reviewer approves it, the batch will be shown as Fully QC approved
+and will be added to Inventory." Follow-up clarification, after an
+`AskUserQuestion` round about assignee/self-review rules: "there is no
+need for the assignee role, 2 roles suffice Reviewer 1- Maker or QC
+Checker (dont call it maker), Reviewer 2- Checker or QC Reviewer(dont call
+it checker)" — i.e. retire the maker/checker (assigner ≠ reviewer) rule
+above entirely; replace it with exactly two named review stages, and the
+only distinctness rule left is Round 1 actor ≠ Round 2 actor. Confirmed to
+proceed ("go ahead") on two defaults: applies to both RM and FP QC, and
+Retest ARs go through the same two-round cycle (they already start at
+`status = 'submitted'`, so this needed no extra code — see Retest workflow
+above).
+
+**What changed:**
+
+- **`quality_checks.status`** now has four values: `submitted` →
+  `checker_approved` → `approved`/`rejected` (Round 1 can also go straight
+  to `rejected`, which is terminal — see below). The old two-value
+  approved/rejected terminal set is now reached only after Round 2.
+- **Round 1 columns** — `checker_by`, `checker_at`, `checker_comments` —
+  added alongside the pre-existing `reviewed_by`/`reviewed_at`/
+  `review_comments`/`retest_period_days`/`retest_date`, which are kept
+  as-is and now mean specifically the Round 2 (final) decision.
+- **`0054_qc_two_round_review.sql`**: widens the status check constraint;
+  adds the Round 1 columns; widens the "at most one active AR per batch"
+  partial unique index to `status in ('submitted', 'checker_approved')`
+  (previously just `'submitted'`); drops `trg_qc_enforce_maker_checker`
+  and its function; adds `trg_fn_qc_enforce_review_stages` (`before
+  update`) — `submitted → checker_approved/rejected` requires
+  `quality_checker` or `system_admin`; `checker_approved →
+  approved/rejected` requires `qc_reviewer` or `system_admin`, and blocks
+  the Round 1 actor from also being the Round 2 actor (System Admin
+  exempt, same posture the old maker/checker trigger had). Also widens
+  `trg_qc_review_finished_product`'s `WHEN` clause so it still fires on
+  the *final* decision regardless of whether `old.status` was `submitted`
+  or `checker_approved` — the function body itself (FP batch status sync,
+  ledger push/pull on approval) is unchanged.
+- **Deliberately untouched**: `check_batch_qc_approved()` (the
+  QC-gates-consumption trigger — 'approved' still means the same thing,
+  unblocking consumption only after Round 2), `purchase_batch_status`
+  (reads the latest row per line regardless of how many states there
+  now are), `trg_fn_qc_compute_retest_date`, `trg_qc_sample_pull`,
+  `computeBatchQcState()` (`checker_approved` correctly falls into its
+  existing `qc_pending` catch-all bucket — no batch anywhere in the app
+  is usable until the *final* approval either way), and
+  `finished_product_batches.status`'s own check constraint — the FP
+  batch's own status column does **not** get a distinct "Awaiting Review"
+  value of its own; it stays whatever it already was through Round 1 and
+  only moves on the Round 2 verdict. The two-round distinction is visible
+  on the QC AR record itself (`/qc`, `/qc/[id]`), not mirrored onto the FP
+  batch's own status everywhere it's displayed — a deliberate scope
+  simplification, flagged to Ravi at delivery.
+- **`lib/actions/qc.ts`**: `reviewQualityCheck()` replaced by
+  `reviewQcRound1()` (`submitted → checker_approved/rejected`, no retest
+  period field) and `reviewQcRound2()` (`checker_approved →
+  approved/rejected`, retest period required on approve) — same
+  "re-check current state + re-check role + re-check distinctness
+  server-side before the DB trigger backstop" posture the old single
+  action had.
+- **`lib/constants/roles.ts`**: `qc_review` replaced by
+  `qc_review_round1` (`system_admin`, `quality_checker`) and
+  `qc_review_round2` (`system_admin`, `qc_reviewer`).
+- **UI**: `/qc/[id]` (`app/(dashboard)/qc/[id]/page.tsx`) branches on all
+  four states, rendering `qc-checker-form.tsx` (Round 1) or
+  `qc-reviewer-form.tsx` (Round 2) as appropriate, plus read-only cards
+  for whichever round(s) have already decided — see "Review" above.
+  `qcRecordStatusLabel()` (`lib/batch-qc-status.ts`) renders
+  `checker_approved` as "Approved - Awaiting Review" everywhere a QC
+  status is shown as text (`/qc` list, QC Register report); the `Badge`
+  component gets a matching `checker_approved` color (same amber as
+  `submitted`/`complete_awaiting_qc`/`draft` — the "needs a next action"
+  convention). Dashboard's "Pending QC" stat now counts both
+  `submitted` and `checker_approved`; its QC-by-status pie chart gets a
+  4th "Awaiting Review" slice (distinct blue, `#2563eb`) alongside the
+  existing Submitted/Approved/Rejected three.
+
+**Verification.** Migration applied and tested against the local Postgres
+replica: six scenarios directly against `trg_fn_qc_enforce_review_stages`
+via `SET request.jwt.claim.sub` (wrong role at Round 1; correct-role
+Round 1 approve; duplicate AR insert blocked while `checker_approved`;
+wrong role at Round 2; same person attempting both rounds, correctly
+blocked; different correctly-roled person completing Round 2, correctly
+succeeded with both rounds' fields preserved and `retest_date` correctly
+computed), plus a separate Round-1-reject scenario confirming Round 2's
+fields stay `null` when Round 1 terminates the record. Confirmed via
+`pg_get_triggerdef` that the FP-side trigger's widened `WHEN` clause is
+exactly as intended. `npx tsc --noEmit`, `npx eslint`, and `npx next
+build` all clean on the full app-layer change set.
+
+**Live-DB drift risk (flag for delivery)**: an earlier migration in this
+project (`0053_bulk_upload_mfr_procedure.sql`) hit "cannot change return
+type of existing function" against Ravi's live Supabase because its
+on-file function signature had drifted from what was actually deployed.
+`0054` does its own `create or replace function` /
+drop-and-recreate-trigger work (`trg_fn_qc_enforce_review_stages`,
+`trg_qc_review_finished_product`) — the same class of drift is possible
+here too, not yet confirmed against the live DB. If Postgres complains on
+apply, prepend `drop function if exists ...;` / `drop trigger if exists
+...;` for the specific object it names, the same fix used for 0053.

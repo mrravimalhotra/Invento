@@ -8,10 +8,13 @@ import { redirect } from "next/navigation";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
-// "Maker" step — assign an AR number to an incoming raw-material batch and
+// Assign step — assign an AR number to an incoming raw-material batch and
 // pull the sample out of stock (the pull itself is automatic: trg_qc_sample_pull
 // in 0002_transactions.sql fires on this insert, this action never touches
-// inventory_ledger directly).
+// inventory_ledger directly). Whoever assigns an AR is no longer tracked as
+// a distinct "maker" identity (20 Sept 2026, see docs/modules/qc.md's
+// "Two-round QC review" entry) — they may go on to be its own Round 1 QC
+// Checker.
 export async function createQualityCheck(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Not authorized." };
@@ -63,11 +66,11 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
       // matching comment in lib/actions/purchase.ts. The retest workflow
       // relies solely on quality_checks.retest_date, computed automatically
       // by trg_qc_compute_retest_date from Retest period (days) + the
-      // review date at approval time (reviewQualityCheck below); nothing
-      // needs a manually-entered expiry to work.
-      // Maker/checker (17 Sept 2026): the "maker" identity — this column
-      // already existed but nothing ever wrote to it before this. See
-      // 0049_qc_maker_checker.sql for the matching enforcement.
+      // review date at Round 2 (reviewQcRound2 below); nothing needs a
+      // manually-entered expiry to work.
+      // created_by: who assigned this AR — recorded for audit only, not
+      // enforced as a distinct "maker" identity (20 Sept 2026 — see
+      // reviewQcRound1/reviewQcRound2 below).
       created_by: user!.id,
     })
     .select("id")
@@ -87,16 +90,68 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
   redirect(`/qc/${inserted.id}`);
 }
 
-// "Checker" step — final, one-way: once a record leaves 'submitted' it can
-// never be edited again through this action (matches the existing baseline
-// behavior, kept as-is per the module brief).
-export async function reviewQualityCheck(
-  id: string,
-  _prev: ActionState,
-  formData: FormData
-): Promise<ActionState> {
+// Two-round review (20 Sept 2026, replacing the old single-decision
+// reviewQualityCheck): Ravi — "the first round of approval will be given
+// by Quality Checker... If approved, it will show as approved - Awaiting
+// Review and will be moved from QC Checker's queue to QC Reviewer's
+// queue... One QC Reviewer approves it, the batch will be shown as Fully
+// QC approved." No separate "assignee/maker" identity is enforced any
+// more (Ravi's own correction — "no need for the assignee role, 2 roles
+// suffice") — only that Round 2's actor differs from Round 1's. Both
+// actions are final/one-way for their own round, same "can't be re-edited
+// once decided" posture the old single-step action had.
+
+// Round 1 — "QC Checker": submitted -> checker_approved/rejected. No
+// retest period here — the batch isn't actually usable yet even on
+// approval (Round 2 still has to clear it), so asking for a retest period
+// this early would be premature; it's collected at Round 2 instead, right
+// when it starts to matter.
+export async function reviewQcRound1(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "qc_review")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "qc_review_round1")) return { error: "Not authorized." };
+
+  const status = String(formData.get("status") || "");
+  if (status !== "checker_approved" && status !== "rejected") {
+    return { error: "Choose Approved or Rejected." };
+  }
+  const checkerComments = String(formData.get("checker_comments") || "").trim();
+
+  const supabase = await createClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("quality_checks")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+  if (existingError || !existing) return { error: "Record not found." };
+  if (existing.status !== "submitted") {
+    return { error: "This record has already had its first QC decision and cannot be changed." };
+  }
+
+  const { error } = await supabase
+    .from("quality_checks")
+    .update({
+      status,
+      checker_comments: checkerComments || null,
+      checker_by: user!.id,
+      checker_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/qc");
+  revalidatePath(`/qc/${id}`);
+  redirect(`/qc/${id}`);
+}
+
+// Round 2 — "QC Reviewer": checker_approved -> approved/rejected. This is
+// the decision that actually clears the batch into inventory (on
+// approve) — retest period stays mandatory-on-approve here, same rule the
+// old single-step action had (Ravi, 14 Sept 2026: "make retest period
+// entry mandatory," approve-only, since a rejected batch is never
+// retested).
+export async function reviewQcRound2(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "qc_review_round2")) return { error: "Not authorized." };
 
   const status = String(formData.get("status") || "");
   if (status !== "approved" && status !== "rejected") {
@@ -109,38 +164,30 @@ export async function reviewQualityCheck(
   if (retestPeriodRaw && (retestPeriodDays === null || !Number.isFinite(retestPeriodDays) || retestPeriodDays <= 0)) {
     return { error: "Retest period must be a positive whole number of days." };
   }
-  // Ravi (14 Sept 2026): "make retest period entry mandatory." Scoped via
-  // AskUserQuestion to apply only when the batch is being Approved — a
-  // Rejected batch is never retested, so forcing a number in there would
-  // just be noise, not a real requirement. Re-checked server-side (not
-  // just the form's `required` attribute) since this is the actual
-  // backstop against a hand-crafted request.
   if (status === "approved" && !retestPeriodRaw) {
     return { error: "Retest period (days) is required to approve a batch." };
   }
 
   const supabase = await createClient();
-
   const { data: existing, error: existingError } = await supabase
     .from("quality_checks")
-    .select("status, created_by")
+    .select("status, checker_by")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) return { error: "Record not found." };
-  if (existing.status !== "submitted") {
-    return { error: "This record has already been reviewed and cannot be changed." };
+  if (existing.status !== "checker_approved") {
+    return { error: "This record isn't awaiting a final QC Reviewer decision." };
   }
-  // Maker/checker (17 Sept 2026): the reviewer must be a different person
-  // from whoever assigned this AR — System Admin is exempt (confirmed via
-  // AskUserQuestion). This is the friendly, early version of the check;
-  // 0049_qc_maker_checker.sql's trigger is the real backstop that can't be
-  // bypassed even if this check is ever skipped by a bug here. A record
-  // with no created_by on file (created before this fix shipped) has
-  // nothing to compare against and is let through unchanged.
-  const isSelfReview = existing.created_by != null && existing.created_by === user!.id;
+  // Two-round distinctness (20 Sept 2026, retiring the old maker/checker
+  // created_by check): the QC Reviewer must differ from whoever made the
+  // Round 1 (QC Checker) decision — System Admin exempt. This is the
+  // friendly, early version; 0054_qc_two_round_review.sql's trigger is
+  // the real backstop that can't be bypassed even if this check is ever
+  // skipped by a bug here.
+  const isSameAsChecker = existing.checker_by != null && existing.checker_by === user!.id;
   const isAdmin = (user!.roles ?? []).includes("system_admin");
-  if (isSelfReview && !isAdmin) {
-    return { error: "You assigned this AR — a different Quality Checker/Reviewer must review it." };
+  if (isSameAsChecker && !isAdmin) {
+    return { error: "You made the first QC decision — a different QC Reviewer must make the final decision." };
   }
 
   const { error } = await supabase
@@ -148,7 +195,7 @@ export async function reviewQualityCheck(
     .update({
       status,
       review_comments: reviewComments || null,
-      retest_period_days: retestPeriodDays,
+      retest_period_days: status === "approved" ? retestPeriodDays : null,
       reviewed_by: user!.id,
       reviewed_at: new Date().toISOString(),
     })
@@ -217,8 +264,8 @@ export async function startRetestQualityCheck(
       sample_qty: stabilityQty,
       sample_unit: line.unit,
       is_retest: true,
-      // Maker/checker (17 Sept 2026): see the matching comment in
-      // createQualityCheck above — whoever starts the retest is its maker.
+      // created_by: see the matching comment in createQualityCheck above —
+      // audit only, not enforced as a distinct identity.
       created_by: user!.id,
     })
     .select("id")

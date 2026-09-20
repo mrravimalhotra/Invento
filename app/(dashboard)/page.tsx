@@ -37,7 +37,10 @@ export default async function DashboardPage() {
     supabase.from("mfr_definitions").select("*", { count: "exact", head: true }).eq("active", true),
     supabase.from("finished_product_batches").select("*", { count: "exact", head: true }),
     supabase.from("purchase_orders").select("*", { count: "exact", head: true }).gte("created_at", daysAgo(30)),
-    supabase.from("quality_checks").select("*", { count: "exact", head: true }).eq("status", "submitted"),
+    // Two-round QC review (20 Sept 2026): "pending" now spans both rounds —
+    // submitted (awaiting the QC Checker) and checker_approved (awaiting
+    // the QC Reviewer) both still need a next action from someone.
+    supabase.from("quality_checks").select("*", { count: "exact", head: true }).in("status", ["submitted", "checker_approved"]),
     supabase.from("quality_checks").select("status"),
     supabase.from("inventory_ledger").select("event_type, event_at, quantity").gte("event_at", daysAgo(30)),
     supabase.from("purchase_lines").select("created_at, quantity, unit_price").gte("created_at", daysAgo(30)),
@@ -54,7 +57,7 @@ export default async function DashboardPage() {
     supabase.from("stock_balance").select("item_id, on_hand"),
   ]);
 
-  const qcCounts = { submitted: 0, approved: 0, rejected: 0 };
+  const qcCounts = { submitted: 0, checker_approved: 0, approved: 0, rejected: 0 };
   (qcAll ?? []).forEach((q) => {
     if (q.status in qcCounts) qcCounts[q.status as keyof typeof qcCounts]++;
   });
