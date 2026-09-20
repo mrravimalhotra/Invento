@@ -55,7 +55,11 @@ export const BULK_UPLOAD_MODULE_META: Record<
     fileBaseName: "item-type-master-template",
     module: "item_types",
   },
-  mfr: { title: "MFR", sheetName: "MFR", fileBaseName: "mfr-template", module: "mfr" },
+  // sheetName here is the Recipe sheet — MFR's other data sheet
+  // (Manufacturing Procedure) is named separately in MFR_SHEET_NAMES below,
+  // since every other module in this record has exactly one data sheet and
+  // this field's shared type only has room for one name.
+  mfr: { title: "MFR", sheetName: "Recipe", fileBaseName: "mfr-template", module: "mfr" },
   purchase: { title: "Purchase", sheetName: "Purchase", fileBaseName: "purchase-template", module: "purchase" },
   equipment: {
     title: "Instrument / Equipment Master",
@@ -96,30 +100,60 @@ export const ITEM_TYPE_COLUMNS: ColumnDef[] = [{ header: "Description", required
 
 // Line Item Name (not Line Item Code), and dropdowns on Batch Size Unit /
 // Item Type / Line Unit — same "similar changes" pattern as Purchase's
-// Vendor Name / Item Name (20 Sept 2026, Ravi). Also extended to add the
-// Manufacturing Process (a.k.a. Manufacturing Procedure — see
-// 0048_mfr_procedure.sql) alongside the recipe, requested in the same
-// message: "Also include template to upload 'Manufacturing Process'
-// along with recipe." One row is still either one recipe line OR one
-// procedure step — never both — distinguished by which of Line Item
-// Name/Line Quantity/Line Unit vs. Stage/Operation are filled; the three
-// procedure-level fields (Procedure Intro, Theoretical/Permissible Yield
-// %) are header-level, like MFR Name/Batch Size/Item Type, and repeat
-// (or stay blank) identically on every row for one MFR.
-export const MFR_COLUMNS: ColumnDef[] = [
-  { header: "MFR Name", required: true, hint: "repeat the exact same text on every line row belonging to this MFR" },
-  { header: "Batch Size Qty", required: true, hint: "same value on every line row for one MFR", numeric: true },
-  { header: "Batch Size Unit", required: true, hint: "same value on every line row for one MFR — pick from the dropdown" },
-  { header: "Item Type", required: false, hint: "applies to the Finished Product item this MFR creates — same value on every line row for one MFR; pick from the dropdown, or type a new/different one" },
+// Vendor Name / Item Name (20 Sept 2026, Ravi).
+//
+// Two sheets, not one (20 Sept 2026, Ravi: "divide this into two sheets
+// one for recipe and the other one for procedure. Only required columns
+// should be part of each of these"). Originally (same-day, earlier pass)
+// Manufacturing Process was added to the same flat MFR sheet as the
+// recipe, with one row being either a recipe line OR a procedure step —
+// distinguished by which of Line Item Name/Line Quantity/Line Unit vs.
+// Stage/Operation were filled, and every column from both groups present
+// on every row whether relevant or not. That flat-file ambiguity is
+// exactly what this split removes: MFR_RECIPE_COLUMNS below is the
+// Recipe sheet (always required — an MFR needs at least one recipe line),
+// MFR_PROCEDURE_COLUMNS is the Manufacturing Procedure sheet (fully
+// optional — an MFR can have zero procedure-step rows), matching this
+// app's own existing UI section names for the two ("Recipe" /
+// "Manufacturing Procedure" on `/mfr/[id]`) rather than inventing new
+// ones. Each sheet now carries only the columns actually relevant to it:
+// Stage/Operation are gone from the Recipe sheet, Line Item Name/Line
+// Quantity/Line Unit are gone from the Procedure sheet, and — since a row
+// on either sheet unambiguously belongs to that sheet's own kind — the
+// three line-level columns that used to be conditionally required
+// (blank was valid on a pure procedure-step row) are now simply
+// `required: true` on the Recipe sheet, and Stage/Operation are simply
+// `required: true` on the Procedure sheet. The header-level fields that
+// only ever applied to the recipe (MFR Name, Batch Size Qty/Unit, Item
+// Type) live solely on the Recipe sheet; Procedure Intro/Theoretical
+// Yield %/Permissible Yield % — genuinely procedure-level, not
+// recipe-level — moved to the Procedure sheet, repeating MFR Name as the
+// join key back to the matching Recipe-sheet rows (every MFR Name on the
+// Procedure sheet must already exist on the Recipe sheet).
+export const MFR_RECIPE_COLUMNS: ColumnDef[] = [
+  { header: "MFR Name", required: true, hint: "repeat the exact same text on every recipe line row belonging to this MFR" },
+  { header: "Batch Size Qty", required: true, hint: "same value on every recipe line row for one MFR", numeric: true },
+  { header: "Batch Size Unit", required: true, hint: "same value on every recipe line row for one MFR — pick from the dropdown" },
+  { header: "Item Type", required: false, hint: "applies to the Finished Product item this MFR creates — same value on every recipe line row for one MFR; pick from the dropdown, or type a new/different one" },
+  { header: "Line Item Name", required: true, hint: "an existing, active Raw Material item name — pick from the dropdown, or type a new/different one" },
+  { header: "Line Quantity", required: true, hint: "a number greater than 0", numeric: true },
+  { header: "Line Unit", required: true, hint: "pick from the dropdown" },
+];
+
+export const MFR_PROCEDURE_COLUMNS: ColumnDef[] = [
+  { header: "MFR Name", required: true, hint: "must already appear on the Recipe sheet — this is how a procedure step is matched back to its MFR" },
   { header: "Procedure Intro", required: false, hint: "optional — the standard opening line (e.g. \"Weigh/measure all raw materials at production level\"); fill it on any one row for this MFR and leave it blank on the rest" },
   { header: "Theoretical Yield %", required: false, hint: "optional — fill it on any one row for this MFR and leave it blank on the rest", numeric: true },
   { header: "Permissible Yield %", required: false, hint: "optional — the NLT (not less than) minimum; fill it on any one row for this MFR and leave it blank on the rest", numeric: true },
-  { header: "Line Item Name", required: false, hint: "an existing, active Raw Material item name — pick from the dropdown, or type a new/different one; leave blank (with Line Quantity/Line Unit) for a pure procedure-step row" },
-  { header: "Line Quantity", required: false, hint: "a number greater than 0 — required together with Line Item Name/Line Unit for a recipe line", numeric: true },
-  { header: "Line Unit", required: false, hint: "required together with Line Item Name/Line Quantity for a recipe line — pick from the dropdown" },
-  { header: "Stage", required: false, hint: "fill together with Operation for a procedure step row; leave blank for a pure recipe-line row" },
-  { header: "Operation", required: false, hint: "fill together with Stage for a procedure step row; leave blank for a pure recipe-line row" },
+  { header: "Stage", required: true, hint: "e.g. Cleaning, Preparation of Kwath" },
+  { header: "Operation", required: true, hint: "the operation performed at this stage" },
 ];
+
+// The Manufacturing Procedure sheet's own name — MFR is the only module
+// with two data sheets, so this lives outside BULK_UPLOAD_MODULE_META
+// (whose `sheetName` field only has room for one name per module; MFR's
+// `sheetName` above is the Recipe sheet).
+export const MFR_PROCEDURE_SHEET_NAME = "Manufacturing Procedure";
 
 // Purchase order codes and batch numbers are ALWAYS auto-generated on
 // insert, same rule as everywhere else in this feature — no code column
@@ -180,11 +214,15 @@ export const DEAD_STOCK_COLUMNS: ColumnDef[] = [
   { header: "Remark", required: false },
 ];
 
-export const MODULE_COLUMNS: Record<BulkUploadModuleKey, ColumnDef[]> = {
+// MFR is deliberately excluded here — it's the only module with two data
+// sheets (Recipe / Manufacturing Procedure, see MFR_RECIPE_COLUMNS /
+// MFR_PROCEDURE_COLUMNS above), so it has no single ColumnDef[] to put in
+// a Record shaped one-array-per-module. templates.ts and bulk-upload.ts
+// reference MFR_RECIPE_COLUMNS/MFR_PROCEDURE_COLUMNS directly instead.
+export const MODULE_COLUMNS: Record<Exclude<BulkUploadModuleKey, "mfr">, ColumnDef[]> = {
   items: ITEM_COLUMNS,
   vendors: VENDOR_COLUMNS,
   "item-types": ITEM_TYPE_COLUMNS,
-  mfr: MFR_COLUMNS,
   purchase: PURCHASE_COLUMNS,
   equipment: EQUIPMENT_COLUMNS,
   "dead-stock": DEAD_STOCK_COLUMNS,
@@ -197,6 +235,8 @@ export const MODULE_COLUMNS: Record<BulkUploadModuleKey, ColumnDef[]> = {
 // (MFR / purchase order) inside their one bulk RPC call. 500 data rows
 // is generous for hand-curated master-data entry while keeping
 // worst-case request time reasonable — for Purchase specifically, that's
-// 500 purchase LINES per file (not 500 purchase orders), same as MFR
-// counting recipe lines, not MFR definitions.
+// 500 purchase LINES per file (not 500 purchase orders); for MFR
+// (20 Sept 2026, two sheets), this cap applies independently to each of
+// the Recipe and Manufacturing Procedure sheets (500 recipe lines AND up
+// to 500 procedure steps, not one combined 500 counting both).
 export const MAX_UPLOAD_ROWS = 500;

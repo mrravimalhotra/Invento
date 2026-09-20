@@ -53,7 +53,7 @@ const MODULE_CARDS: ModuleCard[] = [
     key: "mfr",
     action: bulkUploadMfr,
     description:
-      "Create MFR recipes — one row per recipe line, grouped by repeating the same MFR Name. Also creates each MFR's paired Finished Product and Packaged Finished Product items automatically, the same way creating an MFR by hand does.",
+      "Create MFR recipes and Manufacturing Procedures — two sheets in one file, one row per recipe line or procedure step, grouped by repeating the same MFR Name. Also creates each MFR's paired Finished Product and Packaged Finished Product items automatically, the same way creating an MFR by hand does.",
   },
   {
     key: "purchase",

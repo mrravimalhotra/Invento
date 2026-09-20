@@ -5,6 +5,9 @@ import {
   BULK_UPLOAD_MODULE_META,
   MAX_UPLOAD_ROWS,
   MODULE_COLUMNS,
+  MFR_RECIPE_COLUMNS,
+  MFR_PROCEDURE_COLUMNS,
+  MFR_PROCEDURE_SHEET_NAME,
   type BulkUploadModuleKey,
   type ColumnDef,
 } from "./schemas";
@@ -36,10 +39,17 @@ function exampleRowValues(columns: ColumnDef[], values: string[]): (string | num
   return values.map((v, i) => (columns[i]?.numeric && v !== "" ? Number(v) : v));
 }
 
+// `columnSections` is normally one section (every module except MFR has
+// exactly one data sheet) — a bare `heading` means "just list the columns
+// under a plain 'Column notes:' header," same output this always had.
+// MFR (20 Sept 2026, two sheets — Recipe / Manufacturing Procedure) passes
+// two sections, each with its own heading, so the Instructions sheet
+// still tells you plainly which columns belong to which of the two data
+// sheets rather than one undifferentiated list.
 function addInstructionsSheet(
   workbook: ExcelJS.Workbook,
   title: string,
-  columns: ColumnDef[],
+  columnSections: { heading?: string; columns: ColumnDef[] }[],
   extraNotes: string[]
 ) {
   const sheet = workbook.addWorksheet("Instructions");
@@ -47,17 +57,20 @@ function addInstructionsSheet(
   const lines = [
     `${title} — bulk upload template`,
     "",
-    "Fill in the sheet with this template's name (not this Instructions sheet), one row per record. Columns marked with * are required.",
+    "Fill in the sheet(s) with this template's own name(s) (not this Instructions sheet), one row per record. Columns marked with * are required.",
     "Do not rename, reorder, or delete the header row — the upload reads columns by their header text.",
     "A code (item code / vendor code / MFR code) is always generated automatically when the file is imported — do not add or fill in a code column.",
     ...extraNotes,
     "",
-    "Column notes:",
-    ...columns.map((c) => `• ${c.header}${c.required ? " (required)" : ""}${c.hint ? " — " + c.hint : ""}`),
+    ...columnSections.flatMap((section) => [
+      section.heading ? `${section.heading} column notes:` : "Column notes:",
+      ...section.columns.map((c) => `• ${c.header}${c.required ? " (required)" : ""}${c.hint ? " — " + c.hint : ""}`),
+      "",
+    ]),
   ];
   lines.forEach((line) => {
     const row = sheet.addRow([line]);
-    if (line.endsWith("template") || line === "Column notes:") row.font = { bold: true };
+    if (line.endsWith("template") || line.endsWith("column notes:") || line === "Column notes:") row.font = { bold: true };
   });
 }
 
@@ -151,7 +164,7 @@ async function buildItemsWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Wor
     .eq("active", true)
     .order("description");
 
-  addInstructionsSheet(workbook, "Item Master", ITEM_COLUMNS_WITH_EXAMPLE.columns, [
+  addInstructionsSheet(workbook, "Item Master", [{ columns: ITEM_COLUMNS_WITH_EXAMPLE.columns }], [
     "Category must be exactly \"Raw Material\" or \"Packaging\" — Finished Product and Packaged Finished Product items are created from the MFR screen (or the MFR bulk template), not here.",
   ]);
 
@@ -175,7 +188,7 @@ async function buildItemsWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Wor
 
 async function buildVendorsWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
-  addInstructionsSheet(workbook, "Vendor Master", VENDOR_COLUMNS_WITH_EXAMPLE.columns, []);
+  addInstructionsSheet(workbook, "Vendor Master", [{ columns: VENDOR_COLUMNS_WITH_EXAMPLE.columns }], []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.vendors.sheetName);
   addHeaderRow(sheet, VENDOR_COLUMNS_WITH_EXAMPLE.columns);
   sheet.addRow(exampleRowValues(VENDOR_COLUMNS_WITH_EXAMPLE.columns, VENDOR_COLUMNS_WITH_EXAMPLE.example));
@@ -184,7 +197,7 @@ async function buildVendorsWorkbook(): Promise<ExcelJS.Workbook> {
 
 async function buildItemTypesWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
-  addInstructionsSheet(workbook, "Item Type Master", ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns, []);
+  addInstructionsSheet(workbook, "Item Type Master", [{ columns: ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns }], []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["item-types"].sheetName);
   addHeaderRow(sheet, ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns);
   sheet.addRow(exampleRowValues(ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns, ITEM_TYPE_COLUMNS_WITH_EXAMPLE.example));
@@ -209,7 +222,7 @@ async function buildPurchaseWorkbook(supabase: SupabaseClient): Promise<ExcelJS.
   // server-side on upload (bulk-upload.ts) regardless of what was picked.
   const allItemNames = [...rawItemNames, ...packagingItemNames].sort((a, b) => a.localeCompare(b));
 
-  addInstructionsSheet(workbook, "Purchase", PURCHASE_COLUMNS_WITH_EXAMPLE.columns, [
+  addInstructionsSheet(workbook, "Purchase", [{ columns: PURCHASE_COLUMNS_WITH_EXAMPLE.columns }], [
     "Each row is one purchase line. To create a purchase order with more than one line, add one row per line and repeat the exact same Vendor Name, Invoice Number, and Invoice Date on every one of those rows — the upload groups rows into one purchase order by matching Vendor Name + Invoice Number exactly.",
     "Every purchase order created this way lands as a Draft, exactly like one entered by hand on the Purchase screen — nothing is pushed to inventory until someone opens it and clicks Final Submit.",
     "Purchase Type must be \"Raw Material\" or \"Packaging Item\", and the Item Name on that row must actually be that category — a Raw Material row can't reference a Packaging item and vice versa. QC Qty / Stability Qty / R&D Qty / Sample Unit only apply to Raw Material lines; leave them blank for Packaging Item lines.",
@@ -247,7 +260,7 @@ async function buildPurchaseWorkbook(supabase: SupabaseClient): Promise<ExcelJS.
 
 async function buildEquipmentWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
-  addInstructionsSheet(workbook, "Instrument / Equipment Master", EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns, []);
+  addInstructionsSheet(workbook, "Instrument / Equipment Master", [{ columns: EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns }], []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.equipment.sheetName);
   addHeaderRow(sheet, EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns);
   sheet.addRow(exampleRowValues(EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns, EQUIPMENT_COLUMNS_WITH_EXAMPLE.example));
@@ -259,13 +272,20 @@ async function buildEquipmentWorkbook(): Promise<ExcelJS.Workbook> {
 
 async function buildDeadStockWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
-  addInstructionsSheet(workbook, "Dead Stock Register", DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns, []);
+  addInstructionsSheet(workbook, "Dead Stock Register", [{ columns: DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns }], []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["dead-stock"].sheetName);
   addHeaderRow(sheet, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns);
   sheet.addRow(exampleRowValues(DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.example));
   return workbook;
 }
 
+// Two data sheets (20 Sept 2026, Ravi: "divide this into two sheets one
+// for recipe and the other one for procedure. Only required columns
+// should be part of each of these") — Recipe (always required) and
+// Manufacturing Procedure (fully optional), matching this app's own UI
+// section names for the two. See MFR_RECIPE_COLUMNS/MFR_PROCEDURE_COLUMNS
+// in schemas.ts and bulkUploadMfr() in lib/actions/bulk-upload.ts for the
+// full reasoning and how the two are joined back together by MFR Name.
 async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   const [{ data: itemTypes }, { data: rawItems }] = await Promise.all([
@@ -275,23 +295,37 @@ async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workb
   const itemTypeNames = (itemTypes ?? []).map((t) => t.description);
   const rawItemNames = (rawItems ?? []).map((i) => i.name);
 
-  addInstructionsSheet(workbook, "MFR", MFR_COLUMNS_WITH_EXAMPLE.columns, [
-    "Each row is either one recipe line or one Manufacturing Process step for the same MFR — never both. Fill Line Item Name / Line Quantity / Line Unit for a recipe line, or Stage / Operation for a process step, and leave the other group blank on that row.",
-    "To create an MFR with more than one ingredient and/or more than one process step, add one row per ingredient or step and repeat the exact same MFR Name on every one of those rows — the upload groups rows into one MFR by matching MFR Name text exactly.",
-    "Batch Size Qty / Batch Size Unit / Item Type are header-level and required on every row for one MFR — repeat the exact same value on all of them. Procedure Intro / Theoretical Yield % / Permissible Yield % are also header-level but optional: fill each one on any single row for that MFR (commonly the first) and leave it blank on the rest — a DIFFERENT non-blank value on another row for the same MFR is treated as a mistake and rejected.",
-    "The Manufacturing Process fields (Procedure Intro, Theoretical Yield %, Permissible Yield %, Stage, Operation) are all optional — leave every one of them blank if you just want the recipe, exactly like today. Process steps are numbered automatically in the order their rows appear in the file.",
-    "Only active Raw Material items can be recipe lines (matching what the MFR screen itself offers) — Packaging and Finished Product items cannot.",
-    "Batch Size Unit, Item Type, Line Item Name, and Line Unit all have a dropdown in this template (click the cell, then the small arrow) sourced from what's currently active — but you can still type a value that isn't in the list if you need to; it's checked for real when you upload.",
-    "Line Item Name must uniquely identify one active Raw Material item — if two active Raw Material items share the exact same name, the upload will reject that row and ask you to use a more specific name (or fix the duplicate in Item Master first).",
-    "This also creates the MFR's Finished Product item and its paired Packaged Finished Product item automatically, the same way creating an MFR by hand does.",
-  ]);
+  addInstructionsSheet(
+    workbook,
+    "MFR",
+    [
+      { heading: "Recipe sheet", columns: MFR_RECIPE_COLUMNS_WITH_EXAMPLE.columns },
+      { heading: "Manufacturing Procedure sheet", columns: MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.columns },
+    ],
+    [
+      "This template has two data sheets: Recipe and Manufacturing Procedure. Every MFR needs at least one row on the Recipe sheet (one row per ingredient); Manufacturing Procedure is optional — leave it with no rows for that MFR if you only want the recipe.",
+      "Both sheets are joined by MFR Name: repeat the exact same MFR Name text on every row (on either sheet) that belongs to the same MFR. Every MFR Name used on the Manufacturing Procedure sheet must already appear on the Recipe sheet.",
+      "Batch Size Qty / Batch Size Unit / Item Type live only on the Recipe sheet and are required on every row for one MFR — repeat the exact same value on all of them.",
+      "Procedure Intro / Theoretical Yield % / Permissible Yield % live only on the Manufacturing Procedure sheet and are optional: fill each one on any single row for that MFR (commonly the first) and leave it blank on the rest — a DIFFERENT non-blank value on another row for the same MFR is treated as a mistake and rejected. Procedure steps (Stage + Operation) are numbered automatically in the order their rows appear in the file.",
+      "Only active Raw Material items can be recipe lines (matching what the MFR screen itself offers) — Packaging and Finished Product items cannot.",
+      "On the Recipe sheet, Batch Size Unit, Item Type, Line Item Name, and Line Unit all have a dropdown in this template (click the cell, then the small arrow) sourced from what's currently active — but you can still type a value that isn't in the list if you need to; it's checked for real when you upload.",
+      "Line Item Name must uniquely identify one active Raw Material item — if two active Raw Material items share the exact same name, the upload will reject that row and ask you to use a more specific name (or fix the duplicate in Item Master first).",
+      "This also creates the MFR's Finished Product item and its paired Packaged Finished Product item automatically, the same way creating an MFR by hand does.",
+    ]
+  );
 
-  const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.mfr.sheetName);
-  addHeaderRow(sheet, MFR_COLUMNS_WITH_EXAMPLE.columns);
-  MFR_COLUMNS_WITH_EXAMPLE.example.forEach((row) => sheet.addRow(exampleRowValues(MFR_COLUMNS_WITH_EXAMPLE.columns, row)));
+  const recipeSheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.mfr.sheetName);
+  addHeaderRow(recipeSheet, MFR_RECIPE_COLUMNS_WITH_EXAMPLE.columns);
+  MFR_RECIPE_COLUMNS_WITH_EXAMPLE.example.forEach((row) =>
+    recipeSheet.addRow(exampleRowValues(MFR_RECIPE_COLUMNS_WITH_EXAMPLE.columns, row))
+  );
 
-  // Column positions match MFR_COLUMNS' order 1:1 (1-indexed): 3 Batch
-  // Size Unit, 4 Item Type, 8 Line Item Name, 10 Line Unit.
+  const procedureSheet = workbook.addWorksheet(MFR_PROCEDURE_SHEET_NAME);
+  addHeaderRow(procedureSheet, MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.columns);
+  MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.example.forEach((row) =>
+    procedureSheet.addRow(exampleRowValues(MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.columns, row))
+  );
+
   const dataEndRow = 1 + MAX_UPLOAD_ROWS;
   const unitFormula = [`"${UNITS.join(",")}"`];
 
@@ -300,10 +334,12 @@ async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workb
   const itemTypeLastRow = addReferenceColumn(refSheet, 2, "Existing Item Types", itemTypeNames);
   const rawItemLastRow = addReferenceColumn(refSheet, 3, "Active Raw Material Item Names", rawItemNames);
 
-  applyDropdownColumn(sheet, 3, 2, dataEndRow, unitFormula);
-  applyDropdownColumn(sheet, 4, 2, dataEndRow, [`Reference!$B$2:$B$${itemTypeLastRow}`]);
-  applyDropdownColumn(sheet, 8, 2, dataEndRow, [`Reference!$C$2:$C$${rawItemLastRow}`]);
-  applyDropdownColumn(sheet, 10, 2, dataEndRow, unitFormula);
+  // Recipe sheet column positions match MFR_RECIPE_COLUMNS' order 1:1
+  // (1-indexed): 3 Batch Size Unit, 4 Item Type, 5 Line Item Name, 7 Line Unit.
+  applyDropdownColumn(recipeSheet, 3, 2, dataEndRow, unitFormula);
+  applyDropdownColumn(recipeSheet, 4, 2, dataEndRow, [`Reference!$B$2:$B$${itemTypeLastRow}`]);
+  applyDropdownColumn(recipeSheet, 5, 2, dataEndRow, [`Reference!$C$2:$C$${rawItemLastRow}`]);
+  applyDropdownColumn(recipeSheet, 7, 2, dataEndRow, unitFormula);
 
   return workbook;
 }
@@ -321,15 +357,23 @@ const ITEM_TYPE_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS["item-types"],
   example: ["Powder"],
 };
-const MFR_COLUMNS_WITH_EXAMPLE = {
-  columns: MODULE_COLUMNS.mfr,
+// Two sheets, two example sets (20 Sept 2026, Recipe / Manufacturing
+// Procedure split — see MFR_RECIPE_COLUMNS/MFR_PROCEDURE_COLUMNS in
+// schemas.ts). Same underlying A. Jatamansi Tail example as before the
+// split, just laid out across two sheets instead of one flat one, joined
+// by the repeated MFR Name.
+const MFR_RECIPE_COLUMNS_WITH_EXAMPLE = {
+  columns: MFR_RECIPE_COLUMNS,
   example: [
-    // Recipe lines — Line Item Name/Quantity/Unit filled, Stage/Operation blank.
-    ["A. Jatamansi Tail", "100", "ltr", "", "Weigh/measure all raw materials at production level (Batch size 100 ltr)", "100", "98", "Til Taila", "80", "ltr", "", ""],
-    ["A. Jatamansi Tail", "100", "ltr", "", "", "", "", "Jatamansi", "20", "kg", "", ""],
-    // Manufacturing Process steps — Stage/Operation filled, recipe fields blank.
-    ["A. Jatamansi Tail", "100", "ltr", "", "", "", "", "", "", "", "Cleaning", "Clean and sieve Jatamansi to remove foreign matter"],
-    ["A. Jatamansi Tail", "100", "ltr", "", "", "", "", "", "", "", "Preparation of Kwath", "Boil Til Taila with Jatamansi as per SOP until moisture content is nil"],
+    ["A. Jatamansi Tail", "100", "ltr", "", "Til Taila", "80", "ltr"],
+    ["A. Jatamansi Tail", "100", "ltr", "", "Jatamansi", "20", "kg"],
+  ],
+};
+const MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE = {
+  columns: MFR_PROCEDURE_COLUMNS,
+  example: [
+    ["A. Jatamansi Tail", "Weigh/measure all raw materials at production level (Batch size 100 ltr)", "100", "98", "Cleaning", "Clean and sieve Jatamansi to remove foreign matter"],
+    ["A. Jatamansi Tail", "", "", "", "Preparation of Kwath", "Boil Til Taila with Jatamansi as per SOP until moisture content is nil"],
   ],
 };
 const PURCHASE_COLUMNS_WITH_EXAMPLE = {

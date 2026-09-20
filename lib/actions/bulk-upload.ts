@@ -52,7 +52,9 @@ import {
   ITEM_COLUMNS,
   VENDOR_COLUMNS,
   ITEM_TYPE_COLUMNS,
-  MFR_COLUMNS,
+  MFR_RECIPE_COLUMNS,
+  MFR_PROCEDURE_COLUMNS,
+  MFR_PROCEDURE_SHEET_NAME,
   PURCHASE_COLUMNS,
   EQUIPMENT_COLUMNS,
   DEAD_STOCK_COLUMNS,
@@ -461,9 +463,72 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
 
-  const loaded = await loadSheetOrError(formData, MFR_COLUMNS, "mfr");
-  if ("error" in loaded) return { error: loaded.error };
-  const { headers, rows } = loaded.sheet;
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose an Excel file (.xlsx) to upload." };
+  }
+
+  // Two sheets, not one (20 Sept 2026, Ravi: "divide this into two sheets
+  // one for recipe and the other one for procedure. Only required columns
+  // should be part of each of these") — see MFR_RECIPE_COLUMNS /
+  // MFR_PROCEDURE_COLUMNS in lib/bulk-upload/schemas.ts for the full
+  // reasoning. Recipe is always required (every MFR needs at least one
+  // recipe line); Manufacturing Procedure is fully optional (an MFR can
+  // have zero procedure steps) — so the two sheets are loaded and
+  // validated separately rather than through the shared loadSheetOrError()
+  // helper other single-sheet modules use, which assumes exactly one data
+  // sheet and treats zero data rows as always an error.
+  let recipeSheet: { headers: string[]; rows: string[][] };
+  try {
+    recipeSheet = await readFirstSheet(file, BULK_UPLOAD_MODULE_META.mfr.sheetName);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Couldn't read that file." };
+  }
+  const missingRecipeCols = MFR_RECIPE_COLUMNS.filter((c) => c.required && findColumnIndex(recipeSheet.headers, c) === -1);
+  if (missingRecipeCols.length > 0) {
+    return {
+      error: `Missing required column${missingRecipeCols.length > 1 ? "s" : ""} on the Recipe sheet: ${missingRecipeCols
+        .map((c) => `"${c.header}"`)
+        .join(", ")} — did you use the downloaded template?`,
+    };
+  }
+  if (recipeSheet.rows.length === 0) {
+    return { error: "The Recipe sheet has no data rows — nothing to import." };
+  }
+  if (recipeSheet.rows.length > MAX_UPLOAD_ROWS) {
+    return {
+      error: `The Recipe sheet has ${recipeSheet.rows.length} data rows — the limit per upload is ${MAX_UPLOAD_ROWS}. Split it into smaller files and upload separately.`,
+    };
+  }
+
+  // `allowFallback: false` — a missing/renamed Manufacturing Procedure
+  // sheet must fail clearly here, not silently re-read the Recipe sheet a
+  // second time under the "Procedure" label (see readFirstSheet's own
+  // comment in lib/bulk-upload/parse.ts).
+  let procedureSheet: { headers: string[]; rows: string[][] };
+  try {
+    procedureSheet = await readFirstSheet(file, MFR_PROCEDURE_SHEET_NAME, { allowFallback: false });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Couldn't read the Manufacturing Procedure sheet." };
+  }
+  const missingProcedureCols = MFR_PROCEDURE_COLUMNS.filter(
+    (c) => c.required && findColumnIndex(procedureSheet.headers, c) === -1
+  );
+  if (missingProcedureCols.length > 0) {
+    return {
+      error: `Missing required column${missingProcedureCols.length > 1 ? "s" : ""} on the Manufacturing Procedure sheet: ${missingProcedureCols
+        .map((c) => `"${c.header}"`)
+        .join(", ")} — did you use the downloaded template?`,
+    };
+  }
+  // Zero data rows on this sheet is valid — it just means no MFR in this
+  // file has any Manufacturing Procedure steps, same as leaving that
+  // section blank on the MFR screen itself.
+  if (procedureSheet.rows.length > MAX_UPLOAD_ROWS) {
+    return {
+      error: `The Manufacturing Procedure sheet has ${procedureSheet.rows.length} data rows — the limit per upload is ${MAX_UPLOAD_ROWS}. Split it into smaller files and upload separately.`,
+    };
+  }
 
   const supabase = await createClient();
   const [{ data: itemTypes }, { data: rawItems }, { data: existingMfrRows }] = await Promise.all([
@@ -487,47 +552,53 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   // mfr_definitions.name has no DB-level unique constraint — same reasoning
   // as Item/Vendor's name dedup. Checked only when a NEW group is opened
   // below (i.e. against the DB, not within-file — repeating the same MFR
-  // Name across rows in one file is how its multiple recipe lines are
-  // expressed, and is already handled by the grouping itself). Ravi (13
-  // Sept 2026, via AskUserQuestion): "add duplicate blocking on ... MFR
+  // Name across rows in the Recipe sheet is how its multiple recipe lines
+  // are expressed, and is already handled by the grouping itself). Ravi
+  // (13 Sept 2026, via AskUserQuestion): "add duplicate blocking on ... MFR
   // Name ... for both bulk upload and the regular one-at-a-time forms."
   const existingMfrNames = new Set((existingMfrRows ?? []).map((m) => m.name.trim().toLowerCase()));
 
   const rowErrors: string[] = [];
   // Groups keyed by exact (trimmed) MFR Name text — repeating the same
-  // name across rows is how one MFR's multiple recipe lines AND/OR
-  // Manufacturing Process steps are expressed in a flat spreadsheet (see
-  // the template's Instructions sheet).
-  const groups = new Map<string, { firstRow: number; def: MfrDefPayload }>();
+  // name across rows is how one MFR's multiple recipe lines (Recipe
+  // sheet) and/or Manufacturing Process steps (Manufacturing Procedure
+  // sheet) are expressed. Every group is created while processing the
+  // Recipe sheet (below) — the Procedure sheet only ever looks an
+  // existing group up by name, never creates one, which is what
+  // structurally guarantees every MFR has at least one recipe line
+  // without a separate "no recipe lines" check afterward. firstRow is the
+  // first Recipe-sheet row for this MFR (for Batch Size/Item Type
+  // mismatch messages); firstProcedureRow is the first Procedure-sheet
+  // row that set Procedure Intro/Theoretical/Permissible Yield for this
+  // MFR (for THEIR mismatch messages) — kept separate since they're now
+  // two different sheets, so a Recipe-sheet row number would be a
+  // confusing thing to point at for a Procedure-sheet-only conflict.
+  const groups = new Map<string, { firstRow: number; firstProcedureRow: number | null; def: MfrDefPayload }>();
 
-  rows.forEach((row, i) => {
+  // ---- Recipe sheet: one row = one recipe line, always required ----
+  recipeSheet.rows.forEach((row, i) => {
     const r = excelRow(i);
-    const name = cell(row, headers, MFR_COLUMNS[0]);
-    const batchQtyRaw = cell(row, headers, MFR_COLUMNS[1]);
-    const batchUnitRaw = cell(row, headers, MFR_COLUMNS[2]);
-    const itemTypeRaw = cell(row, headers, MFR_COLUMNS[3]);
-    const procedureIntroRaw = cell(row, headers, MFR_COLUMNS[4]);
-    const theoreticalYieldRaw = cell(row, headers, MFR_COLUMNS[5]);
-    const permissibleYieldRaw = cell(row, headers, MFR_COLUMNS[6]);
-    const lineNameRaw = cell(row, headers, MFR_COLUMNS[7]);
-    const lineQtyRaw = cell(row, headers, MFR_COLUMNS[8]);
-    const lineUnitRaw = cell(row, headers, MFR_COLUMNS[9]);
-    const stageRaw = cell(row, headers, MFR_COLUMNS[10]);
-    const operationRaw = cell(row, headers, MFR_COLUMNS[11]);
+    const name = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[0]);
+    const batchQtyRaw = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[1]);
+    const batchUnitRaw = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[2]);
+    const itemTypeRaw = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[3]);
+    const lineNameRaw = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[4]);
+    const lineQtyRaw = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[5]);
+    const lineUnitRaw = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[6]);
 
     if (!name) {
-      rowErrors.push(`Row ${r}: MFR Name is required.`);
+      rowErrors.push(`Recipe sheet, row ${r}: MFR Name is required.`);
       return;
     }
 
     const batchQty = Number(batchQtyRaw);
     if (!batchQtyRaw || Number.isNaN(batchQty) || batchQty <= 0) {
-      rowErrors.push(`Row ${r} ("${name}"): Batch Size Qty must be a number greater than 0.`);
+      rowErrors.push(`Recipe sheet, row ${r} ("${name}"): Batch Size Qty must be a number greater than 0.`);
       return;
     }
     const batchUnit = matchUnit(batchUnitRaw);
     if (!batchUnit) {
-      rowErrors.push(`Row ${r} ("${name}"): Batch Size Unit "${batchUnitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
+      rowErrors.push(`Recipe sheet, row ${r} ("${name}"): Batch Size Unit "${batchUnitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
       return;
     }
 
@@ -535,105 +606,57 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
     if (itemTypeRaw) {
       const match = itemTypeByName.get(itemTypeRaw.trim().toLowerCase());
       if (!match) {
-        rowErrors.push(`Row ${r} ("${name}"): Item Type "${itemTypeRaw}" doesn't match an existing active Item Type Master description.`);
+        rowErrors.push(
+          `Recipe sheet, row ${r} ("${name}"): Item Type "${itemTypeRaw}" doesn't match an existing active Item Type Master description.`
+        );
         return;
       }
       item_type_id = match;
     }
 
-    // Manufacturing Process header fields — all optional. Unlike Batch
-    // Size Qty/Unit/Item Type (required, so every row provides one),
-    // these are only expected to be filled on ONE row for the MFR
-    // (typically the first) — see below for how a blank on a later row
-    // is handled (no-op, not a mismatch).
-    let theoretical_yield_pct: number | null = null;
-    if (theoreticalYieldRaw) {
-      const n = Number(theoreticalYieldRaw);
-      if (!Number.isFinite(n) || n <= 0) {
-        rowErrors.push(`Row ${r} ("${name}"): Theoretical Yield % must be a number greater than 0.`);
-        return;
-      }
-      theoretical_yield_pct = n;
+    const lineMatches = rawItemByName.get(lineNameRaw.trim().toLowerCase()) ?? [];
+    if (!lineNameRaw || lineMatches.length === 0) {
+      rowErrors.push(`Recipe sheet, row ${r} ("${name}"): Line Item Name "${lineNameRaw}" doesn't match an existing active Raw Material item.`);
+      return;
     }
-    let permissible_yield_pct: number | null = null;
-    if (permissibleYieldRaw) {
-      const n = Number(permissibleYieldRaw);
-      if (!Number.isFinite(n) || n <= 0) {
-        rowErrors.push(`Row ${r} ("${name}"): Permissible Yield % must be a number greater than 0.`);
-        return;
-      }
-      permissible_yield_pct = n;
-    }
-    const procedure_intro = procedureIntroRaw.trim() || null;
-
-    // Every row is either a recipe line, a Manufacturing Process step, or
-    // (having none of either group filled) an error — never both at once.
-    const hasRecipeFields = !!(lineNameRaw || lineQtyRaw || lineUnitRaw);
-    const hasStepFields = !!(stageRaw || operationRaw);
-    if (hasRecipeFields && hasStepFields) {
+    if (lineMatches.length > 1) {
       rowErrors.push(
-        `Row ${r} ("${name}"): a row can't be both a recipe line and a Manufacturing Process step — leave Line Item Name/Line Quantity/Line Unit blank for a process-step row, or leave Stage/Operation blank for a recipe-line row.`
+        `Recipe sheet, row ${r} ("${name}"): Line Item Name "${lineNameRaw}" matches ${lineMatches.length} active Raw Material items (${lineMatches.map((it) => it.item_code).join(", ")}) — use a more specific/unique name, or fix the duplicate in Item Master first.`
       );
       return;
     }
-    if (!hasRecipeFields && !hasStepFields) {
-      rowErrors.push(`Row ${r} ("${name}"): fill either Line Item Name/Line Quantity/Line Unit (a recipe line) or Stage/Operation (a process step).`);
+    const lineQty = Number(lineQtyRaw);
+    if (!lineQtyRaw || Number.isNaN(lineQty) || lineQty <= 0) {
+      rowErrors.push(`Recipe sheet, row ${r} ("${name}"): Line Quantity must be a number greater than 0.`);
       return;
     }
-
-    let newLine: MfrLinePayload | null = null;
-    let newStep: MfrProcedureStepPayload | null = null;
-
-    if (hasRecipeFields) {
-      const lineMatches = rawItemByName.get(lineNameRaw.trim().toLowerCase()) ?? [];
-      if (!lineNameRaw || lineMatches.length === 0) {
-        rowErrors.push(`Row ${r} ("${name}"): Line Item Name "${lineNameRaw}" doesn't match an existing active Raw Material item.`);
-        return;
-      }
-      if (lineMatches.length > 1) {
-        rowErrors.push(
-          `Row ${r} ("${name}"): Line Item Name "${lineNameRaw}" matches ${lineMatches.length} active Raw Material items (${lineMatches.map((it) => it.item_code).join(", ")}) — use a more specific/unique name, or fix the duplicate in Item Master first.`
-        );
-        return;
-      }
-      const lineQty = Number(lineQtyRaw);
-      if (!lineQtyRaw || Number.isNaN(lineQty) || lineQty <= 0) {
-        rowErrors.push(`Row ${r} ("${name}"): Line Quantity must be a number greater than 0.`);
-        return;
-      }
-      const lineUnit = matchUnit(lineUnitRaw);
-      if (!lineUnit) {
-        rowErrors.push(`Row ${r} ("${name}"): Line Unit "${lineUnitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
-        return;
-      }
-      newLine = { item_id: lineMatches[0].id, quantity: lineQty, unit: lineUnit };
-    } else {
-      if (!stageRaw || !operationRaw) {
-        rowErrors.push(`Row ${r} ("${name}"): a Manufacturing Process step needs both Stage and Operation.`);
-        return;
-      }
-      newStep = { stage: stageRaw, operation: operationRaw };
+    const lineUnit = matchUnit(lineUnitRaw);
+    if (!lineUnit) {
+      rowErrors.push(`Recipe sheet, row ${r} ("${name}"): Line Unit "${lineUnitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
+      return;
     }
+    const newLine: MfrLinePayload = { item_id: lineMatches[0].id, quantity: lineQty, unit: lineUnit };
 
     const key = name.trim();
     const existing = groups.get(key);
     if (!existing) {
       if (existingMfrNames.has(key.toLowerCase())) {
-        rowErrors.push(`Row ${r}: "${name}" already exists as an MFR.`);
+        rowErrors.push(`Recipe sheet, row ${r}: "${name}" already exists as an MFR.`);
         return;
       }
       groups.set(key, {
         firstRow: r,
+        firstProcedureRow: null,
         def: {
           name: key,
           batch_size_qty: batchQty,
           batch_size_unit: batchUnit,
           item_type_id,
-          lines: newLine ? [newLine] : [],
-          procedure_intro,
-          theoretical_yield_pct,
-          permissible_yield_pct,
-          procedure_steps: newStep ? [newStep] : [],
+          lines: [newLine],
+          procedure_intro: null,
+          theoretical_yield_pct: null,
+          permissible_yield_pct: null,
+          procedure_steps: [],
         },
       });
       return;
@@ -645,67 +668,123 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
     // whichever row happened to be inserted first.
     if (existing.def.batch_size_qty !== batchQty || existing.def.batch_size_unit !== batchUnit || existing.def.item_type_id !== item_type_id) {
       rowErrors.push(
-        `Row ${r} ("${name}"): Batch Size Qty / Batch Size Unit / Item Type must match row ${existing.firstRow} — every line for the same MFR Name must repeat the same header values.`
+        `Recipe sheet, row ${r} ("${name}"): Batch Size Qty / Batch Size Unit / Item Type must match row ${existing.firstRow} — every line for the same MFR Name must repeat the same header values.`
       );
       return;
     }
-    // The optional Manufacturing Process header fields are handled
-    // differently: a blank on this row is a no-op (not every row needs to
-    // repeat them), but a DIFFERENT non-blank value than what an earlier
-    // row already set is a real conflict — same "catch a typo before it
-    // silently picks one value" reasoning, just tolerant of "only filled
-    // once."
-    if (procedure_intro !== null && existing.def.procedure_intro !== null && procedure_intro !== existing.def.procedure_intro) {
-      rowErrors.push(`Row ${r} ("${name}"): Procedure Intro differs from row ${existing.firstRow} — fill it once per MFR, not with two different values.`);
+    // Same Raw Material item added twice as two separate lines under one
+    // MFR is almost always a copy-paste slip, not an intentional recipe —
+    // rejected so a duplicated ingredient doesn't silently double-count
+    // when the batch is actually produced. Combine into one line instead.
+    if (existing.def.lines.some((l) => l.item_id === newLine.item_id)) {
+      rowErrors.push(
+        `Recipe sheet, row ${r} ("${name}"): Line Item Name "${lineNameRaw}" is already a recipe line for this MFR (see an earlier row) — combine into one line instead of repeating it.`
+      );
       return;
     }
-    if (procedure_intro !== null && existing.def.procedure_intro === null) existing.def.procedure_intro = procedure_intro;
+    existing.def.lines.push(newLine);
+  });
+
+  // ---- Manufacturing Procedure sheet: one row = one procedure step, fully optional ----
+  procedureSheet.rows.forEach((row, i) => {
+    const r = excelRow(i);
+    const name = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[0]);
+    const procedureIntroRaw = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[1]);
+    const theoreticalYieldRaw = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[2]);
+    const permissibleYieldRaw = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[3]);
+    const stageRaw = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[4]);
+    const operationRaw = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[5]);
+
+    if (!name) {
+      rowErrors.push(`Manufacturing Procedure sheet, row ${r}: MFR Name is required.`);
+      return;
+    }
+    const key = name.trim();
+    const existing = groups.get(key);
+    if (!existing) {
+      rowErrors.push(
+        `Manufacturing Procedure sheet, row ${r}: MFR Name "${name}" doesn't match any MFR Name on the Recipe sheet — every MFR needs at least one recipe line before it can have procedure steps.`
+      );
+      return;
+    }
+
+    if (!stageRaw || !operationRaw) {
+      rowErrors.push(`Manufacturing Procedure sheet, row ${r} ("${name}"): Stage and Operation are both required.`);
+      return;
+    }
+
+    // Procedure Intro / Theoretical Yield % / Permissible Yield % are
+    // header-level for the MFR but live only on this sheet now — same
+    // "only expected to be filled on ONE row (blank elsewhere is a
+    // no-op), but a DIFFERENT non-blank value is a real conflict" rule
+    // this had before the sheet split, just checked against
+    // firstProcedureRow instead of firstRow now that these fields no
+    // longer share a sheet with the recipe-line rows.
+    let theoretical_yield_pct: number | null = null;
+    if (theoreticalYieldRaw) {
+      const n = Number(theoreticalYieldRaw);
+      if (!Number.isFinite(n) || n <= 0) {
+        rowErrors.push(`Manufacturing Procedure sheet, row ${r} ("${name}"): Theoretical Yield % must be a number greater than 0.`);
+        return;
+      }
+      theoretical_yield_pct = n;
+    }
+    let permissible_yield_pct: number | null = null;
+    if (permissibleYieldRaw) {
+      const n = Number(permissibleYieldRaw);
+      if (!Number.isFinite(n) || n <= 0) {
+        rowErrors.push(`Manufacturing Procedure sheet, row ${r} ("${name}"): Permissible Yield % must be a number greater than 0.`);
+        return;
+      }
+      permissible_yield_pct = n;
+    }
+    const procedure_intro = procedureIntroRaw.trim() || null;
+
+    if (procedure_intro !== null && existing.def.procedure_intro !== null && procedure_intro !== existing.def.procedure_intro) {
+      rowErrors.push(
+        `Manufacturing Procedure sheet, row ${r} ("${name}"): Procedure Intro differs from row ${existing.firstProcedureRow} — fill it once per MFR, not with two different values.`
+      );
+      return;
+    }
     if (
       theoretical_yield_pct !== null &&
       existing.def.theoretical_yield_pct !== null &&
       theoretical_yield_pct !== existing.def.theoretical_yield_pct
     ) {
-      rowErrors.push(`Row ${r} ("${name}"): Theoretical Yield % differs from row ${existing.firstRow} — fill it once per MFR, not with two different values.`);
+      rowErrors.push(
+        `Manufacturing Procedure sheet, row ${r} ("${name}"): Theoretical Yield % differs from row ${existing.firstProcedureRow} — fill it once per MFR, not with two different values.`
+      );
       return;
     }
-    if (theoretical_yield_pct !== null && existing.def.theoretical_yield_pct === null) existing.def.theoretical_yield_pct = theoretical_yield_pct;
     if (
       permissible_yield_pct !== null &&
       existing.def.permissible_yield_pct !== null &&
       permissible_yield_pct !== existing.def.permissible_yield_pct
     ) {
-      rowErrors.push(`Row ${r} ("${name}"): Permissible Yield % differs from row ${existing.firstRow} — fill it once per MFR, not with two different values.`);
+      rowErrors.push(
+        `Manufacturing Procedure sheet, row ${r} ("${name}"): Permissible Yield % differs from row ${existing.firstProcedureRow} — fill it once per MFR, not with two different values.`
+      );
       return;
     }
+    if (existing.firstProcedureRow === null) existing.firstProcedureRow = r;
+    if (procedure_intro !== null && existing.def.procedure_intro === null) existing.def.procedure_intro = procedure_intro;
+    if (theoretical_yield_pct !== null && existing.def.theoretical_yield_pct === null) existing.def.theoretical_yield_pct = theoretical_yield_pct;
     if (permissible_yield_pct !== null && existing.def.permissible_yield_pct === null) existing.def.permissible_yield_pct = permissible_yield_pct;
 
-    if (newLine) {
-      // Same Raw Material item added twice as two separate lines under one
-      // MFR is almost always a copy-paste slip, not an intentional recipe —
-      // rejected so a duplicated ingredient doesn't silently double-count
-      // when the batch is actually produced. Combine into one line instead.
-      if (existing.def.lines.some((l) => l.item_id === newLine!.item_id)) {
-        rowErrors.push(
-          `Row ${r} ("${name}"): Line Item Name "${lineNameRaw}" is already a recipe line for this MFR (see an earlier row) — combine into one line instead of repeating it.`
-        );
-        return;
-      }
-      existing.def.lines.push(newLine);
-    } else if (newStep) {
-      existing.def.procedure_steps.push(newStep);
-    }
+    existing.def.procedure_steps.push({ stage: stageRaw, operation: operationRaw });
   });
 
   if (rowErrors.length > 0) {
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
+  // No "every MFR needs at least one recipe line" check needed here (it
+  // used to run after the loop, against a single flat sheet) — every
+  // group in `groups` was created by a Recipe-sheet row that already
+  // pushed exactly one line onto it, so `lines.length === 0` is now
+  // structurally impossible, not just unlikely.
   const payload = Array.from(groups.values()).map((g) => g.def);
   if (payload.length === 0) return { error: "No MFR rows found in that file." };
-  const noRecipeGroup = Array.from(groups.entries()).find(([, g]) => g.def.lines.length === 0);
-  if (noRecipeGroup) {
-    return { error: `"${noRecipeGroup[0]}" has no recipe lines — every MFR needs at least one (Manufacturing Process steps alone aren't enough).` };
-  }
 
   const { data, error } = await supabase.rpc("bulk_create_mfr_definitions", { p_payload: payload });
   if (error) return { error: error.message };

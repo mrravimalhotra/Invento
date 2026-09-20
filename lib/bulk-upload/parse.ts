@@ -54,7 +54,26 @@ function cellToString(value: ExcelJS.CellValue): string {
 // it); if that lookup ever fails (e.g. a re-saved file with a renamed
 // tab), fall back to the first sheet that isn't named "Instructions" or
 // "Reference", rather than assuming position 0 again.
-export async function readFirstSheet(file: File, expectedSheetName?: string): Promise<ParsedSheet> {
+// `allowFallback` (default true, 20 Sept 2026 — added for MFR's Recipe /
+// Manufacturing Procedure split, lib/actions/bulk-upload.ts's
+// bulkUploadMfr()): every module used to have exactly one data sheet, so
+// falling back to "the first sheet that isn't Instructions/Reference"
+// when the expected name isn't found was always safe — there was nothing
+// else it could accidentally match. MFR now has TWO data sheets in one
+// workbook; if the Manufacturing Procedure sheet were missing or renamed,
+// that same fallback would silently hand back the Recipe sheet a second
+// time under the "Procedure" label instead of a clear error, and its
+// recipe-shaped rows would then fail Procedure-column validation in
+// confusing, misleading ways. Callers that read a SECOND named sheet from
+// a workbook that already has a known first one should pass
+// `{ allowFallback: false }` so a missing/renamed sheet fails fast and
+// explicitly instead.
+export async function readFirstSheet(
+  file: File,
+  expectedSheetName?: string,
+  options?: { allowFallback?: boolean }
+): Promise<ParsedSheet> {
+  const allowFallback = options?.allowFallback ?? true;
   const arrayBuffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
   try {
@@ -76,6 +95,9 @@ export async function readFirstSheet(file: File, expectedSheetName?: string): Pr
   const byExpectedName = expectedSheetName
     ? workbook.worksheets.find((s) => s.name.trim().toLowerCase() === expectedSheetName.trim().toLowerCase())
     : undefined;
+  if (expectedSheetName && !byExpectedName && !allowFallback) {
+    throw new Error(`Couldn't find the "${expectedSheetName}" sheet in that file — did you use the downloaded template?`);
+  }
   const sheet =
     byExpectedName ?? workbook.worksheets.find((s) => !NON_DATA_SHEET_NAMES.has(s.name.trim().toLowerCase()));
   if (!sheet || sheet.rowCount === 0) {

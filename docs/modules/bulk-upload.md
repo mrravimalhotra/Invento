@@ -67,33 +67,43 @@ upload parser — the two sides can't drift apart.
 | Item Master | Name, Category (`Raw Material` / `Packaging`) | Item Type, Unit, Botanical Alias, Barcode, Low Stock Threshold |
 | Vendor Master | Name | Address, Mobile, Phone, Email |
 | Item Type Master | Description | — |
-| MFR | MFR Name, Batch Size Qty, Batch Size Unit, Line Item Code, Line Quantity, Line Unit | Item Type |
-| Purchase | Vendor Code, Invoice Number, Invoice Date, Purchase Type (`Raw Material` / `Packaging Item`), Item Code, Quantity, Unit | QC Qty, Stability Qty, R&D Qty, Sample Unit, Unit Price, GST % |
+| MFR — Recipe sheet | MFR Name, Batch Size Qty, Batch Size Unit, Line Item Name, Line Quantity, Line Unit | Item Type |
+| MFR — Manufacturing Procedure sheet | MFR Name, Stage, Operation | Procedure Intro, Theoretical Yield %, Permissible Yield % |
+| Purchase | Vendor Name, Invoice Number, Invoice Date, Purchase Type (`Raw Material` / `Packaging Item`), Item Name, Quantity, Unit | QC Qty, Stability Qty, R&D Qty, Sample Unit, Unit Price, GST % |
 | Instrument / Equipment Master | Name | Room No, Section, Asset ID, Quantity, Calibration Status, Last/Next Calibration date |
 | Dead Stock Register | Name of Article | Date of Purchase, Quantity, Purchase Price, Depreciation %, Resolution Date, Rejected Qty/Value, Balance Qty/Value, Remark |
 
 MFR and Purchase share the same flat-file wrinkle: one row is one
-recipe/purchase line, so a record with several lines is several rows
-repeating the exact same grouping key — **MFR Name** for MFR; **Vendor
-Code + Invoice Number** (with **Invoice Date** also expected to repeat)
-for Purchase. The upload groups rows into one MFR/purchase order by
-matching that key exactly, and errors if a repeated key's other header
-values (Batch Size Qty/Unit/Item Type for MFR; Invoice Date for
-Purchase) don't match row-for-row. Equipment and Dead Stock have no such
-wrinkle — one row is always one complete record.
+recipe/procedure-step/purchase line, so a record with several lines is
+several rows repeating the exact same grouping key — **MFR Name** for
+MFR; **Vendor Name + Invoice Number** (with **Invoice Date** also
+expected to repeat) for Purchase. The upload groups rows into one
+MFR/purchase order by matching that key exactly, and errors if a
+repeated key's other header values (Batch Size Qty/Unit/Item Type for
+MFR's Recipe sheet; Invoice Date for Purchase) don't match row-for-row.
+Equipment and Dead Stock have no such wrinkle — one row is always one
+complete record.
+
+MFR is also the one module with **two** data sheets, not one — Recipe
+and Manufacturing Procedure (20 Sept 2026, see "MFR: Recipe and
+Manufacturing Procedure split into two sheets" below) — joined to each
+other by the same MFR Name grouping key rather than living in one flat
+sheet together.
 
 ## Validation and import (`lib/actions/bulk-upload.ts`)
 1. `canWrite(user.roles, module)` — same gate as that module's own
    create screen.
-2. Parse the first sheet (`lib/bulk-upload/parse.ts`, via `exceljs`);
+2. Parse the data sheet(s) (`lib/bulk-upload/parse.ts`, via `exceljs`);
    confirm every required column header is present (case-insensitive,
    trimmed) — a friendly "did you use the downloaded template?" error if
-   not.
+   not. MFR parses two named sheets (Recipe, Manufacturing Procedure)
+   rather than one — see below.
 3. Row cap: 500 data rows per file (`MAX_UPLOAD_ROWS`) — bounds
    worst-case request time; split a bigger file and upload in batches.
    For Purchase, that's 500 purchase **lines** per file (not 500
-   purchase orders), same as MFR counting recipe lines, not MFR
-   definitions.
+   purchase orders). For MFR, the cap applies independently to each of
+   the two sheets (up to 500 recipe lines AND up to 500 procedure steps,
+   not one combined 500 across both).
 4. Validate every row against live reference data and collect **every**
    row's errors — not just the first — before touching the database. Any
    error at all ⇒ nothing is imported; the full list is shown back to the
@@ -114,30 +124,46 @@ wrinkle — one row is always one complete record.
      (case-insensitive — `item_types.description`'s DB uniqueness is
      case-sensitive, so this closes a near-duplicate gap the constraint
      itself wouldn't catch).
-   - **MFR**: Batch Size Qty and Line Quantity must be numbers greater
-     than 0; Batch Size Unit and Line Unit must be valid units; Item
-     Type, if given, must match an existing active Item Type Master
-     description; Line Item Code must match an existing **active Raw
-     Material** item code (an inactive item, a Packaging/Finished
-     Product item, or an unknown code are all rejected the same way);
-     every row sharing one MFR Name must repeat identical Batch Size
-     Qty/Unit/Item Type; the same Line Item Code can't appear twice under
-     one MFR Name (a likely copy-paste slip — combine into one line
-     instead, since two separate lines for the same ingredient would
-     silently double-count it at production time).
-   - **Purchase**: Vendor Code must match an existing active vendor;
-     Invoice Date must be a real date; Purchase Type must resolve to Raw
-     Material or Packaging Item; Item Code must match an existing
-     **active** item **of that same category** (a Raw Material row can't
-     reference a Packaging item and vice versa); Quantity must be a
-     number greater than 0 and Unit a valid unit; QC Qty/Stability Qty/
-     R&D Qty/Sample Unit are rejected outright on a Packaging Item line
-     (they only apply to Raw Material) and, when given on a Raw Material
-     line, are converted from Sample Unit into the line's own Unit
+   - **MFR — Recipe sheet**: Batch Size Qty and Line Quantity must be
+     numbers greater than 0; Batch Size Unit and Line Unit must be valid
+     units; Item Type, if given, must match an existing active Item Type
+     Master description; Line Item Name must uniquely match an existing
+     **active Raw Material** item name (an inactive item, a Packaging/
+     Finished Product item, an unknown name, or a name matching more
+     than one active Raw Material item are all rejected); every row
+     sharing one MFR Name must repeat identical Batch Size Qty/Unit/Item
+     Type; the same Line Item Name can't appear twice under one MFR Name
+     (a likely copy-paste slip — combine into one line instead, since two
+     separate lines for the same ingredient would silently double-count
+     it at production time).
+   - **MFR — Manufacturing Procedure sheet** (optional — zero rows for an
+     MFR is valid, it just means that MFR has no procedure steps): MFR
+     Name must already appear on the Recipe sheet (an MFR needs at least
+     one recipe line before it can have procedure steps — structurally
+     guaranteed by the Recipe sheet being the only place a new MFR group
+     is created); Stage and Operation are both required on every row;
+     Theoretical Yield %/Permissible Yield %, if given, must be numbers
+     greater than 0; every row sharing one MFR Name must repeat identical
+     Procedure Intro/Theoretical Yield %/Permissible Yield % wherever
+     more than one row fills them in (blank on a later row is a no-op,
+     not a mismatch).
+   - **Purchase**: Vendor Name must uniquely match an existing active
+     vendor; Invoice Date must be a real date; Purchase Type must resolve
+     to Raw Material or Packaging Item; Item Name must uniquely match an
+     existing **active** item **of that same category** (a Raw Material
+     row can't reference a Packaging item and vice versa; a name matching
+     more than one active item of that category is rejected); Quantity
+     must be a number greater than 0 and Unit a valid unit; QC Qty/
+     Stability Qty/R&D Qty/Sample Unit are rejected outright on a
+     Packaging Item line (they only apply to Raw Material) and, on a Raw
+     Material line, are mandatory — a blank cell is rejected, an
+     explicit 0 is accepted (20 Sept 2026, matching the same rule
+     `createPurchaseLine()`/`updatePurchaseLine()` already enforce in the
+     UI) — then converted from Sample Unit into the line's own Unit
      (`convertUnit()`, mirroring `createPurchaseLine()`'s own FB-0017
      logic) with the same QC+Stability+R&D ≤ Quantity bound enforced
      after conversion; Unit Price/GST %, if given, must be non-negative;
-     every row sharing one Vendor Code + Invoice Number must repeat the
+     every row sharing one Vendor Name + Invoice Number must repeat the
      same Invoice Date. Every purchase order created this way lands as a
      **Draft** — see the migration section below.
    - **Instrument / Equipment Master**: Name is required (repeats freely
@@ -280,3 +306,82 @@ sets as `mfr_def_write`/`mfr_lines_write` and `po_insert`/`pl_insert`).
   Final Submit before anything reaches inventory, even for a file that
   passed every check (Ravi's explicit scoping choice, not a limitation
   to lift later).
+
+## MFR: Recipe and Manufacturing Procedure split into two sheets (20 Sept 2026)
+
+Ravi: "In MFR bulk upload, divide this into two sheets one for recipe and
+the other one for procedure. Only required columns should be part of
+each of these."
+
+**Before this pass**, Manufacturing Process (added to the same bulk
+upload the same day, earlier — see the MFR pass in the session that
+extended `bulk_create_mfr_definitions()`) shared one flat MFR sheet with
+the recipe: one row was either a recipe line OR a procedure step,
+distinguished by which of Line Item Name/Line Quantity/Line Unit vs.
+Stage/Operation were filled, with every column from both groups present
+on every row whether relevant to that row or not — a Recipe row still
+had blank Stage/Operation cells, a Procedure row still had blank Line
+Item Name/Quantity/Unit cells. That's exactly the wrinkle Ravi's "only
+required columns should be part of each of these" targets.
+
+**What changed** (`lib/bulk-upload/schemas.ts`, `lib/bulk-upload/
+templates.ts`, `lib/actions/bulk-upload.ts`, `lib/bulk-upload/parse.ts`):
+
+- `MFR_COLUMNS` (one flat list) is replaced by `MFR_RECIPE_COLUMNS` (the
+  Recipe sheet: MFR Name, Batch Size Qty, Batch Size Unit, Item Type,
+  Line Item Name, Line Quantity, Line Unit) and `MFR_PROCEDURE_COLUMNS`
+  (the Manufacturing Procedure sheet: MFR Name, Procedure Intro,
+  Theoretical Yield %, Permissible Yield %, Stage, Operation) — matching
+  this app's own existing UI section names for the two (`/mfr/[id]`'s
+  "Recipe" and "Manufacturing Procedure" cards), rather than inventing
+  new ones.
+- Since a row on either sheet now unambiguously belongs to that sheet's
+  own kind, the columns that used to be conditionally required (blank
+  was valid on a row of the *other* kind) are now simply `required: true`:
+  Line Item Name/Line Quantity/Line Unit on the Recipe sheet, Stage/
+  Operation on the Manufacturing Procedure sheet.
+- The Recipe sheet is always required — every MFR needs at least one
+  recipe line, structurally guaranteed now by the fact that it's the
+  *only* sheet that creates a new MFR group; the "no recipe lines" check
+  that used to run after the whole flat sheet was processed is gone
+  because it's no longer reachable, not because it was relaxed. The
+  Manufacturing Procedure sheet is fully optional — zero rows for a given
+  MFR name is valid, same as leaving that section blank on the MFR screen
+  itself.
+- The two sheets are joined by MFR Name: every Manufacturing Procedure
+  row's MFR Name must already exist as a group from the Recipe sheet
+  (`bulkUploadMfr()` processes Recipe first, building `groups`, then
+  Procedure second, only ever looking a group up — never creating one).
+  A Procedure row naming an MFR the Recipe sheet never mentioned is
+  rejected with a specific error rather than silently ignored or
+  creating an orphan.
+- `readFirstSheet()` (`lib/bulk-upload/parse.ts`) gained an
+  `{ allowFallback: false }` option, used only for the Manufacturing
+  Procedure sheet lookup: every other sheet lookup in this feature (one
+  sheet per module) falls back to "the first sheet that isn't
+  Instructions/Reference" if the exact name isn't found, which was always
+  safe when there was nothing else to accidentally match. With MFR now
+  having two data sheets, that same fallback would silently hand back the
+  Recipe sheet a second time under the "Procedure" label if the
+  Manufacturing Procedure sheet were missing or renamed — `allowFallback:
+  false` makes that fail fast with a clear, specific error instead.
+- Row cap (`MAX_UPLOAD_ROWS`, 500) now applies independently to each
+  sheet, not to one combined count.
+- Both sheets get their own `applyDropdownColumn()` wiring off the same
+  shared Reference sheet (Recipe: Batch Size Unit, Item Type, Line Item
+  Name, Line Unit — all four, since all four are now unconditionally
+  present on every Recipe row).
+- Row-level errors are now prefixed with which sheet they're on ("Recipe
+  sheet, row 5 (...)" / "Manufacturing Procedure sheet, row 3 (...)"),
+  since a plain "Row 5" is ambiguous once there are two sheets with their
+  own independent row numbering.
+
+**Deliberately unchanged**: `bulk_create_mfr_definitions()` — the RPC's
+JSON payload shape (`name`, `batch_size_qty`, `batch_size_unit`,
+`item_type_id`, `lines[]`, `procedure_intro`, `theoretical_yield_pct`,
+`permissible_yield_pct`, `procedure_steps[]`) never changed, only how
+`bulkUploadMfr()` assembles it from the uploaded file — so this pass
+needed no migration at all, purely an app-layer (schema + template +
+parser) change.
+
+Verified: `tsc`/`eslint`/`next build` all clean.
