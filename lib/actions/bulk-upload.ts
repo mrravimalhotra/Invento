@@ -28,10 +28,19 @@
 // as Vendor Master, no new RPC needed. Purchase again needs its own RPC
 // (bulk_create_purchase_orders(), 0038_bulk_upload_purchase.sql) for the
 // same reason MFR does: one row = one purchase line, grouped into a
-// purchase order by repeating Vendor Code + Invoice Number (+ Invoice
+// purchase order by repeating Vendor Name + Invoice Number (+ Invoice
 // Date), and every bulk-uploaded purchase order lands as a Draft — see
 // that migration's header comment for the "why Draft needs no special
 // code" reasoning.
+//
+// Vendor Name / Item Name, not Vendor Code / Item Code (20 Sept 2026,
+// Ravi). Matching is by-name, case-insensitive, and — since neither
+// vendors.name nor items.name is DB-uniquely-constrained (only checked
+// app-side, going forward, on new writes — see the Twenty-fifth/
+// Twenty-sixth known-issues.md passes) — a name that matches more than
+// one active vendor, or more than one active item of the row's own
+// Purchase Type category, is rejected with a row error asking for a more
+// specific name rather than silently guessing which one was meant.
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -612,19 +621,32 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
 
   const supabase = await createClient();
   const [{ data: vendors }, { data: items }, { data: existingPoRows }] = await Promise.all([
-    supabase.from("vendors").select("id, vendor_code").eq("active", true),
+    supabase.from("vendors").select("id, vendor_code, name").eq("active", true),
     // Only Raw Material and Packaging items are purchasable — same rule
     // createPurchaseLine()'s own item picker enforces (purchase/[id]/page.tsx).
-    supabase.from("items").select("id, item_code, category").in("category", ["raw", "packaging"]).eq("active", true),
+    supabase.from("items").select("id, item_code, name, category").in("category", ["raw", "packaging"]).eq("active", true),
     supabase.from("purchase_orders").select("vendor_id, invoice_number"),
   ]);
-  const vendorByCode = new Map((vendors ?? []).map((v) => [v.vendor_code.trim().toLowerCase(), v.id]));
-  const itemByCode = new Map(
-    (items ?? []).map((it) => [it.item_code.trim().toLowerCase(), it as { id: string; item_code: string; category: string }])
-  );
+  // Keyed by name (not code) — several active rows can share a name, so
+  // each key maps to an array; a row is only usable once that array
+  // resolves to exactly one match (see the per-row lookups below).
+  const vendorByName = new Map<string, { id: string; vendor_code: string }[]>();
+  (vendors ?? []).forEach((v) => {
+    const key = v.name.trim().toLowerCase();
+    const arr = vendorByName.get(key) ?? [];
+    arr.push({ id: v.id, vendor_code: v.vendor_code });
+    vendorByName.set(key, arr);
+  });
+  const itemByName = new Map<string, { id: string; item_code: string; category: string }[]>();
+  (items ?? []).forEach((it) => {
+    const key = it.name.trim().toLowerCase();
+    const arr = itemByName.get(key) ?? [];
+    arr.push({ id: it.id, item_code: it.item_code, category: it.category });
+    itemByName.set(key, arr);
+  });
   // purchase_orders has no DB-level unique constraint on (vendor_id,
   // invoice_number) — checked only when a NEW group is opened below (i.e.
-  // against the DB, not within-file — repeating the same Vendor Code +
+  // against the DB, not within-file — repeating the same Vendor Name +
   // Invoice Number across rows in one file is how one purchase order's
   // multiple lines are expressed, and is already handled by the grouping
   // itself). Scoped per vendor, not globally — different vendors
@@ -637,7 +659,7 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
   );
 
   const rowErrors: string[] = [];
-  // Groups keyed by (Vendor Code, Invoice Number) — repeating both across
+  // Groups keyed by (Vendor Name, Invoice Number) — repeating both across
   // rows is how one purchase order's multiple lines are expressed in a
   // flat spreadsheet, the same flat-file grouping pattern MFR_COLUMNS
   // uses for recipe lines (see the template's Instructions sheet).
@@ -645,11 +667,11 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
 
   rows.forEach((row, i) => {
     const r = excelRow(i);
-    const vendorCodeRaw = cell(row, headers, PURCHASE_COLUMNS[0]);
+    const vendorNameRaw = cell(row, headers, PURCHASE_COLUMNS[0]);
     const invoiceNumberRaw = cell(row, headers, PURCHASE_COLUMNS[1]);
     const invoiceDateRaw = cell(row, headers, PURCHASE_COLUMNS[2]);
     const purchaseTypeRaw = cell(row, headers, PURCHASE_COLUMNS[3]);
-    const itemCodeRaw = cell(row, headers, PURCHASE_COLUMNS[4]);
+    const itemNameRaw = cell(row, headers, PURCHASE_COLUMNS[4]);
     const quantityRaw = cell(row, headers, PURCHASE_COLUMNS[5]);
     const unitRaw = cell(row, headers, PURCHASE_COLUMNS[6]);
     const qcQtyRaw = cell(row, headers, PURCHASE_COLUMNS[7]);
@@ -659,11 +681,18 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
     const unitPriceRaw = cell(row, headers, PURCHASE_COLUMNS[11]);
     const gstPctRaw = cell(row, headers, PURCHASE_COLUMNS[12]);
 
-    const vendorId = vendorByCode.get(vendorCodeRaw.trim().toLowerCase());
-    if (!vendorCodeRaw || !vendorId) {
-      rowErrors.push(`Row ${r}: Vendor Code "${vendorCodeRaw}" doesn't match an existing active vendor.`);
+    const vendorMatches = vendorByName.get(vendorNameRaw.trim().toLowerCase()) ?? [];
+    if (!vendorNameRaw || vendorMatches.length === 0) {
+      rowErrors.push(`Row ${r}: Vendor Name "${vendorNameRaw}" doesn't match an existing active vendor.`);
       return;
     }
+    if (vendorMatches.length > 1) {
+      rowErrors.push(
+        `Row ${r}: Vendor Name "${vendorNameRaw}" matches ${vendorMatches.length} active vendors (${vendorMatches.map((v) => v.vendor_code).join(", ")}) — use a more specific/unique name, or fix the duplicate in Vendor Master first.`
+      );
+      return;
+    }
+    const vendorId = vendorMatches[0].id;
     if (!invoiceNumberRaw) {
       rowErrors.push(`Row ${r}: Invoice Number is required.`);
       return;
@@ -692,17 +721,29 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
       return;
     }
 
-    const item = itemByCode.get(itemCodeRaw.trim().toLowerCase());
-    if (!itemCodeRaw || !item) {
-      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Item Code "${itemCodeRaw}" doesn't match an existing active item.`);
+    const itemMatchesAnyCategory = itemByName.get(itemNameRaw.trim().toLowerCase()) ?? [];
+    if (!itemNameRaw || itemMatchesAnyCategory.length === 0) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Item Name "${itemNameRaw}" doesn't match an existing active item.`);
       return;
     }
-    if (item.category !== category) {
+    const itemMatches = itemMatchesAnyCategory.filter((it) => it.category === category);
+    if (itemMatches.length === 0) {
+      // Real matches exist, just not in this row's own category — same
+      // friendly message the old code-based check gave, still possible to
+      // give here since we already have the (wrong-category) match(es).
+      const otherCategory = itemMatchesAnyCategory[0].category === "raw" ? "Raw Material" : "Packaging";
       rowErrors.push(
-        `Row ${r} (Invoice "${invoiceNumberRaw}"): Item Code "${itemCodeRaw}" is a ${item.category === "raw" ? "Raw Material" : "Packaging"} item, but Purchase Type says "${purchaseTypeRaw}".`
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): Item Name "${itemNameRaw}" is a ${otherCategory} item, but Purchase Type says "${purchaseTypeRaw}".`
       );
       return;
     }
+    if (itemMatches.length > 1) {
+      rowErrors.push(
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): Item Name "${itemNameRaw}" matches ${itemMatches.length} active ${category === "raw" ? "Raw Material" : "Packaging"} items (${itemMatches.map((it) => it.item_code).join(", ")}) — use a more specific/unique name, or fix the duplicate in Item Master first.`
+      );
+      return;
+    }
+    const item = itemMatches[0];
 
     const quantity = Number(quantityRaw);
     if (!quantityRaw || Number.isNaN(quantity) || quantity <= 0) {
@@ -770,12 +811,16 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
     }
 
     const line: PurchaseLinePayload = { item_id: item.id, quantity, unit, qc_qty, stability_qty, rnd_qty, unit_price, gst_pct };
-    const key = `${vendorCodeRaw.trim().toLowerCase()}||${invoiceNumberRaw.trim().toLowerCase()}`;
+    // Keyed by the resolved vendor id (not the raw cell text) — vendorId is
+    // already guaranteed unique for this row (the ambiguity check above
+    // returned early otherwise), so this groups correctly even if the same
+    // vendor's name was typed with different casing/whitespace on
+    // different rows.
+    const key = `${vendorId}||${invoiceNumberRaw.trim().toLowerCase()}`;
     const existing = groups.get(key);
     if (!existing) {
-      const dbKey = `${vendorId}||${invoiceNumberRaw.trim().toLowerCase()}`;
-      if (existingPoKeys.has(dbKey)) {
-        rowErrors.push(`Row ${r}: Invoice "${invoiceNumberRaw}" already exists for vendor "${vendorCodeRaw}".`);
+      if (existingPoKeys.has(key)) {
+        rowErrors.push(`Row ${r}: Invoice "${invoiceNumberRaw}" already exists for vendor "${vendorNameRaw}".`);
         return;
       }
       groups.set(key, {
@@ -784,13 +829,13 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
       });
       return;
     }
-    // Every row for the same Vendor Code + Invoice Number must repeat the
+    // Every row for the same Vendor Name + Invoice Number must repeat the
     // same Invoice Date — catches a typo/copy-paste slip before it
     // silently changes the header, mirroring MFR's header-consistency
     // check above.
     if (existing.def.invoice_date !== invoiceDate) {
       rowErrors.push(
-        `Row ${r} (Invoice "${invoiceNumberRaw}"): Invoice Date must match row ${existing.firstRow} — every line for the same Vendor Code + Invoice Number must repeat the same Invoice Date.`
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): Invoice Date must match row ${existing.firstRow} — every line for the same Vendor Name + Invoice Number must repeat the same Invoice Date.`
       );
       return;
     }

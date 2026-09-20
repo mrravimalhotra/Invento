@@ -107,21 +107,33 @@ export const MFR_COLUMNS: ColumnDef[] = [
 // Purchase order codes and batch numbers are ALWAYS auto-generated on
 // insert, same rule as everywhere else in this feature — no code column
 // is offered. One row = one purchase line; several rows sharing the same
-// Vendor Code + Invoice Number (which must also repeat the same Invoice
+// Vendor Name + Invoice Number (which must also repeat the same Invoice
 // Date) become one purchase order's lines, the same flat-file grouping
 // pattern MFR_COLUMNS above already uses for recipe lines.
+//
+// Vendor Name / Item Name (not Vendor Code / Item Code), 20 Sept 2026 —
+// Ravi: "It should have Vendor Name and Item name instead of Vendor Code
+// and Item Code." Vendor Name, Item Name, Purchase Type, and Unit all get
+// an Excel dropdown in the generated template (templates.ts) sourced from
+// live reference data, but the dropdown never hard-blocks — a value typed
+// free-hand that isn't in the list is still accepted by Excel and still
+// validated for real server-side, same as before. Matching by name is
+// case-insensitive; if a name matches more than one active vendor/item
+// (names aren't DB-enforced-unique — see bulk-upload.ts), the row is
+// rejected with an error asking for a more specific/unique name rather
+// than guessing which one was meant.
 export const PURCHASE_COLUMNS: ColumnDef[] = [
-  { header: "Vendor Code", required: true, hint: "an existing, active Vendor Master code — see the Reference sheet" },
+  { header: "Vendor Name", required: true, hint: "an existing, active Vendor Master name — pick from the dropdown, or type a new/different one; see the Reference sheet" },
   { header: "Invoice Number", required: true, hint: "repeat the exact same text (and the same Invoice Date) on every line row belonging to this purchase order" },
   { header: "Invoice Date", required: true, hint: "same value on every line row for one purchase order" },
-  { header: "Purchase Type", required: true, hint: "Raw Material or Packaging Item" },
-  { header: "Item Code", required: true, hint: "an existing, active item code matching Purchase Type — see the Reference sheet" },
+  { header: "Purchase Type", required: true, hint: "Raw Material or Packaging Item — pick from the dropdown" },
+  { header: "Item Name", required: true, hint: "an existing, active item name matching Purchase Type — pick from the dropdown, or type a new/different one; see the Reference sheet" },
   { header: "Quantity", required: true, hint: "a number greater than 0", numeric: true },
-  { header: "Unit", required: true, hint: "kg, g, mg, ltr, ml, count, bottle, or pack — see the Reference sheet" },
+  { header: "Unit", required: true, hint: "kg, g, mg, ltr, ml, count, bottle, or pack — pick from the dropdown" },
   { header: "QC Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines", numeric: true },
   { header: "Stability Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines", numeric: true },
   { header: "R&D Qty", required: false, hint: "Raw Material lines only — leave blank for Packaging Item lines", numeric: true },
-  { header: "Sample Unit", required: false, hint: "unit QC/Stability/R&D Qty are entered in, if different from Unit above — Raw Material lines only, converted to Unit on save" },
+  { header: "Sample Unit", required: false, hint: "unit QC/Stability/R&D Qty are entered in, if different from Unit above — Raw Material lines only, converted to Unit on save; same dropdown as Unit" },
   { header: "Unit Price (₹)", required: false, numeric: true },
   { header: "GST %", required: false, numeric: true },
 ];
