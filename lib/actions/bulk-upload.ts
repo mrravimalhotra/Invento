@@ -898,6 +898,42 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
       return;
     }
 
+    // Ravi (20 Sept 2026): "at the time of purchase, sample quantities for
+    // QC, R&D and Stability should be mandatory in both UI as well as bulk
+    // upload and can not be NULL" — the UI side of this rule already
+    // existed (createPurchaseLine()/updatePurchaseLine() in
+    // lib/actions/purchase.ts, 15 Sept 2026 pass), but this bulk-upload
+    // path was still silently treating a blank cell as "0"
+    // (`Number(qcQtyRaw || "0")` below), which is exactly the "left blank,
+    // never actually entered" gap the UI rule was built to close — a
+    // Raw Material row could be imported with no QC/Stability/R&D sample
+    // ever having been consciously specified. Same rule as the UI: 0 stays
+    // a valid, explicitly-entered value (checked here BEFORE the `|| "0"`
+    // fallback below runs, same reasoning as createPurchaseLine's own
+    // comment) — only a genuinely blank cell is rejected. Packaging rows
+    // are already required to leave these blank (the check just above),
+    // so this only ever applies to Raw Material rows.
+    if (category === "raw") {
+      if (!qcQtyRaw) {
+        rowErrors.push(
+          `Row ${r} (Invoice "${invoiceNumberRaw}"): QC Qty is required for a Raw Material line — enter 0 if this line needs no QC sample.`
+        );
+        return;
+      }
+      if (!stabilityQtyRaw) {
+        rowErrors.push(
+          `Row ${r} (Invoice "${invoiceNumberRaw}"): Stability Qty is required for a Raw Material line — enter 0 if this line needs no stability sample.`
+        );
+        return;
+      }
+      if (!rndQtyRaw) {
+        rowErrors.push(
+          `Row ${r} (Invoice "${invoiceNumberRaw}"): R&D Qty is required for a Raw Material line — enter 0 if this line needs no R&D sample.`
+        );
+        return;
+      }
+    }
+
     const sampleUnit = sampleUnitRaw || unitRaw;
     const qcQtyEntered = Number(qcQtyRaw || "0");
     const stabilityQtyEntered = Number(stabilityQtyRaw || "0");

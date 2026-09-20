@@ -857,3 +857,71 @@ No migration — purely an app-layer change. Verified: `tsc`/`eslint`/
 `next build` all clean; a standalone Node check confirmed the required
 `null`-vs-blank-string branching for Unit Price/GST % behaves correctly
 (0 accepted, blank rejected) before committing.
+
+## QC/Stability/R&D qty made mandatory in bulk upload too (20 Sept 2026)
+
+Ravi: "at the time of purchase, sample quantities for QC, R&D and
+Stability should be mandatory in both UI as well as bulk upload and can
+not be NULL." The UI half of this was already done — see "QC/Stability/
+R&D qty and sample unit made mandatory" above (15 Sept 2026): both
+`purchase-line-form.tsx` and `lib/actions/purchase.ts` already reject a
+blank QC/Stability/R&D qty field on a Raw Material line, while still
+accepting an explicitly-entered `0`. That 15 Sept pass never touched the
+bulk-upload path, though — `bulkUploadPurchase()`
+(`lib/actions/bulk-upload.ts`) still had the exact silent-default bug the
+UI fix was built to close: `Number(qcQtyRaw || "0")` treated a genuinely
+blank cell and an explicit `"0"` identically, so a Raw Material row could
+be imported with no QC/Stability/R&D sample ever having been consciously
+specified.
+
+**What checked out first, so no migration was needed**: at the database
+level, `purchase_lines.qc_qty` / `stability_qty` / `rnd_qty` have been
+`not null default 0` since `0001_init.sql` — that part of Ravi's ask
+("can not be NULL") was already structurally guaranteed and unchanged by
+any migration since. Nothing was ever able to reach the database as an
+actual `NULL` in these columns; the real gap was entirely at the
+application layer, where a blank cell was silently treated as "deliberate
+zero" rather than being rejected the way the UI already rejects it.
+
+**Fix (`lib/actions/bulk-upload.ts`, `bulkUploadPurchase()`)**: for a Raw
+Material row, `QC Qty` / `Stability Qty` / `R&D Qty` are now each checked
+for blank *before* the `|| "0"` fallback runs (same ordering the UI fix
+uses) — a blank cell is rejected with a row-level error naming the exact
+field ("QC Qty is required for a Raw Material line — enter 0 if this line
+needs no QC sample.", and the Stability/R&D equivalents); an explicit
+`"0"` is accepted like any other number. Packaging rows are unaffected —
+they're already required to leave these three columns blank (the
+pre-existing check just above this one in the same function), so the new
+check only ever applies to Raw Material rows.
+
+**Template** (`lib/bulk-upload/schemas.ts`, `lib/bulk-upload/
+templates.ts`): the three columns' hints now read "Required for Raw
+Material lines (enter 0 if none needed) — leave blank for Packaging Item
+lines" (previously just "Raw Material lines only — leave blank for
+Packaging Item lines," which didn't say they were mandatory), and the
+Purchase template's Instructions sheet gained an explicit bullet stating
+the rule. The column headers themselves stay `required: false` at the
+schema level — that flag only gates whether the *column* must exist
+somewhere in the uploaded file's header row (`loadSheetOrError`), not
+whether every row's cell is filled; since these three columns are
+conditionally required (Raw Material rows only, never Packaging), the
+same convention MFR's `Line Quantity` already uses (row-level enforcement
+with a specific message, not a blanket header-required flag) was followed
+here rather than introducing a new pattern.
+
+**Existing deliverable caught by this**: the filled Purchase bulk-upload
+template built for Ravi 20 Sept 2026 (Task D, `A. Jatamansi Tail`
+reference data) had 4 of its 8 Raw Material rows with blank QC/Stability/
+R&D Qty (the two smaller, non-primary Jatamansi/Til Tail purchases —
+the two rows with real reference values from the source spreadsheet
+already had them filled). Re-sent with those 4 rows set to explicit `0`
+rather than inventing plausible-looking numbers with no source to back
+them — flagged to Ravi as approximated, consistent with how the rest of
+that template's non-primary data was already caveated at delivery.
+
+No migration. Verified: `tsc`/`eslint`/`next build` all clean; a
+standalone check of the new blank/zero/packaging branching logic against
+representative rows; the corrected template round-tripped through the
+real `readFirstSheet`/`findColumnIndex` parser with the new rule applied
+and came back clean (every Raw Material row has an explicit QC/Stability/
+R&D value).
