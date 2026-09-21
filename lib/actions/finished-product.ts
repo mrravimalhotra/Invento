@@ -85,34 +85,61 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   // per that item, e.g. "FP-00001-03/26", matching how get_next_batch_number
   // formats RM/PKG batch numbers. See supabase/migrations/
   // 0055_fp_batch_number_embed_item_code.sql for the full reasoning.
-  const { data: batchNumber, error: numError } = await supabase.rpc("get_next_fp_batch_number", {
-    p_mfr_definition_id: mfrDefinitionId,
-  });
-  if (numError || !batchNumber) return { error: numError?.message || "Could not generate a batch number." };
+  //
+  // Retry-on-collision (21 Sept 2026, Ravi: "fix it" — the collision gap
+  // flagged alongside 0055 above): get_next_fp_batch_number() computes the
+  // next number from a count() query, then this insert happens as a
+  // separate round trip — nothing serializes the two, so two concurrent
+  // "Create Batch" submissions for the same MFR/year can compute and try to
+  // insert the same batch number. finished_product_batches.batch_number is
+  // `not null unique` (0001_init.sql), so that collision turns into a
+  // 23505 instead of a silent duplicate; retry a few times, since a fresh
+  // call to get_next_fp_batch_number() will now account for whichever
+  // request won the race — same pattern already used for RM/PKG purchase
+  // lines in createPurchaseLine() (lib/actions/purchase.ts), for the exact
+  // same reason.
+  let batch: { id: string } | null = null;
+  let batchError: { code?: string; message: string } | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: batchNumber, error: numError } = await supabase.rpc("get_next_fp_batch_number", {
+      p_mfr_definition_id: mfrDefinitionId,
+    });
+    if (numError || !batchNumber) return { error: numError?.message || "Could not generate a batch number." };
 
-  const { data: batch, error: batchError } = await supabase
-    .from("finished_product_batches")
-    .insert({
-      batch_number: batchNumber,
-      mfr_definition_id: mfrDefinitionId,
-      mfr_version: mfrVersion,
-      target_qty: targetQty,
-      unit,
-      batch_start_date: batchStartDate,
-      // Ravi (15 Sept 2026): batch creation is now two-step. This insert
-      // still pulls RM immediately (finished_product_components below,
-      // same as before this change), but the batch now lands in "draft"
-      // rather than "in_process" — it only actually starts production
-      // once confirmFinishedProductBatch() below is called from the
-      // detail page's "Create Batch" button. A draft left untouched for
-      // 30 minutes auto-cancels (expire_stale_fp_drafts(), called lazily
-      // from the FP list/detail pages — see 0046_fp_batch_draft_cancel.sql)
-      // and its RM is returned to inventory, same as a manual Cancel.
-      status: "draft",
-    })
-    .select("id")
-    .single();
-  if (batchError || !batch) return { error: batchError?.message || "Could not create the batch." };
+    const insertResult = await supabase
+      .from("finished_product_batches")
+      .insert({
+        batch_number: batchNumber,
+        mfr_definition_id: mfrDefinitionId,
+        mfr_version: mfrVersion,
+        target_qty: targetQty,
+        unit,
+        batch_start_date: batchStartDate,
+        // Ravi (15 Sept 2026): batch creation is now two-step. This insert
+        // still pulls RM immediately (finished_product_components below,
+        // same as before this change), but the batch now lands in "draft"
+        // rather than "in_process" — it only actually starts production
+        // once confirmFinishedProductBatch() below is called from the
+        // detail page's "Create Batch" button. A draft left untouched for
+        // 30 minutes auto-cancels (expire_stale_fp_drafts(), called lazily
+        // from the FP list/detail pages — see 0046_fp_batch_draft_cancel.sql)
+        // and its RM is returned to inventory, same as a manual Cancel.
+        status: "draft",
+      })
+      .select("id")
+      .single();
+    batch = insertResult.data;
+    batchError = insertResult.error;
+    if (!batchError || batchError.code !== "23505") break;
+  }
+  if (batchError || !batch) {
+    if (batchError?.code === "23505") {
+      return {
+        error: "Another batch for this MFR was created at the same moment and took the next batch number — please try again.",
+      };
+    }
+    return { error: batchError?.message || "Could not create the batch." };
+  }
 
   const { error: componentsError } = await supabase.from("finished_product_components").insert(
     components.map((c) => ({

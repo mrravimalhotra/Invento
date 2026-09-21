@@ -1202,3 +1202,24 @@ No data migration: existing FP batch numbers already assigned — both the
 original flat `FP-0001` style and the 2026 `FP-NN/26` style — are immutable
 and left exactly as stored, same as every other batch/code format change
 in this app. Verified: `tsc`/`eslint`/`next build` all clean.
+
+### Follow-up: retry on batch-number collision (21 Sept 2026)
+
+Flagged alongside the fix above, then Ravi: *"fix it."* `get_next_fp_batch_number()`
+computes the next number from a `count()` query and `createFinishedProductBatch()`'s
+insert happens as a separate round trip after it — nothing serializes the
+two, so two concurrent "Create Batch" submissions for the same MFR in the
+same instant can compute and try to insert the identical batch number.
+`finished_product_batches.batch_number` is `not null unique`, so this was
+never a silent-duplicate risk — but until now the loser of that race just
+saw the raw constraint-violation error and had to notice and retry by hand.
+
+Fixed by porting the same pattern `createPurchaseLine()` already uses for
+the identical race on RM/PKG batch numbers (`lib/actions/purchase.ts`):
+wrap the batch-number RPC call + header insert in a loop (3 attempts),
+and on a `23505` specifically, loop back for a fresh number instead of
+surfacing the error — a fresh call now accounts for whichever request won
+the race. Only a genuine 3-way pileup in the same instant would still
+surface a (now much more informative) "please try again" message instead
+of quietly succeeding. No schema change. Verified: `tsc`/`eslint`/`next
+build` all clean.
