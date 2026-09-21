@@ -98,3 +98,52 @@ None of these were touched in this pass — flagging them here rather than
 picking one and diving in unasked, since each involves either a real UX/
 behavior decision (server-side pagination shape) or added complexity
 (materialized views) that's worth Ravi's explicit go-ahead first.
+
+## Missing request memoization on `getCurrentUser()` (21 Sept 2026)
+
+Ravi, after the two fixes above: *"page load is still taking a lot of time,
+even for pages where no data/less data exists such as deadstock register or
+finished product screen."* That phrasing was the key clue — a fixed,
+per-page cost that shows up even when a page has almost nothing to fetch
+points at something outside the page's own data query, not at the query
+itself (the indexes above only help queries that actually run).
+
+**Root cause:** `lib/auth/session.ts`'s `getCurrentUser()` is called from
+`app/(dashboard)/layout.tsx` on **every** dashboard request (for the
+auth-redirect check and the Sidebar/Topbar's user info) and, separately,
+from almost every individual `page.tsx` again (e.g.
+`app/(dashboard)/dead-stock/page.tsx` and
+`app/(dashboard)/finished-product/page.tsx` both open with
+`Promise.all([getCurrentUser(), createClient()])` for their own role check)
+— 67 call sites total across the app. `getCurrentUser()` was a plain
+`async function`, not memoized, so each of those calls ran its own fresh
+`supabase.auth.getUser()` (a real network round trip to Supabase Auth that
+re-validates the JWT server-side — not a local decode) plus two more
+queries (`user_roles`, `profiles`), in full, every time. A single page load
+was paying for that entire auth round trip at least twice — once in the
+layout, once again in the page — before the page's own actual data query
+even started. On a data-heavy page (Reports) that fixed tax is dwarfed by
+the real query cost and easy to miss; on a data-light page (Dead Stock,
+Finished Product) it's most of the load time, which is exactly what Ravi
+reported.
+
+**Fix:** wrapped `getCurrentUser` in React's `cache()`
+(`export const getCurrentUser = cache(async () => {...})`). Confirmed via
+this fork's own docs
+(`node_modules/next/dist/docs/01-app/01-getting-started/06-fetching-data.md`,
+"Reusing data with React.cache") that `React.cache()` is unchanged in this
+Next.js version and is the documented mechanism for exactly this case:
+memoization scoped to a single request/render pass, so every call to
+`getCurrentUser()` within the same page load now shares one real lookup
+instead of repeating it. Safe by construction — the signed-in user can't
+change mid-request, so handing the same resolved value to every caller in
+that render is correct, not stale; each new request (including a fresh
+Server Action submission) still gets its own fresh lookup.
+
+Purely an app-layer change — no database migration, no `lib/actions/*.ts`
+changes beyond the one function, no API/behavior change for any caller.
+Verified: `tsc --noEmit`, `eslint` (0 errors — same 41 pre-existing
+unrelated warnings as before this change), and `next build` all clean,
+plus a local `next dev` smoke test confirming `/login` (200) and
+unauthenticated requests to `/`, `/dead-stock`, and `/finished-product`
+(307 redirects, no 500s) all behave correctly.
