@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import type { Role } from "@/lib/constants/roles";
 
@@ -22,22 +23,53 @@ import type { Role } from "@/lib/constants/roles";
 // page load now shares one real lookup instead of repeating it. Safe: the
 // signed-in user can't change mid-request, so returning the same resolved
 // value to every caller in that render is exactly correct, not stale.
+//
+// 21 Sept 2026, second pass: the cache() fix above only removed the
+// redundant calls WITHIN the render phase — proxy.ts (middleware) still ran
+// its own separate supabase.auth.getUser() before rendering even started
+// (it has to, to decide whether to redirect to /login), and React.cache()
+// can't reach across that boundary since middleware runs as a completely
+// separate phase before the React tree exists. So every request was still
+// paying for two full sequential Supabase Auth round trips — one in
+// middleware, one here. lib/supabase/middleware.ts now forwards the
+// already-validated identity via an x-invento-user-id / x-invento-user-email
+// request header (see its own comment for why this can't be spoofed by a
+// client) — when present, use it directly and skip this file's own
+// supabase.auth.getUser() call entirely, since middleware already did that
+// exact check for this exact request a moment earlier. Falls back to a real
+// getUser() call when the header is absent (e.g. this ever runs for a
+// request that didn't pass through proxy.ts's matcher) so nothing silently
+// misbehaves in that case.
 export const getCurrentUser = cache(async () => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+
+  const headersList = await headers();
+  const forwardedId = headersList.get("x-invento-user-id");
+
+  let userId: string;
+  let userEmail: string;
+
+  if (forwardedId) {
+    userId = forwardedId;
+    userEmail = decodeURIComponent(headersList.get("x-invento-user-email") ?? "");
+  } else {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    userId = user.id;
+    userEmail = user.email ?? "";
+  }
 
   const [{ data: roleRows }, { data: profile }] = await Promise.all([
-    supabase.from("user_roles").select("role").eq("user_id", user.id),
-    supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+    supabase.from("user_roles").select("role").eq("user_id", userId),
+    supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
   ]);
 
   return {
-    id: user.id,
-    email: user.email!,
-    fullName: profile?.full_name ?? user.email!,
+    id: userId,
+    email: userEmail,
+    fullName: profile?.full_name ?? userEmail,
     roles: (roleRows ?? []).map((r) => r.role as Role),
   };
 });

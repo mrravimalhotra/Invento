@@ -44,5 +44,39 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  // Forward the already-validated identity to the render phase via a request
+  // header (21 Sept 2026 — see lib/auth/session.ts's getCurrentUser for the
+  // other half of this). This getUser() call above already did a real
+  // network round trip to Supabase Auth to check the JWT; without this,
+  // getCurrentUser() would repeat that exact same round trip a second time
+  // for every request, since React.cache() can only dedupe calls within one
+  // render pass and can't reach across the middleware/render boundary
+  // (middleware runs as a separate phase before the React tree exists).
+  //
+  // Security: only this file can set these two headers for what the render
+  // phase sees. NextResponse.next({ request: { headers } }) — as opposed to
+  // NextResponse.next({ headers }) — replaces what's visible to downstream
+  // Server Components with exactly this Headers object (Next.js's own docs,
+  // "Setting Headers" in the Proxy/middleware reference: "make requestHeaders
+  // available upstream", not to the client) — a request can never inject or
+  // preserve its own value for these, because every branch below always
+  // either overwrites them with the value just validated above (the `user`
+  // branch) or explicitly deletes them (the no-`user` branch); there is no
+  // path that leaves a client-supplied value untouched.
+  const requestHeaders = new Headers(request.headers);
+  if (user) {
+    requestHeaders.set("x-invento-user-id", user.id);
+    requestHeaders.set("x-invento-user-email", encodeURIComponent(user.email ?? ""));
+  } else {
+    requestHeaders.delete("x-invento-user-id");
+    requestHeaders.delete("x-invento-user-email");
+  }
+
+  // Build the final response from these headers, but carry forward any
+  // session-refresh cookies the setAll callback above already staged on
+  // supabaseResponse — constructing a fresh NextResponse here would
+  // otherwise silently drop them and break session refresh.
+  const finalResponse = NextResponse.next({ request: { headers: requestHeaders } });
+  supabaseResponse.cookies.getAll().forEach((cookie) => finalResponse.cookies.set(cookie));
+  return finalResponse;
 }

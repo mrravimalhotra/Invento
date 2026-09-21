@@ -94,35 +94,16 @@ explicit go-ahead, or lower urgency than the indexes above:
   write). Only worth it if the indexes alone don't bring these pages down
   to an acceptable speed.
 
-- **`proxy.ts` (middleware) and every request's Server Component render each
-  do their own independent `supabase.auth.getUser()` call.**
-  `lib/supabase/middleware.ts`'s `updateSession()` (which `proxy.ts` runs on
-  nearly every request — see its `matcher`) calls `getUser()` to decide
-  whether to redirect to `/login`, and then, separately, the now-memoized
-  `getCurrentUser()` (`lib/auth/session.ts`) calls its own `getUser()` again
-  once the React render starts. `React.cache()` only dedupes calls *within*
-  one render pass — it can't reach across the middleware/render boundary,
-  since middleware runs as a completely separate phase before the React
-  tree exists. So every request still pays for two sequential Supabase Auth
-  round trips, not one. A local smoke test in this pass measured `proxy.ts`
-  alone (just the middleware's `getUser()` call) at ~217ms on an
-  unauthenticated `/login` request — a real, measurable cost, and it's paid
-  twice per request today. The standard fix is for middleware to forward its
-  already-validated user via a request header (`NextResponse.next({request:
-  {headers}})`), which the render-phase `getCurrentUser()` would check
-  first before falling back to its own lookup — cutting the second round
-  trip entirely for the common case. Not done in this pass: it touches the
-  auth/security path (the header must be explicitly set-or-cleared by
-  middleware on every request, never left to whatever a client sent, or a
-  client could try to spoof a validated identity downstream), so it deserves
-  a more careful implementation and review than the fixes above, rather than
-  a same-pass change alongside them.
+- ~~`proxy.ts` (middleware) and every request's Server Component render each
+  do their own independent `supabase.auth.getUser()` call.~~ **Fixed** — see
+  "Middleware and page render each independently re-validated the session"
+  below.
 
-None of these were touched in this pass — flagging them here rather than
-picking one and diving in unasked, since each involves either a real UX/
-behavior decision (server-side pagination shape), added complexity
-(materialized views), or the security-sensitive auth path (middleware
-header-forwarding) that's worth Ravi's explicit go-ahead first.
+None of the remaining items were touched in this pass — flagging them here
+rather than picking one and diving in unasked, since each involves either a
+real UX/behavior decision (server-side pagination shape) or added
+complexity (materialized views) that's worth Ravi's explicit go-ahead
+first.
 
 ## Missing request memoization on `getCurrentUser()` (21 Sept 2026)
 
@@ -244,3 +225,77 @@ cleanup that was never meant to be strictly synchronous with page render,
 and self-corrects on the next load. No other page in the app has this
 serial-RPC-before-query pattern (checked via grep across `app/(dashboard)/**/
 page.tsx`).
+
+## Middleware and page render each independently re-validated the session (21 Sept 2026)
+
+Flagged as a known follow-up above; Ravi asked to go ahead with it after
+confirming patches `0009`/`0010` were both already applied. This was the one
+remaining architectural cost from the original diagnosis: even with
+`getCurrentUser()` memoized within a render pass, `proxy.ts` (middleware —
+see `lib/supabase/middleware.ts`'s `updateSession()`) runs on nearly every
+request (its `matcher` excludes only static assets) and does its own
+`supabase.auth.getUser()` call to decide whether to redirect to `/login`.
+`React.cache()` can't reach across that boundary — middleware runs as a
+separate phase before the React tree exists — so `getCurrentUser()`'s own
+`getUser()` call, moments later in the actual page render, was a fully
+redundant second network round trip to Supabase Auth, on every request. A
+local smoke test measured `proxy.ts` alone at up to ~215ms on a cold
+request — a real cost, paid twice.
+
+**Fix:** middleware now forwards the identity it already validated to the
+render phase via two request headers (`x-invento-user-id`,
+`x-invento-user-email`), using the documented Next.js pattern —
+`NextResponse.next({ request: { headers } })` — confirmed against this
+fork's own reference (`node_modules/next/dist/docs/01-app/03-api-reference/
+03-file-conventions/proxy.md`, "Setting Headers": this form "make[s]
+requestHeaders available upstream", as opposed to
+`NextResponse.next({ headers })` which would instead be a *response* header
+visible to the client — the wrong one for this). `getCurrentUser()`
+(`lib/auth/session.ts`) now checks for `x-invento-user-id` first and, when
+present, skips its own `supabase.auth.getUser()` call entirely — middleware
+already did that exact check for this exact request. Falls back to a real
+`getUser()` call when the header is absent, so nothing silently breaks if
+this code path is ever reached some other way.
+
+**Why this doesn't weaken auth:** the architecture already fully trusted
+middleware's decision here — if middleware had decided "no valid session",
+it would have redirected to `/login` before the page ever rendered, so a
+page reachable at all already implies middleware validated the user a
+moment earlier. Forwarding that result instead of re-deriving it doesn't
+extend trust anywhere it didn't already reach. The real risk with this kind
+of change is a client spoofing the header to claim someone else's identity,
+so the header is never a pass-through of anything client-supplied: every
+branch in `updateSession()`'s final return either overwrites both headers
+with the value just validated (the `user` branch) or explicitly deletes
+them (the no-`user` branch) — there is no path that leaves a client-sent
+value untouched. Also checked: the render-phase `getUser()` call being
+replaced never actually refreshed the session cookie in the first place —
+`lib/supabase/server.ts`'s own `setAll` callback silently no-ops when
+called from a Server Component (cookies can only be written from
+middleware, Server Actions, or Route Handlers), with a comment already
+noting "safe to ignore because middleware.ts refreshes the session on every
+request" — so nothing is lost by skipping it here.
+
+**Verified**, since this touches the auth path directly:
+- A standalone script exercised the real `next/server` module (same version
+  as production, no mocked Next.js internals) with a simulated malicious
+  request that set `x-invento-user-id: attacker-spoofed-id` on the incoming
+  request — confirmed the header Next.js actually forwards downstream
+  (`x-middleware-request-x-invento-user-id`) always carries the *validated*
+  user id, never the client-supplied one, in both the authenticated and
+  unauthenticated cases; also confirmed a staged session-refresh cookie
+  survives being replayed onto the final response.
+- `tsc --noEmit`, `eslint` (0 errors), `next build` all clean.
+- Local `next dev` smoke test: unauthenticated requests to `/login` (200),
+  `/register` (200), and `/`, `/dead-stock`, `/finished-product` (307
+  redirects) all behave identically to before this change — including a
+  request to `/dead-stock` with a forged `x-invento-user-id` header
+  attached, which still correctly redirects to `/login` rather than being
+  fooled into treating the request as authenticated.
+- Not verified in this pass: a real logged-in request end to end (this
+  sandbox has no test Supabase credentials to sign in with). Worth a quick
+  manual check after applying — log in and confirm pages still show your
+  correct name/roles in the Topbar — before considering this fully closed.
+
+No database migration — `lib/supabase/middleware.ts` and
+`lib/auth/session.ts` only.
