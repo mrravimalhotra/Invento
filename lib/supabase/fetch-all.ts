@@ -21,19 +21,50 @@ import type { PostgrestError } from "@supabase/supabase-js";
 // Requires the underlying query to have a stable, deterministic order
 // (a real `.order()` call) — `.range()` pagination across an unordered
 // result is not guaranteed consistent between pages by Postgres itself.
+//
+// Pages within each wave fire concurrently (21 Sept 2026 — first step of
+// the pagination/perf work in docs/modules/performance.md's "Reports,
+// Items, and Inventory Balance fetch entire tables" follow-up). Before
+// this, every page was awaited one at a time — for Reports' Purchase
+// Register alone (~92,000 rows today) that's ~92 full sequential network
+// round trips before the page could render anything at all. `concurrency`
+// pages are now requested at once per wave (default 8, so that same query
+// drops to ~12 waves instead of 92 sequential round trips), and a wave
+// stops the loop as soon as it contains a short page (the real end of the
+// data), same termination rule as before — this only changes how the
+// existing pages are fetched, not what's returned: results are reassembled
+// in the same page order every time (`Promise.all` preserves the order of
+// its input array in its output regardless of which request finishes
+// first), so callers see byte-for-byte the same rows in the same order as
+// the old sequential version. No UI, query, or ordering change — every
+// page.tsx using this function needed zero changes.
 export async function fetchAllRows<T>(
   buildPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
-  pageSize = 1000
+  pageSize = 1000,
+  concurrency = 8
 ): Promise<{ data: T[]; error: PostgrestError | null }> {
-  const all: T[] = [];
+  const waves: T[][] = [];
   let from = 0;
-  for (;;) {
-    const { data, error } = await buildPage(from, from + pageSize - 1);
-    if (error) return { data: all, error };
-    const page = data ?? [];
-    all.push(...page);
-    if (page.length < pageSize) break;
-    from += pageSize;
+  let done = false;
+
+  while (!done) {
+    const waveStarts = Array.from({ length: concurrency }, (_, i) => from + i * pageSize);
+    const results = await Promise.all(waveStarts.map((start) => buildPage(start, start + pageSize - 1)));
+
+    for (const { data, error } of results) {
+      if (error) return { data: waves.flat(), error };
+      const page = data ?? [];
+      waves.push(page);
+      if (page.length < pageSize) {
+        // Real end of the data. Requests later in this same wave were
+        // already fired (harmless — they just return empty pages, already
+        // captured above in order), but no further waves are issued.
+        done = true;
+        break;
+      }
+    }
+    from += concurrency * pageSize;
   }
-  return { data: all, error: null };
+
+  return { data: waves.flat(), error: null };
 }

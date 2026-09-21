@@ -299,3 +299,61 @@ request" — so nothing is lost by skipping it here.
 
 No database migration — `lib/supabase/middleware.ts` and
 `lib/auth/session.ts` only.
+
+## Pagination roadmap, step 1: parallelize the full-table-fetch workaround (21 Sept 2026)
+
+Ravi asked to discuss pagination as the next lever, then to start executing
+iteratively beginning with easy wins. Step 1 is this one — no design
+decisions needed, no UI/behavior change, safe to ship on its own ahead of
+the bigger, real server-side-pagination work below.
+
+**The finding that set the priority order:** `lib/supabase/fetch-all.ts`'s
+`fetchAllRows()` (used by Reports, Items, and Inventory Balance — see the
+"Reports, Items, and Inventory Balance fetch entire tables" follow-up
+above) works around Supabase's 1,000-row-per-request server cap by paging
+through an entire table in `.range()` windows, but it did so **one page at
+a time, fully sequentially** — each page awaited before the next was even
+requested. For Reports' Purchase Register specifically, at today's ~92,000
+rows, that's roughly 92 full sequential network round trips to Supabase
+before the page can render *anything*, every single time anyone opens
+Reports. Items (~2,200+ active items) and Inventory Balance pay a smaller
+version of the same tax.
+
+**Fix:** `fetchAllRows` now fires `concurrency` (default 8) page requests
+per wave instead of one at a time, stopping as soon as a wave contains the
+real end-of-data (a short page) — same termination rule as before, just
+batched. Every `page.tsx` calling it needed zero changes: same function
+signature (with a new optional third parameter), same return shape, same
+row order (`Promise.all` preserves the input array's order in its output
+regardless of which request finishes first, so results are reassembled
+identically to the old sequential version).
+
+**Verified** with a standalone script exercising the real production
+function (not a reimplementation) against a fake paginated data source with
+simulated per-request latency:
+- Correctness: parallel and sequential runs return the exact same rows in
+  the exact same order, at both a modest scale (9,250 rows) and Purchase
+  Register's real scale (92,000 rows).
+- A wave that contains the true last page fires a bounded number of extra
+  requests beyond it (up to `concurrency - 1`) that simply return empty
+  results — harmless, and accounted for, not a bug.
+- An error partway through is still surfaced correctly, with whatever rows
+  were successfully fetched before it returned alongside it (same contract
+  as before).
+- At Purchase Register's real scale (92,000 rows, 93 real pages, 15ms
+  simulated round-trip latency): sequential took 1,423ms wall time;
+  parallel (concurrency 8) took 190ms — a 7.5x speedup in this simulation.
+  Real-world Supabase latency will differ from the simulated figure, but
+  the relative improvement from concurrency should be in the same range,
+  since it comes purely from overlapping round trips that were previously
+  forced to happen one after another.
+- `tsc --noEmit`, `eslint` (0 errors), `next build` all clean, plus a local
+  `next dev` smoke test confirming `/reports`, `/items`, and
+  `/inventory/balance` all still respond correctly (307 redirects when
+  unauthenticated, no 500s).
+
+No database migration, no query changes, no UI changes — purely an
+implementation-detail change to one shared utility function. This buys real
+headroom while the bigger step (real server-side pagination for Reports,
+covered in the "let's discuss pagination" conversation) gets designed and
+built.
