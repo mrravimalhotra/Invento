@@ -36,6 +36,13 @@ const STATUS_STYLES: Record<string, string> = {
   // 15 Sept 2026), sitting between in_process and submitted_to_qc — same
   // amber as the other "needs a next action" statuses above.
   complete_awaiting_qc: "bg-amber-bg text-amber",
+  // Audit Log row actions (21 Sept 2026, 0058_audit_trail.sql) — "insert"
+  // reuses the same green as approved/clear (a new record, nothing wrong),
+  // "update" the same amber as the other change-worth-noticing statuses,
+  // "delete" the same red as rejected/wastage/cancelled.
+  insert: "bg-brand-light text-brand-dark",
+  update: "bg-amber-bg text-amber",
+  delete: "bg-red-bg text-red",
 };
 
 export function Badge({ status, children }: { status?: string; children: React.ReactNode }) {

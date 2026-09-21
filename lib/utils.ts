@@ -34,6 +34,21 @@ export function formatDate(d: string | Date | null | undefined) {
   return `${day}-${month}-${year}`;
 }
 
+// Audit Log (21 Sept 2026) needs a precise "when," not just a day — every
+// other formatDate() call site in the app is fine losing the time-of-day
+// (an expiry/re-test/finish date genuinely only means a calendar day), but
+// "who changed this and when" loses exactly the information that matters
+// if two edits land on the same day. Same dd-mm-yyyy convention as
+// formatDate() above, with HH:mm appended, local time (same getters,
+// same "no change to which moment this resolves to" note as formatDate).
+export function formatDateTime(d: string | Date | null | undefined) {
+  if (!d) return "—";
+  const date = typeof d === "string" ? new Date(d) : d;
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${formatDate(date)} ${hours}:${minutes}`;
+}
+
 export function formatNumber(n: number | string | null | undefined, decimals = 2) {
   if (n === null || n === undefined || n === "") return "—";
   const num = typeof n === "string" ? parseFloat(n) : n;

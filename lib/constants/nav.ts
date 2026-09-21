@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
   Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
-  UploadCloud, Trash2,
+  UploadCloud, Trash2, History,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -58,6 +58,13 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Admin",
     items: [
       { href: "/user-roles", label: "User Roles & Access", icon: Users, module: 13 },
+      // Not part of the original 15-module baseline — added per Ravi's
+      // 21 Sept 2026 "lets fix the audit trail issue" request; module
+      // number 21 follows Purge Test Data (20)'s precedent for
+      // post-baseline additions. Page itself gates on canReadAudit()
+      // (system_admin/super_auditor) the same way User Roles gates on
+      // canWrite() above — shown to everyone here, restricted on the page.
+      { href: "/audit", label: "Audit Log", icon: History, module: 21 },
       { href: "/reports", label: "Reports", icon: BarChart3, module: 15 },
       { href: "/documents", label: "SOP / STP Documents", icon: FileText, module: 12 },
       { href: "/feedback", label: "Tester Feedback", icon: MessageSquarePlus, module: 16 },

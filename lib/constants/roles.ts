@@ -62,3 +62,14 @@ export function canWrite(userRoles: string[], module: keyof typeof MODULE_WRITE_
   const allowed: readonly string[] = MODULE_WRITE_ROLES[module];
   return userRoles.some((r) => allowed.includes(r));
 }
+
+// Audit Log (21 Sept 2026) is a read permission, not a write one — nothing
+// on that page is ever edited — so it doesn't belong in MODULE_WRITE_ROLES
+// above (that map is specifically "who can write to each module," per its
+// own comment). Mirrors audit_log_select, the RLS policy that actually
+// enforces this at the database level (0058_audit_trail.sql) — same
+// "hide/show only, DB is the real enforcement" relationship every other
+// check in this file has to its own RLS policy.
+export function canReadAudit(userRoles: string[]) {
+  return userRoles.includes("system_admin") || userRoles.includes("super_auditor");
+}
