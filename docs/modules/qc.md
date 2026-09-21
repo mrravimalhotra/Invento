@@ -570,3 +570,55 @@ drop-and-recreate-trigger work (`trg_fn_qc_enforce_review_stages`,
 here too, not yet confirmed against the live DB. If Postgres complains on
 apply, prepend `drop function if exists ...;` / `drop trigger if exists
 ...;` for the specific object it names, the same fix used for 0053.
+
+## "Finished Product Awaiting QC" notification card (21 Sept 2026)
+
+Ravi: *"FIISHED PRODUCT ONCE CREATED SHOULD ALSO APPEAR IN NOTIFICTCATION
+AS 'aWAITING qc'."*
+
+**Existing gap:** a Finished Product batch reaches `complete_awaiting_qc`
+status once `completeFinishedProductBatch` runs (batch yield, finish date,
+QC/stability/R&D sample quantities all entered — see
+`lib/actions/finished-product.ts` and `fpStatusLabel()`'s exact
+"Complete - Awaiting QC" label in `lib/finished-product-status.ts`). From
+there, nothing prompted anyone to actually submit it to QC — it just sat
+there until someone happened to open that specific batch's own detail page
+and noticed the "Submit to QC" card. This is the exact same gap the
+existing "Awaiting QC" card (`awaiting-qc.tsx`) already closes for raw
+material — a purchase line that's arrived but has no QC record yet, shown
+right on the `/qc` list page so it's impossible to miss.
+
+**Fix:** new `AwaitingFpQc` card (`app/(dashboard)/qc/awaiting-fp-qc.tsx`),
+rendered on `/qc` alongside the existing RM "Awaiting QC" and "Due for
+retest" cards. Queries `finished_product_batches` directly for
+`status = 'complete_awaiting_qc'` (`getAwaitingFpQcLines()` in
+`qc/page.tsx`) — no view indirection needed here, unlike RM's query,
+since `finished_product_batches.status` is already the authoritative field
+for this (see the "application-level status sync" comment at the top of
+`lib/finished-product-status.ts`).
+
+Each row submits **directly**, not just a link-through: it reuses
+`submitFinishedProductToQc` — the exact same Server Action the batch's own
+detail page's "Submit to QC" button already calls
+(`app/(dashboard)/finished-product/[id]/submit-to-qc-form.tsx`) — bound per
+row, with its own independent pending/error state, same pattern as
+`due-for-retest.tsx`'s per-row retest forms. This is a genuine one-click
+resolution rather than RM's card (which links to `/qc/new` because a real
+AR form still needs filling in there) — for Finished Product, everything
+`submitFinishedProductToQc` needs (QC sample qty, unit, expiry) was already
+entered during Complete Batch, so there's nothing left to ask for.
+
+Gated on `canWrite(user.roles, "finished_product")` — the exact same
+authorization `submitFinishedProductToQc` itself enforces server-side, not
+`qc_assign` (RM's card uses `qc_assign` because starting an AR is a QC
+action; submitting an FP batch to QC is a Finished Product action, same
+distinction the rest of this module already draws). Respects the app-wide
+"Hide legacy data" preference the same way every other card on this page
+does.
+
+No database migration — `finished_product_batches.status` and
+`complete_awaiting_qc` already existed (`0047_fp_batch_complete_awaiting_qc.sql`);
+this only adds a query and a card that surface batches already sitting in
+that state. Verified: `tsc --noEmit`, `eslint`, `next build` all clean,
+plus a local `next dev` smoke test confirming `/qc` still responds
+correctly.

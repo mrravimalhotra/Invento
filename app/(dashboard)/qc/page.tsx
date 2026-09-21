@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { QcTable, type QcListRow } from "./qc-table";
 import { DueForRetest, type DueForRetestLine } from "./due-for-retest";
 import { AwaitingQc, type AwaitingQcLine } from "./awaiting-qc";
+import { AwaitingFpQc, type AwaitingFpQcLine } from "./awaiting-fp-qc";
 
 // Unbounded before this — as AR records accumulate over years this page's
 // full-table fetch would slow down with no server-side filter to fall back
@@ -18,7 +19,7 @@ export default async function QcListPage() {
   const user = await getCurrentUser();
   const supabase = await createClient();
 
-  const [{ data }, awaitingLines, dueLines] = await Promise.all([
+  const [{ data }, awaitingLines, awaitingFpLines, dueLines] = await Promise.all([
     // FB-0027 (12 Sept 2026): a Finished Product's QC record never gets an
     // `item_id` (submitFinishedProductToQc() only sets
     // finished_product_batch_id — see lib/actions/finished-product.ts), so
@@ -38,6 +39,7 @@ export default async function QcListPage() {
       .order("created_at", { ascending: false })
       .limit(QC_LIMIT),
     getAwaitingQcLines(supabase),
+    getAwaitingFpQcLines(supabase),
     getDueForRetestLines(supabase),
   ]);
 
@@ -52,6 +54,8 @@ export default async function QcListPage() {
       />
 
       <AwaitingQc lines={awaitingLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
+
+      <AwaitingFpQc lines={awaitingFpLines} canSubmit={canWrite(user?.roles ?? [], "finished_product")} />
 
       <DueForRetest lines={dueLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
 
@@ -93,6 +97,29 @@ async function getAwaitingQcLines(
     .order("created_at", { ascending: false });
 
   return (lines ?? []) as unknown as AwaitingQcLine[];
+}
+
+// Finished Product equivalent of getAwaitingQcLines above (21 Sept 2026 —
+// Ravi: "Finished product once created should also appear in notification
+// as 'Awaiting QC'"). A batch reaches 'complete_awaiting_qc' once
+// completeFinishedProductBatch runs (batch yield, finish date, sample
+// quantities all entered) and sits there until submitFinishedProductToQc
+// is called — this surfaces every batch in that gap, the same way the RM
+// query above surfaces purchase lines that arrived but have no QC record
+// yet. Unlike RM, this is a single direct query (no purchase_batch_status
+// view indirection needed) — finished_product_batches.status is the
+// authoritative field for this, straight from the table.
+async function getAwaitingFpQcLines(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<AwaitingFpQcLine[]> {
+  const { data: lines } = await supabase
+    .from("finished_product_batches")
+    .select("id, batch_number, qc_sample_qty, unit, mfr_definitions(name)")
+    .eq("status", "complete_awaiting_qc")
+    .eq("active", true)
+    .order("created_at", { ascending: false });
+
+  return (lines ?? []) as unknown as AwaitingFpQcLine[];
 }
 
 // Two-step lookup, same shape as qc/new/page.tsx's "open for QC" query:
