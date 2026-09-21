@@ -772,3 +772,50 @@ to this module's own screens. `item_position` (this module's own view)
 gained four new columns as part of it — `consumed_by_packaging`,
 `packaged_yield`, `issued_store`, `issued_rnd` — and Stock Position /
 the per-item detail page both render the new `packaged_fp` category.
+
+## Fix: Ledger page error "Could not find a relationship between 'inventory_ledger_with_balance' and 'production_issue_batches'" (21 Sept 2026)
+
+Ravi, live screenshot: both the Ledger tab and an item's own embedded
+ledger showed this PostgREST error instead of any rows, and a red error
+banner above the (otherwise empty) table.
+
+**Root cause:** `inventory_ledger_with_balance` (`0031_stock_position.sql`)
+is defined as `select il.*, <running_balance> from inventory_ledger il`.
+Postgres expands `il.*` into the base table's column list **at the moment
+the view is created** — it does not re-evaluate that expansion when a
+column is added to the base table later.
+`inventory_ledger.production_batch_id` was added by
+`0050_production_rm_from_packaging.sql`, nineteen migrations after 0031
+created this view, and the view was never re-created since. So
+`production_batch_id` has never actually existed on
+`inventory_ledger_with_balance` in production — both ledger queries
+(`app/(dashboard)/inventory/(tabs)/page.tsx`,
+`app/(dashboard)/inventory/items/[id]/page.tsx`) select
+`production_issue_batches(batch_number)` embedded through this view, and
+PostgREST can't embed a relationship through a column that isn't there.
+(The other embed in the same query, `purchase_lines(batch_number)`, was
+unaffected — `purchase_line_id` already existed on `inventory_ledger` back
+when 0031 first created the view.)
+
+**Fix** (`0057_inventory_ledger_with_balance_refresh.sql`): drop and
+re-create the view with the exact same query. `CREATE OR REPLACE VIEW` was
+tried first and fails — Postgres only allows it to *append* trailing
+columns, and `production_batch_id` would need to land *before* the view's
+existing last column (`running_balance`), which counts as reordering.
+`DROP VIEW` + `CREATE VIEW` has no such restriction. Confirmed locally
+(reproduced the exact 0031-then-0050 sequence against a throwaway Postgres
+instance) that the fix works and that dropping/recreating the view doesn't
+lose its `anon`/`authenticated` grants — those come from `0001_init.sql`'s
+`alter default privileges ... on tables`, which applies automatically to
+any new relation, same mechanism every `CREATE OR REPLACE FUNCTION` in this
+codebase already relies on.
+
+No app-code change — both queries already asked for the right column, they
+just needed the view to actually expose it.
+
+**Worth remembering:** this view will hit the exact same problem again the
+next time `inventory_ledger` gains a column and the view isn't updated in
+the same pass — and `CREATE OR REPLACE VIEW` will fail the same way unless
+the new column happens to be the last thing selected. DROP + CREATE is the
+correct fix each time, not the more familiar CREATE OR REPLACE pattern used
+everywhere else in this codebase.
