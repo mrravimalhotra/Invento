@@ -1129,3 +1129,76 @@ new `docx` dependency bundles correctly for the client). Checked the
 guessing at API shapes, for `TableCell`/`ImageRun`/`Packer` — in
 particular confirmed `ImageRun`'s `type`/`data` fields, per-cell
 `borders` overrides, and that `Packer.toBlob()` exists for browser use.
+
+## Batch number format: item_code embedded, scoped per FP item — closes the gap 0051 flagged (21 Sept 2026)
+
+Ravi, looking at a batch detail page showing "FP-01/26" next to
+Composition rows reading "RM-00001-01/26" / "RM-00002-03/26": *"Finished
+product batch number should be in same format as of Raw material Batch
+Number. Also what happens when finished product batch number reaches
+FP-99/26?"*
+
+This is the exact follow-up `0051_batch_number_embed_item_code.sql`'s own
+"Scope note" left open when it fixed the same visual-collision problem for
+RM/PKG batch numbers (`RM-01/26` → `RM-00001-01/26`) but explicitly did not
+touch `get_next_fp_batch_number()`, flagging it as "worth a separate look
+if the same visual-collision question applies there too."
+
+**Both of Ravi's questions traced back to the same root cause.**
+`get_next_fp_batch_number()` (`0045_fp_batch_number_year_reset.sql`) still
+returned a bare `'FP-<seq>/<year>'`, counted *globally* across every
+Finished Product batch of *any* MFR created that year — so two different
+MFRs' first batch of the year both render `FP-01/26` on screen, the same
+ambiguity RM/PKG had before 0051. And it still padded with the pre-0052
+exact-width `lpad(v_n::text, 2, '0')`, which Postgres *truncates* rather
+than pads once `v_n` reaches 3 digits (`lpad('100', 2, '0')` = `'10'`, per
+0052's own finding) — so the global count's 100th FP batch of any kind in
+one calendar year would silently recompute `'FP-10/26'`, collide with
+`finished_product_batches.batch_number`'s `unique` constraint, and fail
+with a raw `23505` error. Worse than the RM/PKG case Ravi caught pre-0052:
+`createPurchaseLine()` retries a batch-number collision a few times;
+`createFinishedProductBatch()` has no equivalent retry loop, so this would
+have surfaced as a hard failure on the very next batch, not a masked
+duplicate.
+
+**Fix** (`0055_fp_batch_number_embed_item_code.sql`), folding 0051 and 0052
+into one pass so FP batch numbers never need a follow-up truncation fix
+later:
+
+1. Scope the sequence per Finished Product item instead of globally. Every
+   MFR links 1:1 to exactly one `'processed'`-category item via
+   `mfr_definitions.finished_product_item_id`
+   (`0010_mfr_finished_product_link.sql`), and that link never changes
+   across MFR versions (`mfr_definitions` is a single row whose `version`
+   column is bumped in place, not re-inserted). So counting
+   `finished_product_batches` rows by `mfr_definition_id` is exactly
+   counting them by FP item.
+2. Format as `<item_code>-<seq>/<year>` — e.g. the 3rd FP batch of MFR-0001
+   / item `FP-00001` created in 2026 is `FP-00001-03/26`, byte-for-byte the
+   same shape as `RM-00001-01/26`.
+3. Pad with `greatest(2, length(v_n::text))` (0052's fix) from day one, so
+   the 100th FP batch of the *same* product in one year renders
+   `FP-00001-100/26` correctly instead of truncating to `FP-00001-10/26`
+   and colliding — and scoping per item also means far fewer batches of any
+   one product happen in a year than the old global count, so this ceiling
+   is much less likely to be hit at all.
+
+Signature changed from `get_next_fp_batch_number()` to
+`get_next_fp_batch_number(p_mfr_definition_id uuid)` — its one caller,
+`createFinishedProductBatch()` (`lib/actions/finished-product.ts`), already
+has `mfrDefinitionId` in scope at the call site, so this was a one-line
+change there. The old zero-argument signature is dropped, not just
+shadowed, since Postgres allows same-name overloads by argument count and
+nothing should still be able to call the old global-count version.
+
+Defensive fallback: `finished_product_item_id` is nullable — a pre-0010
+MFR, or a `'processed'` item created directly through Item Master before
+that link existed, predates the pairing and has no counterpart. The
+function coalesces to the bare `'FP'` prefix (old-style, globally counted
+for that one row) rather than raising and blocking batch creation entirely
+for one of those legacy rows.
+
+No data migration: existing FP batch numbers already assigned — both the
+original flat `FP-0001` style and the 2026 `FP-NN/26` style — are immutable
+and left exactly as stored, same as every other batch/code format change
+in this app. Verified: `tsc`/`eslint`/`next build` all clean.

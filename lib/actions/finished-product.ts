@@ -78,7 +78,16 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Not authorized." };
 
   const supabase = await createClient();
-  const { data: batchNumber, error: numError } = await supabase.rpc("get_next_fp_batch_number");
+  // get_next_fp_batch_number() now takes the MFR definition (20 Sept 2026 ->
+  // 21 Sept 2026, Ravi: "Finished product batch number should be in same
+  // format as of Raw material Batch Number") — it embeds the linked
+  // Finished Product item's own item_code and scopes the per-year sequence
+  // per that item, e.g. "FP-00001-03/26", matching how get_next_batch_number
+  // formats RM/PKG batch numbers. See supabase/migrations/
+  // 0055_fp_batch_number_embed_item_code.sql for the full reasoning.
+  const { data: batchNumber, error: numError } = await supabase.rpc("get_next_fp_batch_number", {
+    p_mfr_definition_id: mfrDefinitionId,
+  });
   if (numError || !batchNumber) return { error: numError?.message || "Could not generate a batch number." };
 
   const { data: batch, error: batchError } = await supabase
