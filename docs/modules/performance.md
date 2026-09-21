@@ -357,3 +357,33 @@ implementation-detail change to one shared utility function. This buys real
 headroom while the bigger step (real server-side pagination for Reports,
 covered in the "let's discuss pagination" conversation) gets designed and
 built.
+
+## Pagination roadmap, step 2: trim over-fetched columns (21 Sept 2026)
+
+Audited every one of the five `fetchAllRows` call sites (Reports' five
+queries, Items' two, Inventory Balance's two) against what its own table
+component actually renders or reads, to find columns fetched but never
+used. Being upfront about the result: most were already lean. RM Stock,
+Purchase Register, Items, and Stock Position all select exactly what they
+display — no waste found there.
+
+Two real misses, both in Reports: the QC Register and FP Register queries
+each selected `created_at`, but neither ever renders or reads it — `QcRow`'s
+date column is `reviewed_at`, `FpRow`'s is `finish_date` (see
+`report-tables.tsx`). Dropped `created_at` from both `.select()` calls and
+from the corresponding TypeScript types.
+
+The `.order("created_at", ...)` clause on both queries stays — ordering and
+column projection are independent PostgREST query parameters, not coupled
+to each other, so a query can sort by a column it doesn't return. This
+isn't a new assumption for this codebase: the Inventory Balance page's own
+items query already does exactly this today (orders by `created_at`
+without selecting it) — live, working production code, not a claim to take
+on faith.
+
+Worth being honest about scale here: this is a small, genuinely safe trim
+(one timestamp column, off queries that were otherwise already minimal),
+not a major win like step 1. Real payload savings depend on how many QC
+records and FP batches exist, but it's a legitimate zero-risk cut, not a
+guess. `tsc --noEmit`, `eslint`, `next build` all clean, plus a local
+`next dev` smoke test confirming `/reports` still responds correctly.

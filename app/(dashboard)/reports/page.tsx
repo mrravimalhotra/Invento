@@ -48,11 +48,24 @@ export default async function ReportsPage() {
         .range(from, to)
         .returns<BalanceQueryRow[]>()
     ),
+    // created_at dropped from both selects below (21 Sept 2026, pagination
+    // roadmap step 2 — a quick audit of every fetchAllRows call site for
+    // columns that are fetched but never used, per docs/modules/
+    // performance.md). Neither QcRegisterReport nor FpRegisterReport ever
+    // renders or reads created_at — QcRow's report date column uses
+    // reviewed_at, FpRow's uses finish_date instead (see report-tables.tsx).
+    // The .order("created_at", ...) below still works with created_at
+    // absent from .select() — ordering and column projection are
+    // independent PostgREST query params, not coupled to each other; this
+    // exact pattern (order by a column that isn't in the select list) is
+    // already live and working today in this app, on the Inventory Balance
+    // page's own items query
+    // (app/(dashboard)/inventory/(tabs)/balance/page.tsx).
     fetchAllRows<unknown>((from, to) =>
       supabase
         .from("quality_checks")
         .select(
-          "ar_number, status, reviewed_at, retest_date, created_at, item:items(name), purchase_line:purchase_lines(batch_number), fp_batch:finished_product_batches(batch_number)"
+          "ar_number, status, reviewed_at, retest_date, item:items(name), purchase_line:purchase_lines(batch_number), fp_batch:finished_product_batches(batch_number)"
         )
         .order("created_at", { ascending: false })
         .range(from, to)
@@ -61,9 +74,7 @@ export default async function ReportsPage() {
     fetchAllRows<unknown>((from, to) =>
       supabase
         .from("finished_product_batches")
-        .select(
-          "id, batch_number, target_qty, actual_yield_pct, status, finish_date, created_at, mfr:mfr_definitions(name)"
-        )
+        .select("id, batch_number, target_qty, actual_yield_pct, status, finish_date, mfr:mfr_definitions(name)")
         .order("created_at", { ascending: false })
         .range(from, to)
         .returns<unknown[]>()

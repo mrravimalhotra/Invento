@@ -69,7 +69,6 @@ export type QcRow = {
   status: string;
   reviewed_at: string | null;
   retest_date: string | null;
-  created_at: string;
   item: { name: string } | null;
   purchase_line: { batch_number: string } | null;
   fp_batch: { batch_number: string } | null;
@@ -109,7 +108,6 @@ export type FpRow = {
   actual_yield_pct: number | string | null;
   status: string;
   finish_date: string | null;
-  created_at: string;
   mfr: { name: string } | null;
 };
 
