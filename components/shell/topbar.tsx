@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { signOut } from "@/lib/actions/auth";
 import { LogOut, UserCircle, TriangleAlert } from "lucide-react";
@@ -14,7 +15,20 @@ async function LowStockBanner() {
     .eq("active", true);
   if (!items?.length) return null;
 
-  const { data: balances } = await supabase.from("stock_balance").select("item_id, on_hand");
+  // Scoped to just the items with a threshold set (usually a small subset of
+  // the catalog), rather than every item in stock_balance. stock_balance
+  // (0001_init.sql) is a plain view that re-aggregates inventory_ledger from
+  // scratch on every query with no WHERE of its own — an unfiltered select
+  // here forces a full scan of the ENTIRE ledger (which only grows, on every
+  // purchase/QC/production/packaging transaction) just to render this
+  // banner. Supabase compiles .in() to a literal `item_id IN (...)` list,
+  // which Postgres CAN push down through the view's GROUP BY using the
+  // inventory_ledger.item_id index (0056_performance_indexes.sql) — verified
+  // locally: an unfiltered query against a 100k-row ledger took ~27ms (full
+  // seq scan + aggregate every row), the same query scoped to 5 item_ids via
+  // a literal IN list took <1ms (index scan of ~1,000 relevant rows only).
+  const itemIds = items.map((it) => it.id);
+  const { data: balances } = await supabase.from("stock_balance").select("item_id, on_hand").in("item_id", itemIds);
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
 
   const low = items.filter((it) => (balanceMap.get(it.id) ?? 0) < Number(it.low_stock_threshold));
@@ -36,7 +50,23 @@ export function Topbar({ user }: { user: CurrentUser }) {
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-5">
       <div />
       <div className="flex items-center gap-3">
-        <LowStockBanner />
+        {/*
+          Suspense-wrapped so this banner's own queries never hold up the
+          rest of the page. Topbar renders on EVERY dashboard route (it's
+          in the shared layout), and LowStockBanner is an async Server
+          Component with no boundary of its own before this change — without
+          Suspense, Next.js has to wait for its queries to resolve before it
+          can render anything else in this render pass, meaning every single
+          page (including data-light ones like Dead Stock or Finished
+          Product) was paying this banner's full cost on top of its own.
+          fallback={null} because there's nothing meaningful to show while
+          it loads — the banner appearing a beat after the rest of the page
+          reads fine, the same "don't block on something non-critical"
+          principle as the page-level loading.tsx fix (docs/modules/shell.md).
+        */}
+        <Suspense fallback={null}>
+          <LowStockBanner />
+        </Suspense>
         <div className="flex items-center gap-2 text-sm">
           <UserCircle className="h-5 w-5 text-muted" />
           <div className="leading-tight">

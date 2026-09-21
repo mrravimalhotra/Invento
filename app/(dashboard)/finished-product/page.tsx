@@ -23,14 +23,23 @@ export default async function FinishedProductListPage() {
 
   // Lazy 30-minute draft auto-expiry — see the detail page's own comment
   // (0046_fp_batch_draft_cancel.sql) for why this is a lazy, page-load
-  // check rather than a real scheduled job.
-  await supabase.rpc("expire_stale_fp_drafts");
-
-  const { data } = await supabase
-    .from("finished_product_batches")
-    .select("id, batch_number, target_qty, unit, actual_yield_pct, finish_date, status, mfr_definitions(name)")
-    .eq("active", true)
-    .order("created_at", { ascending: false });
+  // check rather than a real scheduled job. Run alongside the main select
+  // rather than awaited on its own beforehand (21 Sept 2026 — was a fully
+  // serial round trip before this page's real data query even started, on
+  // every single visit to this page). Running them in parallel means a
+  // batch that crosses the 30-minute mark in the split second between the
+  // two queries starting could show as "draft" for one more page load
+  // before showing "cancelled" — an acceptable, self-correcting tradeoff
+  // for a lazy background cleanup, not a correctness issue for anything
+  // else on this page.
+  const [, { data }] = await Promise.all([
+    supabase.rpc("expire_stale_fp_drafts"),
+    supabase
+      .from("finished_product_batches")
+      .select("id, batch_number, target_qty, unit, actual_yield_pct, finish_date, status, mfr_definitions(name)")
+      .eq("active", true)
+      .order("created_at", { ascending: false }),
+  ]);
 
   const fpRows = (data ?? []) as unknown as FpQueryRow[];
 

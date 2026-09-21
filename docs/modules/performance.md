@@ -94,10 +94,35 @@ explicit go-ahead, or lower urgency than the indexes above:
   write). Only worth it if the indexes alone don't bring these pages down
   to an acceptable speed.
 
+- **`proxy.ts` (middleware) and every request's Server Component render each
+  do their own independent `supabase.auth.getUser()` call.**
+  `lib/supabase/middleware.ts`'s `updateSession()` (which `proxy.ts` runs on
+  nearly every request — see its `matcher`) calls `getUser()` to decide
+  whether to redirect to `/login`, and then, separately, the now-memoized
+  `getCurrentUser()` (`lib/auth/session.ts`) calls its own `getUser()` again
+  once the React render starts. `React.cache()` only dedupes calls *within*
+  one render pass — it can't reach across the middleware/render boundary,
+  since middleware runs as a completely separate phase before the React
+  tree exists. So every request still pays for two sequential Supabase Auth
+  round trips, not one. A local smoke test in this pass measured `proxy.ts`
+  alone (just the middleware's `getUser()` call) at ~217ms on an
+  unauthenticated `/login` request — a real, measurable cost, and it's paid
+  twice per request today. The standard fix is for middleware to forward its
+  already-validated user via a request header (`NextResponse.next({request:
+  {headers}})`), which the render-phase `getCurrentUser()` would check
+  first before falling back to its own lookup — cutting the second round
+  trip entirely for the common case. Not done in this pass: it touches the
+  auth/security path (the header must be explicitly set-or-cleared by
+  middleware on every request, never left to whatever a client sent, or a
+  client could try to spoof a validated identity downstream), so it deserves
+  a more careful implementation and review than the fixes above, rather than
+  a same-pass change alongside them.
+
 None of these were touched in this pass — flagging them here rather than
 picking one and diving in unasked, since each involves either a real UX/
-behavior decision (server-side pagination shape) or added complexity
-(materialized views) that's worth Ravi's explicit go-ahead first.
+behavior decision (server-side pagination shape), added complexity
+(materialized views), or the security-sensitive auth path (middleware
+header-forwarding) that's worth Ravi's explicit go-ahead first.
 
 ## Missing request memoization on `getCurrentUser()` (21 Sept 2026)
 
@@ -147,3 +172,75 @@ unrelated warnings as before this change), and `next build` all clean,
 plus a local `next dev` smoke test confirming `/login` (200) and
 unauthenticated requests to `/`, `/dead-stock`, and `/finished-product`
 (307 redirects, no 500s) all behave correctly.
+
+## Global Topbar banner was scanning the whole ledger on every page (21 Sept 2026)
+
+Ravi, after applying the `getCurrentUser()` fix above: *"page load is still
+taking a lot of time, even for pages where no data/less data exists such as
+deadstock register or finished product screen."* Same page load, still slow
+— so there was a second fixed, page-independent cost stacked on top of the
+first one. Found it in `components/shell/topbar.tsx`.
+
+**Root cause:** `Topbar` (rendered by `app/(dashboard)/layout.tsx`, i.e.
+**every** dashboard page, not just Items/Inventory) renders an async
+`LowStockBanner` Server Component with no `Suspense` boundary around it.
+`LowStockBanner` queried `stock_balance` with no filter —
+`supabase.from("stock_balance").select("item_id, on_hand")`. `stock_balance`
+(`0001_init.sql`) is a plain view — `select item_id, sum(...) from
+inventory_ledger group by item_id` — recomputed from scratch on every query,
+already flagged as a known cost center in the "Known follow-ups" section
+above, but that note assumed it only mattered on Items/Inventory-type pages.
+It doesn't: this banner runs it unfiltered on literally every page in the
+app, via the shared layout, and because it isn't wrapped in `Suspense`,
+Next.js has to wait for it to resolve before the rest of that page can
+render — so every page was paying the cost of a full `inventory_ledger`
+scan (a table that only grows, with every purchase/QC/production/packaging
+transaction) regardless of what that page's own content actually needed.
+This explains the "even light pages" symptom precisely: Dead Stock and
+Finished Product have almost no data of their own, but the shared Topbar's
+hidden full-ledger scan ran anyway, on every single visit.
+
+**Fix (two parts, same file):**
+
+- **Scoped the query.** Fetch `items` with a `low_stock_threshold` set
+  first (as before), then query `stock_balance` filtered to just those
+  item IDs via `.in("item_id", itemIds)`, instead of every item in the
+  catalog. Verified locally against a 100k-row `inventory_ledger` (matching
+  this table's real growth pattern): the unfiltered query took ~27ms (full
+  sequential scan + aggregate of every row); the same query scoped to 5
+  item IDs via a literal `IN (...)` list (what Supabase's `.in()` compiles
+  to — confirmed via `EXPLAIN ANALYZE`) took under 1ms, using the
+  `inventory_ledger_item_id_idx` index from `0056_performance_indexes.sql`
+  via a Bitmap Index Scan instead of a sequential scan. The gap only grows
+  as the ledger does, since the unfiltered version always scans the whole
+  table regardless of size.
+- **Suspense-wrapped `<LowStockBanner />`** in `Topbar`, with
+  `fallback={null}`. Whatever the banner's remaining cost, it no longer
+  blocks the rest of the page — same "don't make the user wait on something
+  non-critical" principle as the `loading.tsx` fix
+  (`docs/modules/shell.md`). The banner now pops in a moment after the rest
+  of the page, rather than holding up everything.
+
+No database migration — both changes are queries/JSX in
+`components/shell/topbar.tsx`. Verified: `tsc --noEmit`, `eslint` (0
+errors), `next build` all clean, plus a local `next dev` smoke test
+confirming `/login`, `/`, `/dead-stock`, and `/finished-product` all
+respond correctly with no server errors.
+
+## Finished Product list ran a write RPC serially before its own query (21 Sept 2026)
+
+Found in the same pass as the Topbar fix above, specific to
+`app/(dashboard)/finished-product/page.tsx`: the page's lazy 30-minute
+draft-expiry cleanup (`await supabase.rpc("expire_stale_fp_drafts")`,
+`0046_fp_batch_draft_cancel.sql`) was awaited on its own line, strictly
+*before* the page's main `finished_product_batches` query started — a full
+extra sequential round trip on every single visit to this page, on top of
+everything else already happening (auth checks, Topbar). Changed to run
+alongside the main select via `Promise.all`, cutting one round trip.
+Tradeoff: a batch that crosses the 30-minute mark in the split second
+between the two queries starting could show as "draft" for one more page
+load before flipping to "cancelled" — acceptable for a lazy background
+cleanup that was never meant to be strictly synchronous with page render,
+and self-corrects on the next load. No other page in the app has this
+serial-RPC-before-query pattern (checked via grep across `app/(dashboard)/**/
+page.tsx`).
