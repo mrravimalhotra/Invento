@@ -39,3 +39,12 @@ body {
 * {
   border-color: var(--border);
 }
+
+/* Used by components/ui/page-loading.tsx (the shared loading.tsx fallback,
+   21 Sept 2026 — "let user know that click has been registered"): delays
+   the spinner's fade-in by 150ms so a fast navigation never flashes it. */
+@keyframes page-loading-fade-in {
+  to {
+    opacity: 1;
+  }
+}
