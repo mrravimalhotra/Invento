@@ -18,7 +18,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
   const { data: row } = await supabase
     .from("coa_records")
     .select(
-      "id, coa_number, issued_at, file_url, subject_type, header_data, result_lines, remarks, quality_checks(ar_number, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number)"
+      "id, coa_number, issued_at, file_url, coa_type, header_data, result_lines, remarks, quality_checks(ar_number, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number)"
     )
     .eq("id", id)
     .maybeSingle<{
@@ -26,7 +26,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
       coa_number: string;
       issued_at: string;
       file_url: string | null;
-      subject_type: string | null;
+      coa_type: string | null;
       header_data: HeaderField[] | null;
       result_lines: ResultLine[] | null;
       remarks: string | null;
@@ -52,11 +52,11 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
         title={row.coa_number}
         description={`Issued ${formatDateTime(row.issued_at)} · AR ${row.quality_checks?.ar_number ?? "—"} · ${itemLabel} · Batch ${batchLabel}`}
         action={
-          row.subject_type && row.header_data && row.result_lines ? (
+          row.coa_type && row.header_data && row.result_lines ? (
             <CoaPdfButton
               data={{
                 coaNumber: row.coa_number,
-                subjectType: row.subject_type as "raw_material" | "finished_product",
+                subjectType: row.coa_type as "raw_material" | "finished_product",
                 headerFields: row.header_data,
                 resultLines: row.result_lines,
                 remarks: row.remarks ?? "",
@@ -66,7 +66,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
         }
       />
 
-      {!row.subject_type ? (
+      {!row.coa_type ? (
         <Card>
           <CardBody className="text-sm text-muted">
             This certificate was created via the old file-link flow and has no in-app preview.{" "}

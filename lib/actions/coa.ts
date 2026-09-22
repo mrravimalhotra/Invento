@@ -118,7 +118,7 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
       quality_check_id: qc.id,
       finished_product_batch_id: qc.finished_product_batch_id,
       coa_template_id: template.id,
-      subject_type: subjectType,
+      coa_type: subjectType,
       header_data: headerData,
       result_lines: resultLines,
       remarks,

@@ -191,3 +191,18 @@ yet when it was created.
 - `app/(dashboard)/coa/[id]/page.tsx`, `coa-pdf-button.tsx` — new.
 - `app/(dashboard)/coa/coa-table.tsx`, `page.tsx` — `subject_type`-aware
   Certificate column.
+
+## Column rename (22 Sept 2026)
+
+Ravi's feedback after trying the picker: the "Subject" label read
+ambiguously, so it was renamed to "Raw/Finished" (patch 0018, UI only). He
+then asked whether the underlying `coa_records.subject_type` column should
+follow — decided yes, picking **`coa_type`** as the new name
+(`0061_rename_coa_subject_type.sql`, a plain `rename column`; values and
+every existing row untouched). Every application-code reference to
+`subject_type` (queries, types, the Server Action's insert) now reads
+`coa_type`. `0060_coa_generation.sql` itself is left as originally written
+— it correctly named the column `subject_type` at the time it ran, and
+`0061` is the migration of record for the rename; this doc's own
+"Generation + PDF" section above still says `subject_type` for the same
+reason, describing what step 2 did when it landed.

@@ -9,7 +9,7 @@ export type CoaRow = {
   coa_number: string;
   issued_at: string;
   file_url: string | null;
-  subject_type: string | null;
+  coa_type: string | null;
   quality_checks: {
     ar_number: string;
     items: { item_code: string; name: string } | null;
@@ -42,14 +42,15 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
     { header: "Issued", accessor: (r) => formatDate(r.issued_at) },
     {
       header: "Certificate",
-      // subject_type is only ever set by the new generate-in-app flow
-      // (lib/actions/coa.ts's generateCoaCertificate) — rows the old
-      // "paste a file URL" flow created (createCoaRecord, retired 22 Sept
-      // 2026) have subject_type null and keep showing their external
-      // link instead, exactly as they always have. Nothing about an old
-      // row changes; the two flows' rows just render differently here.
+      // coa_type (renamed from subject_type, patch 0019) is only ever set
+      // by the new generate-in-app flow (lib/actions/coa.ts's
+      // generateCoaCertificate) — rows the old "paste a file URL" flow
+      // created (createCoaRecord, retired 22 Sept 2026) have coa_type null
+      // and keep showing their external link instead, exactly as they
+      // always have. Nothing about an old row changes; the two flows' rows
+      // just render differently here.
       accessor: (r) =>
-        r.subject_type ? (
+        r.coa_type ? (
           <Link href={`/coa/${r.id}`} className="text-brand-dark hover:underline">
             View / Download
           </Link>
