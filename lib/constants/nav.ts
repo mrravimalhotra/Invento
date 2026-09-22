@@ -35,6 +35,17 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { href: "/inventory", label: "Inventory Ledger", icon: ListTree, module: 7 },
     ],
   },
+  // Ravi (22 Sept 2026): "rename Quality Documents to 'Quality Control &
+  // Documents' and Move this link before Manufacturing." Group moved
+  // ahead of Manufacturing (was after it); items/hrefs/module numbers
+  // unchanged, this is ordering and title only.
+  {
+    title: "Quality Control & Documents",
+    items: [
+      { href: "/labels", label: "Label Printing", icon: Tag, module: 12 },
+      { href: "/coa", label: "Certificate of Analysis", icon: FileCheck2, module: 12 },
+    ],
+  },
   {
     title: "Manufacturing",
     items: [
@@ -43,13 +54,6 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // Batch Mfg. Record (module 10) moved to the Admin group below, 16
       // Sept 2026 — see that entry's comment.
       { href: "/packaging", label: "Packaging", icon: PackageCheck, module: 11 },
-    ],
-  },
-  {
-    title: "Quality documents",
-    items: [
-      { href: "/labels", label: "Label Printing", icon: Tag, module: 12 },
-      { href: "/coa", label: "Certificate of Analysis", icon: FileCheck2, module: 12 },
     ],
   },
   {
