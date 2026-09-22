@@ -31,13 +31,23 @@ export default async function NewCoaPage({
   let templateLines: TemplateLine[] | null = null;
   let headerFields: HeaderField[] | null = null;
   let noTemplateFor: string | null = null;
+  // Ravi (22 Sept 2026): picking Finished Product + a batch silently showed
+  // nothing at all — no form, no error. Root cause was that resolveRawMaterial/
+  // resolveFinishedProduct returned a bare `null` on any failure (query error,
+  // a broken FK chain, or a genuinely missing Item Type), and the page simply
+  // rendered nothing for that case. Now every failure carries a reason the
+  // page always shows, so "nothing happens" can't recur even if some other
+  // batch hits a different failure mode later.
+  let resolveError: string | null = null;
 
   if (subject && qualityCheckId) {
     const resolved = subject === "raw_material"
       ? await resolveRawMaterial(supabase, qualityCheckId)
       : await resolveFinishedProduct(supabase, qualityCheckId);
 
-    if (resolved) {
+    if (!resolved.ok) {
+      resolveError = resolved.reason;
+    } else {
       const { data: template } = await supabase
         .from("coa_templates")
         .select("id, coa_template_lines(seq, test, specification)")
@@ -73,6 +83,12 @@ export default async function NewCoaPage({
           <SubjectBatchPicker subject={subject} qualityCheckId={qualityCheckId} batches={batches} />
         </CardBody>
       </Card>
+
+      {resolveError && (
+        <Card>
+          <CardBody className="text-sm text-red">{resolveError}</CardBody>
+        </Card>
+      )}
 
       {noTemplateFor && (
         <Card>
@@ -148,8 +164,12 @@ async function fetchBatchOptions(
   }));
 }
 
-async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClient>>, qualityCheckId: string) {
-  const { data: qc } = await supabase
+type Resolved =
+  | { ok: true; itemTypeId: string; itemTypeDescription: string; headerFields: HeaderField[] }
+  | { ok: false; reason: string };
+
+async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClient>>, qualityCheckId: string): Promise<Resolved> {
+  const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
       "id, ar_number, created_at, reviewed_at, purchase_lines(batch_number, quantity, unit, qc_qty, items(item_code, name, item_type_id, item_types(description)), purchase_orders(invoice_number, vendors(name)))"
@@ -169,9 +189,19 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
         purchase_orders: { invoice_number: string; vendors: { name: string } | null } | null;
       } | null;
     }>();
-  const pl = qc?.purchase_lines;
-  const plItems = pl?.items;
-  if (!qc || !pl || !plItems || !plItems.item_type_id) return null;
+  if (qcError) return { ok: false, reason: `Could not load this batch's details: ${qcError.message}` };
+  if (!qc) return { ok: false, reason: "Could not find this quality check — reload and try again." };
+
+  const pl = qc.purchase_lines;
+  if (!pl) return { ok: false, reason: "This quality check has no linked purchase line." };
+  const plItems = pl.items;
+  if (!plItems) return { ok: false, reason: "This purchase line has no linked item." };
+  if (!plItems.item_type_id) {
+    return {
+      ok: false,
+      reason: `"${plItems.name}" (${plItems.item_code}) has no Item Type set — set one on Item Master before a COA can be generated for it.`,
+    };
+  }
 
   // Order matches the sample certificate's own left-column-then-right-
   // column layout exactly (5 left / 5 right) — coa-pdf.ts splits this
@@ -190,14 +220,15 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
   ];
 
   return {
+    ok: true,
     itemTypeId: plItems.item_type_id,
     itemTypeDescription: plItems.item_types?.description ?? "—",
     headerFields,
   };
 }
 
-async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof createClient>>, qualityCheckId: string) {
-  const { data: qc } = await supabase
+async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof createClient>>, qualityCheckId: string): Promise<Resolved> {
+  const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
       "id, created_at, reviewed_at, finished_product_batches(batch_number, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(name, item_type_id, item_types(description), finished_product_item_id, items(item_code)))"
@@ -223,9 +254,19 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
         } | null;
       } | null;
     }>();
-  const fp = qc?.finished_product_batches;
-  const mfr = fp?.mfr_definitions;
-  if (!qc || !fp || !mfr || !mfr.item_type_id) return null;
+  if (qcError) return { ok: false, reason: `Could not load this batch's details: ${qcError.message}` };
+  if (!qc) return { ok: false, reason: "Could not find this quality check — reload and try again." };
+
+  const fp = qc.finished_product_batches;
+  if (!fp) return { ok: false, reason: "This quality check has no linked Finished Product batch." };
+  const mfr = fp.mfr_definitions;
+  if (!mfr) return { ok: false, reason: "This batch's Finished Product recipe (MFR) could not be found." };
+  if (!mfr.item_type_id) {
+    return {
+      ok: false,
+      reason: `"${mfr.name}" has no Item Type set — set one on the MFR definition before a COA can be generated for it.`,
+    };
+  }
 
   // Order matches the sample certificate's own left-column-then-right-
   // column layout exactly (5 left / 4 right) — coa-pdf.ts splits this
@@ -244,6 +285,7 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
   ];
 
   return {
+    ok: true,
     itemTypeId: mfr.item_type_id,
     itemTypeDescription: mfr.item_types?.description ?? "—",
     headerFields,
