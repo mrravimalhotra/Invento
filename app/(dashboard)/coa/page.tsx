@@ -19,7 +19,7 @@ export default async function CoaListPage({
   const { data } = await supabase
     .from("coa_records")
     .select(
-      "id, coa_number, issued_at, file_url, quality_checks(ar_number, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number)"
+      "id, coa_number, issued_at, file_url, subject_type, quality_checks(ar_number, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number)"
     )
     .order("issued_at", { ascending: false });
 

@@ -111,3 +111,83 @@ here is invented data:
   the generation form (not locked), since some values (e.g. "100 Tab x 3")
   are clearly hand-composed wording a QC person may need to adjust, not a
   raw stored value formatted a fixed way.
+
+## Generation + PDF (22 Sept 2026, step 2 of 2)
+
+Completes the feature: pick an Approved RM or FP quality check, resolve its
+Item Type's template, enter results against each test, save, and download a
+letterhead PDF matching the two sample certificates' layout.
+
+This **replaces** `/coa/new`'s old "pick an Approved QC, paste a file URL"
+form (`createCoaRecord`, retired) per Ravi's confirmation on the step-1
+patch — every `coa_records` row the old flow ever created is untouched;
+`file_url` stays populated on those rows and the new columns are simply
+`null` for them, same as any pre-existing row whose feature didn't exist
+yet when it was created.
+
+- `0060_coa_generation.sql` — purely additive columns on `coa_records`:
+  `coa_template_id` (FK), `subject_type` (`raw_material` |
+  `finished_product`, checked), `header_data` (jsonb), `result_lines`
+  (jsonb), `remarks`. No RLS change — the existing `coa_insert` policy
+  (0001_init.sql) already covers the `coa` role set, and the new flow
+  writes through a plain client insert, not a new RPC. `header_data`/
+  `result_lines` are a deliberate **snapshot**, not a live reference to the
+  template — a template edited later never changes a certificate that
+  already issued, the same "history shouldn't move under you" precedent as
+  approved MFRs and reviewed QC decisions.
+- **`/coa/new`** — reworked into a two-step page:
+  1. `SubjectBatchPicker` (`subject-batch-picker.tsx`) — Raw Material vs.
+     Finished Product, then a searchable dropdown of `quality_checks` with
+     `status = 'approved'` for that subject (`purchase_line_id` set for RM,
+     `finished_product_batch_id` set for FP) — the same GET-form
+     auto-submit filter pattern used by the Inventory Ledger and Reports
+     filters.
+  2. Once a batch is picked, the page server-resolves its Item Type
+     (`resolveRawMaterial()` / `resolveFinishedProduct()` in `page.tsx`)
+     and looks up that Item Type's template. No template yet → a message
+     pointing at Manage Templates, nothing else rendered. Template found →
+     `GenerateCoaForm` (`generate-coa-form.tsx`): pre-filled, editable
+     header fields (see "Header field sourcing" above) plus one Result
+     input per template line (S.No./Test/Specification are read-only, from
+     the template). Submitting calls `generateCoaCertificate()`
+     (`lib/actions/coa.ts`), which re-verifies server-side — the QC is
+     still Approved, its subject still matches what the form claims, and a
+     template still exists for its Item Type — before inserting, then
+     redirects to the new certificate's own page.
+- **`/coa/[id]`** — the certificate's own page: on-screen header-field and
+  results-table preview, remarks, and (new-flow rows only) a "Download PDF"
+  button. Old-flow rows (`subject_type` still `null`) show a message and
+  the original external `file_url` link instead — no in-app preview for
+  those, nothing about them changed. `coa-table.tsx`'s "Certificate" column
+  now links here for new-flow rows and keeps the old external link for
+  old-flow ones.
+- `lib/coa-pdf.ts` (`downloadCoaPdf`) — client-side jsPDF, same
+  established pattern as `mfr-pdf-button.tsx`/`lib/pdf.ts`: the real
+  Atharva logo (`lib/coa-logo.ts`, extracted from `public/atharva-logo.svg`
+  and downscaled/palette-quantized to ~16KB for cheap embedding), company
+  block, "CERTIFICATE OF ANALYSIS" title + subject subtitle, a two-column
+  header grid (`headerFields` is pre-ordered left-then-right by the
+  resolver functions — this function only splits it in half by position),
+  the Test/Result/Specification table (`jspdf-autotable`), remarks, and
+  blank Analyzed-by/Approved-by signature lines (left blank for a physical
+  signature, matching the sample). **First pass, not yet compared against
+  a printed original** — pixel-for-pixel fidelity to a scanned paper form
+  is an iterate-once-you-can-compare-them job; expect a round of "here's
+  what's off" once Ravi generates a real certificate and holds it against
+  the paper sample.
+- `CoaPdfButton` (`coa-pdf-button.tsx`) — thin client wrapper, mirrors
+  `MfrPdfButton`'s shape exactly.
+
+### Files (step 2)
+
+- `supabase/migrations/0060_coa_generation.sql`
+- `lib/actions/coa.ts` — rewritten; `createCoaRecord` removed,
+  `generateCoaCertificate` added.
+- `lib/coa-pdf.ts`, `lib/coa-logo.ts` — new.
+- `app/(dashboard)/coa/new/page.tsx` — rewritten.
+- `app/(dashboard)/coa/new/subject-batch-picker.tsx`,
+  `generate-coa-form.tsx` — new.
+- `app/(dashboard)/coa/new/coa-form.tsx` — removed (fully replaced).
+- `app/(dashboard)/coa/[id]/page.tsx`, `coa-pdf-button.tsx` — new.
+- `app/(dashboard)/coa/coa-table.tsx`, `page.tsx` — `subject_type`-aware
+  Certificate column.

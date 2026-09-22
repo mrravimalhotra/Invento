@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate } from "@/lib/utils";
 
@@ -8,6 +9,7 @@ export type CoaRow = {
   coa_number: string;
   issued_at: string;
   file_url: string | null;
+  subject_type: string | null;
   quality_checks: {
     ar_number: string;
     items: { item_code: string; name: string } | null;
@@ -39,9 +41,19 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
     },
     { header: "Issued", accessor: (r) => formatDate(r.issued_at) },
     {
-      header: "File",
+      header: "Certificate",
+      // subject_type is only ever set by the new generate-in-app flow
+      // (lib/actions/coa.ts's generateCoaCertificate) — rows the old
+      // "paste a file URL" flow created (createCoaRecord, retired 22 Sept
+      // 2026) have subject_type null and keep showing their external
+      // link instead, exactly as they always have. Nothing about an old
+      // row changes; the two flows' rows just render differently here.
       accessor: (r) =>
-        r.file_url ? (
+        r.subject_type ? (
+          <Link href={`/coa/${r.id}`} className="text-brand-dark hover:underline">
+            View / Download
+          </Link>
+        ) : r.file_url ? (
           <a href={r.file_url} target="_blank" rel="noreferrer" className="text-brand-dark hover:underline">
             Link
           </a>
