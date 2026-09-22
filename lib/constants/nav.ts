@@ -27,11 +27,13 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { href: "/dead-stock", label: "Dead Stock Register", icon: Archive, module: 18 },
     ],
   },
+  // Ravi (22 Sept 2026): "rename 'Procurement & QC' to 'Procurement'" —
+  // Quality Control (module 6) moved out to Quality Control & Documents
+  // below, so "& QC" no longer described this group's contents.
   {
-    title: "Procurement & QC",
+    title: "Procurement",
     items: [
       { href: "/purchase", label: "Purchase", icon: ShoppingCart, module: 5 },
-      { href: "/qc", label: "Quality Control", icon: FlaskConical, module: 6 },
       { href: "/inventory", label: "Inventory Ledger", icon: ListTree, module: 7 },
     ],
   },
@@ -39,9 +41,15 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   // Documents' and Move this link before Manufacturing." Group moved
   // ahead of Manufacturing (was after it); items/hrefs/module numbers
   // unchanged, this is ordering and title only.
+  //
+  // Same day, follow-up: "Move the 'Quality Control' link under 'Quality
+  // Control & Documents'" — moved here from Procurement (now just
+  // "Procurement", see above), first in this group since QC happens
+  // before the documents (Label Printing, COA) that depend on it.
   {
     title: "Quality Control & Documents",
     items: [
+      { href: "/qc", label: "Quality Control", icon: FlaskConical, module: 6 },
       { href: "/labels", label: "Label Printing", icon: Tag, module: 12 },
       { href: "/coa", label: "Certificate of Analysis", icon: FileCheck2, module: 12 },
     ],
