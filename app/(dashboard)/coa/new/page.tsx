@@ -110,7 +110,14 @@ export default async function NewCoaPage({
               qualityCheckId={qualityCheckId}
               initialHeaderFields={headerFields}
               templateLines={templateLines}
-              defaultRemarks="The above sample complies as per In-House Specification."
+              // Ravi (22 Sept 2026): the sample certificates' closing line reads
+              // "complies/Not complies as per IHS" (a template the QC person
+              // edits per certificate — the slash isn't a typo, it's "delete
+              // whichever doesn't apply"), not the fuller "complies as per
+              // In-House Specification" wording this pre-filled. Same default
+              // for both Raw Material and Finished Product, as before — this is
+              // the one and only call site regardless of subject.
+              defaultRemarks="The above sample complies/Not complies as per IHS."
             />
           </CardBody>
         </Card>

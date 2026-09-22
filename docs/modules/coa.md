@@ -348,3 +348,15 @@ actually affected his live database.
 - `lib/bulk-upload/templates.ts` — `buildCoaTemplatesWorkbook()`.
 - `lib/actions/bulk-upload.ts` — `bulkUploadCoaTemplates()`.
 - `app/(dashboard)/bulk-upload/page.tsx` — new module card.
+
+## Default remarks wording (22 Sept 2026)
+
+Ravi, after generating a real RM certificate: the closing-line default read
+"The above sample complies as per In-House Specification." — the sample
+certificates actually read "complies/**Not** complies as per IHS" (a
+template phrase the QC person edits per certificate by deleting whichever
+doesn't apply, not a typo). Changed the one shared `defaultRemarks` string
+(`app/(dashboard)/coa/new/page.tsx` — a single call site used for both Raw
+Material and Finished Product, unchanged) to `"The above sample
+complies/Not complies as per IHS."`; still just a pre-fill, still fully
+editable on the form as before.
