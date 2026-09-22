@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
@@ -29,7 +30,16 @@ export default async function CoaListPage({
       <PageHeader
         title="Certificate of Analysis"
         description="Issued COAs, linked to the underlying Approved quality check — DESIGN.md §4.12."
-        action={canWrite(user?.roles ?? [], "coa") ? <LinkButton href="/coa/new">New COA</LinkButton> : null}
+        action={
+          canWrite(user?.roles ?? [], "coa") ? (
+            <div className="flex items-center gap-3">
+              <Link href="/coa/templates" className="text-sm text-brand hover:underline">
+                Manage Templates
+              </Link>
+              <LinkButton href="/coa/new">New COA</LinkButton>
+            </div>
+          ) : null
+        }
       />
       {created === "1" && (
         <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
