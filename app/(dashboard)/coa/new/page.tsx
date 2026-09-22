@@ -228,10 +228,21 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
 }
 
 async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof createClient>>, qualityCheckId: string): Promise<Resolved> {
+  // Ravi: an MFR whose detail page clearly showed "Item type: Oil" still
+  // got "no Item Type set" here. Root cause — mfr_definitions.item_type_id
+  // is a deprecated column (0010_mfr_finished_product_link.sql: "left in
+  // place, deprecated, simply unused by new code going forward... The
+  // linked Finished Product item now carries its own item_type_id, reached
+  // via finished_product_item_id"). This resolver was reading that
+  // deprecated column directly instead of going through the item, the way
+  // the MFR detail page itself does (app/(dashboard)/mfr/[id]/page.tsx) —
+  // wrong for any MFR whose deprecated column was never (or no longer)
+  // kept in sync with the real one on its Finished Product item. Now reads
+  // item_type_id from the linked item, same as that page.
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
-      "id, created_at, reviewed_at, finished_product_batches(batch_number, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(name, item_type_id, item_types(description), finished_product_item_id, items(item_code)))"
+      "id, created_at, reviewed_at, finished_product_batches(batch_number, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(name, finished_product_item_id, items(item_code, item_type_id, item_types(description))))"
     )
     .eq("id", qualityCheckId)
     .maybeSingle<{
@@ -247,10 +258,8 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
         qc_sample_qty: number | string | null;
         mfr_definitions: {
           name: string;
-          item_type_id: string | null;
-          item_types: { description: string } | null;
           finished_product_item_id: string | null;
-          items: { item_code: string } | null;
+          items: { item_code: string; item_type_id: string | null; item_types: { description: string } | null } | null;
         } | null;
       } | null;
     }>();
@@ -261,10 +270,12 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
   if (!fp) return { ok: false, reason: "This quality check has no linked Finished Product batch." };
   const mfr = fp.mfr_definitions;
   if (!mfr) return { ok: false, reason: "This batch's Finished Product recipe (MFR) could not be found." };
-  if (!mfr.item_type_id) {
+  const fpItem = mfr.items;
+  if (!fpItem) return { ok: false, reason: `"${mfr.name}" has no linked Finished Product item.` };
+  if (!fpItem.item_type_id) {
     return {
       ok: false,
-      reason: `"${mfr.name}" has no Item Type set — set one on the MFR definition before a COA can be generated for it.`,
+      reason: `"${mfr.name}" has no Item Type set on its linked Finished Product item — set one on Item Master before a COA can be generated for it.`,
     };
   }
 
@@ -278,7 +289,7 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
     { label: "Mfg. Date", value: formatDate(fp.batch_start_date) },
     { label: "Sampled Qty", value: fp.qc_sample_qty !== null ? `${formatNumber(fp.qc_sample_qty)} ${fp.unit}` : "" },
     { label: "Analysis date", value: formatDate(qc.created_at) },
-    { label: "FP Code", value: mfr.items?.item_code ?? "" },
+    { label: "FP Code", value: fpItem.item_code ?? "" },
     { label: "Batch Quantity", value: `${formatNumber(fp.target_qty)} ${fp.unit}` },
     { label: "Best before Dt", value: formatDate(fp.expiry_month) },
     { label: "Reporting date", value: formatDate(qc.reviewed_at) },
@@ -286,8 +297,8 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
 
   return {
     ok: true,
-    itemTypeId: mfr.item_type_id,
-    itemTypeDescription: mfr.item_types?.description ?? "—",
+    itemTypeId: fpItem.item_type_id,
+    itemTypeDescription: fpItem.item_types?.description ?? "—",
     headerFields,
   };
 }

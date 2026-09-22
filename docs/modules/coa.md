@@ -206,3 +206,38 @@ every existing row untouched). Every application-code reference to
 `0061` is the migration of record for the rename; this doc's own
 "Generation + PDF" section above still says `subject_type` for the same
 reason, describing what step 2 did when it landed.
+
+## Post-launch fixes (22 Sept 2026)
+
+Two bugs found once Ravi actually tried generating certificates:
+
+- **Download PDF did nothing.** `lib/coa-logo.ts`'s
+  `ATHARVA_LOGO_PNG_BASE64` constant held only the data-URI prefix with no
+  actual image bytes after the comma — jsPDF's `addImage()` throws on
+  that, silently aborting the whole click handler with no visible error.
+  Re-extracted and re-quantized the real logo from
+  `public/atharva-logo.svg` and confirmed a full render end-to-end
+  (verified outside the browser with a standalone jsPDF render, output
+  inspected as a rendered PDF page — the only way to exercise this
+  click-only code path without a live browser).
+- **Picking Finished Product + a batch showed nothing at all** — no form,
+  no error, just the picker sitting there. `resolveRawMaterial`/
+  `resolveFinishedProduct` (`/coa/new/page.tsx`) returned a bare `null` on
+  any failure and the page rendered nothing for that case. Both now return
+  `{ok: false, reason}` instead, always shown on the page — including the
+  underlying Postgres error message when the query itself failed.
+  Uncovered the real bug once visible: `resolveFinishedProduct` was
+  reading `mfr_definitions.item_type_id` directly, which is a
+  **deprecated column** — 0010_mfr_finished_product_link.sql says so
+  explicitly: "left in place, deprecated, simply unused by new code going
+  forward... The linked Finished Product item now carries its own
+  item_type_id, reached via finished_product_item_id." An MFR whose detail
+  page correctly showed its Item Type (that page reads it via
+  `finished_product_item_id → items.item_type_id`, per
+  `app/(dashboard)/mfr/[id]/page.tsx`) still failed the COA resolver,
+  because the resolver was reading the stale, unsynced column instead.
+  Fixed to read `item_type_id` from the linked Finished Product item, the
+  same path the MFR detail page already uses — 0059_coa_templates.sql's
+  own design comment ("mfr_definitions.item_type_id... resolves either
+  subject") was wrong on this point; no schema or migration change needed,
+  the column exists and is simply not the right one for this lookup.
