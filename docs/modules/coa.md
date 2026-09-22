@@ -248,3 +248,103 @@ Two bugs found once Ravi actually tried generating certificates:
   first fix let the bug on Submit surface; fixed the same way, same file
   pattern (`finished_product_batches(mfr_definitions(items(item_type_id)))`
   instead of reading `mfr_definitions.item_type_id` directly).
+
+## Bulk upload of COA Templates (22 Sept 2026)
+
+Ravi first asked for "bulk upload Certificate of Analysis using prefilled
+excel template" — read as bulk-*generating* actual certificates against
+pending Approved batches. That design (a prefilled-from-pending-batches
+template, and how to handle partially-filled-in rows) got as far as an
+AskUserQuestion, but Ravi's reply ("hold, we need to automate upload of
+this data using template") didn't resolve either fork — he then clarified
+with a screenshot of the COA Template edit screen
+(`/coa/templates/[itemTypeId]`): "we want to automate data upload of this
+screen **per item type**. So template will have 3 inputs, Item Type, Test
+and specification." A materially simpler, different feature — bulk-setting
+up *templates* (Item Type → Test → Specification), not bulk-generating
+certificates against batches. Certificate generation stays exactly as
+built in step 2 above; nothing about `/coa/new` or `generateCoaCertificate`
+changed.
+
+Slots into the existing Bulk Data Upload feature
+(`app/(dashboard)/bulk-upload/`) as a new module, `coa-templates`, using
+the same conventions every other module there already follows: a blank
+downloadable `.xlsx` template (Item Type / Test / Specification columns,
+Item Type has an Excel dropdown sourced from live data but still accepts
+free text), one row per Test/Specification line, several rows sharing the
+same Item Type grouped into one template — the same flat-file grouping
+MFR's Recipe sheet already uses for recipe lines, keyed by the repeated
+identifier since item types have no code of their own in this app.
+
+- `COA_TEMPLATE_COLUMNS` (`lib/bulk-upload/schemas.ts`) — Item Type, Test,
+  Specification, all required.
+- `buildCoaTemplatesWorkbook()` (`lib/bulk-upload/templates.ts`) — the
+  Reference sheet's Item Type dropdown deliberately lists only active item
+  types that **don't already have a template** (a second reference column
+  lists the ones excluded, so it's visible why); the Item Type column's
+  dropdown is sourced from that filtered list.
+- `bulkUploadCoaTemplates()` (`lib/actions/bulk-upload.ts`) — validates
+  every row (Item Type resolves to exactly one active item type, same
+  name-ambiguity handling as Purchase's Vendor/Item Name and MFR's Line
+  Item Name; Test/Specification both required), groups by resolved
+  `item_type_id`, and calls the new `bulk_create_coa_templates()` RPC once
+  with the whole file's payload.
+- `bulk_create_coa_templates()` (`0062_bulk_upload_coa_templates.sql`) —
+  one transaction covering every item type in the file, same
+  all-or-nothing-per-file shape as `bulk_create_mfr_definitions()`/
+  `bulk_create_purchase_orders()` (needed because this is a multi-group
+  operation — a loop of individual `upsert_coa_template()` calls from
+  application code would only be atomic within each group, not across the
+  whole file). **Deliberately create-only, not create-or-replace**: an
+  Item Type that already has a template is rejected (both by an app-side
+  pre-check, for a friendly named error, and again inside the RPC itself
+  as a race-condition backstop) rather than silently overwritten — matches
+  every other master-data bulk-upload module's "reject an existing name"
+  convention (Item Type Master's Description, Vendor Master's Name, etc.),
+  chosen over overwrite per the working agreement's "never modify existing
+  data without flagging it first." To update an Item Type's template,
+  still use `/coa/templates/[itemTypeId]` directly — `upsert_coa_template()`
+  (the screen's own save path, a true upsert) is unchanged.
+- Gated by the same `coa` role set (`system_admin`, `quality_checker`,
+  `qc_reviewer`) as the rest of this module, not admin-only — matches the
+  Manage Templates screen's own access.
+
+### Verification
+
+Local-only Postgres replay of every migration through `0062` (a plain
+Postgres instance, stubbed with a minimal `auth.users`/`auth.uid()` this
+app's migrations reference but doesn't ship — Supabase itself provides the
+real ones), then direct `bulk_create_coa_templates()` calls covering: the
+happy path (two item types, one with two tests, one with one — correct
+`seq` numbering, correct grouping); the reject-and-roll-back-the-whole-file
+case (one new item type plus one already-templated item type in the same
+payload — confirmed the new one is **not** left behind, proving
+whole-transaction atomicity, not just per-group); the role check (no
+`coa`-eligible role → rejected); and blank Test/Specification (rejected).
+Also round-tripped `buildCoaTemplatesWorkbook()`'s actual generated
+`.xlsx` through `readFirstSheet()`/`findColumnIndex()` (the real parser),
+confirming headers, the dropdown's source range, and the Reference sheet's
+available/excluded split all come out correct. `tsc`, `eslint`, and
+`next build` all clean.
+
+While replaying migrations locally, found `0053_bulk_upload_mfr_procedure.sql`
+changes `bulk_create_mfr_definitions()`'s return columns from the 2-column
+shape `0041_mfr_deferred_approval.sql` left it in back to the original
+4-column shape, without a `drop function if exists` first — Postgres
+rejects a `create or replace function` that changes OUT-parameter types in
+place, so a fresh replay of the full migration history stops there. This
+is a pre-existing issue unrelated to this feature (worked around locally
+with a manual `drop function` just to keep replaying past it for this
+verification) — flagged to Ravi separately rather than fixed here, since
+it's out of this task's scope and it's not yet known whether it ever
+actually affected his live database.
+
+### Files
+
+- `supabase/migrations/0062_bulk_upload_coa_templates.sql` — new.
+- `lib/bulk-upload/schemas.ts` — `COA_TEMPLATE_COLUMNS`,
+  `"coa-templates"` added to `BULK_UPLOAD_MODULES`/`BULK_UPLOAD_MODULE_META`/
+  `MODULE_COLUMNS`.
+- `lib/bulk-upload/templates.ts` — `buildCoaTemplatesWorkbook()`.
+- `lib/actions/bulk-upload.ts` — `bulkUploadCoaTemplates()`.
+- `app/(dashboard)/bulk-upload/page.tsx` — new module card.

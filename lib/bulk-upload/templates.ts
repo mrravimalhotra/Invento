@@ -392,6 +392,67 @@ const DEAD_STOCK_COLUMNS_WITH_EXAMPLE = {
   example: ["Old HPLC Column", "2022-03-15", "1", "12000", "25", "", "0", "0", "", "", ""],
 };
 
+// COA Templates (22 Sept 2026, Ravi, via a screenshot of the COA Template
+// edit screen: "we want to automate data upload of this screen per item
+// type. So template will have 3 inputs, Item Type, Test and
+// specification"). One row per Test/Specification line, grouped by
+// repeating the same Item Type — see COA_TEMPLATE_COLUMNS in schemas.ts
+// for why this is create-only (an Item Type that already has a template
+// is rejected, not overwritten).
+async function buildCoaTemplatesWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
+  const workbook = new ExcelJS.Workbook();
+  const [{ data: itemTypes }, { data: existingTemplates }] = await Promise.all([
+    supabase.from("item_types").select("id, description").eq("active", true).order("description"),
+    supabase.from("coa_templates").select("item_type_id"),
+  ]);
+  // Reference sheet deliberately excludes item types that already have a
+  // template — the upload rejects those rows anyway (edit an existing
+  // template from Manage Templates instead), so the dropdown should only
+  // ever point at ones that will actually succeed.
+  const templatedItemTypeIds = new Set((existingTemplates ?? []).map((t) => t.item_type_id));
+  const availableItemTypes = (itemTypes ?? []).filter((t) => !templatedItemTypeIds.has(t.id));
+  const unavailableItemTypes = (itemTypes ?? []).filter((t) => templatedItemTypeIds.has(t.id));
+
+  addInstructionsSheet(workbook, "COA Templates", [{ columns: COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.columns }], [
+    "Each row is one Test/Specification line. To define a template with more than one test, add one row per test and repeat the exact same Item Type on every one of those rows — the upload groups rows into one template by matching Item Type. Rows are numbered (S.N.) automatically in the order they appear in the file.",
+    "An Item Type that already has a COA template is rejected — edit it from Manage Templates (Certificate of Analysis → Manage Templates) instead of re-uploading it here.",
+  ]);
+
+  const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["coa-templates"].sheetName);
+  addHeaderRow(sheet, COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.columns);
+  COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.example.forEach((row) =>
+    sheet.addRow(exampleRowValues(COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.columns, row))
+  );
+
+  const dataEndRow = 1 + MAX_UPLOAD_ROWS;
+  const refSheet = workbook.addWorksheet("Reference");
+  const itemTypeLastRow = addReferenceColumn(
+    refSheet,
+    1,
+    "Active Item Types without a COA template",
+    availableItemTypes.map((t) => t.description)
+  );
+  addReferenceColumn(
+    refSheet,
+    2,
+    "Item types not shown above (already have a template)",
+    unavailableItemTypes.map((t) => t.description)
+  );
+
+  // Column 1 = Item Type (COA_TEMPLATE_COLUMNS' only dropdown-eligible column).
+  applyDropdownColumn(sheet, 1, 2, dataEndRow, [`Reference!$A$2:$A$${itemTypeLastRow}`]);
+
+  return workbook;
+}
+
+const COA_TEMPLATE_COLUMNS_WITH_EXAMPLE = {
+  columns: MODULE_COLUMNS["coa-templates"],
+  example: [
+    ["Powder", "Loss on drying", "Not More Than 10 %w/w"],
+    ["Powder", "Total Ash", "Not More Than 5 %w/w"],
+  ],
+};
+
 export async function buildTemplateWorkbook(
   module: BulkUploadModuleKey,
   supabase: SupabaseClient
@@ -411,5 +472,7 @@ export async function buildTemplateWorkbook(
       return buildEquipmentWorkbook();
     case "dead-stock":
       return buildDeadStockWorkbook();
+    case "coa-templates":
+      return buildCoaTemplatesWorkbook(supabase);
   }
 }

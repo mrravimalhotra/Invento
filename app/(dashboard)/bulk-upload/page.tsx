@@ -11,6 +11,7 @@ import {
   bulkUploadPurchase,
   bulkUploadEquipment,
   bulkUploadDeadStock,
+  bulkUploadCoaTemplates,
 } from "@/lib/actions/bulk-upload";
 import { BULK_UPLOAD_MODULE_META, type BulkUploadModuleKey } from "@/lib/bulk-upload/schemas";
 import type { BulkUploadState } from "@/lib/actions/bulk-upload";
@@ -70,6 +71,12 @@ const MODULE_CARDS: ModuleCard[] = [
     key: "dead-stock",
     action: bulkUploadDeadStock,
     description: "Create records in the Dead Stock Register.",
+  },
+  {
+    key: "coa-templates",
+    action: bulkUploadCoaTemplates,
+    description:
+      "Create Certificate of Analysis templates — one row per Test/Specification line, grouped by repeating the same Item Type. An Item Type that already has a template is rejected; edit it from Manage Templates instead.",
   },
 ];
 
