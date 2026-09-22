@@ -21,7 +21,7 @@ export function SubjectBatchPicker({
 }) {
   return (
     <form action="/coa/new" className="flex flex-wrap items-end gap-3">
-      <Field label="Subject" htmlFor="subject">
+      <Field label="Raw/Finished" htmlFor="subject">
         <Select id="subject" name="subject" defaultValue={subject} onChange={(e) => e.currentTarget.form?.requestSubmit()}>
           <option value="" disabled>
             Select…
