@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
   Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
-  UploadCloud, Trash2, History,
+  UploadCloud, Trash2, History, BookOpen,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -11,7 +11,16 @@ export type NavItem = { href: string; label: string; icon: LucideIcon; module: n
 export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Overview",
-    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard, module: 14 }],
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, module: 14 },
+      // Ravi (22 Sept 2026): "create a link in app for user to download
+      // user guide." Informational only, no write action of its own, so
+      // it's open to every signed-in user like Dashboard itself — no
+      // MODULE_WRITE_ROLES entry needed (same reasoning as Reports/Audit
+      // Log's nav visibility). Module number 22 follows Audit Log (21)'s
+      // precedent for post-baseline additions.
+      { href: "/user-guide", label: "User Guide", icon: BookOpen, module: 22 },
+    ],
   },
   {
     title: "Master data",
