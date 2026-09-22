@@ -50,8 +50,6 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/labels", label: "Label Printing", icon: Tag, module: 12 },
       { href: "/coa", label: "Certificate of Analysis", icon: FileCheck2, module: 12 },
-      { href: "/line-clearance", label: "Line Clearance", icon: ShieldCheck, module: 12 },
-      { href: "/environmental-control", label: "Environmental Control", icon: Thermometer, module: 12 },
     ],
   },
   {
@@ -90,6 +88,16 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // module number 10 (its original slot), not renumbered to 21, since
       // this is a relocation of an existing module rather than a new one.
       { href: "/admin/bmr-deprecated", label: "Batch Mfg. Record- Deprecated", icon: Boxes, module: 10 },
+      // Ravi (22 Sept 2026): "move 'Line Clearance' and 'Environmental
+      // Control' links under Admin section and suffix them with
+      // '- deprecated' as they are unlikely to be used." Same relocation-
+      // plus-rename pattern as Batch Mfg. Record above (16 Sept 2026) —
+      // module numbers kept as-is (both were already 12, shared with
+      // Label Printing/COA under Quality documents) since this is a
+      // relocation of existing modules, not new ones; label format matches
+      // that same precedent ("- Deprecated", not "(deprecated)").
+      { href: "/line-clearance", label: "Line Clearance- Deprecated", icon: ShieldCheck, module: 12 },
+      { href: "/environmental-control", label: "Environmental Control- Deprecated", icon: Thermometer, module: 12 },
     ],
   },
 ];
