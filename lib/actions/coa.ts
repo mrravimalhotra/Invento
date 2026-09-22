@@ -70,10 +70,20 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   // matches what the form claims, and a template still exists for its
   // item type — never trust that the page the form was rendered from is
   // still the current state by the time Submit is clicked.
+  //
+  // FP's item_type_id is read via finished_product_batches -> mfr_definitions
+  // -> finished_product_item_id -> items.item_type_id, NOT
+  // mfr_definitions.item_type_id directly — that column is deprecated
+  // (0010_mfr_finished_product_link.sql) and can be null/stale even when
+  // the item's own item_type_id (what the MFR detail page shows) is set.
+  // See docs/modules/coa.md's "Post-launch fixes" note — the page resolver
+  // (app/(dashboard)/coa/new/page.tsx) had this exact same bug, fixed
+  // first; this is the same mistake in this Server Action's own
+  // independent re-check, missed in that pass.
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
-      "id, status, purchase_line_id, finished_product_batch_id, purchase_lines(item_id, items(item_type_id)), finished_product_batches(mfr_definitions(item_type_id))"
+      "id, status, purchase_line_id, finished_product_batch_id, purchase_lines(item_id, items(item_type_id)), finished_product_batches(mfr_definitions(items(item_type_id)))"
     )
     .eq("id", qualityCheckId)
     .maybeSingle<{
@@ -82,7 +92,7 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
       purchase_line_id: string | null;
       finished_product_batch_id: string | null;
       purchase_lines: { item_id: string; items: { item_type_id: string | null } | null } | null;
-      finished_product_batches: { mfr_definitions: { item_type_id: string | null } | null } | null;
+      finished_product_batches: { mfr_definitions: { items: { item_type_id: string | null } | null } | null } | null;
     }>();
   if (qcError || !qc) return { error: "Selected quality check could not be found." };
   if (qc.status !== "approved") return { error: "Only an Approved quality check can be issued a COA." };
@@ -94,7 +104,7 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
 
   const itemTypeId = isRm
     ? qc.purchase_lines?.items?.item_type_id
-    : qc.finished_product_batches?.mfr_definitions?.item_type_id;
+    : qc.finished_product_batches?.mfr_definitions?.items?.item_type_id;
   if (!itemTypeId) {
     return { error: "This item has no Item Type set, so no COA template can be resolved for it." };
   }

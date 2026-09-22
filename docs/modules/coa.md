@@ -241,3 +241,10 @@ Two bugs found once Ravi actually tried generating certificates:
   own design comment ("mfr_definitions.item_type_id... resolves either
   subject") was wrong on this point; no schema or migration change needed,
   the column exists and is simply not the right one for this lookup.
+  **The same mistake existed a second time**, in `generateCoaCertificate()`'s
+  (`lib/actions/coa.ts`) own independent server-side re-check of the FP
+  item type — missed in the first pass because it's a separate query, not
+  a call into the page's resolver. The page rendering correctly after the
+  first fix let the bug on Submit surface; fixed the same way, same file
+  pattern (`finished_product_batches(mfr_definitions(items(item_type_id)))`
+  instead of reading `mfr_definitions.item_type_id` directly).
