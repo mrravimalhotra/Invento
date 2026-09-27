@@ -24,7 +24,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
   const { data: def } = await supabase
     .from("mfr_definitions")
     .select(
-      "id, code, name, batch_size_qty, batch_size_unit, version, approved_by, approved_at, active, procedure_intro, theoretical_yield_pct, permissible_yield_pct, items:finished_product_item_id(id, item_code, name, item_types(description))"
+      "id, code, name, batch_size_qty, batch_size_unit, market, version, approved_by, approved_at, active, procedure_intro, theoretical_yield_pct, permissible_yield_pct, items:finished_product_item_id(id, item_code, name, item_types(description))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -162,6 +162,13 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
             <div className="flex justify-between sm:block">
               <span className="text-muted">Item type</span>
               <span className="sm:block sm:mt-1 font-medium">{itemType ?? "—"}</span>
+            </div>
+            {/* FB-0044 follow-up (27 Sept 2026): set once at creation, never
+                editable here or anywhere else — read-only by design, same
+                permanence as the Finished Product link above. */}
+            <div className="flex justify-between sm:block">
+              <span className="text-muted">Market</span>
+              <span className="sm:block sm:mt-1 font-medium">{def.market === "export" ? "Export" : "Domestic"}</span>
             </div>
             <div className="flex items-center justify-between gap-3 sm:col-span-2 border-t border-border pt-3">
               <div>

@@ -59,6 +59,17 @@ export function NewMfrForm({
             ))}
           </Select>
         </Field>
+        <Field
+          label="Market"
+          htmlFor="market"
+          required
+          hint="Set once here and can't be changed later — drives the short batch number printed on labels (PR for Domestic, OR for Export)."
+        >
+          <Select id="market" name="market" defaultValue="domestic" required>
+            <option value="domestic">Domestic</option>
+            <option value="export">Export</option>
+          </Select>
+        </Field>
       </div>
 
       <div>

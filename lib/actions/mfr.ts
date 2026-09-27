@@ -65,12 +65,20 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   const batchSizeUnit = String(formData.get("batch_size_unit") || "");
   const itemTypeIdRaw = String(formData.get("item_type_id") || "");
   const itemTypeId = itemTypeIdRaw || null;
+  // FB-0044 follow-up (27 Sept 2026): Domestic/Export, set once here and
+  // never editable afterward (confirmed with Ravi) — permanently 1:1 with
+  // the Finished Product this MFR creates/links to, same as the MFR<->item
+  // link itself. Drives the short batch-number prefix on Finished Product
+  // batches (PR/OR) — see 0066_fp_market_short_batch_no.sql and
+  // get_next_fp_batch_number() for where it's actually used.
+  const market = String(formData.get("market") || "domestic");
 
   if (!name) return { error: "Name is required." };
   if (!batchSizeQty || !Number.isFinite(batchSizeQty) || batchSizeQty <= 0) {
     return { error: "Batch size must be greater than 0." };
   }
   if (!batchSizeUnit) return { error: "Batch size unit is required." };
+  if (market !== "domestic" && market !== "export") return { error: "Market must be Domestic or Export." };
 
   const linesOrError = parseLines(formData);
   if ("error" in linesOrError) return linesOrError;
@@ -87,6 +95,7 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
     p_batch_size_unit: batchSizeUnit,
     p_item_type_id: itemTypeId,
     p_lines: lines.map((l) => ({ item_id: l.itemId, quantity: l.quantity, unit: l.unit })),
+    p_market: market,
   });
   if (error) return { error: error.message };
   const def = (data as { id: string; code: string }[] | null)?.[0];

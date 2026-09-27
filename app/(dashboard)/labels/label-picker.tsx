@@ -53,6 +53,12 @@ export type FpRecord = {
   id: string;
   productName: string;
   batchNumber: string;
+  // FB-0044 follow-up (27 Sept 2026): print-only short form (PR-01/26 /
+  // OR-01/26) — printed on the label in place of the long compound batch
+  // number, which doesn't fit on a physical bottle label. Null for batches
+  // that predate this (see page.tsx) — the label falls back to the full
+  // batchNumber for those.
+  shortBatchNumber: string | null;
   quantity: number | null;
   unit: string;
   finishDate: string | null;
@@ -144,7 +150,10 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
       return [
         { label: "Name", value: fp.productName },
         { label: "Status", value: "Approved" },
-        { label: "Batch No.", value: fp.batchNumber },
+        // FB-0044 follow-up: the short print form when this batch has one,
+        // falling back to the full batch number for older batches created
+        // before short_batch_no existed.
+        { label: "Batch No.", value: fp.shortBatchNumber ?? fp.batchNumber },
         { label: "Batch Quantity", value: fp.quantity != null ? `${formatNumber(fp.quantity)} ${fp.unit}` : null },
         { label: "Month of Manufacture", value: monthYear(fp.finishDate) },
         { label: "Best Before", value: monthYear(fp.expiryMonth) },

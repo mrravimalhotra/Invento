@@ -41,6 +41,11 @@ type QualityCheckFetch = {
 type FpBatchFetch = {
   id: string;
   batch_number: string;
+  // FB-0044 follow-up (27 Sept 2026): print-only short form (PR-/OR- +
+  // seq/year) — null for batches created before this existed (older flat
+  // 'FP-0001'-style batch numbers have no seq/year to derive one from).
+  // See 0066_fp_market_short_batch_no.sql.
+  short_batch_no: string | null;
   batch_yield: string | number | null;
   unit: string;
   finish_date: string | null;
@@ -77,7 +82,7 @@ export default async function LabelsPage() {
     supabase
       .from("finished_product_batches")
       .select(
-        "id, batch_number, batch_yield, unit, finish_date, expiry_month, status, mfr_definition:mfr_definitions(name)"
+        "id, batch_number, short_batch_no, batch_yield, unit, finish_date, expiry_month, status, mfr_definition:mfr_definitions(name)"
       )
       .eq("active", true)
       .order("created_at", { ascending: false }),
@@ -127,6 +132,7 @@ export default async function LabelsPage() {
     id: b.id,
     productName: b.mfr_definition?.name ?? "—",
     batchNumber: b.batch_number,
+    shortBatchNumber: b.short_batch_no,
     quantity: b.batch_yield !== null ? Number(b.batch_yield) : null,
     unit: b.unit,
     finishDate: b.finish_date,

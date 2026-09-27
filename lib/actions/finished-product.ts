@@ -101,15 +101,26 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   let batch: { id: string } | null = null;
   let batchError: { code?: string; message: string } | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const { data: batchNumber, error: numError } = await supabase.rpc("get_next_fp_batch_number", {
+    // FB-0044 follow-up (27 Sept 2026): get_next_fp_batch_number() now
+    // returns a row (batch_number, short_batch_no) instead of a bare text
+    // value — both computed from the same sequence number/year inside the
+    // one RPC call, so they can never disagree. short_batch_no is the
+    // print-only, non-globally-unique form (PR-/OR- + the same seq/year)
+    // referenced by Finished Product labels instead of the long compound
+    // batch_number — see 0066_fp_market_short_batch_no.sql.
+    const { data: numData, error: numError } = await supabase.rpc("get_next_fp_batch_number", {
       p_mfr_definition_id: mfrDefinitionId,
     });
-    if (numError || !batchNumber) return { error: numError?.message || "Could not generate a batch number." };
+    const numRow = (numData as { batch_number: string; short_batch_no: string }[] | null)?.[0];
+    if (numError || !numRow?.batch_number) {
+      return { error: numError?.message || "Could not generate a batch number." };
+    }
 
     const insertResult = await supabase
       .from("finished_product_batches")
       .insert({
-        batch_number: batchNumber,
+        batch_number: numRow.batch_number,
+        short_batch_no: numRow.short_batch_no,
         mfr_definition_id: mfrDefinitionId,
         mfr_version: mfrVersion,
         target_qty: targetQty,
