@@ -149,6 +149,10 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
                     // Product batch's QC approval already cleared it.
                     arNumber: c.purchase_line_id ? arByPurchaseLine.get(c.purchase_line_id) ?? "" : "",
                     qtyAsPerMfr: c.quantity,
+                    // FB-0041: already fetched by this same query
+                    // (items(item_code, name, unit) above) — just wasn't
+                    // being passed through to the BMR document before.
+                    unit: c.items?.unit ?? "",
                   }))}
                 />
               ) : undefined

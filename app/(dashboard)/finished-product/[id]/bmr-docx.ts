@@ -50,6 +50,14 @@ export type BmrComponentRow = {
   batchNo: string;
   arNumber: string;
   qtyAsPerMfr: string | number;
+  // FB-0041 (Namrata, 24 Sept 2026): "In column 'Qty as per unit' Please
+  // add unit" — this printed a bare number with no unit, ambiguous
+  // between e.g. kg/g/ltr. The RM item's own unit was already being
+  // fetched one level up (page.tsx's finished_product_components query
+  // already selects items(..., unit)) but never threaded through here.
+  // Same "<qty> <unit>" convention already used elsewhere in this module
+  // (Yield/Batch Size above) and in the MFR recipe docx's own Qty column.
+  unit: string;
 };
 
 export type BmrData = {
@@ -190,7 +198,7 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
               rmDataCell(c.rmName, AlignmentType.LEFT),
               rmDataCell(c.batchNo),
               rmDataCell(c.arNumber || "—"),
-              rmDataCell(qty2(c.qtyAsPerMfr)),
+              rmDataCell(c.unit ? `${qty2(c.qtyAsPerMfr)} ${c.unit}` : qty2(c.qtyAsPerMfr)),
               rmDataCell(""),
               rmDataCell(""),
             ],
