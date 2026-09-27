@@ -254,6 +254,20 @@ export async function cancelFinishedProductBatch(id: string, _prev: ActionState,
 // Mirrored at the DB level by fp_completion_fields_required_together
 // (0044_fp_batch_start_date.sql) as a defense-in-depth backstop against a
 // direct API call bypassing this action.
+//
+// FB-0040 (24 Sept 2026): "the sample shows R&D entry as a mandatory
+// field. Please make it optional, as it is not necessary to take a
+// sample for R&D for every batch." Confirmed with Ravi this is R&D
+// only — Batch yield/Finish date/Expiry date/QC sample qty/Stability
+// sample qty all stay exactly as mandatory as the 15 Sept decision above
+// made them. R&D sample qty (and only R&D) is now optional: an empty
+// field is stored as null rather than rejected. 0065_fp_rnd_qty_optional.sql
+// loosens fp_completion_fields_required_together to match. No ledger/
+// trigger change needed — trg_fn_qc_review_finished_product
+// (0030_finished_product_ledger.sql) already gates its R&D sample pull on
+// `coalesce(rnd_qty, 0) > 0`, so a null/zero R&D sample was already
+// handled gracefully once it could exist; only the form/validation layers
+// were blocking it from ever being empty.
 export async function completeFinishedProductBatch(
   id: string,
   _prev: ActionState,
@@ -279,15 +293,20 @@ export async function completeFinishedProductBatch(
   if (!sampleUnitRaw) return { error: "Sample unit is required." };
   const qcSampleQtyNum = qcSampleQtyRaw ? Number(qcSampleQtyRaw) : NaN;
   const stabilityQtyNum = stabilityQtyRaw ? Number(stabilityQtyRaw) : NaN;
-  const rndQtyNum = rndQtyRaw ? Number(rndQtyRaw) : NaN;
   if (!Number.isFinite(qcSampleQtyNum) || qcSampleQtyNum <= 0) {
     return { error: "QC sample qty is required and must be greater than 0." };
   }
   if (!Number.isFinite(stabilityQtyNum) || stabilityQtyNum <= 0) {
     return { error: "Stability sample qty is required and must be greater than 0." };
   }
-  if (!Number.isFinite(rndQtyNum) || rndQtyNum <= 0) {
-    return { error: "R&D sample qty is required and must be greater than 0." };
+  // FB-0040: R&D sample qty is now the one optional sample field — empty
+  // means null (no sample taken for this batch), not an error. If
+  // something was entered, it still has to be a real positive number, same
+  // as the other two.
+  const rndQtyRawTrimmed = String(rndQtyRaw ?? "").trim();
+  const rndQtyNum = rndQtyRawTrimmed ? Number(rndQtyRawTrimmed) : null;
+  if (rndQtyNum !== null && (!Number.isFinite(rndQtyNum) || rndQtyNum <= 0)) {
+    return { error: "R&D sample qty must be greater than 0 if entered." };
   }
 
   const supabase = await createClient();
@@ -311,8 +330,8 @@ export async function completeFinishedProductBatch(
   // kept on this table.
   const qcSampleQty = convertUnit(qcSampleQtyNum, sampleUnitRaw, current.unit);
   const stabilityQty = convertUnit(stabilityQtyNum, sampleUnitRaw, current.unit);
-  const rndQty = convertUnit(rndQtyNum, sampleUnitRaw, current.unit);
-  if (qcSampleQty === null || stabilityQty === null || rndQty === null) {
+  const rndQty = rndQtyNum !== null ? convertUnit(rndQtyNum, sampleUnitRaw, current.unit) : null;
+  if (qcSampleQty === null || stabilityQty === null || (rndQtyNum !== null && rndQty === null)) {
     return {
       error: `Sample unit "${sampleUnitRaw}" can't be converted to the batch's unit "${current.unit}" — pick a compatible unit.`,
     };

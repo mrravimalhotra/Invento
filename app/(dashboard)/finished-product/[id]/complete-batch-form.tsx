@@ -101,8 +101,10 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
       setClientError("Stability sample qty is required and must be greater than 0.");
       return;
     }
-    if (!rndQty || Number(rndQty) <= 0) {
-      setClientError("R&D sample qty is required and must be greater than 0.");
+    // FB-0040: R&D sample qty is optional — only validated if something
+    // was actually typed in. QC and Stability above stay required.
+    if (rndQty && Number(rndQty) <= 0) {
+      setClientError("R&D sample qty must be greater than 0 if entered.");
       return;
     }
     setClientError(undefined);
@@ -113,8 +115,9 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
     <form action={formAction} className="flex flex-col gap-4">
       {step === "form" && (
         <p className="text-sm text-muted">
-          All fields below are required and saved together — the batch is only truly &ldquo;finished&rdquo; once every
-          one of them is known, so this screen doesn&apos;t support a partial/in-progress save.
+          All fields below except R&amp;D sample qty are required and saved together — the batch is only truly
+          &ldquo;finished&rdquo; once every one of them is known, so this screen doesn&apos;t support a
+          partial/in-progress save. R&amp;D sample qty can be left blank if no R&amp;D sample is taken for this batch.
         </p>
       )}
       {step === "form" && clientError && <p className="text-sm text-red">{clientError}</p>}
@@ -218,8 +221,11 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
         <Field
           label="R&D sample qty"
           htmlFor="rnd_qty"
-          required
-          hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}
+          hint={
+            rndQty && sampleUnitDiffers
+              ? `= ${formatNumber(rndConverted)} ${unit}`
+              : "Optional — leave blank if no R&D sample is taken for this batch."
+          }
         >
           <Input
             id="rnd_qty"
@@ -227,7 +233,6 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
             type="number"
             step="any"
             min="0"
-            required
             value={rndQty}
             onChange={(e) => setRndQty(e.target.value)}
           />
@@ -283,8 +288,14 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
             <div>
               <span className="text-muted">R&amp;D sample qty</span>
               <p className="mt-1 font-medium">
-                {formatNumber(rndQty)} {sampleUnit}
-                {sampleUnitDiffers && ` (= ${formatNumber(rndConverted)} ${unit})`}
+                {rndQty ? (
+                  <>
+                    {formatNumber(rndQty)} {sampleUnit}
+                    {sampleUnitDiffers && ` (= ${formatNumber(rndConverted)} ${unit})`}
+                  </>
+                ) : (
+                  "— (no R&D sample)"
+                )}
               </p>
             </div>
           </div>
