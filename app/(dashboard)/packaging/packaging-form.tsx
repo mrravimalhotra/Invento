@@ -21,7 +21,7 @@ export function PackagingForm({
   fpBatches,
   packagingItems,
 }: {
-  fpBatches: { id: string; batch_number: string; fp_unit: string | null }[];
+  fpBatches: { id: string; batch_number: string; fp_unit: string | null; fp_name: string | null }[];
   packagingItems: PackagingItemOption[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createPackagingIssue, undefined);
@@ -53,7 +53,7 @@ export function PackagingForm({
           </option>
           {fpBatches.map((b) => (
             <option key={b.id} value={b.id} data-legacy={isLegacyCode(b.batch_number) ? "1" : undefined}>
-              {b.batch_number}
+              {b.fp_name ? `${b.batch_number} — ${b.fp_name}` : b.batch_number}
             </option>
           ))}
         </Select>

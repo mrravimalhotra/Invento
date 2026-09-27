@@ -51,6 +51,14 @@ export default async function NewPackagingIssuePage() {
   // item unit, to hint/validate the structured pack size against
   // (createPackagingIssue() does the real enforcement server-side via
   // convertUnit() — this is just for the form's own hint text).
+  //
+  // FB-0042 (Namrata, 24 Sept 2026): "when we select the batch, it shows
+  // only the batch number and not the batch name" — the batch dropdown
+  // below only ever rendered `batch_number`, so two different products'
+  // batches were indistinguishable without already knowing what each
+  // code means. The FP item's `name` is fetched here alongside its
+  // `unit` (same row, same query) and passed through as `fp_name`,
+  // display-only — the option's submitted value is still the batch id.
   const { data: fullBatchRows } = approvedBatches.length
     ? await supabase
         .from("finished_product_batches")
@@ -66,16 +74,21 @@ export default async function NewPackagingIssuePage() {
     : { data: [] };
   const fpItemIds = [...new Set((mfrDefRows ?? []).map((r) => r.finished_product_item_id).filter(Boolean))] as string[];
   const { data: fpItemRows } = fpItemIds.length
-    ? await supabase.from("items").select("id, unit").in("id", fpItemIds)
+    ? await supabase.from("items").select("id, unit, name").in("id", fpItemIds)
     : { data: [] };
   const unitByItemId = new Map((fpItemRows ?? []).map((r) => [r.id, r.unit]));
+  const nameByItemId = new Map((fpItemRows ?? []).map((r) => [r.id, r.name]));
   const itemIdByMfrDef = new Map((mfrDefRows ?? []).map((r) => [r.id, r.finished_product_item_id]));
   const mfrDefByBatch = new Map((fullBatchRows ?? []).map((r) => [r.id, r.mfr_definition_id]));
 
   const fpBatches = approvedBatches.map((b) => {
     const mfrDefId = mfrDefByBatch.get(b.id);
     const fpItemId = mfrDefId ? itemIdByMfrDef.get(mfrDefId) : null;
-    return { ...b, fp_unit: fpItemId ? unitByItemId.get(fpItemId) ?? null : null };
+    return {
+      ...b,
+      fp_unit: fpItemId ? unitByItemId.get(fpItemId) ?? null : null,
+      fp_name: fpItemId ? nameByItemId.get(fpItemId) ?? null : null,
+    };
   });
 
   return (
