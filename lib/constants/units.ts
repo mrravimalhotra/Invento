@@ -1,4 +1,4 @@
-export const UNITS = ["kg", "g", "mg", "ltr", "ml", "count", "bottle", "pack"] as const;
+export const UNITS = ["kg", "g", "mg", "ltr", "ml", "nos", "bottle", "pack"] as const;
 export type Unit = (typeof UNITS)[number];
 
 // FB-0017 (2 Sept 2026): items.default_sample_unit (0007_item_code_fp_and_
@@ -12,10 +12,18 @@ export type Unit = (typeof UNITS)[number];
 // the generated `remaining_qty` column — see lib/actions/purchase.ts).
 //
 // Only two of the eight UNITS values are actually convertible into one
-// another: weight (mg/g/kg) and volume (ml/ltr). count/bottle/pack are
+// another: weight (mg/g/kg) and volume (ml/ltr). nos/bottle/pack are
 // discrete container units with no fixed ratio between them (a "pack" has
 // no universal gram-equivalent), so each is its own one-member family —
 // a sample unit can only be itself for those, never converted.
+//
+// FB-0039 (Namrata, 24 Sept 2026; widened by Ravi 27 Sept 2026 to a real
+// rename, app-wide, including stored data): this unit was "count" until
+// this migration — renamed to "nos" everywhere it's stored (see
+// supabase/migrations/0063_unit_count_rename_to_nos.sql). Not to be
+// confused with `unit_count`, an unrelated numeric column on
+// packaging_issues ("how many packaged units") that this rename never
+// touches.
 const UNIT_FAMILIES: Record<string, readonly Unit[]> = {
   weight: ["mg", "g", "kg"],
   volume: ["ml", "ltr"],
@@ -29,7 +37,7 @@ const BASE_FACTOR: Record<Unit, number> = {
   kg: 1000,
   ml: 1,
   ltr: 1000,
-  count: 1,
+  nos: 1,
   bottle: 1,
   pack: 1,
 };

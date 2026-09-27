@@ -22,7 +22,7 @@ Read is open to any signed-in user.
   "items")`. Also carries the shared "Hide legacy data" toggle (see FB-0003
   below).
 - **New** — `/items/new`. Fields: Item code (read-only preview — see
-  "Next-code preview" below), Name (required), Botanical alias, Category
+  "Next-code preview" below), Name (required), Botanical Name, Category
   (select: Raw material / Packaging **only**, as of the MFR/Finished Product
   link change below — see that section for why "Finished product" was
   removed here), Item type (dropdown of `item_types`, active ones), Unit

@@ -257,7 +257,7 @@ convert the numbers by hand before saving.
 Closed properly this pass:
 - `lib/constants/units.ts` gains `unitFamily()`, `compatibleUnits()`, and
   `convertUnit()` — two convertible families (weight: mg/g/kg; volume:
-  ml/ltr) plus each of `count`/`bottle`/`pack` as its own one-member
+  ml/ltr) plus each of `nos`/`bottle`/`pack` as its own one-member
   family (a "pack" has no fixed gram-equivalent, so it's never converted
   to or from anything else, including another pack-like unit).
 - The Purchase line form gained a real **"Sample unit"** picker (shared by

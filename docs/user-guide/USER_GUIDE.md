@@ -224,7 +224,7 @@ Every item in Item Master can be tagged with one item type, and several bulk-upl
 
 **Fields you'll be asked for**
 - **Item code** — shown as a read-only preview while creating (e.g. "RM-00006"); the real code is only assigned once you save, and it never changes afterward.
-- **Botanical alias** — an optional alternate/scientific name for the raw material.
+- **Botanical Name** — an optional alternate/scientific name for the raw material.
 - **Category** — Raw material or Packaging only when creating; existing Finished Product items show Category locked and read-only.
 - **Item type** — optional dropdown pulled from Item Type Master's active entries.
 - **Barcode** — optional, free text, but must be unique across all items; if filled in, the item's detail page shows it as a scannable barcode image.

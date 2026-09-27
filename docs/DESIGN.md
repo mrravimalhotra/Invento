@@ -113,7 +113,7 @@ items(
   botanical_alias text,
   category text not null check (category in ('raw','processed','packaging')),
   item_type_id uuid references item_types(id),
-  unit text check (unit in ('kg','g','mg','ltr','ml','count','bottle','pack')),
+  unit text check (unit in ('kg','g','mg','ltr','ml','nos','bottle','pack')),
   default_qc_qty numeric,
   default_stability_qty numeric,
   default_rnd_qty numeric,

@@ -64,7 +64,7 @@ upload parser — the two sides can't drift apart.
 
 | Module | Required columns | Notable optional columns |
 |---|---|---|
-| Item Master | Name, Category (`Raw Material` / `Packaging`) | Item Type, Unit, Botanical Alias, Barcode, Low Stock Threshold |
+| Item Master | Name, Category (`Raw Material` / `Packaging`) | Item Type, Unit, Botanical Name, Barcode, Low Stock Threshold |
 | Vendor Master | Name | Address, Mobile, Phone, Email |
 | Item Type Master | Description | — |
 | MFR — Recipe sheet | MFR Name, Batch Size Qty, Batch Size Unit, Line Item Name, Line Quantity, Line Unit | Item Type |

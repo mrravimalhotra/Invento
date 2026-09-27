@@ -32,7 +32,7 @@ export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOptio
         <Field label="Name" htmlFor="name" required>
           <Input id="name" name="name" required autoFocus />
         </Field>
-        <Field label="Botanical alias" htmlFor="botanical_alias">
+        <Field label="Botanical Name" htmlFor="botanical_alias">
           <Input id="botanical_alias" name="botanical_alias" />
         </Field>
         <Field
@@ -122,7 +122,7 @@ export function EditItemForm({
         <Field label="Name" htmlFor="name" required>
           <Input id="name" name="name" defaultValue={item.name} required autoFocus />
         </Field>
-        <Field label="Botanical alias" htmlFor="botanical_alias">
+        <Field label="Botanical Name" htmlFor="botanical_alias">
           <Input id="botanical_alias" name="botanical_alias" defaultValue={item.botanical_alias ?? ""} />
         </Field>
         {item.category === "processed" || item.category === "packaged_fp" ? (

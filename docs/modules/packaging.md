@@ -103,7 +103,7 @@ material, with nothing tying them together as one packing event.
 - List page (`packaging/page.tsx`) and table (`packaging-table.tsx`) now
   embed `packaging_issue_items(quantity, unit, items(name, item_code))`
   instead of the old singular `items(name)`, and render/search/export a
-  summarized string ("Bottle 500ml (12 count), Cap (12 count)") via the new
+  summarized string ("Bottle 500ml (12 nos), Cap (12 nos)") via the new
   `materialsSummary()` helper.
 - **Pre-existing gap closed as a side effect**: the old
   `trg_fn_packaging_pull()`'s ledger insert never set a `unit` column at

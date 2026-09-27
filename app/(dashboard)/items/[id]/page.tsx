@@ -106,7 +106,7 @@ function ReadOnlyDetails({
 }) {
   const rows: [string, React.ReactNode][] = [
     ["Name", item.name],
-    ["Botanical alias", item.botanical_alias ?? "—"],
+    ["Botanical Name", item.botanical_alias ?? "—"],
     ["Category", CATEGORY_LABELS[item.category] ?? item.category],
     ["Unit", item.unit ?? "—"],
     ["Low stock threshold", formatNumber(item.low_stock_threshold)],

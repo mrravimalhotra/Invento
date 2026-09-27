@@ -380,7 +380,7 @@ const PURCHASE_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS.purchase,
   example: [
     ["Ambadas Vanaushadhalaya", "INV-2026-0091", "2026-09-10", "Raw Material", "Jatamansi", "20", "kg", "0.5", "0.2", "0.1", "", "450", "5"],
-    ["Ambadas Vanaushadhalaya", "INV-2026-0091", "2026-09-10", "Packaging Item", "White Cap 28 mm", "500", "count", "", "", "", "", "3.2", "18"],
+    ["Ambadas Vanaushadhalaya", "INV-2026-0091", "2026-09-10", "Packaging Item", "White Cap 28 mm", "500", "nos", "", "", "", "", "3.2", "18"],
   ],
 };
 const EQUIPMENT_COLUMNS_WITH_EXAMPLE = {
