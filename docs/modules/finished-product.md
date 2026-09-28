@@ -1223,3 +1223,28 @@ the race. Only a genuine 3-way pileup in the same instant would still
 surface a (now much more informative) "please try again" message instead
 of quietly succeeding. No schema change. Verified: `tsc`/`eslint`/`next
 build` all clean.
+
+
+## Database guards: batch status follows the workflow (28 Sept 2026, migration 0070)
+
+SEC-04 in `docs/AI_TESTING_SECURITY_PERFORMANCE_REFERENCE.md`. `status` was
+directly writable, so an API call could mark a batch `approved` without QC —
+no `fp_yield` push, stock silently missing. Now, for direct writes:
+
+- a new batch must start as `draft`;
+- the only direct status moves are the app's own: draft → in_process
+  (Create Batch), draft → cancelled (Cancel), in_process →
+  complete_awaiting_qc (Complete Batch), complete_awaiting_qc →
+  submitted_to_qc (Submit to QC). `approved`/`rejected` are set only by the
+  QC review trigger; auto-expiry still cancels stale drafts;
+- a batch that is submitted to QC, approved, rejected or cancelled can no
+  longer be edited, and only draft or cancelled batches can be deleted.
+
+The rule: a write that comes straight through the API (the app's Server
+Actions, or anyone calling Supabase directly with their login) is checked by a
+`trg_00_guard_*` BEFORE trigger; the workflow's own SECURITY DEFINER functions
+and triggers, the Supabase SQL editor and the service role pass untouched
+(`public._is_direct_client_write()` = `current_user in ('authenticated','anon')`).
+Every step the app performs today keeps working — verified on a local replay
+of all 70 migrations (65/65 checks; the same checks with the guards removed
+show 36 failures, proving each bypass was real).

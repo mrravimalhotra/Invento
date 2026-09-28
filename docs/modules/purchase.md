@@ -925,3 +925,30 @@ representative rows; the corrected template round-tripped through the
 real `readFirstSheet`/`findColumnIndex` parser with the new rule applied
 and came back clean (every Raw Material row has an explicit QC/Stability/
 R&D value).
+
+
+## Database guards: submitted POs are locked (28 Sept 2026, migration 0070)
+
+SEC-04 / DES-03 in `docs/AI_TESTING_SECURITY_PERFORMANCE_REFERENCE.md`. The
+screens already refused to edit a submitted PO, but the table permissions did
+not, so a direct API call could change a submitted line's quantity (moving
+`live_remaining_qty` without touching the ledger push) or flip
+`purchase_orders.status` without the submit/reopen ledger entries. Now, for
+direct writes:
+
+- a new PO must be created as `draft`, with no submit/reopen stamps;
+- `status`, `submitted_*` and `reopened_*` change only through
+  `submit_purchase_order()` / `reopen_purchase_order()`;
+- a submitted PO's header is locked (only `active` may change);
+- lines can be added, edited or deleted only while their PO is a draft, and
+  never moved to another PO;
+- `pushed_at` and `live_remaining_qty` are never set directly.
+
+The rule: a write that comes straight through the API (the app's Server
+Actions, or anyone calling Supabase directly with their login) is checked by a
+`trg_00_guard_*` BEFORE trigger; the workflow's own SECURITY DEFINER functions
+and triggers, the Supabase SQL editor and the service role pass untouched
+(`public._is_direct_client_write()` = `current_user in ('authenticated','anon')`).
+Every step the app performs today keeps working — verified on a local replay
+of all 70 migrations (65/65 checks; the same checks with the guards removed
+show 36 failures, proving each bypass was real).

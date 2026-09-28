@@ -615,3 +615,28 @@ stuck. Now the newly-picked item's own `unit` always wins when it has one
 (`unit: item?.unit || line.unit || ""`), falling back to whatever was
 there only if the new item has no unit set — still overridable by hand
 afterward either way.
+
+
+## Database guards: approval and the recipe lock (28 Sept 2026, migration 0070)
+
+SEC-04 in `docs/AI_TESTING_SECURITY_PERFORMANCE_REFERENCE.md`. The recipe lock
+lived only inside `update_mfr_recipe()`, and `approved_by`/`approved_at` were
+directly writable, so an API call could fake an approval (no FP/Packaged-FP
+item pair created) or change an approved formula. Now, for direct writes:
+
+- a new MFR must be created unapproved;
+- `approved_by`, `approved_at`, `finished_product_item_id` and `version`
+  change only through `approve_mfr_definition()`;
+- an approved MFR's header is locked except `active` (the procedure stays
+  editable through `update_mfr_procedure()`, as before);
+- `mfr_lines` of an approved MFR cannot be inserted, edited or deleted
+  (an admin deleting the whole MFR still cascades normally).
+
+The rule: a write that comes straight through the API (the app's Server
+Actions, or anyone calling Supabase directly with their login) is checked by a
+`trg_00_guard_*` BEFORE trigger; the workflow's own SECURITY DEFINER functions
+and triggers, the Supabase SQL editor and the service role pass untouched
+(`public._is_direct_client_write()` = `current_user in ('authenticated','anon')`).
+Every step the app performs today keeps working — verified on a local replay
+of all 70 migrations (65/65 checks; the same checks with the guards removed
+show 36 failures, proving each bypass was real).
