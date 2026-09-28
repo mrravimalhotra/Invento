@@ -4,7 +4,7 @@ import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn, type ActionState } from "@/lib/actions/auth";
-import { safeRedirectPath } from "@/lib/constants/auth";
+import { ACCOUNT_DISABLED_MESSAGE, safeRedirectPath } from "@/lib/constants/auth";
 import { Field, Input, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
@@ -20,11 +20,16 @@ function LoginForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(signIn, undefined);
   const params = useSearchParams();
   const next = safeRedirectPath(params.get("next"));
+  const disabled = params.get("disabled") === "1";
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Sign in</h2>
-      {state?.error && <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{state.error}</p>}
+      {state?.error ? (
+        <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{state.error}</p>
+      ) : (
+        disabled && <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{ACCOUNT_DISABLED_MESSAGE}</p>
+      )}
       <input type="hidden" name="next" value={next} />
       <Field label="Email" htmlFor="email" required>
         <Input id="email" name="email" type="email" autoComplete="email" required />

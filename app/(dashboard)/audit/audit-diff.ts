@@ -67,6 +67,8 @@ const ACCOUNT_EVENT_LABELS: Record<string, string> = {
   account_created_by_admin: "Account created by System Admin",
   password_reset_by_admin: "Password reset by System Admin",
   password_changed_by_user: "Password changed by the user",
+  account_disabled_by_admin: "Account disabled by System Admin",
+  account_enabled_by_admin: "Account re-enabled by System Admin",
 };
 
 export type AuditLogRow = {
@@ -142,6 +144,11 @@ export function summarizeChange(row: Pick<AuditLogRow, "action" | "old_data" | "
   if (row.action === "insert") return "Record created";
   if (row.action === "delete") return "Record deleted";
   if (row.new_data?.password_changed === true) return "Password changed";
+  // Supabase Auth's own record of a disable/re-enable (the ban date moving).
+  if (row.old_data && row.new_data && "banned_until" in row.new_data &&
+      JSON.stringify(row.old_data.banned_until) !== JSON.stringify(row.new_data.banned_until)) {
+    return row.new_data.banned_until ? "Account disabled (sign-in blocked)" : "Account re-enabled";
+  }
 
   const changed = diffFields(row);
   if (changed.length === 0) return "No field changes";

@@ -1,11 +1,12 @@
 import "server-only";
 import { createAdminClient, isAdminClientConfigured } from "@/lib/supabase/admin";
-import { mustChangePassword } from "@/lib/constants/auth";
+import { isAccountDisabled, mustChangePassword } from "@/lib/constants/auth";
 
 export type UserAccountStatus = {
   email: string | null;
   mustChangePassword: boolean;
   lastSignInAt: string | null;
+  disabled: boolean;
 };
 
 // Sign-in details that only Supabase Auth holds (email, temporary-password
@@ -26,6 +27,7 @@ export async function getUserAccountStatuses(): Promise<Map<string, UserAccountS
         email: u.email ?? null,
         mustChangePassword: mustChangePassword(u.app_metadata),
         lastSignInAt: u.last_sign_in_at ?? null,
+        disabled: isAccountDisabled(u.banned_until),
       });
     }
     if (data.users.length < perPage) break;

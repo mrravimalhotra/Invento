@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { forcedPasswordChangeRedirect, mustChangePassword } from "@/lib/constants/auth";
+import { forcedPasswordChangeRedirect, isAccountDisabled, mustChangePassword } from "@/lib/constants/auth";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
@@ -38,6 +38,20 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isPublic = PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p));
+
+  // Disabled account (28 Sept 2026): Supabase Auth's ban stops new sign-ins
+  // and session refreshes, but a session that is already open would keep
+  // working until its access token expires (up to an hour). getUser() above
+  // reads the account fresh on every request, so end that session here, on
+  // the very next click. scope "local" only clears this browser's cookies —
+  // no call back to Supabase Auth, which refuses a banned user anyway.
+  if (user && isAccountDisabled(user.banned_until)) {
+    await supabase.auth.signOut({ scope: "local" });
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "?disabled=1";
+    return withSessionCookies(NextResponse.redirect(url), supabaseResponse);
+  }
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

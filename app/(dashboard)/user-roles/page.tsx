@@ -22,7 +22,7 @@ export default async function UserRolesPage() {
     <div>
       <PageHeader
         title="User Roles & Access"
-        description="Create user accounts, reset passwords, and assign roles. Self-registration is closed — every account is created here."
+        description="Create user accounts, reset passwords, assign roles, and disable the accounts of people who leave. Self-registration is closed — every account is created here."
       />
 
       <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber/30 bg-amber-bg px-4 py-3 text-sm text-amber">
@@ -70,7 +70,12 @@ async function UserRolesManager({ currentUserId }: { currentUserId: string }) {
     roleMap.set(r.user_id, list);
   }
 
-  const users = (profiles ?? []) as ProfileRow[];
+  // Disabled (leaver) accounts go to the bottom of the list.
+  const isDisabled = (id: string) => accounts?.get(id)?.disabled ?? false;
+  const users = [...((profiles ?? []) as ProfileRow[])].sort(
+    (a, b) => Number(isDisabled(a.id)) - Number(isDisabled(b.id))
+  );
+  const disabledCount = users.filter((u) => isDisabled(u.id)).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,7 +92,9 @@ async function UserRolesManager({ currentUserId }: { currentUserId: string }) {
         )}
       </Card>
       <Card>
-        <CardHeader title={`Users (${users.length})`} />
+        <CardHeader
+          title={`Users (${users.length - disabledCount}${disabledCount ? ` active, ${disabledCount} disabled` : ""})`}
+        />
         {(profilesError || rolesError) && (
           <CardBody className="text-sm text-red">
             {profilesError?.message ?? rolesError?.message ?? "Could not load users."}

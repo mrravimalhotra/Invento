@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { safeRedirectPath } from "@/lib/constants/auth";
+import { ACCOUNT_DISABLED_MESSAGE, safeRedirectPath } from "@/lib/constants/auth";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -17,7 +17,10 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "user_banned") return { error: ACCOUNT_DISABLED_MESSAGE };
+    return { error: error.message };
+  }
 
   redirect(next);
 }

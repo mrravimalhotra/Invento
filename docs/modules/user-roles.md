@@ -144,9 +144,43 @@ same moment are serialised by a transaction lock, so only one succeeds
 (verified locally for both the screen path and direct API deletes).
 `scripts/seed-admin.ts` remains the server-side recovery path.
 
+## Disabling a leaver's account (28 Sept 2026)
+
+Ravi: "add functionality to disable user if user leaves". An account that
+has ever made a change can't be deleted — `audit_log` and the
+`created_by`/`updated_by` columns still point to it, which keeps the history
+attributable — so a leaver is **disabled** instead.
+
+On each user row (System Admin only, not on your own row): **Disable
+account** → confirm. `disableUserAccount()` (`lib/actions/admin-users.ts`):
+
+1. Removes all their roles with `set_user_roles()` (0073) — one transaction,
+   refused if they are the last System Admin (then nothing else happens).
+2. Bans the account in Supabase Auth (`ban_duration` ~100 years): no new
+   sign-in, no session refresh. The login screen says "Your account has been
+   disabled. Contact your System Administrator if you need access."
+3. Any session they still have open is signed out on its next request
+   (`lib/supabase/middleware.ts` checks `banned_until` on the fresh
+   `getUser()` result).
+
+Disabled users are listed at the bottom, greyed, with a "Disabled — cannot
+sign in" badge and a **Re-enable account** button. Re-enabling lifts the ban
+and brings the account back with no roles — tick them again and Save roles.
+
+Audit: the role removals (0072 trigger), the ban/unban (account-change
+audit, `banned_until`), and "Account disabled / re-enabled by System Admin"
+naming the admin (`audit_account_action()`, events added in
+`0074_disable_user_account.sql`).
+
+Limit: for up to an hour after disabling, a still-valid access token could
+read data through the API directly (not through the app, which signs them
+out). It can't change anything — their roles are already gone.
+
 ## Files
 
 - `app/(dashboard)/user-roles/page.tsx` — gate + list (Server Component)
 - `app/(dashboard)/user-roles/user-role-row.tsx` — per-user form (Client
   Component, `useActionState`)
 - `lib/actions/user-roles.ts` — `setUserRoles` Server Action
+- `app/(dashboard)/user-roles/account-access-control.tsx` — Disable / Re-enable account control
+- `lib/actions/admin-users.ts` — `disableUserAccount` / `enableUserAccount`

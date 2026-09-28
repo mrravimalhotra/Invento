@@ -6,7 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, isAdminClientConfigured } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ROLES, type Role } from "@/lib/constants/roles";
-import { MUST_CHANGE_PASSWORD_FLAG, PASSWORD_MIN_LENGTH, mustChangePassword } from "@/lib/constants/auth";
+import {
+  DISABLED_BAN_DURATION,
+  MUST_CHANGE_PASSWORD_FLAG,
+  PASSWORD_MIN_LENGTH,
+  mustChangePassword,
+} from "@/lib/constants/auth";
 
 export type AdminUserActionState = { error?: string; success?: string } | undefined;
 
@@ -34,7 +39,12 @@ const NOT_CONFIGURED =
 async function recordAccountAction(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  event: "account_created_by_admin" | "password_reset_by_admin" | "password_changed_by_user"
+  event:
+    | "account_created_by_admin"
+    | "password_reset_by_admin"
+    | "password_changed_by_user"
+    | "account_disabled_by_admin"
+    | "account_enabled_by_admin"
 ) {
   await supabase
     .rpc("audit_account_action", { p_user_id: userId, p_event: event })
@@ -214,4 +224,64 @@ export async function completePasswordChange(
   await recordAccountAction(supabase, user.id, "password_changed_by_user");
   revalidatePath("/", "layout");
   redirect("/");
+}
+
+// Disable a leaver's account (28 Sept 2026, Ravi: "add functionality to
+// disable user if user leaves"). Accounts that appear in the audit log can't
+// be deleted — the history must stay attributable — so a leaver is disabled:
+//   1. All roles removed via set_user_roles() (0073): one transaction, and
+//      refused if this is the last System Admin — nothing else happens then.
+//   2. Supabase Auth ban: no new sign-in, no session refresh.
+//   3. Any session they still have open is signed out on its next request
+//      (lib/supabase/middleware.ts).
+// Their previous roles stay visible in the Audit Log. Safe to repeat: if step
+// 2 fails after step 1, clicking Disable again finishes the job.
+export async function disableUserAccount(
+  userId: string,
+  _prev: AdminUserActionState,
+  _formData: FormData
+): Promise<AdminUserActionState> {
+  const admin = await requireSystemAdmin();
+  if (!admin) return { error: "Not authorized. Only System Admin can disable accounts." };
+  if (!isAdminClientConfigured()) return { error: NOT_CONFIGURED };
+  if (!userId) return { error: "Missing user." };
+  if (userId === admin.id) return { error: "You can't disable your own account." };
+
+  const supabase = await createClient();
+  const { error: rolesError } = await supabase.rpc("set_user_roles", { p_user_id: userId, p_roles: [] });
+  if (rolesError) return { error: rolesError.message };
+
+  const adminClient = createAdminClient();
+  const { error: banError } = await adminClient.auth.admin.updateUserById(userId, {
+    ban_duration: DISABLED_BAN_DURATION,
+  });
+  if (banError) {
+    revalidatePath("/user-roles");
+    return {
+      error: `Their roles were removed, but sign-in couldn't be blocked: ${banError.message}. Click Disable again to finish.`,
+    };
+  }
+
+  await recordAccountAction(supabase, userId, "account_disabled_by_admin");
+  revalidatePath("/user-roles");
+  return { success: "Account disabled. They can no longer sign in." };
+}
+
+export async function enableUserAccount(
+  userId: string,
+  _prev: AdminUserActionState,
+  _formData: FormData
+): Promise<AdminUserActionState> {
+  const admin = await requireSystemAdmin();
+  if (!admin) return { error: "Not authorized. Only System Admin can re-enable accounts." };
+  if (!isAdminClientConfigured()) return { error: NOT_CONFIGURED };
+  if (!userId) return { error: "Missing user." };
+
+  const adminClient = createAdminClient();
+  const { error } = await adminClient.auth.admin.updateUserById(userId, { ban_duration: "none" });
+  if (error) return { error: `Couldn't re-enable the account: ${error.message}` };
+
+  await recordAccountAction(await createClient(), userId, "account_enabled_by_admin");
+  revalidatePath("/user-roles");
+  return { success: "Account re-enabled. Tick their roles below and click Save roles." };
 }

@@ -12,6 +12,19 @@ export const PASSWORD_MIN_LENGTH = 6;
 export const MUST_CHANGE_PASSWORD_FLAG = "must_change_password";
 export const CHANGE_PASSWORD_PATH = "/change-password";
 
+// Disabled accounts (28 Sept 2026, "disable user if user leaves"): a leaver is
+// banned in Supabase Auth rather than deleted — an account that appears in the
+// audit log can't be deleted, and shouldn't be. ~100 years = until re-enabled.
+export const DISABLED_BAN_DURATION = "876000h";
+export const ACCOUNT_DISABLED_MESSAGE =
+  "Your account has been disabled. Contact your System Administrator if you need access.";
+
+export function isAccountDisabled(bannedUntil: string | null | undefined, now: Date = new Date()): boolean {
+  if (!bannedUntil) return false;
+  const until = new Date(bannedUntil);
+  return !Number.isNaN(until.getTime()) && until > now;
+}
+
 export function mustChangePassword(appMetadata: Record<string, unknown> | undefined | null): boolean {
   return appMetadata?.[MUST_CHANGE_PASSWORD_FLAG] === true;
 }
