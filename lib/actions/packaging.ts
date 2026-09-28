@@ -84,6 +84,32 @@ function parseProductionQty(formData: FormData): number | { error: string } {
   return qty;
 }
 
+// FB-0043 (28 Sept 2026): "it should be treated as new Raw material
+// reserving quantity for stability, R&D and QC" — same UX Purchase's line
+// form already has (see purchase-line-form.tsx), entered in whatever
+// sample unit is convenient and converted down to the Finished Product's
+// own unit at submit, same "no separate as-entered unit column" pattern
+// purchase_lines/finished_product_batches both use (0021's comment).
+// Unlike Purchase, these three are NOT mandatory here — a Production
+// issue with zero sampling is a legitimate choice a user can make (0 is
+// the honest default, not a placeholder to fill in later), so a blank
+// field is treated as 0 rather than rejected.
+function parseProductionSampleQtys(formData: FormData): { qc: number; stability: number; rnd: number } | { error: string } {
+  const qcRaw = String(formData.get("production_qc_qty") || "").trim();
+  const stabilityRaw = String(formData.get("production_stability_qty") || "").trim();
+  const rndRaw = String(formData.get("production_rnd_qty") || "").trim();
+
+  const qc = qcRaw ? Number(qcRaw) : 0;
+  const stability = stabilityRaw ? Number(stabilityRaw) : 0;
+  const rnd = rndRaw ? Number(rndRaw) : 0;
+
+  if (!Number.isFinite(qc) || qc < 0) return { error: "QC quantity can't be negative." };
+  if (!Number.isFinite(stability) || stability < 0) return { error: "Stability quantity can't be negative." };
+  if (!Number.isFinite(rnd) || rnd < 0) return { error: "R&D quantity can't be negative." };
+
+  return { qc, stability, rnd };
+}
+
 export async function createPackagingIssue(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const fpBatchId = String(formData.get("finished_product_batch_id") || "");
   const department = String(formData.get("department") || "");
@@ -110,6 +136,10 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
   let unitCount: number;
   let materials: MaterialInput[] = [];
   let productionQty = 0;
+  let productionSampleUnit = "";
+  let productionQc = 0;
+  let productionStability = 0;
+  let productionRnd = 0;
 
   if (isStoreOrRnd) {
     const structured = parseStructuredPackSize(formData);
@@ -140,6 +170,20 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
     // (0001_init.sql) — filled in below once the Finished Product's own
     // unit is known, e.g. "20 kg".
     packSize = "";
+
+    // FB-0043: QC/Stability/R&D sample quantities, entered in whatever
+    // sample unit is convenient — converted down to the Finished
+    // Product's own unit below, once fpUnit is known (mirrors the
+    // isStoreOrRnd pack-size conversion just below this branch).
+    const sampleQtysOrError = parseProductionSampleQtys(formData);
+    if ("error" in sampleQtysOrError) return sampleQtysOrError;
+    productionQc = sampleQtysOrError.qc;
+    productionStability = sampleQtysOrError.stability;
+    productionRnd = sampleQtysOrError.rnd;
+    productionSampleUnit = String(formData.get("production_sample_unit") || "").trim();
+    if (productionQc + productionStability + productionRnd > 0 && !productionSampleUnit) {
+      return { error: "Select a sample unit for the QC/Stability/R&D quantities entered." };
+    }
   }
 
   const user = await getCurrentUser();
@@ -231,6 +275,31 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
     packSize = fpUnit ? `${productionQty} ${fpUnit}` : String(productionQty);
   }
 
+  // FB-0043: convert the QC/Stability/R&D sample quantities (entered in
+  // productionSampleUnit) down to the Finished Product's own unit —
+  // exactly the conversion createPurchaseLine() does for purchase_lines.
+  // qc_qty/stability_qty/rnd_qty, same reasoning: those three columns
+  // share production_issue_batches' own `unit` with `quantity`, so they
+  // have to already be expressed in it by the time they're stored.
+  let productionQcConverted = 0;
+  let productionStabilityConverted = 0;
+  let productionRndConverted = 0;
+  if (isProduction && productionQc + productionStability + productionRnd > 0) {
+    if (!fpUnit) return { error: "Could not determine this Finished Product's unit for sample conversion." };
+    const qcConv = convertUnit(productionQc, productionSampleUnit, fpUnit);
+    const stabilityConv = convertUnit(productionStability, productionSampleUnit, fpUnit);
+    const rndConv = convertUnit(productionRnd, productionSampleUnit, fpUnit);
+    if (qcConv === null || stabilityConv === null || rndConv === null) {
+      return { error: `Sample unit (${productionSampleUnit}) isn't compatible with this Finished Product's unit (${fpUnit}).` };
+    }
+    if (qcConv + stabilityConv + rndConv > fpQtyConsumed) {
+      return { error: "QC + Stability + R&D quantities can't exceed the quantity being converted." };
+    }
+    productionQcConverted = qcConv;
+    productionStabilityConverted = stabilityConv;
+    productionRndConverted = rndConv;
+  }
+
   // packaging_item_id / packaging_qty_used (0027_packaging_multi_material.sql)
   // are no longer written here — one packaging_issues row is now just the
   // header (FP batch, pack size, unit count, department, type); the
@@ -257,6 +326,9 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
       unit_count: unitCount,
       department,
       transaction_type: transactionType,
+      qc_qty: isProduction ? productionQcConverted : null,
+      stability_qty: isProduction ? productionStabilityConverted : null,
+      rnd_qty: isProduction ? productionRndConverted : null,
     })
     .select("id")
     .single();

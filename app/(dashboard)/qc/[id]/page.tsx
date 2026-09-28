@@ -30,6 +30,8 @@ type QcDetail = {
   items: { item_code: string; name: string } | null;
   purchase_lines: { batch_number: string; quantity: string | number; unit: string } | null;
   finished_product_batches: { batch_number: string } | null;
+  // FB-0043: a Production-issued RM batch's own batch number.
+  production_issue_batches: { batch_number: string } | null;
 };
 
 export default async function QualityCheckDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,14 +43,18 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
   const { data } = await supabase
     .from("quality_checks")
     .select(
-      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number)"
+      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number), production_issue_batches(batch_number)"
     )
     .eq("id", id)
     .maybeSingle();
 
   if (!data) notFound();
   const record = data as unknown as QcDetail;
-  const batchLabel = record.purchase_lines?.batch_number ?? record.finished_product_batches?.batch_number ?? "—";
+  const batchLabel =
+    record.purchase_lines?.batch_number ??
+    record.finished_product_batches?.batch_number ??
+    record.production_issue_batches?.batch_number ??
+    "—";
   const canRound1 = canWrite(user.roles, "qc_review_round1");
   const canRound2 = canWrite(user.roles, "qc_review_round2");
 

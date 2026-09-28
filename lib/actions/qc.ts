@@ -283,3 +283,137 @@ export async function startRetestQualityCheck(
   revalidatePath("/qc");
   redirect(`/qc/${inserted.id}`);
 }
+
+// FB-0043 (28 Sept 2026) — Production-issued RM equivalent of
+// createQualityCheck above. One-click, no form fields: unlike a purchased
+// batch (where sample_qty/unit are chosen at AR-assign time), a
+// Production issue's QC/Stability/R&D quantities were already fixed on
+// the Packaging New Issue form at the moment the batch was created
+// (production_issue_batches.qc_qty, in the batch's own unit) — same
+// "already fixed at source, nothing left to enter" reasoning
+// submitFinishedProductToQc() uses for Finished Product batches. Confirmed
+// decision #3: raised manually (this action), never auto-submitted.
+export async function createProductionQualityCheck(
+  productionBatchId: string,
+  _prev: ActionState,
+  _formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+
+  const { data: batch, error: batchError } = await supabase
+    .from("production_issue_batches")
+    .select("id, item_id, qc_qty, unit")
+    .eq("id", productionBatchId)
+    .maybeSingle();
+  if (batchError || !batch) return { error: "Selected batch could not be found." };
+
+  const { data: status } = await supabase
+    .from("production_batch_status")
+    .select("qc_status")
+    .eq("production_batch_id", productionBatchId)
+    .maybeSingle();
+  if (status && status.qc_status !== "not_submitted") {
+    return { error: "This batch already has a QC record submitted against it." };
+  }
+
+  const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
+  if (arError || !arNumber) return { error: arError?.message ?? "Could not generate an AR number." };
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("quality_checks")
+    .insert({
+      ar_number: arNumber,
+      production_batch_id: batch.id,
+      item_id: batch.item_id,
+      purchase_line_id: null,
+      finished_product_batch_id: null,
+      sample_qty: batch.qc_qty,
+      sample_unit: batch.unit,
+      created_by: user!.id,
+    })
+    .select("id")
+    .single();
+  if (insertError) {
+    if (insertError.code === "23505") {
+      // quality_checks_production_batch_pending_unique (0068) — another
+      // submission against this batch landed between our check and this
+      // insert.
+      return { error: "This batch already has a QC record submitted against it." };
+    }
+    return { error: insertError.message };
+  }
+
+  revalidatePath("/qc");
+  redirect(`/qc/${inserted.id}`);
+}
+
+// Production equivalent of startRetestQualityCheck above — same one-click,
+// no-form pattern, pulling from production_issue_batches.stability_qty
+// (reserved once at issue time) instead of purchase_lines.stability_qty.
+export async function startProductionRetestQualityCheck(
+  productionBatchId: string,
+  _prev: ActionState,
+  _formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+
+  const { data: batch, error: batchError } = await supabase
+    .from("production_issue_batches")
+    .select("id, item_id, stability_qty, unit")
+    .eq("id", productionBatchId)
+    .maybeSingle();
+  if (batchError || !batch) return { error: "Selected batch could not be found." };
+
+  const stabilityQty = Number(batch.stability_qty ?? 0);
+  if (!(stabilityQty > 0)) return { error: "No stability sample remaining for this batch." };
+
+  const { data: latestQc, error: latestError } = await supabase
+    .from("quality_checks")
+    .select("status, retest_date")
+    .eq("production_batch_id", productionBatchId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestError) return { error: latestError.message };
+  if (!latestQc || latestQc.status !== "approved") {
+    return { error: "This batch is not due for retest." };
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (!latestQc.retest_date || latestQc.retest_date > today) {
+    return { error: "This batch's retest date has not arrived yet." };
+  }
+
+  const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
+  if (arError || !arNumber) return { error: arError?.message ?? "Could not generate an AR number." };
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("quality_checks")
+    .insert({
+      ar_number: arNumber,
+      production_batch_id: batch.id,
+      item_id: batch.item_id,
+      purchase_line_id: null,
+      finished_product_batch_id: null,
+      sample_qty: stabilityQty,
+      sample_unit: batch.unit,
+      is_retest: true,
+      created_by: user!.id,
+    })
+    .select("id")
+    .single();
+  if (insertError) {
+    if (insertError.code === "23505") {
+      return { error: "This batch already has a QC record submitted against it." };
+    }
+    return { error: insertError.message };
+  }
+
+  revalidatePath("/qc");
+  redirect(`/qc/${inserted.id}`);
+}

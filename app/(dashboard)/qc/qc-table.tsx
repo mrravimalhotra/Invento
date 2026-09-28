@@ -20,6 +20,10 @@ export type QcListRow = {
   // since FP-context QC rows never get an `items` row of their own — see
   // the query comment in page.tsx for why.
   finished_product_batches: { batch_number: string; mfr_definitions: { name: string } | null } | null;
+  // FB-0043: a Production-issued RM batch's own batch number — this row
+  // already has a real `items` join (unlike the FP case above), so no
+  // Item-column fallback is needed, only a Batch-column one.
+  production_issue_batches: { batch_number: string } | null;
 };
 
 // AR numbers themselves are always freshly generated (get_next_ar_number()
@@ -33,7 +37,8 @@ function isLegacyQcRow(r: QcListRow) {
   return (
     isLegacyCode(r.items?.item_code) ||
     isLegacyCode(r.purchase_lines?.batch_number) ||
-    isLegacyCode(r.finished_product_batches?.batch_number)
+    isLegacyCode(r.finished_product_batches?.batch_number) ||
+    isLegacyCode(r.production_issue_batches?.batch_number)
   );
 }
 
@@ -70,8 +75,16 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
     },
     {
       header: "Batch",
-      accessor: (r) => r.purchase_lines?.batch_number ?? r.finished_product_batches?.batch_number ?? "—",
-      searchValue: (r) => r.purchase_lines?.batch_number ?? r.finished_product_batches?.batch_number ?? "",
+      accessor: (r) =>
+        r.purchase_lines?.batch_number ??
+        r.finished_product_batches?.batch_number ??
+        r.production_issue_batches?.batch_number ??
+        "—",
+      searchValue: (r) =>
+        r.purchase_lines?.batch_number ??
+        r.finished_product_batches?.batch_number ??
+        r.production_issue_batches?.batch_number ??
+        "",
     },
     {
       header: "Sample qty",

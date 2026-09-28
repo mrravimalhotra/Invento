@@ -8,6 +8,8 @@ import { QcTable, type QcListRow } from "./qc-table";
 import { DueForRetest, type DueForRetestLine } from "./due-for-retest";
 import { AwaitingQc, type AwaitingQcLine } from "./awaiting-qc";
 import { AwaitingFpQc, type AwaitingFpQcLine } from "./awaiting-fp-qc";
+import { AwaitingProductionQc, type AwaitingProductionQcLine } from "./awaiting-production-qc";
+import { ProductionDueForRetest, type ProductionDueForRetestLine } from "./production-due-for-retest";
 
 // Unbounded before this — as AR records accumulate over years this page's
 // full-table fetch would slow down with no server-side filter to fall back
@@ -19,7 +21,7 @@ export default async function QcListPage() {
   const user = await getCurrentUser();
   const supabase = await createClient();
 
-  const [{ data }, awaitingLines, awaitingFpLines, dueLines] = await Promise.all([
+  const [{ data }, awaitingLines, awaitingFpLines, dueLines, awaitingProductionLines, productionDueLines] = await Promise.all([
     // FB-0027 (12 Sept 2026): a Finished Product's QC record never gets an
     // `item_id` (submitFinishedProductToQc() only sets
     // finished_product_batch_id — see lib/actions/finished-product.ts), so
@@ -34,13 +36,15 @@ export default async function QcListPage() {
     supabase
       .from("quality_checks")
       .select(
-        "id, ar_number, status, sample_qty, sample_unit, retest_date, is_retest, items(item_code, name), purchase_lines(batch_number), finished_product_batches(batch_number, mfr_definitions(name))"
+        "id, ar_number, status, sample_qty, sample_unit, retest_date, is_retest, items(item_code, name), purchase_lines(batch_number), finished_product_batches(batch_number, mfr_definitions(name)), production_issue_batches(batch_number)"
       )
       .order("created_at", { ascending: false })
       .limit(QC_LIMIT),
     getAwaitingQcLines(supabase),
     getAwaitingFpQcLines(supabase),
     getDueForRetestLines(supabase),
+    getAwaitingProductionQcLines(supabase),
+    getProductionDueForRetestLines(supabase),
   ]);
 
   const rows = (data ?? []) as unknown as QcListRow[];
@@ -58,6 +62,10 @@ export default async function QcListPage() {
       <AwaitingFpQc lines={awaitingFpLines} canSubmit={canWrite(user?.roles ?? [], "finished_product")} />
 
       <DueForRetest lines={dueLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
+
+      <AwaitingProductionQc lines={awaitingProductionLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
+
+      <ProductionDueForRetest lines={productionDueLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
 
       <Card>
         <QcTable rows={rows} />
@@ -154,4 +162,62 @@ async function getDueForRetestLines(
     .order("batch_number");
 
   return (lines ?? []) as unknown as DueForRetestLine[];
+}
+
+// FB-0043 (28 Sept 2026) — Production-issued RM equivalent of
+// getAwaitingQcLines above. production_batch_status (0068) is the same
+// kind of view purchase_batch_status is (PostgREST can't embed it
+// directly), so the same two-step lookup shape applies: find the
+// not-yet-submitted batch ids first, then fetch those batches with their
+// item joined.
+async function getAwaitingProductionQcLines(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<AwaitingProductionQcLine[]> {
+  const { data: openStatuses } = await supabase
+    .from("production_batch_status")
+    .select("production_batch_id")
+    .eq("qc_status", "not_submitted");
+
+  const openIds = (openStatuses ?? [])
+    .map((s) => s.production_batch_id)
+    .filter((id): id is string => !!id);
+  if (!openIds.length) return [];
+
+  const { data: lines } = await supabase
+    .from("production_issue_batches")
+    .select("id, batch_number, qc_qty, unit, items!inner(item_code, name)")
+    .in("id", openIds)
+    .eq("active", true)
+    .order("created_at", { ascending: false });
+
+  return (lines ?? []) as unknown as AwaitingProductionQcLine[];
+}
+
+// Production equivalent of getDueForRetestLines above.
+async function getProductionDueForRetestLines(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<ProductionDueForRetestLine[]> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: dueStatuses } = await supabase
+    .from("production_batch_status")
+    .select("production_batch_id")
+    .eq("qc_status", "approved")
+    .not("retest_date", "is", null)
+    .lte("retest_date", today);
+
+  const dueIds = (dueStatuses ?? [])
+    .map((s) => s.production_batch_id)
+    .filter((id): id is string => !!id);
+  if (!dueIds.length) return [];
+
+  const { data: lines } = await supabase
+    .from("production_issue_batches")
+    .select("id, batch_number, stability_qty, unit, items!inner(item_code, name)")
+    .in("id", dueIds)
+    .eq("active", true)
+    .gt("stability_qty", 0)
+    .order("batch_number");
+
+  return (lines ?? []) as unknown as ProductionDueForRetestLine[];
 }

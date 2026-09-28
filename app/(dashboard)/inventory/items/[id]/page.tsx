@@ -168,14 +168,29 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
     // (0050_production_rm_from_packaging.sql), so this is skipped for
     // Packaging items.
     if (item.category === "raw") {
-      const { data: prodBatches } = await supabase
-        .from("production_issue_batches")
-        .select("id, batch_number, quantity, live_remaining_qty, unit, created_at")
-        .eq("item_id", id)
-        .eq("active", true)
-        .order("created_at", { ascending: false })
-        .returns<ProductionBatchRow[]>();
-      productionBatches = prodBatches ?? [];
+      // FB-0043: QC status/retest date are read via production_batch_status
+      // (0068_production_rm_full_qc.sql) — a plain view PostgREST can't
+      // embed through directly, so fetched separately and merged in JS,
+      // same two-step shape qc/page.tsx already uses for the analogous
+      // purchase_batch_status lookups.
+      const [{ data: prodBatches }, { data: prodStatuses }] = await Promise.all([
+        supabase
+          .from("production_issue_batches")
+          .select(
+            "id, batch_number, quantity, live_remaining_qty, unit, qc_qty, stability_qty, rnd_qty, created_at, packaging_issues(code, created_at)"
+          )
+          .eq("item_id", id)
+          .eq("active", true)
+          .order("created_at", { ascending: false })
+          .returns<ProductionBatchRow[]>(),
+        supabase.from("production_batch_status").select("production_batch_id, qc_status, retest_date"),
+      ]);
+      const statusByBatch = new Map((prodStatuses ?? []).map((s) => [s.production_batch_id, s]));
+      productionBatches = (prodBatches ?? []).map((b) => ({
+        ...b,
+        qc_status: statusByBatch.get(b.id)?.qc_status ?? null,
+        retest_date: statusByBatch.get(b.id)?.retest_date ?? null,
+      }));
     }
   } else if (item.category === "processed") {
     const { data: mfrDef } = await supabase
@@ -250,7 +265,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
       {productionBatches.length > 0 && (
         <Card className="mb-6">
           <CardHeader title="Production batches" />
-          <ProductionBatchesTable rows={productionBatches} />
+          <ProductionBatchesTable rows={productionBatches} itemName={item.name} itemCode={item.item_code} />
         </Card>
       )}
 

@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { createPackagingIssue, type ActionState } from "@/lib/actions/packaging";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
-import { DEPARTMENTS, UNITS } from "@/lib/constants/units";
+import { DEPARTMENTS, UNITS, compatibleUnits } from "@/lib/constants/units";
 import { isLegacyCode } from "@/lib/utils";
 import { PackagingMaterialsEditor, type PackagingItemOption } from "./packaging-materials-editor";
 
@@ -30,6 +30,11 @@ export function PackagingForm({
   const storeOrRnd = isStoreOrRnd(department);
   const production = department === "production";
   const selectedBatch = fpBatches.find((b) => b.id === batchId);
+  // FB-0043: sample unit defaults to the selected batch's own FP unit,
+  // same "pre-fill, still editable" convention purchase-line-form.tsx
+  // uses — reset whenever the batch selection changes so a stale unit
+  // from a previously-selected FP never lingers.
+  const [productionSampleUnit, setProductionSampleUnit] = useState("");
 
   return (
     <form action={formAction} className="flex flex-col gap-4 max-w-xl">
@@ -46,7 +51,11 @@ export function PackagingForm({
           name="finished_product_batch_id"
           required
           defaultValue=""
-          onChange={(e) => setBatchId(e.target.value)}
+          onChange={(e) => {
+            setBatchId(e.target.value);
+            const b = fpBatches.find((x) => x.id === e.target.value);
+            setProductionSampleUnit(b?.fp_unit ?? "");
+          }}
         >
           <option value="" disabled>
             Select…
@@ -150,11 +159,46 @@ export function PackagingForm({
             <Input id="production_qty" name="production_qty" type="number" step="any" min="0" required />
           </Field>
 
+          {/* FB-0043 (28 Sept 2026): "it should be treated as new Raw
+              material reserving quantity for stability, R&D and QC" — same
+              UX Purchase's line form already has (purchase-line-form.tsx),
+              not mandatory here (0 is a legitimate, honest choice for a
+              Production issue that needs no sampling). */}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="QC quantity" htmlFor="production_qc_qty" hint="Reserved for QC — goes through the same Awaiting QC / retest cycle as a purchased batch.">
+              <Input id="production_qc_qty" name="production_qc_qty" type="number" step="any" min="0" defaultValue="0" />
+            </Field>
+            <Field label="Sample unit" htmlFor="production_sample_unit" hint="Converted to this Finished Product's own unit when saved.">
+              <Select
+                id="production_sample_unit"
+                name="production_sample_unit"
+                value={productionSampleUnit}
+                onChange={(e) => setProductionSampleUnit(e.target.value)}
+                disabled={!selectedBatch?.fp_unit}
+              >
+                <option value="">Select…</option>
+                {(selectedBatch?.fp_unit ? compatibleUnits(selectedBatch.fp_unit) : []).map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Stability quantity" htmlFor="production_stability_qty">
+              <Input id="production_stability_qty" name="production_stability_qty" type="number" step="any" min="0" defaultValue="0" />
+            </Field>
+            <Field label="R&D quantity" htmlFor="production_rnd_qty">
+              <Input id="production_rnd_qty" name="production_rnd_qty" type="number" step="any" min="0" defaultValue="0" />
+            </Field>
+          </div>
+
           <p className="text-xs text-muted">
             This will deduct the quantity above from the Finished Product and add it as new Raw Material stock (a
             Raw Material item paired to this Finished Product, created automatically on first use) — available as an
-            ingredient for another Finished Product&apos;s recipe. No packaging materials are used for a Production
-            issue.
+            ingredient for another Finished Product&apos;s recipe, once QC-Approved. No packaging materials are used
+            for a Production issue.
           </p>
         </>
       )}
