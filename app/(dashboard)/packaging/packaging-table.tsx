@@ -9,6 +9,7 @@ export type { PackagingMaterialRow };
 
 export type PackagingRow = {
   id: string;
+  code: string;
   pack_size: string;
   unit_count: number | string;
   department: string;
@@ -24,6 +25,7 @@ const TXN_BADGE_STATUS: Record<string, string> = { pack: "approved", repack: "su
 
 export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
   const columns: Column<PackagingRow>[] = [
+    { header: "Code", accessor: (r) => r.code, searchValue: (r) => r.code },
     {
       header: "FP Batch",
       accessor: (r) => r.finished_product_batches?.batch_number ?? "—",
@@ -48,7 +50,7 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
     <DataTable
       columns={columns}
       rows={rows}
-      searchPlaceholder="Search by FP batch or packaging item…"
+      searchPlaceholder="Search by code, FP batch, or packaging item…"
       emptyLabel="No packaging issues yet."
       isLegacy={(r) => isLegacyCode(r.finished_product_batches?.batch_number)}
     />

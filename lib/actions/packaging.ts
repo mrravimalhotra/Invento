@@ -237,9 +237,18 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
   // materials themselves go into packaging_issue_items below, one row per
   // line, same header/lines split already used for MFR recipe lines and FP
   // composition. Production issues have zero material lines.
+  //
+  // code (0067_packaging_issue_code.sql) — the plain sequential PKG-####
+  // identifier, same pattern as get_next_po_number()/get_next_equipment_code(),
+  // generated once up front so it can be included directly in the insert
+  // below rather than a separate update after.
+  const { data: issueCode, error: codeError } = await supabase.rpc("get_next_packaging_issue_code");
+  if (codeError || !issueCode) return { error: codeError?.message || "Could not generate a packaging issue code." };
+
   const { data: issue, error } = await supabase
     .from("packaging_issues")
     .insert({
+      code: issueCode,
       finished_product_batch_id: fpBatchId,
       pack_size: packSize,
       pack_size_qty: packSizeQty,

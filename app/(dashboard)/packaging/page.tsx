@@ -23,7 +23,7 @@ export default async function PackagingListPage({
   const { data } = await supabase
     .from("packaging_issues")
     .select(
-      "id, pack_size, unit_count, department, transaction_type, created_at, finished_product_batches(batch_number), packaging_issue_items(quantity, unit, items(name, item_code))"
+      "id, code, pack_size, unit_count, department, transaction_type, created_at, finished_product_batches(batch_number), packaging_issue_items(quantity, unit, items(name, item_code))"
     )
     .order("created_at", { ascending: false });
 
@@ -31,6 +31,7 @@ export default async function PackagingListPage({
   const canCreate = canWrite(user?.roles ?? [], "packaging");
 
   const pdfRows = rows.map((r) => [
+    r.code,
     r.finished_product_batches?.batch_number ?? "—",
     r.pack_size,
     formatNumber(r.unit_count, 0),
