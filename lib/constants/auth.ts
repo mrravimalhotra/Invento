@@ -25,3 +25,30 @@ export function forcedPasswordChangeRedirect(pathname: string, mustChange: boole
   if (!mustChange && onChangePage) return "/";
   return null;
 }
+
+// SEC-03 (28 Sept 2026): where to send a user after sign-in. The login page
+// carries the page they were trying to open in ?next=, but that value comes
+// from the address bar, so anyone can put an outside website there
+// (/login?next=https://fake-site.example) and have Invento forward a freshly
+// signed-in user to it — a convincing phishing set-up. Only a page on this
+// same site is allowed; anything else falls back to the dashboard.
+// Parsed with the URL parser rather than string checks, so the tricks
+// browsers accept ("//host", "/\host", tabs/newlines inside the slashes,
+// "https:host") are all caught by the one same-site test.
+const REDIRECT_CHECK_ORIGIN = "http://invento.invalid";
+
+export function safeRedirectPath(next: unknown): string {
+  if (typeof next !== "string" || !next.startsWith("/")) return "/";
+  let url: URL;
+  try {
+    url = new URL(next, REDIRECT_CHECK_ORIGIN);
+  } catch {
+    return "/";
+  }
+  if (url.origin !== REDIRECT_CHECK_ORIGIN) return "/";
+  const path = `${url.pathname}${url.search}${url.hash}`;
+  // Normalising can itself produce "//host" (e.g. "/..//host"), which a
+  // browser reads as an outside site — refuse that too.
+  if (path.startsWith("//") || path.startsWith("/\\")) return "/";
+  return path;
+}

@@ -3,13 +3,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { safeRedirectPath } from "@/lib/constants/auth";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
 export async function signIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
-  const next = String(formData.get("next") || "/");
+  // Only a page on this site — never an outside address (SEC-03).
+  const next = safeRedirectPath(formData.get("next"));
 
   if (!email || !password) return { error: "Email and password are required." };
 
@@ -17,7 +19,7 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
 
-  redirect(next || "/");
+  redirect(next);
 }
 
 // Self-registration is closed (28 Sept 2026): a System Admin creates accounts

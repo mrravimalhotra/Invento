@@ -4,6 +4,7 @@ import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn, type ActionState } from "@/lib/actions/auth";
+import { safeRedirectPath } from "@/lib/constants/auth";
 import { Field, Input, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
@@ -18,7 +19,7 @@ export default function LoginPage() {
 function LoginForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(signIn, undefined);
   const params = useSearchParams();
-  const next = params.get("next") ?? "/";
+  const next = safeRedirectPath(params.get("next"));
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

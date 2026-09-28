@@ -563,10 +563,12 @@ Severity reflects this app's context: an internal, low-user-count GMP system whe
 - **Fix:** (1) Immediately, in Supabase → Authentication: disable public sign-ups (invite-only) and require email confirmation. (2) Make reads require a role: add `public.has_app_access()` — `security definer`, `select exists(select 1 from user_roles where user_id = auth.uid())` — and redefine `is_signed_in()` to call it. It **must** be `security definer`: `user_roles`' own SELECT policy uses `is_signed_in()`, so a plain SQL version would recurse. (3) Show role-less users an "awaiting access" page instead of an empty dashboard. **Test:** AUTH-06, SEC-T02.
 
 ### SEC-02 — `listAllFeedback()` has no authorization check · **Medium** · [VERIFIED]
+- **Status (28 Sept 2026): accepted by design — no change.** Ravi: users are a closed group and are meant to see all feedback and how testing is going. Revisit if the user base widens beyond the internal team.
 - **Evidence:** `lib/actions/feedback.ts:144` — no `getCurrentUser()`/role check, unlike `triageFeedback`. Every exported function of a `"use server"` file is a callable endpoint. RLS (`is_signed_in`) also lets any user read `claude_notes`.
 - **Fix:** add `const user = await getCurrentUser(); if (!user?.roles.includes("system_admin")) return [];`. Optionally split admin notes into a column visible only to the submitter and admins via a view. **Test:** RBAC-11, FBK-05.
 
 ### SEC-03 — Open redirect after login · **Medium** · [VERIFIED]
+- **Status (28 Sept 2026): fixed.** `safeRedirectPath()` (`lib/constants/auth.ts`) — `next` must resolve to a page on this site (URL-parser same-origin check, plus refusing a normalised `//host`); anything else goes to `/`. Used by `signIn()` and the login page. 24 input cases checked (outside URLs, `//`, `/\`, tab/newline tricks, `/..//host`, `https:host`, `javascript:`).
 - **Evidence:** `signIn()` reads `next` from the form (populated from `?next=` on `/login`) and calls `redirect(next || "/")` with no validation. `/login?next=https://evil.example` sends a freshly authenticated user to an attacker page (credential-phishing follow-up).
 - **Fix:** `const safe = next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/";`. **Test:** AUTH-03.
 
@@ -577,6 +579,8 @@ Severity reflects this app's context: an internal, low-user-count GMP system whe
 - **Fix:** follow the pattern already proven by `trg_fn_qc_enforce_review_stages`: BEFORE UPDATE/INSERT/DELETE triggers that reject changes to guarded columns unless a transaction-local flag set by the SECURITY DEFINER RPC is present (`perform set_config('invento.trusted_write','on', true)` inside the RPC; trigger checks `current_setting('invento.trusted_write', true) = 'on'`). Guard: `finished_product_batches.status` transitions to `submitted_to_qc/approved/rejected`; `mfr_definitions.approved_by/approved_at/finished_product_item_id`; any `mfr_lines` write when the parent is approved; `purchase_orders.status/submitted_*`. **Test:** RBAC-07/08/09, MFR-05, PUR-11.
 
 ### SEC-05 — Stored `javascript:` URLs in Documents · **Medium** · [VERIFIED]
+- **Re-assessed 28 Sept 2026: downgraded to Low.** React 19.2 (in use) replaces a `javascript:` href with a blocked stub at render time, so clicking such a link does nothing (console: "React has blocked a javascript: URL"). Remaining risk: any non-web link (e.g. `javascript:`, `file:`, `ftp:`) is still stored as-is and would be live if the data is later shown outside this React screen (export, another tool). Fix remains cheap: http/https allow-list in `createDocument()` + a `not valid` CHECK.
+- **Status (28 Sept 2026): deferred.** Ravi: the SOP / STP Documents screen is not in use yet (no documents recorded). Fix before the screen goes into use.
 - **Evidence:** `createDocument()` (`lib/actions/documents.ts:15`) accepts any non-empty `file_url`; the list renders it as `<a href>`. The `type="url"` input is client-only.
 - **Fix:** server-side `new URL(fileUrl)` with protocol allow-list `http:`/`https:`; add `check (file_url ~* '^https?://') not valid`; render non-http(s) values as plain text. **Test:** DOC-01.
 
