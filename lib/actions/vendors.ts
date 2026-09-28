@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -42,7 +43,7 @@ export async function createVendor(_prev: ActionState, formData: FormData): Prom
 
   const supabase = await createClient();
   const { data: vendorCode, error: codeError } = await supabase.rpc("get_next_vendor_code");
-  if (codeError) return { error: codeError.message };
+  if (codeError) return { error: friendlyDbError(codeError) };
 
   const { error } = await supabase.from("vendors").insert({
     vendor_code: vendorCode,
@@ -52,7 +53,7 @@ export async function createVendor(_prev: ActionState, formData: FormData): Prom
     phone: parsed.data.phone || null,
     email: parsed.data.email || null,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/vendors");
   // Redirects back to the list (not the new vendor's detail page) — the
@@ -88,7 +89,7 @@ export async function updateVendor(
       email: parsed.data.email || null,
     })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/vendors");
   revalidatePath(`/vendors/${id}`);
@@ -110,7 +111,7 @@ export async function deleteVendor(id: string, _prev: ActionState, _formData: Fo
     if (error.code === "23503") {
       return { error: "Can't delete — this vendor has purchase orders on file. Reassign or remove those first." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/vendors");

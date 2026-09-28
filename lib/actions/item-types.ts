@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -19,7 +20,7 @@ export async function createItemType(_prev: ActionState, formData: FormData): Pr
   const { error } = await supabase.from("item_types").insert({ description });
   if (error) {
     if (error.code === "23505") return { error: "An item type with this description already exists." };
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/item-types");
@@ -46,7 +47,7 @@ export async function updateItemType(
   const { error } = await supabase.from("item_types").update({ description, active }).eq("id", id);
   if (error) {
     if (error.code === "23505") return { error: "An item type with this description already exists." };
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/item-types");
@@ -73,7 +74,7 @@ export async function deleteItemType(id: string, _prev: ActionState, _formData: 
           "Can't delete — one or more items in Item Master still use this item type. Reassign or remove those items first, or deactivate this item type instead.",
       };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/item-types");

@@ -557,6 +557,7 @@ Each past incident becomes a permanent test. Source: `claude/known-issues.md` pa
 Severity reflects this app's context: an internal, low-user-count GMP system where the biggest risks are unauthorized disclosure of formulae/pricing and silent corruption of the inventory ledger. Each entry lists the fix direction; §12 describes how to ship it.
 
 ### SEC-01 — Anyone can self-register and read all business data · **High** · [VERIFIED]
+- **Part 2 status (28 Sept 2026): fixed by migration `0075_security_hardening.sql`.** Read policies use `(select public.has_app_access())` (signed in AND at least one role; evaluated once per query); role-less users see only their own profile/role rows and get an "Awaiting access" page (`app/(dashboard)/layout.tsx`). Found and fixed in the same pass: the five reporting views (`stock_balance`, `item_position`, `inventory_ledger_with_balance`, `purchase_batch_status`, `production_batch_status`) ran with owner rights (no RLS) and were granted to `anon` — readable with the public API key without signing in. Now `security_invoker = on`, no `anon` access, SELECT-only for `authenticated`.
 - **Status (28 Sept 2026): largely resolved** — public sign-up closed in the app and in Supabase; System Admins now create accounts with a temporary password that must be changed at first sign-in (`known-issues.md`, Thirtieth pass, commit `bc95b01`). Part (2) below — role-required reads — remains open as defence in depth.
 - **Evidence:** `/register` is a public path; `signUp()` (`lib/actions/auth.ts`) has no invite/domain restriction. Every business table's SELECT policy is `is_signed_in()` = `auth.uid() is not null` (`0001_init.sql:64`). A freshly registered user with no role can query `vendors`, `purchase_lines` (unit prices), `mfr_lines`/`mfr_procedure_steps` (proprietary formulae), `quality_checks`, `page_feedback` directly through PostgREST with the public anon key.
 - **Impact:** disclosure of trade-secret formulations, supplier pricing and QC data to any outsider who can receive an email.
@@ -600,10 +601,12 @@ Severity reflects this app's context: an internal, low-user-count GMP system whe
 - **Fix:** explicit `file.size` ceiling; reject when the zip's declared uncompressed size exceeds e.g. 20 MB, or use ExcelJS's streaming `WorkbookReader` and abort at `MAX_UPLOAD_ROWS + 1` rows; cap columns at ~50. **Test:** BLK-10.
 
 ### SEC-09 — Weak authentication policy and raw auth errors · **Low–Medium** · [VERIFIED]
+- **App part status (28 Sept 2026): fixed.** `PASSWORD_MIN_LENGTH` = 10 for all new passwords (admin temporary, first-login change, profile, reset link); sign-in, reset and password-change errors mapped to fixed messages (wrong email and wrong password give the same answer). Dashboard part (Supabase minimum length 10, MFA for admins) is Ravi's.
 - **Evidence:** password minimum 6 characters, no complexity, no app-level lockout (relies on Supabase's defaults); `signIn`/`signUp` return Supabase's `error.message` verbatim.
 - **Fix:** in Supabase Auth settings raise minimum length (≥ 10), enable leaked-password protection and rate limits, consider MFA for `system_admin`; map auth errors to a fixed generic message. **Test:** AUTH-04, AUTH-09.
 
 ### SEC-10 — No HTTP security headers · **Medium** · [VERIFIED]
+- **Status (28 Sept 2026): fixed** in `next.config.ts`: enforced `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'; base-uri 'self'; object-src 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`; full CSP in report-only mode (switch to enforcing after a quiet period). Verified in a browser: framing from another origin refused; no CSP reports on public pages.
 - **Evidence:** `next.config.ts` is empty; `proxy.ts` sets none. No CSP, `frame-ancestors`/`X-Frame-Options` (clickjacking of Approve/Submit/Purge buttons), `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`.
 - **Fix:** add `async headers()` in `next.config.ts`:
   ```ts
@@ -622,12 +625,14 @@ Severity reflects this app's context: an internal, low-user-count GMP system whe
 No Zod schema uses `.max()`; hand-validated actions don't cap lengths. Add reasonable caps (names 200, remarks 2,000) in actions and optionally `check (char_length(x) <= n)`. **Test:** SEC-T07.
 
 ### SEC-12 — Raw Postgres error text returned to the browser · **Low** · [REPORTED]
+- **Status (28 Sept 2026): fixed.** `friendlyDbError()` (`lib/db-errors.ts`) used across `lib/actions` (94 call sites): app-authored RAISE messages (P0001/P0002/22023, custom 42501) pass through; Postgres/PostgREST errors mapped to plain wording; unknown ones show a reference code; raw text logged server-side.
 About ten actions return `error.message` unmodified (e.g. `deleteEquipment`, `deleteDeadStockItem`, `createPurchaseOrder`, `createEnvironmentalReading`, `createLineClearanceCheck`, `createDocument`, `updateVendor`, `upsertCoaTemplate`, `setMfrActive`, `updateMfrProcedure`). Add a shared `friendlyDbError(error)` helper mapping 23505/23503/23514/42501/P0001 and logging the raw text server-side. **Test:** SEC-T08.
 
 ### SEC-13 — `purge_test_data()` has no environment guard and leaves no audit trail · **Low (today) / High (once real data exists)** · [VERIFIED]
 Admin role is the only gate; `TRUNCATE` bypasses `audit_log`. Before go-live: gate on a DB setting (e.g. a one-row `app_settings.environment <> 'production'`), write an explicit audit row before truncating, or remove the RPC from production.
 
 ### SEC-14 — Minor hygiene · **Info**
+- **Status (28 Sept 2026): fixed.** `html2canvas` removed from direct dependencies (still pulled in as jsPDF's optional dependency). Batch QC gate race closed in `0075`: `check_batch_qc_approved()` takes a shared per-batch advisory lock; any insert/update of that batch's QC row takes it exclusively (`trg_00_lock_batch_qc`). Verified with a two-session race (control: rejected-in-flight batch consumed; with fix: refused). `expire_stale_fp_drafts()` unchanged by design.
 - `html2canvas` is a direct dependency but no longer imported anywhere (JPEG export removed 19 Sept) — remove it. [VERIFIED]
 - `expire_stale_fp_drafts()` intentionally has no role check (self-healing, idempotent) — keep, but document. [REPORTED]
 - `check_batch_qc_approved()` reads batch QC status without locking the QC row — narrow TOCTOU with a simultaneous rejection. [REPORTED]

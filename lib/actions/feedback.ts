@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES } from "@/lib/constants/feedback";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -51,7 +52,7 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
   // Generated server-side via RPC, never in JavaScript (see
   // get_next_po_number/get_next_ar_number etc. for the same convention).
   const { data: ticketNumber, error: ticketError } = await supabase.rpc("get_next_feedback_ticket");
-  if (ticketError) return { error: ticketError.message };
+  if (ticketError) return { error: friendlyDbError(ticketError) };
 
   const { error } = await supabase.from("page_feedback").insert({
     ticket_number: ticketNumber,
@@ -62,7 +63,7 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
     submitted_by: user.id,
     submitted_by_name: user.fullName,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath(parsed.data.pagePath === "/" ? "/" : parsed.data.pagePath);
   revalidatePath("/feedback");
@@ -111,7 +112,7 @@ export async function updateOwnFeedback(id: string, _prev: ActionState, formData
     .eq("submitted_by", user.id)
     .eq("status", "new")
     .select("id");
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
   if (!data || data.length === 0) {
     return { error: "This ticket has already been reviewed and can no longer be edited." };
   }
@@ -132,7 +133,7 @@ export async function deleteOwnFeedback(id: string, _prev: ActionState, _formDat
     .eq("submitted_by", user.id)
     .eq("status", "new")
     .select("id");
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
   if (!data || data.length === 0) {
     return { error: "This ticket has already been reviewed and can no longer be deleted." };
   }
@@ -181,7 +182,7 @@ export async function triageFeedback(id: string, _prev: ActionState, formData: F
       resolved_at: ["implemented", "rejected"].includes(parsed.data.status) ? new Date().toISOString() : null,
     })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/feedback");
   return { success: "Saved." };

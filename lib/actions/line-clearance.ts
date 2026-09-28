@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -29,7 +30,7 @@ export async function createLineClearanceCheck(
     status,
     checked_by: user!.id,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/line-clearance");
   redirect("/line-clearance?created=1");

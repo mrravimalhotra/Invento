@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite, ROLES, type Role } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -38,7 +39,7 @@ export async function setUserRoles(
   // left the user with no roles. The database also refuses any change that
   // would leave no System Admin, and returns that as a readable message.
   const { error } = await supabase.rpc("set_user_roles", { p_user_id: userId, p_roles: selected });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   // Topbar stale-role-badge fix (13 Sept 2026, reported directly by Ravi
   // with screenshots, not a filed /feedback ticket): revalidatePath(

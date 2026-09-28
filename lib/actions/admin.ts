@@ -19,6 +19,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 // defense-in-depth convention. purge_test_data() itself re-checks
 // system_admin server-side regardless of what this action does.
 import { PURGE_CONFIRM_PHRASE } from "@/lib/constants/admin";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type PurgeResult =
   | { error: string; summary?: undefined }
@@ -38,7 +39,7 @@ export async function purgeTestData(_prev: PurgeResult, formData: FormData): Pro
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("purge_test_data");
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   const summary = ((data ?? []) as { table_name: string; rows_purged: number }[]).map((r) => ({
     table: r.table_name,

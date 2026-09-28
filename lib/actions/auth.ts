@@ -3,9 +3,30 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { ACCOUNT_DISABLED_MESSAGE, safeRedirectPath } from "@/lib/constants/auth";
+import { ACCOUNT_DISABLED_MESSAGE, PASSWORD_MIN_LENGTH, safeRedirectPath } from "@/lib/constants/auth";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
+
+// SEC-09 (28 Sept 2026): sign-in failures get one fixed, plain message per
+// kind of problem instead of Supabase's raw text. A wrong email and a wrong
+// password give the same answer, so the form can't be used to find out
+// which emails have accounts.
+function signInErrorMessage(code: string | undefined): string {
+  switch (code) {
+    case "user_banned":
+      return ACCOUNT_DISABLED_MESSAGE;
+    case "over_request_rate_limit":
+    case "over_email_send_rate_limit":
+      return "Too many sign-in attempts. Wait a few minutes and try again.";
+    case "email_not_confirmed":
+      return "This account isn't activated yet. Contact your System Administrator.";
+    case "invalid_credentials":
+      return "Email or password is incorrect.";
+    default:
+      return "Couldn't sign you in. Check your email and password and try again.";
+  }
+}
 
 export async function signIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") || "").trim().toLowerCase();
@@ -17,10 +38,7 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    if (error.code === "user_banned") return { error: ACCOUNT_DISABLED_MESSAGE };
-    return { error: error.message };
-  }
+  if (error) return { error: signInErrorMessage(error.code) };
 
   redirect(next);
 }
@@ -51,7 +69,14 @@ export async function requestPasswordReset(_prev: ActionState, formData: FormDat
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/reset-password`,
   });
-  if (error) return { error: error.message };
+  // Same reply whatever went wrong, so this form can't reveal which emails
+  // have accounts (SEC-09).
+  if (error) {
+    if (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit") {
+      return { error: "Too many reset requests. Wait a few minutes and try again." };
+    }
+    console.error("requestPasswordReset:", error.code, error.message);
+  }
 
   return { success: "If that email has an account, a reset link is on its way." };
 }
@@ -62,12 +87,23 @@ export async function requestPasswordReset(_prev: ActionState, formData: FormDat
 export async function updatePassword(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
-  if (password.length < 6) return { error: "Password must be at least 6 characters." };
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return { error: `Password must be at least ${PASSWORD_MIN_LENGTH} characters.` };
+  }
+  if (password.length > 72) return { error: "Password must be 72 characters or fewer." };
   if (password !== confirmPassword) return { error: "Passwords do not match." };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "same_password") return { error: "Choose a password different from your current one." };
+    if (error.code === "weak_password") return { error: "That password is too weak. Try a longer one." };
+    if (error.code === "reauthentication_needed" || error.code === "session_not_found") {
+      return { error: "Your session has expired. Sign in again (or request a new reset link) and retry." };
+    }
+    console.error("updatePassword:", error.code, error.message);
+    return { error: "Couldn't change your password. Please try again." };
+  }
 
   return { success: "Password updated." };
 }
@@ -86,7 +122,7 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
     .from("profiles")
     .update({ full_name: fullName })
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/profile");
   return { success: "Profile updated." };

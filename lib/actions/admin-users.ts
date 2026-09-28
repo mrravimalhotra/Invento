@@ -12,6 +12,7 @@ import {
   PASSWORD_MIN_LENGTH,
   mustChangePassword,
 } from "@/lib/constants/auth";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type AdminUserActionState = { error?: string; success?: string } | undefined;
 
@@ -249,7 +250,7 @@ export async function disableUserAccount(
 
   const supabase = await createClient();
   const { error: rolesError } = await supabase.rpc("set_user_roles", { p_user_id: userId, p_roles: [] });
-  if (rolesError) return { error: rolesError.message };
+  if (rolesError) return { error: friendlyDbError(rolesError) };
 
   const adminClient = createAdminClient();
   const { error: banError } = await adminClient.auth.admin.updateUserById(userId, {

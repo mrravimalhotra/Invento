@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { escapeLike } from "@/lib/utils";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -66,7 +67,7 @@ export async function createDeadStockItem(_prev: ActionState, formData: FormData
   if (dupArticle) return { error: `"${parsed.data.article_name}" already exists as a dead stock record.` };
 
   const { data: assetCode, error: codeError } = await supabase.rpc("get_next_dead_stock_code");
-  if (codeError) return { error: codeError.message };
+  if (codeError) return { error: friendlyDbError(codeError) };
 
   const { error } = await supabase.from("dead_stock_items").insert({
     asset_code: assetCode,
@@ -82,7 +83,7 @@ export async function createDeadStockItem(_prev: ActionState, formData: FormData
     balance_value: parsed.data.balance_value ?? null,
     remark: parsed.data.remark || null,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/dead-stock");
   redirect(`/dead-stock?created=${encodeURIComponent(assetCode)}`);
@@ -135,7 +136,7 @@ export async function updateDeadStockItem(
       active,
     })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/dead-stock");
   revalidatePath(`/dead-stock/${id}`);
@@ -149,7 +150,7 @@ export async function deleteDeadStockItem(id: string, _prev: ActionState, _formD
 
   const supabase = await createClient();
   const { error } = await supabase.from("dead_stock_items").delete().eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/dead-stock");
   redirect("/dead-stock");

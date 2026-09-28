@@ -3,7 +3,11 @@
 // all three always agree. Plain module on purpose: a "use server" file may
 // only export async functions (see known-issues.md, Twenty-fourth pass).
 
-export const PASSWORD_MIN_LENGTH = 6;
+// SEC-09 (28 Sept 2026): raised from 6. Applies to every NEW password —
+// temporary ones set by a System Admin and ones users choose — not to
+// passwords already in use. Keep Supabase → Authentication → minimum password
+// length at the same value so a direct API call can't go lower.
+export const PASSWORD_MIN_LENGTH = 10;
 
 // Admin-created accounts (and admin password resets) carry
 // app_metadata.must_change_password = true until the user picks their own

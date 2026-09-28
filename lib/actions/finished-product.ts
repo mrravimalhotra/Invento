@@ -6,6 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { convertUnit } from "@/lib/constants/units";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -113,7 +114,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
     });
     const numRow = (numData as { batch_number: string; short_batch_no: string }[] | null)?.[0];
     if (numError || !numRow?.batch_number) {
-      return { error: numError?.message || "Could not generate a batch number." };
+      return { error: friendlyDbError(numError, "Could not generate a batch number.") };
     }
 
     const insertResult = await supabase
@@ -149,7 +150,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
         error: "Another batch for this MFR was created at the same moment and took the next batch number — please try again.",
       };
     }
-    return { error: batchError?.message || "Could not create the batch." };
+    return { error: friendlyDbError(batchError, "Could not create the batch.") };
   }
 
   const { error: componentsError } = await supabase.from("finished_product_components").insert(
@@ -178,7 +179,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
     if (componentsError.message.includes("live_remaining_not_negative")) {
       return { error: "Not enough of that batch remaining — refresh and pick another batch or a smaller quantity." };
     }
-    return { error: componentsError.message };
+    return { error: friendlyDbError(componentsError) };
   }
 
   revalidatePath("/finished-product");
@@ -204,7 +205,7 @@ export async function confirmFinishedProductBatch(id: string, _prev: ActionState
     .eq("status", "draft")
     .select("id")
     .maybeSingle();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
   if (!data) {
     return {
       error: "This batch is no longer a draft — it may already have been confirmed, cancelled, or auto-cancelled after 30 minutes. Refresh to see its current status.",
@@ -236,7 +237,7 @@ export async function cancelFinishedProductBatch(id: string, _prev: ActionState,
     .eq("status", "draft")
     .select("id")
     .maybeSingle();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
   if (!data) {
     return {
       error: "This batch is no longer a draft — it may already have been confirmed, cancelled, or auto-cancelled after 30 minutes. Refresh to see its current status.",
@@ -326,7 +327,7 @@ export async function completeFinishedProductBatch(
     .select("status, unit")
     .eq("id", id)
     .maybeSingle();
-  if (fetchError || !current) return { error: fetchError?.message || "Batch not found." };
+  if (fetchError || !current) return { error: friendlyDbError(fetchError, "Batch not found.") };
   if (current.status !== "in_process") {
     return {
       error: "This batch is no longer in progress — it may already be completed or submitted to QC. Refresh to see its current status.",
@@ -387,7 +388,7 @@ export async function completeFinishedProductBatch(
     if (error.message.includes("fp_batch_yield_not_negative")) {
       return { error: "QC + stability + R&D sample quantities can't exceed the batch yield — reduce one of the sample amounts." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath(`/finished-product/${id}`);
@@ -417,7 +418,7 @@ export async function submitFinishedProductToQc(
     .select("status, batch_yield, finish_date, qc_sample_qty, unit, expiry_month")
     .eq("id", id)
     .maybeSingle();
-  if (fetchError || !batch) return { error: fetchError?.message || "Batch not found." };
+  if (fetchError || !batch) return { error: friendlyDbError(fetchError, "Batch not found.") };
   // Ravi (15 Sept 2026): a batch now has to pass through "Complete -
   // Awaiting QC" (set by completeFinishedProductBatch above) before it
   // can be submitted to QC — this used to gate on "in_process" directly,
@@ -430,7 +431,7 @@ export async function submitFinishedProductToQc(
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
-  if (arError || !arNumber) return { error: arError?.message || "Could not generate an AR number." };
+  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an AR number.") };
 
   // expiry_month (not expiry_date — see migration 0044's comment): the
   // Complete Batch screen's Expiry date field is the batch's one real
@@ -460,14 +461,14 @@ export async function submitFinishedProductToQc(
       // insert.
       return { error: "This batch has already been submitted to QC." };
     }
-    return { error: qcError.message };
+    return { error: friendlyDbError(qcError) };
   }
 
   const { error: statusError } = await supabase
     .from("finished_product_batches")
     .update({ status: "submitted_to_qc" })
     .eq("id", id);
-  if (statusError) return { error: statusError.message };
+  if (statusError) return { error: friendlyDbError(statusError) };
 
   revalidatePath(`/finished-product/${id}`);
   revalidatePath("/finished-product");

@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -34,7 +35,7 @@ export async function createDocument(_prev: ActionState, formData: FormData): Pr
     effective_date: effectiveDate || null,
     created_by: user!.id,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/documents");
   redirect("/documents?created=1");

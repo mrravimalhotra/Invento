@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -49,7 +50,7 @@ export async function upsertCoaTemplate(itemTypeId: string, _prev: ActionState, 
     p_item_type_id: itemTypeId,
     p_lines: linesOrError,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/coa/templates");
   revalidatePath(`/coa/templates/${itemTypeId}`);

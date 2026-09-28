@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -97,7 +98,7 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
     p_lines: lines.map((l) => ({ item_id: l.itemId, quantity: l.quantity, unit: l.unit })),
     p_market: market,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
   const def = (data as { id: string; code: string }[] | null)?.[0];
   if (!def) return { error: "Could not create the MFR definition." };
 
@@ -140,7 +141,7 @@ export async function updateMfrLines(id: string, _prev: ActionState, formData: F
     p_id: id,
     p_lines: lines.map((l) => ({ item_id: l.itemId, quantity: l.quantity, unit: l.unit })),
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath(`/mfr/${id}`);
   revalidatePath("/mfr");
@@ -215,7 +216,7 @@ export async function updateMfrProcedure(id: string, _prev: ActionState, formDat
     p_permissible_yield_pct: permissibleYieldPct,
     p_steps: steps.map((s) => ({ stage: s.stage, operation: s.operation })),
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath(`/mfr/${id}`);
   revalidatePath(`/mfr/${id}/report`);
@@ -252,7 +253,7 @@ export async function deleteMfrDefinition(id: string, _prev: ActionState, _formD
           "Can't delete — this MFR has finished product batches on file. Deactivate it instead.",
       };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/mfr");
@@ -274,7 +275,7 @@ export async function setMfrActive(id: string, active: boolean, _prev: ActionSta
 
   const supabase = await createClient();
   const { error } = await supabase.from("mfr_definitions").update({ active }).eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/mfr");
   revalidatePath(`/mfr/${id}`);
@@ -308,7 +309,7 @@ export async function approveMfrDefinition(id: string, _prev: ActionState, _form
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("approve_mfr_definition", { p_id: id });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
   const result = (data as { fp_item_code: string | null; packaged_item_code: string | null; items_created: boolean }[] | null)?.[0];
 
   revalidatePath(`/mfr/${id}`);

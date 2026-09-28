@@ -4,6 +4,7 @@ import { useActionState, useRef, useState } from "react";
 import { updateProfile, updatePassword, type ActionState } from "@/lib/actions/auth";
 import { Field, Input, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
 
 export function ProfileForm({ defaultName }: { defaultName: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(updateProfile, undefined);
@@ -44,12 +45,12 @@ export function PasswordForm() {
     <form action={formAction} onSubmit={handleSubmit} className="flex flex-col gap-3">
       {error && <p className="text-sm text-red">{error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
-      <Field label="New password" htmlFor="password" hint="At least 6 characters.">
+      <Field label="New password" htmlFor="password" hint={`At least ${PASSWORD_MIN_LENGTH} characters.`}>
         <PasswordInput
           id="password"
           name="password"
           autoComplete="new-password"
-          minLength={6}
+          minLength={PASSWORD_MIN_LENGTH}
           required
           ref={passwordRef}
         />
@@ -59,7 +60,7 @@ export function PasswordForm() {
           id="confirmPassword"
           name="confirmPassword"
           autoComplete="new-password"
-          minLength={6}
+          minLength={PASSWORD_MIN_LENGTH}
           required
           ref={confirmRef}
         />

@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -119,7 +120,7 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   }
 
   const { data: coaNumber, error: coaNumError } = await supabase.rpc("get_next_coa_number");
-  if (coaNumError || !coaNumber) return { error: coaNumError?.message ?? "Could not generate a COA number." };
+  if (coaNumError || !coaNumber) return { error: friendlyDbError(coaNumError, "Could not generate a COA number.") };
 
   const { data: inserted, error } = await supabase
     .from("coa_records")
@@ -136,7 +137,7 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
     })
     .select("id")
     .single();
-  if (error || !inserted) return { error: error?.message ?? "Could not save the certificate." };
+  if (error || !inserted) return { error: friendlyDbError(error, "Could not save the certificate.") };
 
   revalidatePath("/coa");
   redirect(`/coa/${inserted.id}?created=1`);

@@ -7,6 +7,7 @@ import { DEPARTMENTS, UNITS, convertUnit } from "@/lib/constants/units";
 import { resolveDisplayStatus } from "@/lib/finished-product-status";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -312,7 +313,7 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
   // generated once up front so it can be included directly in the insert
   // below rather than a separate update after.
   const { data: issueCode, error: codeError } = await supabase.rpc("get_next_packaging_issue_code");
-  if (codeError || !issueCode) return { error: codeError?.message || "Could not generate a packaging issue code." };
+  if (codeError || !issueCode) return { error: friendlyDbError(codeError, "Could not generate a packaging issue code.") };
 
   const { data: issue, error } = await supabase
     .from("packaging_issues")
@@ -332,7 +333,7 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
     })
     .select("id")
     .single();
-  if (error || !issue) return { error: error?.message || "Could not create the packaging issue." };
+  if (error || !issue) return { error: friendlyDbError(error, "Could not create the packaging issue.") };
 
   if (materials.length > 0) {
     const { error: materialsError } = await supabase.from("packaging_issue_items").insert(
@@ -348,7 +349,7 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
       // a materials-free packaging_issues header behind if the lines insert
       // fails partway through.
       await supabase.from("packaging_issues").delete().eq("id", issue.id);
-      return { error: materialsError.message };
+      return { error: friendlyDbError(materialsError) };
     }
   }
 

@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { convertUnit } from "@/lib/constants/units";
 import { escapeLike } from "@/lib/utils";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -81,7 +82,7 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
 
   // po_number is always generated here via the Postgres RPC, never in JS.
   const { data: poNumber, error: numError } = await supabase.rpc("get_next_po_number");
-  if (numError) return { error: numError.message };
+  if (numError) return { error: friendlyDbError(numError) };
 
   const { data, error } = await supabase
     .from("purchase_orders")
@@ -93,7 +94,7 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
     })
     .select("id, po_number, invoice_number, invoice_date, created_at, vendor:vendors(id, vendor_code, name)")
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/purchase");
 
@@ -137,7 +138,7 @@ export async function previewBatchNumber(itemId: string): Promise<{ batchNumber?
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_next_batch_number", { p_item_id: itemId });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
   return { batchNumber: data as string };
 }
 
@@ -287,7 +288,7 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
     const { data: batchNumber, error: batchError } = await supabase.rpc("get_next_batch_number", {
       p_item_id: item_id,
     });
-    if (batchError) return { error: batchError.message };
+    if (batchError) return { error: friendlyDbError(batchError) };
 
     // remaining_qty is a DB-generated column (quantity - qc_qty -
     // stability_qty - rnd_qty) — not set here. Inserting this row fires
@@ -325,7 +326,7 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
           "Another purchase line for this item was saved at the same moment and took the next batch number — please try saving again.",
       };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath(`/purchase/${purchase_order_id}`);
@@ -360,7 +361,7 @@ export async function deletePurchaseOrder(id: string, _prev: ActionState, _formD
           "Can't delete — one or more lines on this purchase order have QC, production, or inventory records on file. Only a purchase order with no downstream activity can be deleted.",
       };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/purchase");
@@ -408,7 +409,7 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
     .select("unit, purchase_order_id, purchase_orders!inner(status)")
     .eq("id", lineId)
     .maybeSingle();
-  if (fetchError) return { error: fetchError.message };
+  if (fetchError) return { error: friendlyDbError(fetchError) };
   if (!current) return { error: "Purchase line not found." };
   const line = current as unknown as LineWithPoStatus;
   if (line.purchase_orders?.status !== "draft") {
@@ -488,7 +489,7 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
       // stored value (if any) is simply left as-is by this update.
     })
     .eq("id", lineId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath(`/purchase/${line.purchase_order_id}`);
   revalidatePath("/purchase");
@@ -506,7 +507,7 @@ export async function deletePurchaseLine(lineId: string, _prev: ActionState, _fo
     .select("purchase_order_id, purchase_orders!inner(status)")
     .eq("id", lineId)
     .maybeSingle();
-  if (fetchError) return { error: fetchError.message };
+  if (fetchError) return { error: friendlyDbError(fetchError) };
   if (!current) return { error: "Purchase line not found." };
   const line = current as unknown as { purchase_order_id: string; purchase_orders: { status: string } | null };
   if (line.purchase_orders?.status !== "draft") {
@@ -524,7 +525,7 @@ export async function deletePurchaseLine(lineId: string, _prev: ActionState, _fo
     if (error.code === "23503") {
       return { error: "Can't delete — this line has QC, production, or inventory records on file." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath(`/purchase/${line.purchase_order_id}`);
@@ -548,7 +549,7 @@ export async function submitPurchaseOrder(id: string, _prev: ActionState, _formD
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("submit_purchase_order", { p_po_id: id });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath(`/purchase/${id}`);
   revalidatePath("/purchase");
@@ -564,7 +565,7 @@ export async function reopenPurchaseOrder(id: string, _prev: ActionState, _formD
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("reopen_purchase_order", { p_po_id: id });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath(`/purchase/${id}`);
   revalidatePath("/purchase");

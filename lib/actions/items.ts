@@ -7,6 +7,7 @@ import { UNITS } from "@/lib/constants/units";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { escapeLike } from "@/lib/utils";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -67,7 +68,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   const { data: itemCode, error: codeError } = await supabase.rpc("get_next_item_code", {
     p_category: category,
   });
-  if (codeError) return { error: `Could not generate item code: ${codeError.message}` };
+  if (codeError) return { error: `Could not generate item code: ${friendlyDbError(codeError)}` };
 
   // default_qc_qty / default_stability_qty / default_rnd_qty /
   // default_sample_unit are deliberately NOT set here (2 Sept 2026 — "no
@@ -96,7 +97,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
     if (error.code === "23505") {
       return { error: error.message.includes("barcode") ? "This barcode is already in use." : "That item code already exists." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/items");
@@ -141,7 +142,7 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     .select("category")
     .eq("id", id)
     .single();
-  if (existingError || !existing) return { error: existingError?.message || "Item not found." };
+  if (existingError || !existing) return { error: friendlyDbError(existingError, "Item not found.") };
 
   // Same case-insensitive duplicate-name check as createItem() above, self-
   // excluded so saving an item without changing its name doesn't collide
@@ -195,7 +196,7 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     if (error.code === "23505") {
       return { error: error.message.includes("barcode") ? "This barcode is already in use." : "Duplicate value." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/items");
@@ -221,7 +222,7 @@ export async function deleteItem(id: string, _prev: ActionState, _formData: Form
           "Can't delete — this item has purchase, QC, inventory, production, or MFR records on file. Deactivate it instead.",
       };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/items");

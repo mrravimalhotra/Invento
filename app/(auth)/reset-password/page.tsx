@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updatePassword, type ActionState } from "@/lib/actions/auth";
 import { Field, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
 
 export default function ResetPasswordPage() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(updatePassword, undefined);
@@ -40,12 +41,12 @@ export default function ResetPasswordPage() {
           {state.success} Redirecting…
         </p>
       )}
-      <Field label="New password" htmlFor="password" required hint="At least 6 characters.">
+      <Field label="New password" htmlFor="password" required hint={`At least ${PASSWORD_MIN_LENGTH} characters.`}>
         <PasswordInput
           id="password"
           name="password"
           autoComplete="new-password"
-          minLength={6}
+          minLength={PASSWORD_MIN_LENGTH}
           required
           ref={passwordRef}
         />
@@ -55,7 +56,7 @@ export default function ResetPasswordPage() {
           id="confirmPassword"
           name="confirmPassword"
           autoComplete="new-password"
-          minLength={6}
+          minLength={PASSWORD_MIN_LENGTH}
           required
           ref={confirmRef}
         />

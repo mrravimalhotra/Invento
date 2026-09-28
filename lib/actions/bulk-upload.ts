@@ -64,6 +64,7 @@ import {
   type BulkUploadModuleKey,
   type ColumnDef,
 } from "@/lib/bulk-upload/schemas";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type BulkUploadState =
   | { error?: string; rowErrors?: string[]; success?: string }
@@ -265,7 +266,7 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
   for (const p of parsed) {
     const { data: itemCode, error: codeError } = await supabase.rpc("get_next_item_code", { p_category: p.category });
     if (codeError || !itemCode) {
-      return { error: `Could not generate an item code (stopped after ${insertRows.length} of ${parsed.length}): ${codeError?.message ?? "unknown error"}` };
+      return { error: `Could not generate an item code (stopped after ${insertRows.length} of ${parsed.length}): ${friendlyDbError(codeError, "unknown error")}` };
     }
     insertRows.push({
       item_code: itemCode,
@@ -286,7 +287,7 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
         ? error.message.includes("barcode")
           ? "One of the barcodes in this file is already used by an existing item — nothing was imported."
           : "One of the item codes generated for this file already exists — nothing was imported. Please try again."
-        : error.message;
+        : friendlyDbError(error);
     return { error: msg };
   }
 
@@ -362,13 +363,13 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
   for (const p of parsed) {
     const { data: vendorCode, error: codeError } = await supabase.rpc("get_next_vendor_code");
     if (codeError || !vendorCode) {
-      return { error: `Could not generate a vendor code (stopped after ${insertRows.length} of ${parsed.length}): ${codeError?.message ?? "unknown error"}` };
+      return { error: `Could not generate a vendor code (stopped after ${insertRows.length} of ${parsed.length}): ${friendlyDbError(codeError, "unknown error")}` };
     }
     insertRows.push({ vendor_code: vendorCode, name: p.name, address: p.address, mobile: p.mobile, phone: p.phone, email: p.email });
   }
 
   const { error } = await supabase.from("vendors").insert(insertRows);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/vendors");
   return { success: `Imported ${insertRows.length} vendor${insertRows.length === 1 ? "" : "s"}.` };
@@ -429,7 +430,7 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
       error:
         error.code === "23505"
           ? "One of these descriptions already exists as an item type — nothing was imported."
-          : error.message,
+          : friendlyDbError(error),
     };
   }
 
@@ -788,7 +789,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   if (payload.length === 0) return { error: "No MFR rows found in that file." };
 
   const { data, error } = await supabase.rpc("bulk_create_mfr_definitions", { p_payload: payload });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   // As of 0041_mfr_deferred_approval.sql, bulk-uploaded MFRs land the same
   // way a manually-created one now does: unapproved, with no Finished
@@ -1104,7 +1105,7 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
         error: "Two lines in this file needed the same auto-generated batch number at once — please try uploading again.",
       };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/purchase");
@@ -1247,7 +1248,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     const { data: equipmentCode, error: codeError } = await supabase.rpc("get_next_equipment_code");
     if (codeError || !equipmentCode) {
       return {
-        error: `Could not generate an equipment code (stopped after ${insertRows.length} of ${parsed.length}): ${codeError?.message ?? "unknown error"}`,
+        error: `Could not generate an equipment code (stopped after ${insertRows.length} of ${parsed.length}): ${friendlyDbError(codeError, "unknown error")}`,
       };
     }
     insertRows.push({
@@ -1264,7 +1265,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
   }
 
   const { error } = await supabase.from("equipment").insert(insertRows);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/equipment");
   return { success: `Imported ${insertRows.length} equipment record${insertRows.length === 1 ? "" : "s"}.` };
@@ -1407,7 +1408,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
     const { data: assetCode, error: codeError } = await supabase.rpc("get_next_dead_stock_code");
     if (codeError || !assetCode) {
       return {
-        error: `Could not generate an asset code (stopped after ${insertRows.length} of ${parsed.length}): ${codeError?.message ?? "unknown error"}`,
+        error: `Could not generate an asset code (stopped after ${insertRows.length} of ${parsed.length}): ${friendlyDbError(codeError, "unknown error")}`,
       };
     }
     insertRows.push({
@@ -1427,7 +1428,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
   }
 
   const { error } = await supabase.from("dead_stock_items").insert(insertRows);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/dead-stock");
   return { success: `Imported ${insertRows.length} dead stock record${insertRows.length === 1 ? "" : "s"}.` };
@@ -1533,7 +1534,7 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
   if (payload.length === 0) return { error: "No COA template rows found in that file." };
 
   const { data, error } = await supabase.rpc("bulk_create_coa_templates", { p_payload: payload });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/coa/templates");
   const templateCount = data?.length ?? payload.length;

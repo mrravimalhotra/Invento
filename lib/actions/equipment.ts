@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { escapeLike } from "@/lib/utils";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -76,7 +77,7 @@ export async function createEquipment(_prev: ActionState, formData: FormData): P
   }
 
   const { data: equipmentCode, error: codeError } = await supabase.rpc("get_next_equipment_code");
-  if (codeError) return { error: codeError.message };
+  if (codeError) return { error: friendlyDbError(codeError) };
 
   const { error } = await supabase.from("equipment").insert({
     equipment_code: equipmentCode,
@@ -89,7 +90,7 @@ export async function createEquipment(_prev: ActionState, formData: FormData): P
     last_calibration_date: parsed.data.last_calibration_date || null,
     next_calibration_due: parsed.data.next_calibration_due || null,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/equipment");
   // Same "add form lives inline on the list page" pattern as Vendor Master
@@ -141,7 +142,7 @@ export async function updateEquipment(
       active,
     })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/equipment");
   revalidatePath(`/equipment/${id}`);
@@ -157,7 +158,7 @@ export async function deleteEquipment(id: string, _prev: ActionState, _formData:
 
   const supabase = await createClient();
   const { error } = await supabase.from("equipment").delete().eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/equipment");
   redirect("/equipment");

@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -62,7 +63,7 @@ export async function recordWastage(_prev: ActionState, formData: FormData): Pro
     if (error.message.includes("live_remaining_not_negative")) {
       return { error: "Not enough of that batch remaining — check the batch's remaining quantity and try a smaller amount." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/inventory");

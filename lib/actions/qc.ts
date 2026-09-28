@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -51,7 +52,7 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
-  if (arError || !arNumber) return { error: arError?.message ?? "Could not generate an AR number." };
+  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an AR number.") };
 
   const { data: inserted, error } = await supabase
     .from("quality_checks")
@@ -83,7 +84,7 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
       // this insert.
       return { error: "This batch already has a QC record submitted against it." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/qc");
@@ -136,7 +137,7 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
       checker_at: new Date().toISOString(),
     })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/qc");
   revalidatePath(`/qc/${id}`);
@@ -200,7 +201,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/qc");
   revalidatePath(`/qc/${id}`);
@@ -242,7 +243,7 @@ export async function startRetestQualityCheck(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (latestError) return { error: latestError.message };
+  if (latestError) return { error: friendlyDbError(latestError) };
   if (!latestQc || latestQc.status !== "approved") {
     return { error: "This batch is not due for retest." };
   }
@@ -252,7 +253,7 @@ export async function startRetestQualityCheck(
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
-  if (arError || !arNumber) return { error: arError?.message ?? "Could not generate an AR number." };
+  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an AR number.") };
 
   const { data: inserted, error } = await supabase
     .from("quality_checks")
@@ -277,7 +278,7 @@ export async function startRetestQualityCheck(
       // and this insert.
       return { error: "This batch already has a QC record submitted against it." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/qc");
@@ -320,7 +321,7 @@ export async function createProductionQualityCheck(
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
-  if (arError || !arNumber) return { error: arError?.message ?? "Could not generate an AR number." };
+  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an AR number.") };
 
   const { data: inserted, error: insertError } = await supabase
     .from("quality_checks")
@@ -343,7 +344,7 @@ export async function createProductionQualityCheck(
       // insert.
       return { error: "This batch already has a QC record submitted against it." };
     }
-    return { error: insertError.message };
+    return { error: friendlyDbError(insertError) };
   }
 
   revalidatePath("/qc");
@@ -380,7 +381,7 @@ export async function startProductionRetestQualityCheck(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (latestError) return { error: latestError.message };
+  if (latestError) return { error: friendlyDbError(latestError) };
   if (!latestQc || latestQc.status !== "approved") {
     return { error: "This batch is not due for retest." };
   }
@@ -390,7 +391,7 @@ export async function startProductionRetestQualityCheck(
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
-  if (arError || !arNumber) return { error: arError?.message ?? "Could not generate an AR number." };
+  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an AR number.") };
 
   const { data: inserted, error: insertError } = await supabase
     .from("quality_checks")
@@ -411,7 +412,7 @@ export async function startProductionRetestQualityCheck(
     if (insertError.code === "23505") {
       return { error: "This batch already has a QC record submitted against it." };
     }
-    return { error: insertError.message };
+    return { error: friendlyDbError(insertError) };
   }
 
   revalidatePath("/qc");

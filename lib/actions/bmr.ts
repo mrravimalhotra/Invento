@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -47,7 +48,7 @@ export async function createBmrRecord(_prev: ActionState, formData: FormData): P
       // constraint-violation text instead of letting it reach the user.
       return { error: "This finished product batch already has a BMR record." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath("/admin/bmr-deprecated");
@@ -92,7 +93,7 @@ export async function addWeighmentLine(
     if (error.message.includes(QC_GATE_MARKER)) {
       return { error: "That batch is not QC-Approved and cannot be used for weighment. Choose an Approved batch." };
     }
-    return { error: error.message };
+    return { error: friendlyDbError(error) };
   }
 
   revalidatePath(`/admin/bmr-deprecated/${bmrRecordId}`);
@@ -118,7 +119,7 @@ export async function addObservation(
     reading: reading || null,
     recorded_by: user!.id,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath(`/admin/bmr-deprecated/${bmrRecordId}`);
   return { success: "Observation added." };
@@ -150,7 +151,7 @@ async function signOffStep(
     .from("bmr_records")
     .update({ [`${step}_by`]: user!.id, [atCol]: new Date().toISOString() })
     .eq("id", bmrRecordId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error) };
 
   revalidatePath(`/admin/bmr-deprecated/${bmrRecordId}`);
   revalidatePath("/admin/bmr-deprecated");
