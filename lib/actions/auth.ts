@@ -20,25 +20,16 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
   redirect(next || "/");
 }
 
-export async function signUp(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const email = String(formData.get("email") || "").trim().toLowerCase();
-  const password = String(formData.get("password") || "");
-  const confirmPassword = String(formData.get("confirmPassword") || "");
-  const fullName = String(formData.get("fullName") || "").trim();
-
-  if (!email || !password || !fullName) return { error: "All fields are required." };
-  if (password.length < 6) return { error: "Password must be at least 6 characters." };
-  if (password !== confirmPassword) return { error: "Passwords do not match." };
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } },
-  });
-  if (error) return { error: error.message };
-
-  redirect("/login?registered=1");
+// Self-registration is closed (28 Sept 2026): a System Admin creates accounts
+// via createUserAccount (lib/actions/admin-users.ts). Kept as an exported,
+// always-refusing action so any stale client that still posts here gets a
+// clear answer. Note this does NOT stop a direct call to Supabase Auth's own
+// signup endpoint with the public anon key — for that, "Allow new users to
+// sign up" must also be switched off in the Supabase dashboard.
+export async function signUp(_prev: ActionState, _formData: FormData): Promise<ActionState> {
+  return {
+    error: "Self-registration is disabled. Ask your System Administrator to create your account.",
+  };
 }
 
 export async function signOut() {

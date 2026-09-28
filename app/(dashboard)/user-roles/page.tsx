@@ -5,7 +5,9 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { ShieldAlert } from "lucide-react";
+import { getUserAccountStatuses } from "@/lib/auth/user-accounts";
 import { UserRoleRow } from "./user-role-row";
+import { AddUserForm } from "./add-user-form";
 
 type ProfileRow = { id: string; full_name: string | null };
 type RoleRow = { user_id: string; role: string };
@@ -20,7 +22,7 @@ export default async function UserRolesPage() {
     <div>
       <PageHeader
         title="User Roles & Access"
-        description="Assign roles to control who can write to each module. Reads stay open to every signed-in user; writes are role-gated."
+        description="Create user accounts, reset passwords, and assign roles. Self-registration is closed — every account is created here."
       />
 
       <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber/30 bg-amber-bg px-4 py-3 text-sm text-amber">
@@ -52,10 +54,13 @@ export default async function UserRolesPage() {
 async function UserRolesManager({ currentUserId }: { currentUserId: string }) {
   const supabase = await createClient();
 
-  const [{ data: profiles, error: profilesError }, { data: roleRows, error: rolesError }] =
+  // Only reached for system_admin (canManage above) — getUserAccountStatuses
+  // reads Supabase Auth through the service-role client.
+  const [{ data: profiles, error: profilesError }, { data: roleRows, error: rolesError }, accounts] =
     await Promise.all([
       supabase.from("profiles").select("id, full_name").order("full_name", { ascending: true }),
       supabase.from("user_roles").select("user_id, role"),
+      getUserAccountStatuses(),
     ]);
 
   const roleMap = new Map<string, string[]>();
@@ -68,27 +73,42 @@ async function UserRolesManager({ currentUserId }: { currentUserId: string }) {
   const users = (profiles ?? []) as ProfileRow[];
 
   return (
-    <Card>
-      <CardHeader title={`Users (${users.length})`} />
-      {(profilesError || rolesError) && (
-        <CardBody className="text-sm text-red">
-          {profilesError?.message ?? rolesError?.message ?? "Could not load users."}
-        </CardBody>
-      )}
-      <div className="divide-y divide-border">
-        {users.length === 0 && !profilesError && (
-          <CardBody className="text-sm text-muted">No users found yet.</CardBody>
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader title="Add user" />
+        {accounts ? (
+          <AddUserForm />
+        ) : (
+          <CardBody className="text-sm text-amber">
+            Adding users and resetting passwords needs the Supabase service-role key on the server
+            (<code className="font-mono">SUPABASE_SERVICE_ROLE_KEY</code>). It isn&apos;t set yet — see
+            docs/SUPABASE_SETUP.md. Role assignment below still works.
+          </CardBody>
         )}
-        {users.map((u) => (
-          <UserRoleRow
-            key={u.id}
-            userId={u.id}
-            displayName={u.full_name || "(no name set)"}
-            isSelf={u.id === currentUserId}
-            currentRoles={roleMap.get(u.id) ?? []}
-          />
-        ))}
-      </div>
-    </Card>
+      </Card>
+      <Card>
+        <CardHeader title={`Users (${users.length})`} />
+        {(profilesError || rolesError) && (
+          <CardBody className="text-sm text-red">
+            {profilesError?.message ?? rolesError?.message ?? "Could not load users."}
+          </CardBody>
+        )}
+        <div className="divide-y divide-border">
+          {users.length === 0 && !profilesError && (
+            <CardBody className="text-sm text-muted">No users found yet.</CardBody>
+          )}
+          {users.map((u) => (
+            <UserRoleRow
+              key={u.id}
+              userId={u.id}
+              displayName={u.full_name || "(no name set)"}
+              isSelf={u.id === currentUserId}
+              currentRoles={roleMap.get(u.id) ?? []}
+              account={accounts?.get(u.id) ?? null}
+            />
+          ))}
+        </div>
+      </Card>
+    </div>
   );
 }

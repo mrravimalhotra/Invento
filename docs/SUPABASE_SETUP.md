@@ -67,11 +67,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 NEXT_PUBLIC_SITE_URL=http://localhost:3000     # becomes your real domain in production
 ```
 
-Leave `SUPABASE_SERVICE_ROLE_KEY` blank for now — only set it in your
-shell environment when you actually run the seed-admin script (step 6),
-never commit it, never put it in `.env.local` if that file might end up
-anywhere shared. `.env.local` is already git-ignored, but the service-role
-key bypasses every RLS policy in the app, so treat it like a root password.
+Also set `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → service_role
+key). Since 28 Sept 2026 the app needs it on the server for user management
+— System Admins create accounts, reset passwords and see sign-in status from
+User Roles & Access (`docs/modules/user-roles.md`). It is read only by
+`lib/supabase/admin.ts`, which is marked `server-only` so the build fails if
+it ever reaches browser code. Never give it a `NEXT_PUBLIC_` prefix, never
+commit it; `.env.local` is git-ignored. It bypasses every RLS policy, so
+treat it like a root password.
 
 ## 5. Configure Auth
 
@@ -91,7 +94,12 @@ settings matter:
    want **Confirm email** on — if it's on, a new registrant can't sign in
    until they click the link in a confirmation email; if you're the only
    one testing for now, turning it off is simpler and you can turn it back
-   on before real users register.
+   on before real users register. (Accounts created by a System Admin in the
+   app are created already confirmed, so this setting doesn't affect them.)
+4. **Authentication → Sign In / Providers → User Signups**: switch **off**
+   "Allow new users to sign up". Self-registration is closed in the app
+   (28 Sept 2026); this closes Supabase's own signup endpoint too, which the
+   public anon key could otherwise still reach directly.
 
 ## 6. Install, run, and bootstrap the first admin
 
@@ -100,9 +108,10 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), register an account
-at `/register`. Registering only creates a sign-in — it grants **no
-roles**, by design (see `docs/DESIGN.md` §3: the User Roles screen is
+Create the very first account in the Supabase dashboard (**Authentication →
+Users → Add user → Create new user**, tick *Auto Confirm User*) — the app's
+`/register` page is closed and every later account is created from inside
+the app by a System Admin. That account has **no roles**, by design (see `docs/DESIGN.md` §3: the User Roles screen is
 itself `system_admin`-only, so nobody can self-escalate, which means the
 very first admin has to be granted from outside the app).
 
@@ -141,9 +150,12 @@ Next.js app). Whichever you use:
 - Update Supabase **Authentication → URL Configuration** (step 5) to your
   production domain, and add its `/reset-password` path to Redirect URLs —
   keep the localhost ones too if you'll still develop locally afterward.
-- Never set `SUPABASE_SERVICE_ROLE_KEY` in the hosting platform's
-  environment — it's a local-only, one-time bootstrap secret for
-  `scripts/seed-admin.ts`, the deployed app itself never reads it.
+- Also set `SUPABASE_SERVICE_ROLE_KEY` there as a plain server-side
+  variable (no `NEXT_PUBLIC_` prefix; on Vercel, mark it *Sensitive*). The
+  deployed app reads it only in `lib/supabase/admin.ts` for System Admin user
+  management. **Changed 28 Sept 2026** — this guide previously said the
+  deployed app never reads it; that stopped being true when admin-managed
+  accounts replaced self-registration.
 
 ## Troubleshooting
 

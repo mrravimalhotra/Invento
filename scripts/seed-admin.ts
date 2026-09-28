@@ -3,12 +3,11 @@
  * by email. The User Roles & Access screen itself is system_admin-only
  * (docs/DESIGN.md §3), so the very first admin has to be granted outside
  * the app — this script is that one exception, and it requires the
- * service-role key (never used anywhere else in this codebase) precisely
- * because it must bypass RLS.
+ * service-role key precisely because it must bypass RLS.
  *
  * Usage:
- *   1. Sign up normally at /register with the account that should become
- *      the first admin.
+ *   1. Create the account in the Supabase dashboard (Authentication → Users
+ *      → Add user, Auto Confirm) — /register is closed since 28 Sept 2026.
  *   2. SUPABASE_SERVICE_ROLE_KEY=... NEXT_PUBLIC_SUPABASE_URL=... \
  *        npx tsx scripts/seed-admin.ts you@example.com
  */

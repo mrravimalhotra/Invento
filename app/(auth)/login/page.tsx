@@ -18,18 +18,11 @@ export default function LoginPage() {
 function LoginForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(signIn, undefined);
   const params = useSearchParams();
-  const registered = params.get("registered");
   const next = params.get("next") ?? "/";
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Sign in</h2>
-      {registered && (
-        <p className="rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
-          Account created. If your project requires email confirmation, check your inbox for a
-          confirmation link before signing in.
-        </p>
-      )}
       {state?.error && <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{state.error}</p>}
       <input type="hidden" name="next" value={next} />
       <Field label="Email" htmlFor="email" required>
@@ -47,10 +40,7 @@ function LoginForm() {
         {pending ? "Signing in…" : "Sign in"}
       </Button>
       <p className="text-center text-sm text-muted">
-        No account?{" "}
-        <Link href="/register" className="text-brand hover:underline">
-          Register
-        </Link>
+        No account? Ask your System Administrator to create one.
       </p>
     </form>
   );

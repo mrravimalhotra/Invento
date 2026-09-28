@@ -62,16 +62,54 @@ the Server Action.
 
 ### Users list — what's shown, what isn't
 
-Users are listed by **display name only** (from `profiles.full_name`, the
-thin wrapper table populated on signup by the `handle_new_user()` trigger).
-Email is *not* shown: `auth.users` isn't queryable from the client under RLS,
-and there's no `profiles.email` column. Showing email would need a small
-`/api/admin/users` Route Handler backed by the service-role key — that's a
-few hours of work (an admin-only Route Handler calling
-`supabase.auth.admin.listUsers()`), explicitly out of scope for this pass.
-Flagging it here for Ravi to prioritize if email-in-list turns out to matter
-in practice; name-only was sufficient to identify every seeded/test account
-during review.
+Users are listed by display name (from `profiles.full_name`, populated by the
+`handle_new_user()` trigger). Since 28 Sept 2026 each row also shows the
+account's **email**, **last sign-in**, and a **"Temporary password — not
+changed yet"** badge. Those three come from Supabase Auth, not from a table
+RLS can expose, so the page reads them through the service-role client
+(`lib/auth/user-accounts.ts`, `getUserAccountStatuses()`), and only inside the
+`system_admin` branch of the page. If `SUPABASE_SERVICE_ROLE_KEY` isn't set on
+the server, the page still works for role assignment and shows an amber note
+in place of the Add user form.
+
+## Account creation and temporary passwords (28 Sept 2026)
+
+Ravi: "admin should be able to set user and default password which should be
+changed at first login" — replacing public self-registration, which let
+anyone create a login (see `docs/AI_TESTING_SECURITY_PERFORMANCE_REFERENCE.md`,
+SEC-01).
+
+- **Add user** card (top of `/user-roles`, `system_admin` only): full name,
+  email, temporary password (type one or click **Generate** — 12 characters
+  from `crypto.getRandomValues`, look-alike characters removed), and at least
+  one role. `createUserAccount` (`lib/actions/admin-users.ts`) creates the
+  Supabase Auth user already email-confirmed, with
+  `app_metadata.must_change_password = true`, then inserts the roles **with
+  the admin's own session** so `user_roles`' RLS policy still gates them. If
+  the role insert fails, the just-created account is deleted again so no
+  role-less login is left behind. After success the email and temporary
+  password stay on screen so the admin can pass them on privately.
+- **Reset password** (per row, two-step, not shown on your own row):
+  `resetUserPassword` sets a new temporary password and re-sets the flag.
+- **Forced change:** `proxy.ts` → `lib/supabase/middleware.ts` reads the user
+  fresh from Supabase Auth on every request; while the flag is set, every
+  route (pages and Server Action POSTs) redirects to `/change-password`,
+  which is the only page they can use (plus Sign out). A reset therefore also
+  locks any session the user already had open. `completePasswordChange`
+  changes the password first (Supabase rejects reusing the temporary one),
+  then clears the flag with the service-role client, refreshes the session
+  and sends them to the dashboard. The redirect rule is a pure function,
+  `forcedPasswordChangeRedirect()` in `lib/constants/auth.ts`.
+- **Why `app_metadata`:** users can edit their own `user_metadata` but not
+  `app_metadata` (service-role only), so nobody can clear the flag on
+  themselves. Known limit: someone holding a temporary password could still
+  query the database directly before changing it — acceptable, since the
+  admin who issued it already has full access.
+- **Self-registration closed:** `/register` now explains that accounts come
+  from the System Administrator; `signUp` always refuses; the login page's
+  Register link is gone. Also switch off **Authentication → Sign In /
+  Providers → Allow new users to sign up** in Supabase — the app change alone
+  doesn't stop a direct call to Supabase Auth's signup endpoint.
 
 ## Server Action
 

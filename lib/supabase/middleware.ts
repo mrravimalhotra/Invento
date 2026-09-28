@@ -1,7 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { forcedPasswordChangeRedirect, mustChangePassword } from "@/lib/constants/auth";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+
+// Carry any session-refresh cookies staged by the Supabase client onto a
+// redirect response, so a redirect never silently drops a token refresh.
+function withSessionCookies(response: NextResponse, staged: NextResponse): NextResponse {
+  staged.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+  return response;
+}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -36,6 +44,26 @@ export async function updateSession(request: NextRequest) {
     url.pathname = "/login";
     url.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(url);
+  }
+
+  // Forced password change (28 Sept 2026): an account created or reset by a
+  // System Admin carries app_metadata.must_change_password until the user
+  // picks their own password. getUser() above reads the user fresh from
+  // Supabase Auth on every request (not from the cookie's possibly-stale
+  // JWT), so a reset takes effect immediately, even on an already-open
+  // session. Applies to every route, including Server Action POSTs, except
+  // /change-password itself (whose form and sign-out button post back to it).
+  if (user) {
+    const target = forcedPasswordChangeRedirect(
+      request.nextUrl.pathname,
+      mustChangePassword(user.app_metadata)
+    );
+    if (target) {
+      const url = request.nextUrl.clone();
+      url.pathname = target;
+      url.search = "";
+      return withSessionCookies(NextResponse.redirect(url), supabaseResponse);
+    }
   }
 
   if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/register")) {
