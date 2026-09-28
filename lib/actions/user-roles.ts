@@ -32,18 +32,13 @@ export async function setUserRoles(
 
   const supabase = await createClient();
 
-  // Replace the user's full role set: delete existing rows, insert the new
-  // selection. Matches how the old baseline's UI worked for this screen —
-  // the difference here is that this write is now RLS-gated to system_admin.
-  const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", userId);
-  if (deleteError) return { error: deleteError.message };
-
-  if (selected.length > 0) {
-    const { error: insertError } = await supabase
-      .from("user_roles")
-      .insert(selected.map((role) => ({ user_id: userId, role })));
-    if (insertError) return { error: insertError.message };
-  }
+  // SEC-07 (28 Sept 2026, 0073_set_user_roles.sql): one database call that
+  // saves the whole role set in a single transaction — previously a
+  // delete-all followed by a separate insert, where a failure in between
+  // left the user with no roles. The database also refuses any change that
+  // would leave no System Admin, and returns that as a readable message.
+  const { error } = await supabase.rpc("set_user_roles", { p_user_id: userId, p_roles: selected });
+  if (error) return { error: error.message };
 
   // Topbar stale-role-badge fix (13 Sept 2026, reported directly by Ravi
   // with screenshots, not a filed /feedback ticket): revalidatePath(

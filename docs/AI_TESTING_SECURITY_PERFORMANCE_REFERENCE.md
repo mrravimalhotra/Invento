@@ -591,6 +591,7 @@ Severity reflects this app's context: an internal, low-user-count GMP system whe
 - **Fix:** inside the RPC, `select item_id, unit, pushed_at from purchase_lines where id = p_purchase_line_id for update`; raise if not found/not pushed/item mismatch; convert `p_quantity` with `convert_unit(p_quantity, p_unit, line.unit)` or raise if null; require `p_quantity > 0`; always write the line's unit. **Test:** WST-04..07.
 
 ### SEC-07 — Role changes are non-atomic and can lock out all admins · **Medium** · [VERIFIED]
+- **Status (28 Sept 2026): fixed by migration `0073_set_user_roles.sql`.** `set_user_roles()` saves the role set in one transaction (add ticked, remove un-ticked); statement-level guard triggers on `user_roles` refuse any delete/update/cascade that leaves zero `system_admin` rows, on every path, serialised by an advisory lock. Audit rows come from the 0072 trigger. See `docs/modules/user-roles.md`.
 - **Evidence:** `setUserRoles()` (`lib/actions/user-roles.ts:38-45`) deletes all roles, then inserts the new set in a second statement; a failure between them leaves the user role-less. Nothing prevents removing the last `system_admin`. `user_roles` changes are in `audit_log` since 0072 (DES-02).
 - **Fix:** replace with `set_user_roles(p_user_id uuid, p_roles text[])` SECURITY DEFINER RPC: admin check, single transaction, raise if the result leaves zero `system_admin` rows, write an audit row. **Test:** RBAC-13, ADM-06.
 

@@ -123,20 +123,26 @@ SEC-01).
    the `ROLES` constant (defense against a tampered form posting an invalid
    role string — the DB `check` constraint would reject it anyway, but this
    fails earlier with a clearer path).
-3. Deletes the user's existing `user_roles` rows, then inserts the new
-   selection.
-4. `revalidatePath("/user-roles")`.
+3. Calls `set_user_roles(p_user_id, p_roles)` (`0073_set_user_roles.sql`,
+   SEC-07) — one database transaction that adds the newly ticked roles and
+   removes the un-ticked ones (untouched roles stay as they are, so the audit
+   log shows only real changes). Before 28 Sept 2026 this was a delete-all
+   followed by a separate insert, which could leave a user with no roles if
+   the second request failed.
+4. `revalidatePath("/user-roles")` and the root layout (Topbar badge).
 
-## Known behavior worth flagging to Ravi
+## Last System Admin guard (SEC-07, 28 Sept 2026)
 
-Unchecking your own `system_admin` box and saving removes your own admin
-access immediately (no confirmation dialog, no "last admin" guard) — this
-matches the old baseline's behavior exactly and the task brief didn't ask for
-a lockout guard, but it's easy to do by accident. `scripts/seed-admin.ts`
-exists specifically to re-bootstrap a `system_admin` from the server side if
-every admin account ever gets locked out this way, so it's recoverable, not
-catastrophic — flagging in case a "can't remove the last system_admin"
-guard is wanted in a follow-up pass.
+The database refuses any change that would leave no System Admin — un-ticking
+the box on this screen, a direct API delete/update of a `user_roles` row, a
+SQL-editor delete, or deleting that user's account (the cascade is caught
+too). The whole save is rolled back, so the user keeps their previous roles,
+and the screen shows "At least one System Admin must remain. Give System
+Admin to another user first." An admin can still remove their own admin
+access while another admin exists. Two admins removing each other at the
+same moment are serialised by a transaction lock, so only one succeeds
+(verified locally for both the screen path and direct API deletes).
+`scripts/seed-admin.ts` remains the server-side recovery path.
 
 ## Files
 
