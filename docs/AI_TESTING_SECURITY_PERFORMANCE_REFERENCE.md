@@ -587,7 +587,7 @@ Severity reflects this app's context: an internal, low-user-count GMP system whe
 - **Fix:** inside the RPC, `select item_id, unit, pushed_at from purchase_lines where id = p_purchase_line_id for update`; raise if not found/not pushed/item mismatch; convert `p_quantity` with `convert_unit(p_quantity, p_unit, line.unit)` or raise if null; require `p_quantity > 0`; always write the line's unit. **Test:** WST-04..07.
 
 ### SEC-07 — Role changes are non-atomic and can lock out all admins · **Medium** · [VERIFIED]
-- **Evidence:** `setUserRoles()` (`lib/actions/user-roles.ts:38-45`) deletes all roles, then inserts the new set in a second statement; a failure between them leaves the user role-less. Nothing prevents removing the last `system_admin`. `user_roles` changes are also not in `audit_log` (see DES-02).
+- **Evidence:** `setUserRoles()` (`lib/actions/user-roles.ts:38-45`) deletes all roles, then inserts the new set in a second statement; a failure between them leaves the user role-less. Nothing prevents removing the last `system_admin`. `user_roles` changes are in `audit_log` since 0072 (DES-02).
 - **Fix:** replace with `set_user_roles(p_user_id uuid, p_roles text[])` SECURITY DEFINER RPC: admin check, single transaction, raise if the result leaves zero `system_admin` rows, write an audit row. **Test:** RBAC-13, ADM-06.
 
 ### SEC-08 — Bulk upload parses the whole workbook before enforcing limits · **Low** · [REPORTED]
@@ -637,6 +637,7 @@ Admin role is the only gate; `TRUNCATE` bypasses `audit_log`. Before go-live: ga
 Every business table is readable by every signed-in user (see SEC-01). Even after SEC-01 is fixed, decide deliberately whether e.g. `quality_checker` needs vendor pricing, or `inventory_manager` needs full formula procedures. If yes, document it; if no, add role-scoped SELECT policies or column-restricted views.
 
 ### DES-02 — Audit trail covers only four tables · **High for GMP** · [VERIFIED]
+- **Status (28 Sept 2026): fixed by migration `0072`** — every business table, TRUNCATE and user accounts audited; `changed_via`; audit log immutable; `created_by` stamped by the database; `audit_coverage_report()`. See `docs/modules/audit.md`.
 `trg_fn_audit_log` is attached only to `purchase_orders`, `quality_checks`, `finished_product_batches`, `mfr_definitions`. Unaudited: `user_roles` (who granted whom admin), `purchase_lines` (quantities/prices), `items`, `vendors`, `mfr_lines` (formula changes), `mfr_procedure_steps`, `coa_templates`, `documents`, `equipment`, `dead_stock_items`, `packaging_issues`. For a pharma/nutraceutical GMP system an attributable, complete change history (ALCOA+ / 21 CFR Part 11 style) is normally expected. **Fix:** attach the existing `trg_fn_audit_log` trigger to those tables in one migration; add `user_roles` first.
 
 ### DES-03 — Lines of a submitted PO are directly editable · **High (integrity)** · [VERIFIED]
@@ -840,7 +841,7 @@ Shared helpers: `lib/auth/session.ts` (`getCurrentUser`), `lib/constants/roles.t
 | `line_clearance_checks`, `environmental_control_readings` | GMP registers | insert-only |
 | `equipment`, `dead_stock_items`, `documents` | Registers | no quantity/price CHECKs (DES-05) |
 | `page_feedback` | Tester tickets | kept across purges; `FB-####` |
-| `audit_log` | Row snapshots | 4 tables only (DES-02); readable by admin/super_auditor |
+| `audit_log` | Row snapshots | All business tables + accounts since 0072 (DES-02); immutable; readable by admin/super_auditor |
 
 Views: `stock_balance`, `item_position`, `inventory_ledger_with_balance`, `purchase_batch_status`, `production_batch_status`.
 

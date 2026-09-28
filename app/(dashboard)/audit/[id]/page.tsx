@@ -8,7 +8,15 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
-import { type AuditLogRow, tableLabel, recordLabel, diffFields, displayValue } from "../audit-diff";
+import {
+  type AuditLogRow,
+  tableLabel,
+  recordLabel,
+  diffFields,
+  displayValue,
+  changedViaLabel,
+  summarizeChange,
+} from "../audit-diff";
 
 export default async function AuditLogDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,7 +40,7 @@ export default async function AuditLogDetailPage({ params }: { params: Promise<{
   const supabase = await createClient();
   const { data: row } = await supabase
     .from("audit_log")
-    .select("id, table_name, row_id, action, old_data, new_data, changed_by, changed_at")
+    .select("id, table_name, row_id, action, old_data, new_data, changed_by, changed_at, changed_via")
     .eq("id", id)
     .maybeSingle<Omit<AuditLogRow, "changed_by_name"> & { changed_by: string | null }>();
 
@@ -57,7 +65,7 @@ export default async function AuditLogDetailPage({ params }: { params: Promise<{
       </Link>
       <PageHeader
         title={`${tableLabel(row.table_name)} · ${recordLabel(row)}`}
-        description={`Change recorded ${formatDateTime(row.changed_at)}${changedByName ? ` by ${changedByName}` : ""}.`}
+        description={`Change recorded ${formatDateTime(row.changed_at)}${changedByName ? ` by ${changedByName}` : ""}${row.changed_via ? ` via ${changedViaLabel(row.changed_via)}` : ""}.`}
       />
 
       <Card className="mb-4">
@@ -66,10 +74,20 @@ export default async function AuditLogDetailPage({ params }: { params: Promise<{
           <Badge status={row.action}>{row.action}</Badge>
           <span className="text-muted">Table: {tableLabel(row.table_name)}</span>
           <span className="text-muted">Record ID: {row.row_id}</span>
+          <span className="text-muted">Via: {changedViaLabel(row.changed_via)}</span>
+          <span className="text-muted">{summarizeChange(row)}</span>
         </CardBody>
       </Card>
 
-      {row.action === "update" ? (
+      {row.action === "truncate" ? (
+        <Card className="mb-4">
+          <CardHeader title="Whole table emptied" />
+          <CardBody className="text-sm text-muted">
+            Every row in this table was removed in one statement (TRUNCATE). Individual rows are not
+            listed for this kind of change.
+          </CardBody>
+        </Card>
+      ) : row.action === "update" ? (
         <Card className="mb-4">
           <CardHeader title={`Fields changed (${changes.length})`} />
           {changes.length === 0 ? (

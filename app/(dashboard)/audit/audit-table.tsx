@@ -4,7 +4,14 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDateTime } from "@/lib/utils";
-import { type AuditLogRow, tableLabel, recordLabel, summarizeChange } from "./audit-diff";
+import {
+  type AuditLogRow,
+  tableLabel,
+  recordLabel,
+  summarizeChange,
+  changedByLabel,
+  changedViaLabel,
+} from "./audit-diff";
 
 export type { AuditLogRow };
 
@@ -20,8 +27,15 @@ export function AuditTable({ rows }: { rows: AuditLogRow[] }) {
     },
     {
       header: "Changed By",
-      accessor: (r) => r.changed_by_name ?? "—",
-      searchValue: (r) => r.changed_by_name ?? "",
+      accessor: (r) => changedByLabel(r),
+      searchValue: (r) => changedByLabel(r),
+    },
+    // Where the change came from (0072_complete_audit_trail.sql): the Invento
+    // app, a server-side job, Supabase Auth, or a direct database edit.
+    {
+      header: "Via",
+      accessor: (r) => changedViaLabel(r.changed_via),
+      searchValue: (r) => changedViaLabel(r.changed_via),
     },
     { header: "What changed", accessor: (r) => summarizeChange(r) },
     {

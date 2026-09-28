@@ -43,6 +43,8 @@ const STATUS_STYLES: Record<string, string> = {
   insert: "bg-brand-light text-brand-dark",
   update: "bg-amber-bg text-amber",
   delete: "bg-red-bg text-red",
+  // Whole-table wipe (0072_complete_audit_trail.sql) — red, like delete.
+  truncate: "bg-red-bg text-red",
 };
 
 export function Badge({ status, children }: { status?: string; children: React.ReactNode }) {

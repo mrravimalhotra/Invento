@@ -36,7 +36,7 @@ export default async function AuditLogPage({
     <div>
       <PageHeader
         title="Audit Log"
-        description="Who changed what, and when — status and approval history for QC decisions, Finished Product batches, Purchase Orders, and MFR definitions. Restricted to System Admin and Super Auditor."
+        description="Who changed what, when, and from where — every insert, edit and delete across all Invento records (masters, purchasing, QC, production, packaging, finished products, stock corrections, user roles and accounts). Entries cannot be edited or deleted. Restricted to System Admin and Super Auditor."
       />
 
       {!canRead ? (
@@ -59,7 +59,7 @@ async function AuditLogList({ table, from, to }: { table: string; from: string; 
 
   let query = supabase
     .from("audit_log")
-    .select("id, table_name, row_id, action, old_data, new_data, changed_by, changed_at")
+    .select("id, table_name, row_id, action, old_data, new_data, changed_by, changed_at, changed_via")
     .order("changed_at", { ascending: false })
     .limit(AUDIT_LIMIT);
   if (table) query = query.eq("table_name", table);

@@ -92,12 +92,64 @@ card instead of the real content when `canReadAudit()`
 `/feedback`'s admin view. The database is the real enforcement (RLS, see
 above); this is only the UI-side mirror of that.
 
+## Complete coverage — `0072_complete_audit_trail.sql` (28 Sept 2026)
+
+DES-02 in `docs/AI_TESTING_SECURITY_PERFORMANCE_REFERENCE.md`. Ravi: "make
+sure we reuse what is already built and build on top of that ... make sure
+each insert/edit/delete etc is being audited and everything is covered and
+not missing anything, also make sure no adverse impact on performance".
+
+The four-table scope above is superseded. Built on the same `audit_log`
+table, RLS, indexes and `trg_fn_audit_log()` — nothing new to learn, just
+wider:
+
+- **Every business table** (28) is audited for insert, update and delete.
+  `user_roles` included (the trigger now takes the key column as an
+  argument, since `user_roles` has no `id`). `inventory_ledger` inserts are
+  not duplicated (the ledger is itself an append-only audit record with
+  `event_by`/`event_at`); any update or delete of a ledger row is logged.
+- **TRUNCATE** (e.g. Purge Test Data) writes one "truncate" row per table.
+- **User accounts** (`auth.users`, shown as "User Account"): creation,
+  password changes, the forced-password-change flag, email changes, bans
+  and deletion. The password hash is never stored. Admin actions are
+  attributed to the admin through `audit_account_action()`, called from
+  `lib/actions/admin-users.ts` (create user, reset password, first-login
+  password change).
+- **Via** (`changed_via`): App, Server, Supabase Auth or Database (SQL
+  editor / migration), so a direct SQL fix is labelled instead of anonymous.
+- **Tamper-proof:** audit rows cannot be updated, deleted or truncated by
+  anyone, including the SQL editor.
+- **Row stamps:** every table has `created_at`/`created_by`/`updated_at`/
+  `updated_by`, filled by the database. `created_by` is always the signed-in
+  user (a client value is overwritten). Rows that existed before 0072 keep
+  NULL where it was never recorded. This answers "submitted by / submitted
+  on" on the row itself; the audit log holds the full history behind it.
+- **Noise control:** an update that changes nothing, or only
+  system-maintained columns (`updated_at`/`updated_by`, and the stock
+  counters `purchase_lines.live_remaining_qty`,
+  `production_issue_batches.live_remaining_qty`,
+  `finished_product_batches.packaged_qty`, which the ledger already records),
+  is skipped.
+- **`audit_coverage_report()`**: returns any table missing its audit or
+  stamp triggers; empty means full coverage. The migration fails if it is
+  not empty. Run it after any future migration that adds a table.
+
+Screens: the list gains a **Via** column, "Changed By" falls back to the
+source when there is no signed-in user, the table filter lists every
+table plus User Account, and a truncate has its own badge and detail view.
+
+Local verification before delivery: 62/62 checks (every public table and
+auth.users exercised or confirmed by the coverage report; migration
+re-runs cleanly). Performance with vs without 0072: about 0.1 ms extra per
+changed row; a 1000-line PO Final Submit ~0.13 s to ~0.22 s. Storage is
+about 1 KB per audit row including indexes.
+
 ## Known follow-ups
 
-- Only four tables are covered, by design (see Scope above) — this is not
-  a whole-database audit trail.
-- No retention/archival policy yet. `audit_log` only grows; revisit if row
-  count ever becomes a real concern (unlikely at this app's scale for a
-  long while — it's four tables' worth of change events, not every table).
+- Reads (SELECTs) and schema changes are not audited, by design (schema
+  changes are tracked in git and `claude/deployment-log.md`).
+- No retention/archival policy yet. At roughly 1 KB per change, watch the
+  database size on the Supabase Free plan (500 MB):
+  `select pg_size_pretty(pg_total_relation_size('public.audit_log'));`
 - No CSV/PDF export on the list page yet, unlike most of this app's other
   list/report screens.

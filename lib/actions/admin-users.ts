@@ -26,6 +26,21 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NOT_CONFIGURED =
   "User management isn't configured on the server yet (SUPABASE_SERVICE_ROLE_KEY is missing). See docs/SUPABASE_SETUP.md.";
 
+// Supabase Auth's admin API doesn't know which System Admin asked, so the
+// database's own account-change log (0072) can't name them. Record the
+// action under the signed-in person's own session as well. Best-effort: the
+// account change itself has already happened and is logged by the database
+// either way, so a failure here must not turn a success into an error.
+async function recordAccountAction(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  event: "account_created_by_admin" | "password_reset_by_admin" | "password_changed_by_user"
+) {
+  await supabase
+    .rpc("audit_account_action", { p_user_id: userId, p_event: event })
+    .then(() => undefined, () => undefined);
+}
+
 async function requireSystemAdmin() {
   const user = await getCurrentUser();
   if (!user || !user.roles.includes("system_admin")) return null;
@@ -102,6 +117,8 @@ export async function createUserAccount(
     return { error: "Couldn't assign roles, so the account was not created. Please try again." };
   }
 
+  await recordAccountAction(supabase, newUserId, "account_created_by_admin");
+
   revalidatePath("/user-roles");
   return {
     success: `Account created for ${fullName}. Share the temporary password with them privately — they'll be asked to set their own at first sign-in.`,
@@ -140,6 +157,8 @@ export async function resetUserPassword(
     }
     return { error: `Couldn't reset the password: ${error.message}` };
   }
+
+  await recordAccountAction(await createClient(), userId, "password_reset_by_admin");
 
   revalidatePath("/user-roles");
   return { success: "Temporary password set. They'll be asked to change it at next sign-in." };
@@ -192,6 +211,7 @@ export async function completePasswordChange(
 
   // Refresh so the session's JWT carries the updated app_metadata too.
   await supabase.auth.refreshSession();
+  await recordAccountAction(supabase, user.id, "password_changed_by_user");
   revalidatePath("/", "layout");
   redirect("/");
 }
