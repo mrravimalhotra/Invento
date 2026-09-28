@@ -819,3 +819,30 @@ the same pass — and `CREATE OR REPLACE VIEW` will fail the same way unless
 the new column happens to be the last thing selected. DROP + CREATE is the
 correct fix each time, not the more familiar CREATE OR REPLACE pattern used
 everywhere else in this codebase.
+
+## Wastage hardened: batch's own item and unit, conversions, draft batches refused (28 Sept 2026, migration 0071)
+
+SEC-06 in `docs/AI_TESTING_SECURITY_PERFORMANCE_REFERENCE.md`. `record_wastage()`
+used to write the item and unit it was given straight into the ledger and
+subtract the quantity from the batch as-is. The Wastage screen's Unit list
+offered every unit and defaulted to the **item's** unit, so recording "500 g"
+against a batch held in kg removed 500 kg. A read-only check of production on
+28 Sept 2026 found no past entry affected.
+
+Now `record_wastage()` (same signature, still SECURITY DEFINER):
+
+- locks the batch row (`for update`) and always writes the ledger row with the
+  batch's own item and unit;
+- refuses an item that doesn't match the batch, a quantity ≤ 0, and a batch
+  whose purchase order isn't submitted / not yet pushed to stock;
+- compares units ignoring case and spaces, converts a compatible unit with
+  `convert_unit()` (500 g → 0.5 kg, 250 ml → 0.25 ltr), and refuses an
+  incompatible one with a message naming the batch's unit;
+- still relies on `live_remaining_not_negative` for "more than is left".
+
+The Wastage screen's Unit field now follows the selected **batch**: it defaults
+to the batch's unit and lists only units that convert to it, with a hint that
+other units are converted on save.
+
+Verified on a fresh local replay of all 71 migrations: 22/22 checks pass; the
+same checks against the previous function fail 15 times.

@@ -581,6 +581,7 @@ Severity reflects this app's context: an internal, low-user-count GMP system whe
 - **Fix:** server-side `new URL(fileUrl)` with protocol allow-list `http:`/`https:`; add `check (file_url ~* '^https?://') not valid`; render non-http(s) values as plain text. **Test:** DOC-01.
 
 ### SEC-06 — `record_wastage()` trusts caller-supplied item, unit and state · **Medium** · [VERIFIED]
+- **Status (28 Sept 2026): fixed by migration `0071_record_wastage_hardening.sql`** — batch's own item/unit, unit conversion, draft batches/zero/incompatible units refused, batch row locked; Wastage screen Unit now follows the batch. Also found: the wrong-unit case was reachable from the normal screen, not only the API.
 - **Evidence:** `0036_wastage_batch_required.sql:43-68` inserts `p_item_id` and `p_unit` verbatim and decrements `live_remaining_qty` of `p_purchase_line_id` without checking that the line belongs to the item, that the unit matches (no conversion), that quantity is > 0, or that the line's PO is submitted/pushed. It is callable directly via `supabase.rpc` by admin/IM/QC roles.
 - **Impact:** ledger and batch balances can be desynchronised (wastage booked against item A while batch of item B shrinks; 500 "g" removed as 500 kg).
 - **Fix:** inside the RPC, `select item_id, unit, pushed_at from purchase_lines where id = p_purchase_line_id for update`; raise if not found/not pushed/item mismatch; convert `p_quantity` with `convert_unit(p_quantity, p_unit, line.unit)` or raise if null; require `p_quantity > 0`; always write the line's unit. **Test:** WST-04..07.
