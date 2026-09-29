@@ -90,13 +90,9 @@ export function PackagingForm({
             ))}
           </Select>
         </Field>
-        <Field label="Transaction type" htmlFor="transaction_type" required>
-          <Select id="transaction_type" name="transaction_type" defaultValue="pack" required>
-            <option value="pack">Pack</option>
-            <option value="repack">Repack</option>
-            <option value="unpack">Unpack</option>
-          </Select>
-        </Field>
+        {/* Transaction type removed (Ravi, 29 Sept 2026): every packaging
+            issue is a Pack — Repack/Unpack took stock out instead of putting
+            it back (accuracy audit ACC-05). */}
       </div>
 
       {storeOrRnd && (

@@ -498,3 +498,23 @@ agreement):
 None of these block the core flow Ravi asked for (FP → RM-FP conversion,
 usable as another Finished Product's ingredient) — flagging them here so
 they're not silently forgotten.
+
+## Packaging integrity (29 Sept 2026, migration 0079 — accuracy audit ACC-05/12/19/20)
+
+- **Transaction type removed (ACC-05).** Ravi: "from packaging remove
+  transaction type — by default in packaging everything should be packed — no
+  repack, unpack required". Unpack and Repack used to take stock out instead
+  of putting it back. The field is gone from the form, the list and the
+  Packing Register PDF, and the database accepts only `pack`.
+- **Saved in one step (ACC-12).** `create_packaging_issue()` saves the header
+  and its material lines in one transaction. Before, a failure on the material
+  lines still left the finished product deducted, and a retry deducted it
+  again.
+- **Each batch is limited to its own yield (ACC-19).** An issue is checked
+  against what is left of that batch: yield less samples, less earlier issues.
+  Before, the check was item-level only, so one batch could be issued far
+  beyond its own yield. The error states how much is left.
+- **Packaging materials come out of their batches (ACC-20).** Materials are
+  drawn from the oldest submitted purchase batches first (FIFO). Each batch's
+  remaining quantity goes down, and every ledger row records its batch. Any
+  part not covered by a batch is still taken from item stock.

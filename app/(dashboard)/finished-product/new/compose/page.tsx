@@ -86,9 +86,19 @@ async function getCandidateBatches(
   if (!hasCandidateRows) return [];
 
   const lineIds = (lines ?? []).map((l) => l.id);
-  const [{ data: statuses }, { data: balance }] = await Promise.all([
+  const productionIds = (productionBatches ?? []).map((b) => b.id);
+  const [{ data: statuses }, { data: productionStatuses }, { data: balance }] = await Promise.all([
     lineIds.length
       ? supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date").in("purchase_line_id", lineIds)
+      : Promise.resolve({ data: [] }),
+    // ACC-18 (29 Sept 2026): production-issued RM batches need QC approval
+    // too since 0068 — the database refuses an unapproved one, but it used
+    // to be offered here, so every Create Batch failed on it.
+    productionIds.length
+      ? supabase
+          .from("production_batch_status")
+          .select("production_batch_id, qc_status, retest_date")
+          .in("production_batch_id", productionIds)
       : Promise.resolve({ data: [] }),
     supabase.from("stock_balance").select("on_hand").eq("item_id", itemId).maybeSingle(),
   ]);
@@ -138,8 +148,18 @@ async function getCandidateBatches(
       createdAt: l.created_at ?? "",
     }));
 
+  const statusByProductionBatch = new Map(
+    ((productionStatuses ?? []) as { production_batch_id: string; qc_status: string; retest_date: string | null }[]).map(
+      (s) => [s.production_batch_id, s]
+    )
+  );
   const productionCandidates: DatedCandidate[] = (productionBatches ?? [])
-    .filter((b) => Number(b.live_remaining_qty) > 0)
+    .filter((b) => {
+      const status = statusByProductionBatch.get(b.id);
+      if (status?.qc_status !== "approved") return false;
+      if (status.retest_date && status.retest_date <= today) return false;
+      return Number(b.live_remaining_qty) > 0;
+    })
     .map((b) => ({
       source: "production" as const,
       id: b.id,
@@ -173,18 +193,24 @@ async function getCandidateBatches(
 // gated by trg_fp_component_qc_gate and decremented by trg_fp_component_
 // live_remaining_pull (0029_purchase_line_live_remaining_qty.sql), already
 // worked at the DB level. This is a display/allocation change only.
+// ACC-30 (29 Sept 2026): `alreadyTaken` carries what earlier recipe lines
+// have already been allocated from each batch in this same composition, so
+// the same raw material on two recipe lines is never promised the same
+// stock twice (the save used to fail with "Not enough of that batch").
 function allocateFifo(
   candidates: Candidate[],
-  neededQty: number
+  neededQty: number,
+  alreadyTaken: Map<string, number> = new Map()
 ): { allocations: Allocation[]; shortfallQty: number } {
   const allocations: Allocation[] = [];
   let remaining = neededQty;
   for (const c of candidates) {
     if (remaining <= 0) break;
-    const avail = Number(c.remainingQty);
+    const avail = Number(c.remainingQty) - (alreadyTaken.get(c.id) ?? 0);
     if (avail <= 0) continue;
     const take = Math.min(avail, remaining);
     allocations.push({ source: c.source, id: c.id, batchNumber: c.batchNumber, qty: take });
+    alreadyTaken.set(c.id, (alreadyTaken.get(c.id) ?? 0) + take);
     remaining -= take;
   }
   // Guard against floating-point dust (e.g. an exact match leaving
@@ -257,24 +283,29 @@ export default async function ComposeFinishedProductPage({
   type MfrLineRow = { id: string; quantity: string | number; unit: string; items: { id: string; item_code: string; name: string } | null };
   const rows = (mfrLines ?? []) as unknown as MfrLineRow[];
 
-  const composeLines: ComposeLine[] = await Promise.all(
+  const prepared = await Promise.all(
     rows
       .filter((l) => l.items)
       .map(async (l) => {
         const item = l.items!;
         const scaledQuantity = Number(l.quantity) * scaleFactor;
         const candidates = await getCandidateBatches(supabase, item.id);
-        const { allocations, shortfallQty } = allocateFifo(candidates, scaledQuantity);
-        return {
-          itemId: item.id,
-          itemLabel: `${item.item_code} · ${item.name}`,
-          quantity: scaledQuantity,
-          unit: l.unit,
-          allocations,
-          shortfallQty,
-        };
+        return { l, item, scaledQuantity, candidates };
       })
   );
+  // Allocate in recipe order, sharing one running tally per batch (ACC-30).
+  const takenByBatch = new Map<string, number>();
+  const composeLines: ComposeLine[] = prepared.map(({ l, item, scaledQuantity, candidates }) => {
+    const { allocations, shortfallQty } = allocateFifo(candidates, scaledQuantity, takenByBatch);
+    return {
+      itemId: item.id,
+      itemLabel: `${item.item_code} · ${item.name}`,
+      quantity: scaledQuantity,
+      unit: l.unit,
+      allocations,
+      shortfallQty,
+    };
+  });
 
   return (
     <div>

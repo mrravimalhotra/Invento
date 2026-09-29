@@ -1248,3 +1248,17 @@ and triggers, the Supabase SQL editor and the service role pass untouched
 Every step the app performs today keeps working — verified on a local replay
 of all 70 migrations (65/65 checks; the same checks with the guards removed
 show 36 failures, proving each bypass was real).
+
+## Batch creation integrity (29 Sept 2026, migration 0079 — accuracy audit ACC-17/18/30)
+
+- **Saved in one step (ACC-17).** `create_finished_product_batch()` saves the
+  batch and its components in one transaction. Before, a failed component left
+  an empty draft behind for anyone who isn't System Admin, which also used up
+  a batch number.
+- **Compose offers only approved production RM batches (ACC-18).** Production
+  RM batches need QC approval since 0068. Compose now offers only approved
+  batches that are not past their retest date. Before, it offered unapproved
+  ones and every Create Batch failed.
+- **Same raw material on two recipe lines (ACC-30).** Allocation keeps one
+  running total per batch across lines, so the same stock is never promised
+  twice.

@@ -99,16 +99,17 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   // request won the race — same pattern already used for RM/PKG purchase
   // lines in createPurchaseLine() (lib/actions/purchase.ts), for the exact
   // same reason.
-  let batch: { id: string } | null = null;
+  // ACC-17 (29 Sept 2026): the batch and its components are saved in ONE
+  // database transaction (create_finished_product_batch, 0079). Before, a
+  // failed component insert left an empty draft batch behind (the clean-up
+  // delete is admin-only), using up a batch number. Now a failure leaves
+  // nothing behind.
+  let batchId: string | null = null;
   let batchError: { code?: string; message: string } | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
-    // FB-0044 follow-up (27 Sept 2026): get_next_fp_batch_number() now
-    // returns a row (batch_number, short_batch_no) instead of a bare text
-    // value — both computed from the same sequence number/year inside the
-    // one RPC call, so they can never disagree. short_batch_no is the
-    // print-only, non-globally-unique form (PR-/OR- + the same seq/year)
-    // referenced by Finished Product labels instead of the long compound
-    // batch_number — see 0066_fp_market_short_batch_no.sql.
+    // get_next_fp_batch_number() returns (batch_number, short_batch_no),
+    // both from the same sequence/year (0066). Retry on a batch-number
+    // collision (23505) — a fresh number accounts for whichever request won.
     const { data: numData, error: numError } = await supabase.rpc("get_next_fp_batch_number", {
       p_mfr_definition_id: mfrDefinitionId,
     });
@@ -117,9 +118,11 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
       return { error: friendlyDbError(numError, "Could not generate a batch number.") };
     }
 
-    const insertResult = await supabase
-      .from("finished_product_batches")
-      .insert({
+    // Lands in "draft": RM is pulled now, and the batch starts production
+    // only when confirmFinishedProductBatch() runs ("Create Batch"); an
+    // untouched draft auto-cancels after 30 minutes and returns its RM.
+    const result = await supabase.rpc("create_finished_product_batch", {
+      p_batch: {
         batch_number: numRow.batch_number,
         short_batch_no: numRow.short_batch_no,
         mfr_definition_id: mfrDefinitionId,
@@ -127,60 +130,35 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
         target_qty: targetQty,
         unit,
         batch_start_date: batchStartDate,
-        // Ravi (15 Sept 2026): batch creation is now two-step. This insert
-        // still pulls RM immediately (finished_product_components below,
-        // same as before this change), but the batch now lands in "draft"
-        // rather than "in_process" — it only actually starts production
-        // once confirmFinishedProductBatch() below is called from the
-        // detail page's "Create Batch" button. A draft left untouched for
-        // 30 minutes auto-cancels (expire_stale_fp_drafts(), called lazily
-        // from the FP list/detail pages — see 0046_fp_batch_draft_cancel.sql)
-        // and its RM is returned to inventory, same as a manual Cancel.
-        status: "draft",
-      })
-      .select("id")
-      .single();
-    batch = insertResult.data;
-    batchError = insertResult.error;
+      },
+      p_components: components.map((c) => ({
+        item_id: c.itemId,
+        purchase_line_id: c.purchaseLineId,
+        production_batch_id: c.productionBatchId,
+        quantity: c.quantity,
+      })),
+    });
+    batchId = (result.data as string | null) ?? null;
+    batchError = result.error;
     if (!batchError || batchError.code !== "23505") break;
   }
-  if (batchError || !batch) {
+  if (batchError || !batchId) {
     if (batchError?.code === "23505") {
       return {
         error: "Another batch for this MFR was created at the same moment and took the next batch number — please try again.",
       };
     }
-    return { error: friendlyDbError(batchError, "Could not create the batch.") };
-  }
-
-  const { error: componentsError } = await supabase.from("finished_product_components").insert(
-    components.map((c) => ({
-      finished_product_batch_id: batch.id,
-      item_id: c.itemId,
-      purchase_line_id: c.purchaseLineId,
-      production_batch_id: c.productionBatchId,
-      quantity: c.quantity,
-    }))
-  );
-  if (componentsError) {
-    // Best-effort cleanup: don't leave a headerless (component-free) batch behind,
-    // and don't burn the batch number silently — the user retries from scratch.
-    await supabase.from("finished_product_batches").delete().eq("id", batch.id);
-    if (componentsError.message.includes("is not QC-Approved")) {
+    if (batchError?.message.includes("is not QC-Approved")) {
       return { error: "That batch is no longer QC-Approved — refresh and pick another." };
     }
-    // Phase 2 (0029_purchase_line_live_remaining_qty.sql) — the
-    // live_remaining_not_negative check constraint, a real DB-level guard
-    // against consuming more of a batch than it actually has left.
-    // Production-sourced batches (0050_production_rm_from_packaging.sql)
-    // reuse the same substring in their own constraint name
-    // (production_live_remaining_not_negative), so this branch already
-    // covers both.
-    if (componentsError.message.includes("live_remaining_not_negative")) {
+    // live_remaining_not_negative (0029) / production_live_remaining_not_negative
+    // (0050): consuming more of a batch than it has left.
+    if (batchError?.message.includes("live_remaining_not_negative")) {
       return { error: "Not enough of that batch remaining — refresh and pick another batch or a smaller quantity." };
     }
-    return { error: friendlyDbError(componentsError) };
+    return { error: friendlyDbError(batchError, "Could not create the batch.") };
   }
+  const batch = { id: batchId };
 
   revalidatePath("/finished-product");
   redirect(`/finished-product/${batch.id}`);

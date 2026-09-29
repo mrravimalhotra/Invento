@@ -13,15 +13,10 @@ export type PackagingRow = {
   pack_size: string;
   unit_count: number | string;
   department: string;
-  transaction_type: string;
   created_at: string;
   finished_product_batches: { batch_number: string } | null;
   packaging_issue_items: PackagingMaterialRow[] | null;
 };
-
-// transaction_type -> an existing Badge status key so pack/repack/unpack read
-// distinctly without adding a new style to components/ui/badge.tsx.
-const TXN_BADGE_STATUS: Record<string, string> = { pack: "approved", repack: "submitted", unpack: "rejected" };
 
 export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
   const columns: Column<PackagingRow>[] = [
@@ -34,10 +29,6 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
     { header: "Pack size", accessor: (r) => r.pack_size, searchValue: (r) => r.pack_size },
     { header: "Unit count", accessor: (r) => formatNumber(r.unit_count, 0) },
     { header: "Department", accessor: (r) => <Badge status={r.department}>{r.department}</Badge> },
-    {
-      header: "Type",
-      accessor: (r) => <Badge status={TXN_BADGE_STATUS[r.transaction_type] ?? "pending"}>{r.transaction_type}</Badge>,
-    },
     {
       header: "Packaging materials",
       accessor: (r) => materialsSummary(r.packaging_issue_items),

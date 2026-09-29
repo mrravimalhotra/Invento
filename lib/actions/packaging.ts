@@ -11,7 +11,6 @@ import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
-const TRANSACTION_TYPES = ["pack", "repack", "unpack"] as const;
 
 type MaterialInput = { itemId: string; quantity: number; unit: string };
 
@@ -114,13 +113,9 @@ function parseProductionSampleQtys(formData: FormData): { qc: number; stability:
 export async function createPackagingIssue(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const fpBatchId = String(formData.get("finished_product_batch_id") || "");
   const department = String(formData.get("department") || "");
-  const transactionType = String(formData.get("transaction_type") || "pack");
 
   if (!fpBatchId) return { error: "Select a finished product batch." };
   if (!(DEPARTMENTS as readonly string[]).includes(department)) return { error: "Select a department." };
-  if (!(TRANSACTION_TYPES as readonly string[]).includes(transactionType)) {
-    return { error: "Invalid transaction type." };
-  }
 
   const isStoreOrRnd = department === "store" || department === "rnd";
   const isProduction = department === "production";
@@ -315,9 +310,13 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
   const { data: issueCode, error: codeError } = await supabase.rpc("get_next_packaging_issue_code");
   if (codeError || !issueCode) return { error: friendlyDbError(codeError, "Could not generate a packaging issue code.") };
 
-  const { data: issue, error } = await supabase
-    .from("packaging_issues")
-    .insert({
+  // ACC-12 (29 Sept 2026): header and materials are saved in ONE database
+  // transaction (create_packaging_issue, 0079). Before, the header alone
+  // already moved stock; if the materials failed, the clean-up delete was
+  // silently blocked and a retry deducted the finished product twice.
+  // Every issue is a Pack (ACC-05 — Repack/Unpack removed).
+  const { error } = await supabase.rpc("create_packaging_issue", {
+    p_issue: {
       code: issueCode,
       finished_product_batch_id: fpBatchId,
       pack_size: packSize,
@@ -326,32 +325,13 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
       fp_qty_consumed: fpQtyConsumed,
       unit_count: unitCount,
       department,
-      transaction_type: transactionType,
       qc_qty: isProduction ? productionQcConverted : null,
       stability_qty: isProduction ? productionStabilityConverted : null,
       rnd_qty: isProduction ? productionRndConverted : null,
-    })
-    .select("id")
-    .single();
-  if (error || !issue) return { error: friendlyDbError(error, "Could not create the packaging issue.") };
-
-  if (materials.length > 0) {
-    const { error: materialsError } = await supabase.from("packaging_issue_items").insert(
-      materials.map((m) => ({
-        packaging_issue_id: issue.id,
-        item_id: m.itemId,
-        quantity: m.quantity,
-        unit: m.unit,
-      }))
-    );
-    if (materialsError) {
-      // Same best-effort cleanup as createFinishedProductBatch(): don't leave
-      // a materials-free packaging_issues header behind if the lines insert
-      // fails partway through.
-      await supabase.from("packaging_issues").delete().eq("id", issue.id);
-      return { error: friendlyDbError(materialsError) };
-    }
-  }
+    },
+    p_materials: materials.map((m) => ({ item_id: m.itemId, quantity: m.quantity, unit: m.unit })),
+  });
+  if (error) return { error: friendlyDbError(error, "Could not create the packaging issue.") };
 
   revalidatePath("/packaging");
   redirect("/packaging?created=1");
