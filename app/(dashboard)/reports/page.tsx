@@ -89,9 +89,16 @@ export default async function ReportsPage() {
         // the Purchase Register can offer a Raw material / Packaging filter —
         // every purchased item is one or the other (see purchase-line-form.tsx),
         // never 'processed'/'packaged_fp' (those are never purchased).
+        // ACC-35 (29 Sept 2026, Ravi: exclude drafts): only lines that are
+        // actually in stock — their purchase order is submitted (pushed_at is
+        // set on submit and cleared on reopen) — and not deleted (active).
+        // A draft or reopened PO hasn't moved stock, so its lines aren't
+        // "received". `unit` rides along so quantities say kg / nos / ltr.
         .select(
-          "batch_number, quantity, live_remaining_qty, expiry_date, created_at, item:items(name, category), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
+          "batch_number, quantity, unit, live_remaining_qty, created_at, item:items(name, category), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
         )
+        .eq("active", true)
+        .not("pushed_at", "is", null)
         .order("created_at", { ascending: false })
         .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)

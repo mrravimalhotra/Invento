@@ -145,13 +145,13 @@ export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
 export type PurchaseRow = {
   batch_number: string;
   quantity: number | string;
+  unit: string;
   // Phase 2 (claude/inventory-ledger-redesign.md Gap 2) — live, not the
   // static generated remaining_qty: this report's own description already
   // promises "remaining quantity available for use," which the static
   // column never actually delivered once a batch had FP consumption or
   // batch-tied wastage against it.
   live_remaining_qty: number | string;
-  expiry_date: string | null;
   created_at: string;
   item: { name: string; category: string | null } | null;
   purchase_order: { po_number: string; vendor: { name: string } | null } | null;
@@ -182,8 +182,10 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
     { header: "Batch", cell: (r) => r.batch_number, pdfValue: (r) => r.batch_number },
     { header: "Quantity", cell: (r) => formatQty(r.quantity), pdfValue: (r) => formatQty(r.quantity) },
+    { header: "Unit", cell: (r) => r.unit, pdfValue: (r) => r.unit },
     { header: "Remaining Qty", cell: (r) => formatQty(r.live_remaining_qty), pdfValue: (r) => formatQty(r.live_remaining_qty) },
-    { header: "Re-Test Date", cell: (r) => formatDate(r.expiry_date), pdfValue: (r) => formatDate(r.expiry_date) },
+    // ACC-35: Unit column added; the blank Re-Test Date column removed (it read
+    // purchase_lines.expiry_date, no longer collected — same as ACC-31).
   ];
 
   return (
@@ -201,7 +203,7 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
       </div>
       <ReportSection
         title="Purchase Register"
-        description="Every purchase line received, with vendor, item, and remaining quantity available for use."
+        description="Every purchase line received (submitted purchase orders only — drafts are not stock yet), with vendor, item, unit, and remaining quantity available for use."
         rows={filteredRows}
         columns={columns}
         dateOf={(r) => r.created_at}

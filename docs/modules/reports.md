@@ -87,7 +87,10 @@ same rationale as QC).
 
 #### 4. Purchase Register
 
-All `purchase_lines`, joined to `items` and to `purchase_orders` → `vendors`.
+Every `purchase_lines` row that is actually in stock — `active = true` and
+`pushed_at IS NOT NULL` (its purchase order is submitted) — joined to `items`
+and to `purchase_orders` → `vendors`. Draft and reopened purchase orders are
+not shown (ACC-35, 29 Sept 2026).
 
 | Column | Source |
 |---|---|
@@ -95,9 +98,9 @@ All `purchase_lines`, joined to `items` and to `purchase_orders` → `vendors`.
 | Vendor | `vendors.name` via `purchase_orders.vendor_id` |
 | Item | `items.name` via `purchase_lines.item_id` |
 | Batch | `purchase_lines.batch_number` |
+| Unit | `purchase_lines.unit` |
 | Quantity | `purchase_lines.quantity` |
-| Remaining Qty | `purchase_lines.remaining_qty` (generated column — sampling already deducted) |
-| Expiry Date | `purchase_lines.expiry_date` |
+| Remaining Qty | `purchase_lines.live_remaining_qty` |
 
 Date filter is on `purchase_lines.created_at` ("Received") — the natural
 "when was this batch received" event, distinct from `expiry_date` which is
@@ -146,3 +149,12 @@ sorted by item code; they now display newest-created first, since the
 `RmStockReport` table renders rows in the order the query returns them
 with no client-side re-sort. Functionally correct (all raw materials are
 now included) but the row order on screen has changed.
+
+## Purchase Register: drafts excluded, Unit added (29 Sept 2026, ACC-35)
+
+The register used to list every purchase line, including lines on draft or
+reopened purchase orders that are not stock yet, and its Remaining Qty for
+those lines did not agree with the stock screens. It now shows only
+submitted, active lines. A Unit column was added (on screen and in the PDF),
+and the Re-Test Date column was removed because it was blank for nearly every
+row (the same decision as ACC-31 on the finished-product page).
