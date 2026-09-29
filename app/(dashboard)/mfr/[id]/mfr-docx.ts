@@ -16,6 +16,7 @@ import {
   PageNumber,
 } from "docx";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
+import { COMPANY_NAME, MFG_LIC_LINE } from "@/lib/company";
 
 // Ravi (16 Sept 2026): "Print MFR option should give me .docx document in
 // attached format. It should pick up data already entered as part of MFR
@@ -101,8 +102,8 @@ export type MfrDocxData = {
 // slightly from lib/pdf.ts's differently-cased versions used elsewhere)
 // — same "each legacy document reproduces its own sample exactly, kept
 // local rather than shared" precedent bmr-docx.ts established.
-const DOC_COMPANY_NAME = "ATHARVA NATURE HEALTHCARE PVT. LTD.";
-const DOC_MFG_LIC = "Mfg. Lic. No. - PD/AYU -111";
+const DOC_COMPANY_NAME = COMPANY_NAME;
+const DOC_MFG_LIC = MFG_LIC_LINE;
 const DOC_EMAIL_WEB = "E mail : aapwagholi@gmail.com  www.atharva-ayurved.com";
 // Header-only font (the rest of the document defaults to Times New Roman
 // — see the styles.default.document.run below and the CORRECTION comment

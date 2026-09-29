@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
+import { COMPANY_NAME_AND_ADDRESS, MFG_LIC_LINE } from "@/lib/company";
 
 // "Against each raw material purchased under purchase lines, create Raw
 // Material Intimation slip as per attached sample. At the end of the Raw
@@ -42,8 +43,8 @@ export type RmIntimationData = {
   rndQty: string | number;
 };
 
-const SLIP_COMPANY_NAME = "Atharva Nature Health Care Pvt. Ltd. Wagholi,Pune";
-const SLIP_MFG_LIC = "Mfg. Lic.  No.- PD/AYU/111";
+const SLIP_COMPANY_NAME = COMPANY_NAME_AND_ADDRESS;
+const SLIP_MFG_LIC = MFG_LIC_LINE;
 
 const LEFT_X = 10;
 const RIGHT_X = 200;

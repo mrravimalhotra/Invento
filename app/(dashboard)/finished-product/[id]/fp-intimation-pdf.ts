@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
+import { COMPANY_NAME_AND_ADDRESS, MFG_LIC_LINE } from "@/lib/company";
 
 // Ravi (15 Sept 2026): "when a Finished Product batch is submitted to QC, a
 // Finish Product Intimation Slip should be generated and link should be
@@ -41,8 +42,8 @@ export type FpIntimationData = {
 // differs slightly from that file's own transcription ("PD/AYU/111", a
 // slash) — each slip's constants are kept local and transcribed from its
 // own attached sample rather than shared, same precedent that file set.
-const SLIP_COMPANY_NAME = "Atharva Nature Health Care Pvt. Ltd. Wagholi,Pune";
-const SLIP_MFG_LIC = "Mfg. Lic.  No.- PD/AYU-111";
+const SLIP_COMPANY_NAME = COMPANY_NAME_AND_ADDRESS;
+const SLIP_MFG_LIC = MFG_LIC_LINE;
 
 const LEFT_X = 10;
 const RIGHT_X = 200;

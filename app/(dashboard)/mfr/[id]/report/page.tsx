@@ -5,7 +5,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { SignatureBlock } from "@/components/ui/signature-block";
 import { formatDate, formatNumber, formatQty } from "@/lib/utils";
-import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/pdf";
+import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/company";
 import { MfrPdfButton, type MfrPdfData } from "./mfr-pdf-button";
 
 export default async function MfrReportPage({ params }: { params: Promise<{ id: string }> }) {

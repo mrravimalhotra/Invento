@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { PageFeedback } from "@/components/feedback/page-feedback";
+import { PdfUserSetter } from "@/components/shell/pdf-user-setter";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <main className="flex-1 overflow-x-hidden p-6">
           {children}
           <PageFeedback currentUserId={user.id} />
+          <PdfUserSetter name={user.fullName} />
         </main>
       </div>
     </div>

@@ -14,6 +14,7 @@ import {
 } from "docx";
 import { convertUnit, unitFamily } from "@/lib/constants/units";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
+import { COMPANY_NAME_AND_ADDRESS, MFG_LIC_LINE } from "@/lib/company";
 
 // Ravi (15 Sept 2026): "Once Batch is in Completed - Awaiting QC, start
 // showing link to 'BATCH MANUFACTURING RECORD' as attached in the .docx
@@ -81,8 +82,8 @@ export type BmrData = {
 // slightly different transcriptions of the same real letterhead, same
 // established precedent (each legacy document reproduces its own sample
 // exactly).
-const SLIP_COMPANY_NAME = "Atharva Nature Health Care Pvt. Ltd. Wagholi,Pune";
-const SLIP_MFG_LIC = "Mfg.Lic.No.- PD/AYU/111";
+const SLIP_COMPANY_NAME = COMPANY_NAME_AND_ADDRESS;
+const SLIP_MFG_LIC = MFG_LIC_LINE;
 
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);

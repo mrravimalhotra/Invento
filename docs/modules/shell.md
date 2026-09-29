@@ -116,3 +116,24 @@ now counts the same rows as the list each card opens, and follows the
   record's legacy status depends on four tables. The Movement chart tests
   the item and the raw-material batch a ledger event moved (not the finished
   product batch). **Reports are not affected** — they stay complete registers.
+
+## One company identity on every printed output (29 Sept 2026, export group decision b)
+
+Ravi's decision: the company is always printed as **"Atharva Nature Healthcare Pvt. Ltd."** and the licence as **"PD/AYU-111"**. Both live in `lib/company.ts`
+(`COMPANY_NAME`, `COMPANY_ADDRESS`, `MFG_LIC_NO`, plus ready-made
+`COMPANY_NAME_AND_ADDRESS` and `MFG_LIC_LINE`); every PDF and Word output
+reads them.
+
+- **Register PDFs** (Reports x4, RM Report, Packing Register, MFR report):
+  `lib/pdf.ts` letterhead now carries the logo. Every page has a footer with
+  "Generated dd-mm-yyyy hh:mm by <name>" and "Page X of Y" (`addPageFooters`;
+  the name comes from `lib/pdf-user.ts`, set by `PdfUserSetter` in the
+  dashboard layout). Reports PDFs also print the date filter used and the row
+  count under the title.
+- **Slips (RM, FP, production RM), BMR and MFR Word documents, COA:** the
+  three spellings of the name and three of the licence number are replaced
+  by the shared values. The slips keep the address after the name
+  ("Atharva Nature Healthcare Pvt. Ltd., Wagholi, Pune"); the MFR document and
+  COA no longer print the name in capitals.
+- **Not changed:** layouts, the COA's own logo file, the e-mail/web line on the
+  MFR document, and the label sheets (which already used the shared values).

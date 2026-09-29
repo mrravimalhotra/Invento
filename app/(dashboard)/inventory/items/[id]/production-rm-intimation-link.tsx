@@ -1,6 +1,7 @@
 "use client";
 
 import { downloadRmIntimationPdf } from "@/app/(dashboard)/purchase/[id]/rm-intimation-pdf";
+import { COMPANY_NAME } from "@/lib/company";
 import { formatDate } from "@/lib/utils";
 
 // FB-0043 (28 Sept 2026): "In RM intimation slip for Raw Material created
@@ -22,7 +23,7 @@ import { formatDate } from "@/lib/utils";
 //     was packaged), reached via production_issue_batches.packaging_issue_id
 //     — not the batch's own created_at (same moment in practice today, but
 //     the Packaging Issue is Ravi's stated authoritative source).
-const PRODUCTION_VENDOR_NAME = "ATHARVA NATURE HEALTHCARE PVT. LTD.";
+const PRODUCTION_VENDOR_NAME = COMPANY_NAME;
 
 export function ProductionRmIntimationLink({
   itemName,

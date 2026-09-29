@@ -1,6 +1,6 @@
 "use client";
 
-import { toIstDateString } from "@/lib/utils";
+import { formatDate, toIstDateString } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -65,6 +65,12 @@ export function ReportSection<T>({
       columns: columns.map((c) => c.header),
       rows: filtered.map((r) => columns.map((c) => c.pdfValue(r))),
       filename: `${filename}.pdf`,
+      // What the printed rows are filtered by, so a printout can be read
+      // without the screen it came from.
+      subtitle: [
+        from || to ? `${dateLabel}: ${from ? formatDate(from) : "start"} to ${to ? formatDate(to) : "today"}` : "All dates",
+        `${filtered.length} row${filtered.length === 1 ? "" : "s"}`,
+      ].join(" · "),
     });
   }
 

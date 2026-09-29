@@ -2,7 +2,7 @@
 
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { letterhead } from "@/lib/pdf";
+import { addPageFooters, letterhead } from "@/lib/pdf";
 import { Button } from "@/components/ui/button";
 
 export type MfrPdfData = {
@@ -105,6 +105,7 @@ export function MfrPdfButton({ data }: { data: MfrPdfData }) {
       doc.text(`${label} · Date:`, x, sigY + 5);
     });
 
+    addPageFooters(doc);
     doc.save(`MFR-${data.code}-v${data.version}.pdf`);
   }
 

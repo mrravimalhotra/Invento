@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/pdf";
+import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/company";
 import { CARLITO_BOLD_TTF_BASE64 } from "@/lib/fonts/carlito-bold";
 import { LIBERATION_SERIF_BOLD_TTF_BASE64 } from "@/lib/fonts/liberation-serif-bold";
 import { LIBERATION_SERIF_REGULAR_TTF_BASE64 } from "@/lib/fonts/liberation-serif-regular";
