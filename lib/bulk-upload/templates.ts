@@ -12,6 +12,7 @@ import {
   type BulkUploadModuleKey,
   type ColumnDef,
 } from "./schemas";
+import { EXAMPLE_ROWS } from "./examples";
 
 const HEADER_FILL: ExcelJS.Fill = {
   type: "pattern",
@@ -40,6 +41,21 @@ function exampleRowValues(columns: ColumnDef[], values: string[]): (string | num
   return values.map((v, i) => (columns[i]?.numeric && v !== "" ? Number(v) : v));
 }
 
+// ACC-23: example rows are written in grey italics and the upload skips a
+// row that still matches its example exactly, so leaving them in is harmless.
+function addExampleRows(sheet: ExcelJS.Worksheet, columns: ColumnDef[], rows: string[][]) {
+  rows.forEach((values) => {
+    const row = sheet.addRow(exampleRowValues(columns, values));
+    row.font = { italic: true, color: { argb: "FF808080" } };
+  });
+}
+
+export const EXAMPLE_ROW_NOTE =
+  "The grey italic example row(s) in the data sheet show the expected format. They are ignored on upload as long as they are left unchanged, so you can keep or delete them.";
+
+const DATE_NOTE =
+  "Dates: type them as real Excel dates, or as text in dd-mm-yyyy (e.g. 05-09-2026) or yyyy-mm-dd form. Any other date format is rejected rather than guessed. Percentage columns take a plain number (18 for 18%); \"18%\" is also accepted.";
+
 // `columnSections` is normally one section (every module except MFR has
 // exactly one data sheet) — a bare `heading` means "just list the columns
 // under a plain 'Column notes:' header," same output this always had.
@@ -61,6 +77,7 @@ function addInstructionsSheet(
     "Fill in the sheet(s) with this template's own name(s) (not this Instructions sheet), one row per record. Columns marked with * are required.",
     "Do not rename, reorder, or delete the header row — the upload reads columns by their header text.",
     "A code (item code / vendor code / MFR code) is always generated automatically when the file is imported — do not add or fill in a code column.",
+    EXAMPLE_ROW_NOTE,
     ...extraNotes,
     "",
     ...columnSections.flatMap((section) => [
@@ -171,7 +188,7 @@ async function buildItemsWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Wor
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.items.sheetName);
   addHeaderRow(sheet, ITEM_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(exampleRowValues(ITEM_COLUMNS_WITH_EXAMPLE.columns, ITEM_COLUMNS_WITH_EXAMPLE.example));
+  addExampleRows(sheet, ITEM_COLUMNS_WITH_EXAMPLE.columns, ITEM_COLUMNS_WITH_EXAMPLE.example);
 
   const refSheet = workbook.addWorksheet("Reference");
   addReferenceSheet(refSheet, "Valid Category values", ["Raw Material", "Packaging"]);
@@ -192,7 +209,7 @@ async function buildVendorsWorkbook(): Promise<ExcelJS.Workbook> {
   addInstructionsSheet(workbook, "Vendor Master", [{ columns: VENDOR_COLUMNS_WITH_EXAMPLE.columns }], []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.vendors.sheetName);
   addHeaderRow(sheet, VENDOR_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(exampleRowValues(VENDOR_COLUMNS_WITH_EXAMPLE.columns, VENDOR_COLUMNS_WITH_EXAMPLE.example));
+  addExampleRows(sheet, VENDOR_COLUMNS_WITH_EXAMPLE.columns, VENDOR_COLUMNS_WITH_EXAMPLE.example);
   return workbook;
 }
 
@@ -201,7 +218,7 @@ async function buildItemTypesWorkbook(): Promise<ExcelJS.Workbook> {
   addInstructionsSheet(workbook, "Item Type Master", [{ columns: ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns }], []);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["item-types"].sheetName);
   addHeaderRow(sheet, ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(exampleRowValues(ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns, ITEM_TYPE_COLUMNS_WITH_EXAMPLE.example));
+  addExampleRows(sheet, ITEM_TYPE_COLUMNS_WITH_EXAMPLE.columns, ITEM_TYPE_COLUMNS_WITH_EXAMPLE.example);
   return workbook;
 }
 
@@ -224,6 +241,7 @@ async function buildPurchaseWorkbook(supabase: SupabaseClient): Promise<ExcelJS.
   const allItemNames = [...rawItemNames, ...packagingItemNames].sort((a, b) => a.localeCompare(b));
 
   addInstructionsSheet(workbook, "Purchase", [{ columns: PURCHASE_COLUMNS_WITH_EXAMPLE.columns }], [
+    DATE_NOTE,
     "Each row is one purchase line. To create a purchase order with more than one line, add one row per line and repeat the exact same Vendor Name, Invoice Number, and Invoice Date on every one of those rows — the upload groups rows into one purchase order by matching Vendor Name + Invoice Number exactly.",
     "Every purchase order created this way lands as a Draft, exactly like one entered by hand on the Purchase screen — nothing is pushed to inventory until someone opens it and clicks Final Submit.",
     "Purchase Type must be \"Raw Material\" or \"Packaging Item\", and the Item Name on that row must actually be that category — a Raw Material row can't reference a Packaging item and vice versa. QC Qty / Stability Qty / R&D Qty / Sample Unit only apply to Raw Material lines; leave them blank for Packaging Item lines.",
@@ -235,7 +253,7 @@ async function buildPurchaseWorkbook(supabase: SupabaseClient): Promise<ExcelJS.
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.purchase.sheetName);
   addHeaderRow(sheet, PURCHASE_COLUMNS_WITH_EXAMPLE.columns);
-  PURCHASE_COLUMNS_WITH_EXAMPLE.example.forEach((row) => sheet.addRow(exampleRowValues(PURCHASE_COLUMNS_WITH_EXAMPLE.columns, row)));
+  addExampleRows(sheet, PURCHASE_COLUMNS_WITH_EXAMPLE.columns, PURCHASE_COLUMNS_WITH_EXAMPLE.example);
 
   // Column positions match PURCHASE_COLUMNS' order 1:1 (1-indexed):
   // 1 Vendor Name, 4 Purchase Type, 5 Item Name, 7 Unit, 11 Sample Unit.
@@ -261,10 +279,10 @@ async function buildPurchaseWorkbook(supabase: SupabaseClient): Promise<ExcelJS.
 
 async function buildEquipmentWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
-  addInstructionsSheet(workbook, "Instrument / Equipment Master", [{ columns: EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns }], []);
+  addInstructionsSheet(workbook, "Instrument / Equipment Master", [{ columns: EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns }], [DATE_NOTE]);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.equipment.sheetName);
   addHeaderRow(sheet, EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(exampleRowValues(EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns, EQUIPMENT_COLUMNS_WITH_EXAMPLE.example));
+  addExampleRows(sheet, EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns, EQUIPMENT_COLUMNS_WITH_EXAMPLE.example);
 
   const refSheet = workbook.addWorksheet("Reference");
   addReferenceSheet(refSheet, "Valid Calibration Status values", ["Calibrated", "Due", "Not Applicable"]);
@@ -273,10 +291,10 @@ async function buildEquipmentWorkbook(): Promise<ExcelJS.Workbook> {
 
 async function buildDeadStockWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
-  addInstructionsSheet(workbook, "Dead Stock Register", [{ columns: DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns }], []);
+  addInstructionsSheet(workbook, "Dead Stock Register", [{ columns: DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns }], [DATE_NOTE]);
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["dead-stock"].sheetName);
   addHeaderRow(sheet, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns);
-  sheet.addRow(exampleRowValues(DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.example));
+  addExampleRows(sheet, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.columns, DEAD_STOCK_COLUMNS_WITH_EXAMPLE.example);
   return workbook;
 }
 
@@ -317,15 +335,11 @@ async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workb
 
   const recipeSheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.mfr.sheetName);
   addHeaderRow(recipeSheet, MFR_RECIPE_COLUMNS_WITH_EXAMPLE.columns);
-  MFR_RECIPE_COLUMNS_WITH_EXAMPLE.example.forEach((row) =>
-    recipeSheet.addRow(exampleRowValues(MFR_RECIPE_COLUMNS_WITH_EXAMPLE.columns, row))
-  );
+  addExampleRows(recipeSheet, MFR_RECIPE_COLUMNS_WITH_EXAMPLE.columns, MFR_RECIPE_COLUMNS_WITH_EXAMPLE.example);
 
   const procedureSheet = workbook.addWorksheet(MFR_PROCEDURE_SHEET_NAME);
   addHeaderRow(procedureSheet, MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.columns);
-  MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.example.forEach((row) =>
-    procedureSheet.addRow(exampleRowValues(MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.columns, row))
-  );
+  addExampleRows(procedureSheet, MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.columns, MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE.example);
 
   const dataEndRow = 1 + MAX_UPLOAD_ROWS;
   const unitFormula = [`"${UNITS.join(",")}"`];
@@ -348,15 +362,15 @@ async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workb
 // Example rows kept next to their column defs so the two can never drift.
 const ITEM_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS.items,
-  example: ["Ashwagandha Powder", "Raw Material", "", "kg", "Withania somnifera", "", ""],
+  example: EXAMPLE_ROWS["items"],
 };
 const VENDOR_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS.vendors,
-  example: ["Ambadas Vanaushadhalaya", "Pune, Maharashtra", "9800000000", "020-00000000", "vendor@example.com"],
+  example: EXAMPLE_ROWS["vendors"],
 };
 const ITEM_TYPE_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS["item-types"],
-  example: ["Powder"],
+  example: EXAMPLE_ROWS["item-types"],
 };
 // Two sheets, two example sets (20 Sept 2026, Recipe / Manufacturing
 // Procedure split — see MFR_RECIPE_COLUMNS/MFR_PROCEDURE_COLUMNS in
@@ -365,32 +379,23 @@ const ITEM_TYPE_COLUMNS_WITH_EXAMPLE = {
 // by the repeated MFR Name.
 const MFR_RECIPE_COLUMNS_WITH_EXAMPLE = {
   columns: MFR_RECIPE_COLUMNS,
-  example: [
-    ["A. Jatamansi Tail", "100", "ltr", "", "Til Taila", "80", "ltr"],
-    ["A. Jatamansi Tail", "100", "ltr", "", "Jatamansi", "20", "kg"],
-  ],
+  example: EXAMPLE_ROWS["mfr-recipe"],
 };
 const MFR_PROCEDURE_COLUMNS_WITH_EXAMPLE = {
   columns: MFR_PROCEDURE_COLUMNS,
-  example: [
-    ["A. Jatamansi Tail", "Weigh/measure all raw materials at production level (Batch size 100 ltr)", "100", "98", "Cleaning", "Clean and sieve Jatamansi to remove foreign matter"],
-    ["A. Jatamansi Tail", "", "", "", "Preparation of Kwath", "Boil Til Taila with Jatamansi as per SOP until moisture content is nil"],
-  ],
+  example: EXAMPLE_ROWS["mfr-procedure"],
 };
 const PURCHASE_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS.purchase,
-  example: [
-    ["Ambadas Vanaushadhalaya", "INV-2026-0091", "2026-09-10", "Raw Material", "Jatamansi", "20", "kg", "0.5", "0.2", "0.1", "", "450", "5"],
-    ["Ambadas Vanaushadhalaya", "INV-2026-0091", "2026-09-10", "Packaging Item", "White Cap 28 mm", "500", "nos", "", "", "", "", "3.2", "18"],
-  ],
+  example: EXAMPLE_ROWS["purchase"],
 };
 const EQUIPMENT_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS.equipment,
-  example: ["Analytical Balance", "R-101", "QC Lab", "", "1", "Calibrated", "2026-06-01", "2027-06-01"],
+  example: EXAMPLE_ROWS["equipment"],
 };
 const DEAD_STOCK_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS["dead-stock"],
-  example: ["Old HPLC Column", "2022-03-15", "1", "12000", "25", "", "0", "0", "", "", ""],
+  example: EXAMPLE_ROWS["dead-stock"],
 };
 
 // COA Templates (22 Sept 2026, Ravi, via a screenshot of the COA Template
@@ -421,9 +426,7 @@ async function buildCoaTemplatesWorkbook(supabase: SupabaseClient): Promise<Exce
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["coa-templates"].sheetName);
   addHeaderRow(sheet, COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.columns);
-  COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.example.forEach((row) =>
-    sheet.addRow(exampleRowValues(COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.columns, row))
-  );
+  addExampleRows(sheet, COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.columns, COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.example);
 
   const dataEndRow = 1 + MAX_UPLOAD_ROWS;
   const refSheet = workbook.addWorksheet("Reference");
@@ -448,10 +451,7 @@ async function buildCoaTemplatesWorkbook(supabase: SupabaseClient): Promise<Exce
 
 const COA_TEMPLATE_COLUMNS_WITH_EXAMPLE = {
   columns: MODULE_COLUMNS["coa-templates"],
-  example: [
-    ["Powder", "Loss on drying", "Not More Than 10 %w/w"],
-    ["Powder", "Total Ash", "Not More Than 5 %w/w"],
-  ],
+  example: EXAMPLE_ROWS["coa-templates"],
 };
 
 export async function buildTemplateWorkbook(

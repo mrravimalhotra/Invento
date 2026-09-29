@@ -8,23 +8,57 @@ export type ParsedSheet = {
   // are dropped — a stray blank row left in the template shouldn't count
   // as a row someone meant to submit.
   rows: string[][];
+  // The Excel row number each kept row came from (same length as `rows`).
+  // ACC-23: error messages used to number rows as position + 2, which pointed
+  // at the wrong Excel row as soon as a blank row (or an untouched example
+  // row) had been dropped above it.
+  rowNumbers: number[];
 };
 
-function cellToString(value: ExcelJS.CellValue): string {
+// Reads a cell the way the person sees it, as a plain string.
+//
+// ACC-23 (29 Sept 2026) — what this used to get wrong:
+//   - rich-text cells (partly bold/coloured text) came through as blank;
+//   - a percentage-formatted cell holding 25% arrived as 0.25;
+//   - dates were turned into full ISO timestamps.
+function valueToString(value: ExcelJS.CellValue, numFmt?: string): string {
   if (value === null || value === undefined) return "";
+  if (value instanceof Date) {
+    // Excel dates are stored without a time zone; exceljs hands them back as
+    // UTC, so read the UTC parts. A pure date becomes yyyy-mm-dd.
+    if (Number.isNaN(value.getTime())) return "";
+    const iso = value.toISOString();
+    return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : iso;
+  }
+  if (typeof value === "number") {
+    // A cell formatted as a percentage stores 0.25 and shows "25%": read
+    // what is shown. toPrecision(12) removes float noise (0.18 * 100).
+    if (numFmt && numFmt.includes("%")) return String(Number((value * 100).toPrecision(12)));
+    return String(value);
+  }
   if (typeof value === "object") {
-    // Rich text / formula-result / hyperlink cells all carry a `.text` or
-    // `.result` — fall back to a readable string rather than "[object
-    // Object]" if a cell ever comes through as one of these.
-    if ("text" in value && typeof value.text === "string") return value.text.trim();
-    if ("result" in value && value.result !== undefined && value.result !== null) {
-      return String(value.result).trim();
+    if ("richText" in value && Array.isArray(value.richText)) {
+      return value.richText.map((part) => part.text ?? "").join("").trim();
     }
-    if (value instanceof Date) return value.toISOString();
+    // Formula cells: the last calculated result is what Excel shows.
+    if ("result" in value && value.result !== undefined && value.result !== null) {
+      return valueToString(value.result as ExcelJS.CellValue, numFmt);
+    }
+    // Hyperlink cells carry their visible text.
+    if ("text" in value && typeof value.text === "string") return value.text.trim();
+    if ("error" in value && typeof value.error === "string") return value.error;
     return "";
   }
   return String(value).trim();
 }
+
+function cellToString(cell: ExcelJS.Cell): string {
+  return valueToString(cell.value, cell.numFmt);
+}
+
+// An example row that ships in a downloaded template. A data row that
+// matches it in every column is the untouched example and is skipped.
+export type ExampleRowSpec = { columns: ColumnDef[]; rows: string[][] };
 
 // Reads the data sheet of an uploaded .xlsx: row 1 is headers, every row
 // after is data. Throws a plain Error with a message safe to show the user
@@ -71,7 +105,7 @@ function cellToString(value: ExcelJS.CellValue): string {
 export async function readFirstSheet(
   file: File,
   expectedSheetName?: string,
-  options?: { allowFallback?: boolean }
+  options?: { allowFallback?: boolean; skipExamples?: ExampleRowSpec }
 ): Promise<ParsedSheet> {
   const allowFallback = options?.allowFallback ?? true;
   const arrayBuffer = await file.arrayBuffer();
@@ -104,26 +138,44 @@ export async function readFirstSheet(
     throw new Error("That file has no data — the data sheet is empty or missing.");
   }
 
+  // ACC-23: headers are read by column position, keeping blank header cells
+  // as "", so a blank header no longer shifts every later column left.
   const headerRow = sheet.getRow(1);
-  const headers: string[] = [];
-  headerRow.eachCell({ includeEmpty: false }, (cell) => {
-    headers.push(cellToString(cell.value));
+  let lastHeaderCol = 0;
+  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+    if (cellToString(cell) !== "" && colNumber > lastHeaderCol) lastHeaderCol = colNumber;
   });
+  const headers: string[] = [];
+  for (let c = 1; c <= lastHeaderCol; c++) {
+    headers.push(cellToString(headerRow.getCell(c)));
+  }
   if (headers.length === 0) {
     throw new Error("Couldn't find a header row in that file. Please use the downloaded template.");
   }
 
+  // Column position of each example-row column, when this module has examples.
+  const example = options?.skipExamples;
+  const exampleIdx = example ? example.columns.map((col) => findColumnIndex(headers, col)) : [];
+  const isExampleRow = (values: string[]): boolean => {
+    if (!example || exampleIdx.some((i) => i === -1)) return false;
+    return example.rows.some((ex) => ex.every((exVal, k) => (values[exampleIdx[k]] ?? "").trim() === exVal.trim()));
+  };
+
   const rows: string[][] = [];
+  const rowNumbers: number[] = [];
   for (let r = 2; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
     const values: string[] = [];
     for (let c = 1; c <= headers.length; c++) {
-      values.push(cellToString(row.getCell(c).value));
+      values.push(cellToString(row.getCell(c)));
     }
-    if (values.some((v) => v !== "")) rows.push(values);
+    if (!values.some((v) => v !== "")) continue;
+    if (isExampleRow(values)) continue;
+    rows.push(values);
+    rowNumbers.push(r);
   }
 
-  return { headers, rows };
+  return { headers, rows, rowNumbers };
 }
 
 // Case-insensitive, trimmed header match — a user retyping "name" or

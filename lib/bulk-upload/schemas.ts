@@ -50,7 +50,10 @@ export type BulkUploadModuleKey = (typeof BULK_UPLOAD_MODULES)[number];
 // code/label even though it looks numeric (Batch Size Unit, item/vendor
 // codes) — those stay text so a leading zero or punctuation is never
 // silently dropped.
-export type ColumnDef = { header: string; required: boolean; hint?: string; numeric?: boolean };
+//
+// `percent: true` marks a column holding a percentage entered as a plain
+// number (18 = 18%). "18%" typed as text is accepted and read as 18 (ACC-23).
+export type ColumnDef = { header: string; required: boolean; hint?: string; numeric?: boolean; percent?: boolean };
 
 export const BULK_UPLOAD_MODULE_META: Record<
   BulkUploadModuleKey,
@@ -158,8 +161,8 @@ export const MFR_RECIPE_COLUMNS: ColumnDef[] = [
 export const MFR_PROCEDURE_COLUMNS: ColumnDef[] = [
   { header: "MFR Name", required: true, hint: "must already appear on the Recipe sheet — this is how a procedure step is matched back to its MFR" },
   { header: "Procedure Intro", required: false, hint: "optional — the standard opening line (e.g. \"Weigh/measure all raw materials at production level\"); fill it on any one row for this MFR and leave it blank on the rest" },
-  { header: "Theoretical Yield %", required: false, hint: "optional — fill it on any one row for this MFR and leave it blank on the rest", numeric: true },
-  { header: "Permissible Yield %", required: false, hint: "optional — the NLT (not less than) minimum; fill it on any one row for this MFR and leave it blank on the rest", numeric: true },
+  { header: "Theoretical Yield %", required: false, hint: "optional — fill it on any one row for this MFR and leave it blank on the rest", numeric: true, percent: true },
+  { header: "Permissible Yield %", required: false, hint: "optional — the NLT (not less than) minimum; fill it on any one row for this MFR and leave it blank on the rest", numeric: true, percent: true },
   { header: "Stage", required: true, hint: "e.g. Cleaning, Preparation of Kwath" },
   { header: "Operation", required: true, hint: "the operation performed at this stage" },
 ];
@@ -201,7 +204,7 @@ export const PURCHASE_COLUMNS: ColumnDef[] = [
   { header: "R&D Qty", required: false, hint: "Required for Raw Material lines (enter 0 if none needed) — leave blank for Packaging Item lines", numeric: true },
   { header: "Sample Unit", required: false, hint: "unit QC/Stability/R&D Qty are entered in, if different from Unit above — Raw Material lines only, converted to Unit on save; same dropdown as Unit" },
   { header: "Unit Price (₹)", required: false, numeric: true },
-  { header: "GST %", required: false, numeric: true },
+  { header: "GST %", required: false, numeric: true, percent: true },
 ];
 
 export const EQUIPMENT_COLUMNS: ColumnDef[] = [
@@ -220,7 +223,7 @@ export const DEAD_STOCK_COLUMNS: ColumnDef[] = [
   { header: "Date of Purchase", required: false },
   { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank", numeric: true },
   { header: "Purchase Price (₹)", required: false, numeric: true },
-  { header: "Depreciation %", required: false, hint: "a number from 0 to 100 — defaults to 25 if left blank", numeric: true },
+  { header: "Depreciation %", required: false, hint: "a number from 0 to 100 — defaults to 25 if left blank", numeric: true, percent: true },
   { header: "Resolution Date", required: false },
   { header: "Rejected Qty", required: false, hint: "a number ≥ 0 — defaults to 0 if left blank", numeric: true },
   { header: "Rejected Value (₹)", required: false, hint: "a number ≥ 0 — defaults to 0 if left blank", numeric: true },

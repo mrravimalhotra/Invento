@@ -49,6 +49,8 @@ import { canWrite } from "@/lib/constants/roles";
 import { UNITS, convertUnit, type Unit } from "@/lib/constants/units";
 import { revalidatePath } from "next/cache";
 import { readFirstSheet, findColumnIndex } from "@/lib/bulk-upload/parse";
+import { EXAMPLE_ROWS } from "@/lib/bulk-upload/examples";
+import { parseUploadDate, DATE_FORMAT_HINT } from "@/lib/bulk-upload/dates";
 import {
   ITEM_COLUMNS,
   VENDOR_COLUMNS,
@@ -74,7 +76,10 @@ export type BulkUploadState =
 function cell(row: string[], headers: string[], col: ColumnDef): string {
   const idx = findColumnIndex(headers, col);
   if (idx === -1) return "";
-  return (row[idx] ?? "").trim();
+  const text = (row[idx] ?? "").trim();
+  // ACC-23: a percentage typed as text ("18%", "18 %") is read as 18. A
+  // percent-formatted Excel cell is already turned into 18 by the parser.
+  return col.percent ? text.replace(/\s*%$/, "") : text;
 }
 
 function matchUnit(raw: string): Unit | null {
@@ -90,7 +95,10 @@ async function loadSheetOrError(formData: FormData, columns: ColumnDef[], module
 
   let sheet;
   try {
-    sheet = await readFirstSheet(file, BULK_UPLOAD_MODULE_META[module].sheetName);
+    // ACC-23: an untouched example row from the template is not a record.
+    sheet = await readFirstSheet(file, BULK_UPLOAD_MODULE_META[module].sheetName, {
+      skipExamples: module === "mfr" ? undefined : { columns, rows: EXAMPLE_ROWS[module] },
+    });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Couldn't read that file." } as const;
   }
@@ -116,10 +124,9 @@ async function loadSheetOrError(formData: FormData, columns: ColumnDef[], module
   return { sheet } as const;
 }
 
-// Excel row number for a data row at zero-based index i (row 1 is the
-// header, row 2 is the first data row) — used only in error messages so
-// they point at the same row number the uploader sees in Excel.
-const excelRow = (i: number) => i + 2;
+// Error messages use the Excel row number each data row really came from
+// (sheet.rowNumbers) — not its position in the list, which drifts as soon as
+// a blank or untouched example row has been skipped above it (ACC-23).
 
 // ------------------------------------------------------------------
 // Item Master
@@ -130,7 +137,7 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
 
   const loaded = await loadSheetOrError(formData, ITEM_COLUMNS, "items");
   if ("error" in loaded) return { error: loaded.error };
-  const { headers, rows } = loaded.sheet;
+  const { headers, rows, rowNumbers } = loaded.sheet;
 
   const supabase = await createClient();
   const [{ data: itemTypes }, { data: existingBarcodeRows }, { data: existingItemRows }] = await Promise.all([
@@ -171,7 +178,7 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
   const seenItemNames = new Map<string, number>();
 
   rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = rowNumbers[i];
     const name = cell(row, headers, ITEM_COLUMNS[0]);
     const categoryRaw = cell(row, headers, ITEM_COLUMNS[1]);
     const itemTypeRaw = cell(row, headers, ITEM_COLUMNS[2]);
@@ -307,7 +314,7 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
 
   const loaded = await loadSheetOrError(formData, VENDOR_COLUMNS, "vendors");
   if ("error" in loaded) return { error: loaded.error };
-  const { headers, rows } = loaded.sheet;
+  const { headers, rows, rowNumbers } = loaded.sheet;
 
   const supabase = await createClient();
   // vendors.name has no DB-level unique constraint at all (vendor_code is
@@ -327,7 +334,7 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
   const seenNames = new Map<string, number>();
 
   rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = rowNumbers[i];
     const name = cell(row, headers, VENDOR_COLUMNS[0]);
     const address = cell(row, headers, VENDOR_COLUMNS[1]) || null;
     const mobile = cell(row, headers, VENDOR_COLUMNS[2]) || null;
@@ -385,7 +392,7 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
 
   const loaded = await loadSheetOrError(formData, ITEM_TYPE_COLUMNS, "item-types");
   if ("error" in loaded) return { error: loaded.error };
-  const { headers, rows } = loaded.sheet;
+  const { headers, rows, rowNumbers } = loaded.sheet;
 
   const supabase = await createClient();
   // item_types.description is DB-unique but Postgres text comparison is
@@ -402,7 +409,7 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
   const seen = new Map<string, number>();
 
   rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = rowNumbers[i];
     const description = cell(row, headers, ITEM_TYPE_COLUMNS[0]);
     if (!description) {
       rowErrors.push(`Row ${r}: Description is required.`);
@@ -481,9 +488,11 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   // validated separately rather than through the shared loadSheetOrError()
   // helper other single-sheet modules use, which assumes exactly one data
   // sheet and treats zero data rows as always an error.
-  let recipeSheet: { headers: string[]; rows: string[][] };
+  let recipeSheet: { headers: string[]; rows: string[][]; rowNumbers: number[] };
   try {
-    recipeSheet = await readFirstSheet(file, BULK_UPLOAD_MODULE_META.mfr.sheetName);
+    recipeSheet = await readFirstSheet(file, BULK_UPLOAD_MODULE_META.mfr.sheetName, {
+      skipExamples: { columns: MFR_RECIPE_COLUMNS, rows: EXAMPLE_ROWS["mfr-recipe"] },
+    });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Couldn't read that file." };
   }
@@ -508,9 +517,12 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   // sheet must fail clearly here, not silently re-read the Recipe sheet a
   // second time under the "Procedure" label (see readFirstSheet's own
   // comment in lib/bulk-upload/parse.ts).
-  let procedureSheet: { headers: string[]; rows: string[][] };
+  let procedureSheet: { headers: string[]; rows: string[][]; rowNumbers: number[] };
   try {
-    procedureSheet = await readFirstSheet(file, MFR_PROCEDURE_SHEET_NAME, { allowFallback: false });
+    procedureSheet = await readFirstSheet(file, MFR_PROCEDURE_SHEET_NAME, {
+      allowFallback: false,
+      skipExamples: { columns: MFR_PROCEDURE_COLUMNS, rows: EXAMPLE_ROWS["mfr-procedure"] },
+    });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Couldn't read the Manufacturing Procedure sheet." };
   }
@@ -580,7 +592,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
 
   // ---- Recipe sheet: one row = one recipe line, always required ----
   recipeSheet.rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = recipeSheet.rowNumbers[i];
     const name = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[0]);
     const batchQtyRaw = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[1]);
     const batchUnitRaw = cell(row, recipeSheet.headers, MFR_RECIPE_COLUMNS[2]);
@@ -690,7 +702,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
 
   // ---- Manufacturing Procedure sheet: one row = one procedure step, fully optional ----
   procedureSheet.rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = procedureSheet.rowNumbers[i];
     const name = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[0]);
     const procedureIntroRaw = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[1]);
     const theoreticalYieldRaw = cell(row, procedureSheet.headers, MFR_PROCEDURE_COLUMNS[2]);
@@ -831,7 +843,7 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
 
   const loaded = await loadSheetOrError(formData, PURCHASE_COLUMNS, "purchase");
   if ("error" in loaded) return { error: loaded.error };
-  const { headers, rows } = loaded.sheet;
+  const { headers, rows, rowNumbers } = loaded.sheet;
 
   const supabase = await createClient();
   const [{ data: vendors }, { data: items }, { data: existingPoRows }] = await Promise.all([
@@ -880,7 +892,7 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
   const groups = new Map<string, { firstRow: number; def: PurchaseOrderPayload }>();
 
   rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = rowNumbers[i];
     const vendorNameRaw = cell(row, headers, PURCHASE_COLUMNS[0]);
     const invoiceNumberRaw = cell(row, headers, PURCHASE_COLUMNS[1]);
     const invoiceDateRaw = cell(row, headers, PURCHASE_COLUMNS[2]);
@@ -911,12 +923,13 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
       rowErrors.push(`Row ${r}: Invoice Number is required.`);
       return;
     }
-    const invoiceDateParsed = invoiceDateRaw ? new Date(invoiceDateRaw) : null;
-    if (!invoiceDateRaw || !invoiceDateParsed || Number.isNaN(invoiceDateParsed.getTime())) {
-      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Invoice Date "${invoiceDateRaw}" isn't a valid date.`);
+    const invoiceDate = invoiceDateRaw ? parseUploadDate(invoiceDateRaw) : null;
+    if (!invoiceDateRaw || !invoiceDate) {
+      rowErrors.push(
+        `Row ${r} (Invoice "${invoiceNumberRaw}"): Invoice Date "${invoiceDateRaw}" isn't a valid date — ${DATE_FORMAT_HINT}.`
+      );
       return;
     }
-    const invoiceDate = invoiceDateParsed.toISOString().slice(0, 10);
 
     const typeNorm = purchaseTypeRaw.trim().toLowerCase();
     let category: "raw" | "packaging" | null = null;
@@ -1133,12 +1146,14 @@ const CALIBRATION_STATUS_MAP: Record<string, string> = {
 // a sentinel meaning "already pushed a row error, stop parsing this row."
 function parseOptionalDate(raw: string, label: string, r: number, rowErrors: string[]): string | null | undefined {
   if (!raw) return null;
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) {
-    rowErrors.push(`Row ${r}: ${label} "${raw}" isn't a valid date.`);
+  // ACC-23: explicit formats only (see lib/bulk-upload/dates.ts) — not
+  // `new Date(text)`, which read "05-09-2026" as 9 May.
+  const iso = parseUploadDate(raw);
+  if (!iso) {
+    rowErrors.push(`Row ${r}: ${label} "${raw}" isn't a valid date — ${DATE_FORMAT_HINT}.`);
     return undefined;
   }
-  return d.toISOString().slice(0, 10);
+  return iso;
 }
 
 export async function bulkUploadEquipment(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
@@ -1147,7 +1162,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
 
   const loaded = await loadSheetOrError(formData, EQUIPMENT_COLUMNS, "equipment");
   if ("error" in loaded) return { error: loaded.error };
-  const { headers, rows } = loaded.sheet;
+  const { headers, rows, rowNumbers } = loaded.sheet;
 
   const supabase = await createClient();
   // Asset ID is the unique key for equipment, not Name — Ravi (14 Sept
@@ -1180,7 +1195,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
   const seenAssetIds = new Map<string, number>();
 
   rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = rowNumbers[i];
     const name = cell(row, headers, EQUIPMENT_COLUMNS[0]);
     const room_no = cell(row, headers, EQUIPMENT_COLUMNS[1]) || null;
     const section = cell(row, headers, EQUIPMENT_COLUMNS[2]) || null;
@@ -1281,7 +1296,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
 
   const loaded = await loadSheetOrError(formData, DEAD_STOCK_COLUMNS, "dead-stock");
   if ("error" in loaded) return { error: loaded.error };
-  const { headers, rows } = loaded.sheet;
+  const { headers, rows, rowNumbers } = loaded.sheet;
 
   const supabase = await createClient();
   // dead_stock_items.article_name has no DB-level unique constraint — same
@@ -1310,7 +1325,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
   const seenArticleNames = new Map<string, number>();
 
   rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = rowNumbers[i];
     const article_name = cell(row, headers, DEAD_STOCK_COLUMNS[0]);
     const dateOfPurchaseRaw = cell(row, headers, DEAD_STOCK_COLUMNS[1]);
     const quantityRaw = cell(row, headers, DEAD_STOCK_COLUMNS[2]);
@@ -1456,7 +1471,7 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
 
   const loaded = await loadSheetOrError(formData, COA_TEMPLATE_COLUMNS, "coa-templates");
   if ("error" in loaded) return { error: loaded.error };
-  const { headers, rows } = loaded.sheet;
+  const { headers, rows, rowNumbers } = loaded.sheet;
 
   const supabase = await createClient();
   const [{ data: itemTypes }, { data: existingTemplates }] = await Promise.all([
@@ -1487,7 +1502,7 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
   const groups = new Map<string, { firstRow: number; itemTypeName: string; lines: { test: string; specification: string }[] }>();
 
   rows.forEach((row, i) => {
-    const r = excelRow(i);
+    const r = rowNumbers[i];
     const itemTypeRaw = cell(row, headers, COA_TEMPLATE_COLUMNS[0]);
     const testRaw = cell(row, headers, COA_TEMPLATE_COLUMNS[1]);
     const specRaw = cell(row, headers, COA_TEMPLATE_COLUMNS[2]);

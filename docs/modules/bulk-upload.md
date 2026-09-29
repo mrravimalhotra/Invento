@@ -385,3 +385,34 @@ needed no migration at all, purely an app-layer (schema + template +
 parser) change.
 
 Verified: `tsc`/`eslint`/`next build` all clean.
+
+## Dates, cells and example rows read correctly (29 Sept 2026 — ACC-23)
+
+Five things in the reader were wrong, all fixed in `lib/bulk-upload/` (no
+migration):
+
+- **Text dates.** `new Date(text)` read "05-09-2026" as 9 May, rejected
+  "13-09-2026" and saved "05/09/2023" as 2023-05-09 (and, on a server outside
+  UTC, one day early). Dates are now read by explicit format
+  (`dates.ts`): a real Excel date cell, `yyyy-mm-dd`, or day-first
+  `dd-mm-yyyy` / `dd/mm/yyyy` / `dd.mm.yyyy` with a 4-digit year, and must be
+  a real calendar date (31-02 is refused). Anything else is refused with the
+  accepted formats in the message; nothing is guessed. Used for Invoice Date
+  (Purchase), the two calibration dates (Equipment), and Date of Purchase /
+  Resolution Date (Dead Stock).
+- **Rich-text cells** (partly bold or coloured) came through blank. They are
+  now read as their full text. Formula cells give their calculated result,
+  hyperlink cells their visible text, error cells their error text (so the
+  row check flags them).
+- **Percentages.** A cell formatted as a percentage stores 0.25 and shows
+  25%; it was read as 0.25. It is now read as 25. Text such as "18%" is
+  accepted in the four percent columns (GST %, Depreciation %, Theoretical
+  and Permissible Yield %).
+- **Blank header cell.** An empty header cell was dropped and every later
+  column shifted one to the left (quantities read from the wrong column).
+  Headers are now read by position, so columns stay aligned.
+- **Example rows.** The template's grey italic example row(s) were imported as
+  real records. A data row that still matches its example in every column is
+  now skipped (`examples.ts`); change any cell and it is treated as real.
+- **Row numbers in error messages** now use the true Excel row (before, they
+  were position + 2, which drifted when blank or example rows were skipped).
