@@ -92,6 +92,8 @@ type PurchaseLineQcRow = {
   unit: string;
   item_code: string;
   item_name: string;
+  live_remaining_qty?: string | number;
+  stability_reserve_left?: string | number;
 };
 
 async function getAwaitingQcLines(
@@ -160,13 +162,18 @@ async function getDueForRetestLines(
   const { data } = await fetchAllRows<PurchaseLineQcRow>((from, to) =>
     supabase
       .from("purchase_line_qc")
-      .select("purchase_line_id, batch_number, qc_qty, stability_qty, unit, item_code, item_name")
+      .select(
+        "purchase_line_id, batch_number, qc_qty, stability_qty, unit, item_code, item_name, live_remaining_qty, stability_reserve_left"
+      )
       .eq("qc_status", "approved")
       .not("retest_date", "is", null)
       .lte("retest_date", today)
       .eq("active", true)
       .eq("item_category", "raw")
-      .gt("stability_qty", 0)
+      // ACC-10 (29 Sept 2026): no longer limited to batches with a stability
+      // reserve — a batch without one was blocked from production yet never
+      // listed here. ACC-39: only batches that still have stock to retest.
+      .gt("live_remaining_qty", 0)
       .order("batch_number", { ascending: true })
       .order("purchase_line_id", { ascending: true })
       .range(from, to)
@@ -174,7 +181,9 @@ async function getDueForRetestLines(
   return data.map((r) => ({
     id: r.purchase_line_id,
     batch_number: r.batch_number,
-    stability_qty: r.stability_qty,
+    qc_qty: r.qc_qty,
+    live_remaining_qty: r.live_remaining_qty ?? 0,
+    stability_reserve_left: r.stability_reserve_left ?? 0,
     unit: r.unit,
     items: { item_code: r.item_code, name: r.item_name },
   }));
@@ -239,15 +248,34 @@ async function getProductionDueForRetestLines(
     .filter((id): id is string => !!id);
   if (!dueIds.length) return [];
 
-  const { data: lines } = await fetchByIdChunks<ProductionDueForRetestLine>(dueIds, (chunk) =>
+  type ProductionBatchRow = Omit<ProductionDueForRetestLine, "stability_reserve_left"> & { stability_qty: string | number };
+  const { data: lines } = await fetchByIdChunks<ProductionBatchRow>(dueIds, (chunk) =>
     supabase
       .from("production_issue_batches")
-      .select("id, batch_number, stability_qty, unit, items!inner(item_code, name)")
+      .select("id, batch_number, qc_qty, stability_qty, live_remaining_qty, unit, items!inner(item_code, name)")
       .in("id", chunk)
       .eq("active", true)
-      .gt("stability_qty", 0)
-      .returns<ProductionDueForRetestLine[]>()
+      // ACC-10 / ACC-39: every due batch that still has stock.
+      .gt("live_remaining_qty", 0)
+      .returns<ProductionBatchRow[]>()
   );
+  // Stability reserve already used by earlier retests (0080).
+  const { data: used } = await fetchByIdChunks<{ production_batch_id: string; stability_reserve_used: string | number | null }>(
+    lines.map((l) => l.id),
+    (chunk) =>
+      supabase
+        .from("quality_checks")
+        .select("production_batch_id, stability_reserve_used")
+        .eq("is_retest", true)
+        .in("production_batch_id", chunk)
+  );
+  const usedByBatch = new Map<string, number>();
+  for (const u of used) usedByBatch.set(u.production_batch_id, (usedByBatch.get(u.production_batch_id) ?? 0) + Number(u.stability_reserve_used ?? 0));
 
-  return lines.sort((x, y) => x.batch_number.localeCompare(y.batch_number));
+  return lines
+    .map(({ stability_qty, ...l }) => ({
+      ...l,
+      stability_reserve_left: Math.max(Number(stability_qty) - (usedByBatch.get(l.id) ?? 0), 0),
+    }))
+    .sort((x, y) => x.batch_number.localeCompare(y.batch_number));
 }

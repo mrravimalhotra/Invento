@@ -622,3 +622,31 @@ this only adds a query and a card that surface batches already sitting in
 that state. Verified: `tsc --noEmit`, `eslint`, `next build` all clean,
 plus a local `next dev` smoke test confirming `/qc` still responds
 correctly.
+
+## Retests draw a real sample; every due batch can be retested (29 Sept 2026, migration 0080 — accuracy audit ACC-10/16/39)
+
+**Starting a retest.** "Start Retest" on the Due-for-retest cards (purchase and
+production batches) now asks for the retest sample quantity and unit. The
+quantity defaults to the batch's QC sample size. `start_retest()` then does
+everything in one transaction:
+
+1. Checks that the batch is approved and its retest date has passed.
+2. Takes the sample from the batch's **stability reserve first**. The reserve
+   left over from Final Submit is already out of stock, so this moves no stock.
+3. Takes any remainder from the batch's **remaining stock**, as a
+   `qc_sample` stock movement that decrements the batch.
+4. Records how much came from each on the QC record (`stability_reserve_used`,
+   `stock_sample_used`).
+
+**What was wrong before:**
+- **Reserve never used up (ACC-16).** Every retest recorded the full stability
+  reserve as its sample, and the reserve never went down.
+- **Batches stuck (ACC-10).** A batch with no stability reserve was blocked from
+  production once due, but it wasn't listed and couldn't be retested.
+- **Empty batches listed (ACC-39).** Batches with nothing left appeared as due.
+
+**Now:**
+- **Every due batch that still has stock is listed**, with or without a reserve.
+  The card shows how much reserve and how much stock is left.
+- **Clear refusals.** A retest needing more than reserve plus stock is refused
+  with the amounts left.

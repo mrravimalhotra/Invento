@@ -974,3 +974,19 @@ show 36 failures, proving each bypass was real).
 Verification (local replay of 78 migrations): 36/36 checks. The same checks
 without 0078 fail 15 times, reproducing each problem. The unit, security and
 audit suites still pass.
+
+## Batch numbers never repeat (29 Sept 2026, migration 0080 — accuracy audit ACC-09)
+
+**Problem.** Batch numbers used to be "count this item's batches this year +
+1". Deleting a draft line lowered the count, so the next number repeated one
+already in use:
+- **Normal items:** saves failed for the rest of the year.
+- **Items whose code starts with LEG-:** these aren't covered by the unique
+  index, so a silent duplicate was created.
+
+The same count+1 pattern was used for finished-product and production batch
+numbers.
+
+**Fix.** The next number is now the highest number already used for that item
+(or MFR) this year, plus 1 (`_max_batch_seq`). A guard also refuses a
+duplicate purchase batch number for any item, LEG- items included.
