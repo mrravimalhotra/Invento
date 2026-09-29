@@ -152,7 +152,7 @@ export const MFR_RECIPE_COLUMNS: ColumnDef[] = [
   { header: "MFR Name", required: true, hint: "repeat the exact same text on every recipe line row belonging to this MFR" },
   { header: "Batch Size Qty", required: true, hint: "same value on every recipe line row for one MFR", numeric: true },
   { header: "Batch Size Unit", required: true, hint: "same value on every recipe line row for one MFR — pick from the dropdown" },
-  { header: "Item Type", required: false, hint: "applies to the Finished Product item this MFR creates — same value on every recipe line row for one MFR; pick from the dropdown, or type a new/different one" },
+  { header: "Item Type", required: false, hint: "applies to the Finished Product item created when this MFR is approved — same value on every recipe line row for one MFR; pick from the dropdown, or type a new/different one" },
   { header: "Line Item Name", required: true, hint: "an existing, active Raw Material item name — pick from the dropdown, or type a new/different one" },
   { header: "Line Quantity", required: true, hint: "a number greater than 0", numeric: true },
   { header: "Line Unit", required: true, hint: "pick from the dropdown" },

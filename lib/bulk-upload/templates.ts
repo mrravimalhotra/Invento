@@ -183,7 +183,7 @@ async function buildItemsWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Wor
     .order("description");
 
   addInstructionsSheet(workbook, "Item Master", [{ columns: ITEM_COLUMNS_WITH_EXAMPLE.columns }], [
-    "Category must be exactly \"Raw Material\" or \"Packaging\" — Finished Product and Packaged Finished Product items are created from the MFR screen (or the MFR bulk template), not here.",
+    "Category must be exactly \"Raw Material\" or \"Packaging\" — Finished Product and Packaged Finished Product items are created automatically when an MFR is approved, not here.",
   ]);
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.items.sheetName);
@@ -329,7 +329,7 @@ async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workb
       "Only active Raw Material items can be recipe lines (matching what the MFR screen itself offers) — Packaging and Finished Product items cannot.",
       "On the Recipe sheet, Batch Size Unit, Item Type, Line Item Name, and Line Unit all have a dropdown in this template (click the cell, then the small arrow) sourced from what's currently active — but you can still type a value that isn't in the list if you need to; it's checked for real when you upload.",
       "Line Item Name must uniquely identify one active Raw Material item — if two active Raw Material items share the exact same name, the upload will reject that row and ask you to use a more specific name (or fix the duplicate in Item Master first).",
-      "This also creates the MFR's Finished Product item and its paired Packaged Finished Product item automatically, the same way creating an MFR by hand does.",
+      "Each MFR lands unapproved, exactly like one created by hand. Its Finished Product item and paired Packaged Finished Product item are created when the MFR is approved (on its own MFR page), so an MFR that is never approved uses up no item codes.",
     ]
   );
 

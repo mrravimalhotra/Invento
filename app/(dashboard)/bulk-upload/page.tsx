@@ -38,7 +38,7 @@ const MODULE_CARDS: ModuleCard[] = [
     key: "items",
     action: bulkUploadItems,
     description:
-      "Create Raw Material and Packaging items in Item Master. Finished Product and Packaged Finished Product items are created via the MFR template below, not here.",
+      "Create Raw Material and Packaging items in Item Master. Finished Product and Packaged Finished Product items are created automatically when an MFR is approved, not here.",
   },
   {
     key: "vendors",
@@ -54,7 +54,7 @@ const MODULE_CARDS: ModuleCard[] = [
     key: "mfr",
     action: bulkUploadMfr,
     description:
-      "Create MFR recipes and Manufacturing Procedures — two sheets in one file, one row per recipe line or procedure step, grouped by repeating the same MFR Name. Also creates each MFR's paired Finished Product and Packaged Finished Product items automatically, the same way creating an MFR by hand does.",
+      "Create MFR recipes and Manufacturing Procedures — two sheets in one file, one row per recipe line or procedure step, grouped by repeating the same MFR Name. Each MFR lands unapproved; its Finished Product and Packaged Finished Product items are created when it is approved, the same as an MFR created by hand.",
   },
   {
     key: "purchase",

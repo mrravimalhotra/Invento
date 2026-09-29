@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
+import { escapeLike } from "@/lib/utils";
 import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
@@ -42,6 +43,20 @@ export async function createVendor(_prev: ActionState, formData: FormData): Prom
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
+  // Vendor name is not unique in the database (vendor_code is), so the
+  // one-at-a-time form checks it here, case-insensitively, against every
+  // existing vendor — the same rule bulk upload already applies. App-level
+  // only, like the other duplicate-name checks (Item, MFR, Equipment, Dead
+  // Stock).
+  const { data: dupName } = await supabase
+    .from("vendors")
+    .select("vendor_code")
+    .ilike("name", escapeLike(parsed.data.name))
+    .limit(1);
+  if (dupName && dupName.length > 0) {
+    return { error: `A vendor named "${parsed.data.name}" already exists (${dupName[0].vendor_code}).` };
+  }
+
   const { data: vendorCode, error: codeError } = await supabase.rpc("get_next_vendor_code");
   if (codeError) return { error: friendlyDbError(codeError) };
 
@@ -79,6 +94,21 @@ export async function updateVendor(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
+  // Vendor name is not unique in the database (vendor_code is), so the
+  // one-at-a-time form checks it here, case-insensitively, against every
+  // existing vendor — the same rule bulk upload already applies. App-level
+  // only, like the other duplicate-name checks (Item, MFR, Equipment, Dead
+  // Stock).
+  const { data: dupName } = await supabase
+    .from("vendors")
+    .select("vendor_code")
+    .ilike("name", escapeLike(parsed.data.name))
+    .neq("id", id)
+    .limit(1);
+  if (dupName && dupName.length > 0) {
+    return { error: `A vendor named "${parsed.data.name}" already exists (${dupName[0].vendor_code}).` };
+  }
+
   const { error } = await supabase
     .from("vendors")
     .update({
