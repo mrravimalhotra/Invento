@@ -61,6 +61,7 @@ export default async function StockPositionPage() {
         .select("id, item_code, name, unit, low_stock_threshold, category")
         .eq("active", true)
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)
         .returns<ItemRow[]>()
     ),

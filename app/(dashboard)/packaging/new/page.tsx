@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -14,17 +15,25 @@ export default async function NewPackagingIssuePage() {
 
   const supabase = await createClient();
   const [{ data: allFpBatches }, { data: packagingItems }] = await Promise.all([
-    supabase
-      .from("finished_product_batches")
-      .select("id, batch_number, status")
-      .eq("active", true)
-      .order("batch_number", { ascending: false }),
-    supabase
-      .from("items")
-      .select("id, item_code, name, unit")
-      .eq("active", true)
-      .eq("category", "packaging")
-      .order("created_at", { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("finished_product_batches")
+        .select("id, batch_number, status")
+        .eq("active", true)
+        .order("batch_number", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("items")
+        .select("id, item_code, name, unit")
+        .eq("active", true)
+        .eq("category", "packaging")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
   // finished_product_batches.status only ever moves to 'in_process' or
@@ -34,16 +43,16 @@ export default async function NewPackagingIssuePage() {
   // Finished Product list does, rather than filtering on the raw column,
   // which would never match and always report zero eligible batches.
   const candidates = allFpBatches ?? [];
-  const { data: qcRows } = candidates.length
-    ? await supabase
+  // ACC-08: id lookups in chunks (see fetchByIdChunks).
+  const { data: qcRows } = await fetchByIdChunks(
+    candidates.map((r) => r.id),
+    (chunk) =>
+      supabase
         .from("quality_checks")
         .select("finished_product_batch_id, status, created_at")
-        .in(
-          "finished_product_batch_id",
-          candidates.map((r) => r.id)
-        )
+        .in("finished_product_batch_id", chunk)
         .not("finished_product_batch_id", "is", null)
-    : { data: [] };
+  );
   const latestQc = latestQcByBatch((qcRows ?? []) as { finished_product_batch_id: string; status: string; created_at: string }[]);
   const approvedBatches = candidates.filter((b) => resolveDisplayStatus(b.status, latestQc.get(b.id)) === "approved");
 
@@ -59,23 +68,18 @@ export default async function NewPackagingIssuePage() {
   // code means. The FP item's `name` is fetched here alongside its
   // `unit` (same row, same query) and passed through as `fp_name`,
   // display-only — the option's submitted value is still the batch id.
-  const { data: fullBatchRows } = approvedBatches.length
-    ? await supabase
-        .from("finished_product_batches")
-        .select("id, mfr_definition_id")
-        .in(
-          "id",
-          approvedBatches.map((b) => b.id)
-        )
-    : { data: [] };
+  const { data: fullBatchRows } = await fetchByIdChunks(
+    approvedBatches.map((b) => b.id),
+    (chunk) => supabase.from("finished_product_batches").select("id, mfr_definition_id").in("id", chunk)
+  );
   const mfrDefIds = [...new Set((fullBatchRows ?? []).map((r) => r.mfr_definition_id).filter(Boolean))];
-  const { data: mfrDefRows } = mfrDefIds.length
-    ? await supabase.from("mfr_definitions").select("id, finished_product_item_id").in("id", mfrDefIds)
-    : { data: [] };
+  const { data: mfrDefRows } = await fetchByIdChunks(mfrDefIds as string[], (chunk) =>
+    supabase.from("mfr_definitions").select("id, finished_product_item_id").in("id", chunk)
+  );
   const fpItemIds = [...new Set((mfrDefRows ?? []).map((r) => r.finished_product_item_id).filter(Boolean))] as string[];
-  const { data: fpItemRows } = fpItemIds.length
-    ? await supabase.from("items").select("id, unit, name").in("id", fpItemIds)
-    : { data: [] };
+  const { data: fpItemRows } = await fetchByIdChunks(fpItemIds, (chunk) =>
+    supabase.from("items").select("id, unit, name").in("id", chunk)
+  );
   const unitByItemId = new Map((fpItemRows ?? []).map((r) => [r.id, r.unit]));
   const nameByItemId = new Map((fpItemRows ?? []).map((r) => [r.id, r.name]));
   const itemIdByMfrDef = new Map((mfrDefRows ?? []).map((r) => [r.id, r.finished_product_item_id]));

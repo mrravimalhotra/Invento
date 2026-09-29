@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
@@ -13,10 +14,14 @@ export default async function LineClearancePage({
 }) {
   const { created } = await searchParams;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
-  const { data } = await supabase
-    .from("line_clearance_checks")
-    .select("id, area, batch_reference, status, checked_at")
-    .order("checked_at", { ascending: false });
+  const { data } = await fetchAllRows((from, to) =>
+    supabase
+      .from("line_clearance_checks")
+      .select("id, area, batch_reference, status, checked_at")
+      .order("checked_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const rows: LineClearanceRow[] = data ?? [];
   const canCreate = canWrite(user?.roles ?? [], "line_clearance");

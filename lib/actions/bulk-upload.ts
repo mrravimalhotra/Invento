@@ -42,6 +42,7 @@
 // Purchase Type category, is rejected with a row error asking for a more
 // specific name rather than silently guessing which one was meant.
 
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -133,9 +134,9 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
 
   const supabase = await createClient();
   const [{ data: itemTypes }, { data: existingBarcodeRows }, { data: existingItemRows }] = await Promise.all([
-    supabase.from("item_types").select("id, description").eq("active", true),
-    supabase.from("items").select("barcode, item_code").not("barcode", "is", null),
-    supabase.from("items").select("name"),
+    fetchAllRows((from, to) => supabase.from("item_types").select("id, description").eq("active", true).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("items").select("barcode, item_code").not("barcode", "is", null).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("items").select("name").order("id", { ascending: true }).range(from, to)),
   ]);
   const itemTypeByName = new Map((itemTypes ?? []).map((t) => [t.description.trim().toLowerCase(), t.id]));
   // Barcode is DB-unique (items.barcode unique) — checked here against
@@ -317,7 +318,7 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
   // Item Type Master's Description dedup below: "Ambadas" and "ambadas"
   // should collide too. Ravi (13 Sept 2026): "make sure there is
   // validation so it is not allowed to add duplicate Vendors."
-  const { data: existingVendors } = await supabase.from("vendors").select("name");
+  const { data: existingVendors } = await fetchAllRows((from, to) => supabase.from("vendors").select("name").order("id", { ascending: true }).range(from, to));
   const existingNames = new Set((existingVendors ?? []).map((v) => v.name.trim().toLowerCase()));
 
   type Parsed = { name: string; address: string | null; mobile: string | null; phone: string | null; email: string | null };
@@ -393,7 +394,7 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
   // confusing everywhere it's picked from (Item Master, MFR). Checked
   // case-insensitively against every existing item type, active or not,
   // since the constraint itself doesn't care about active status either.
-  const { data: existingTypes } = await supabase.from("item_types").select("description");
+  const { data: existingTypes } = await fetchAllRows((from, to) => supabase.from("item_types").select("description").order("id", { ascending: true }).range(from, to));
   const existingDescriptions = new Set((existingTypes ?? []).map((t) => t.description.trim().toLowerCase()));
 
   const rowErrors: string[] = [];
@@ -534,9 +535,9 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
 
   const supabase = await createClient();
   const [{ data: itemTypes }, { data: rawItems }, { data: existingMfrRows }] = await Promise.all([
-    supabase.from("item_types").select("id, description").eq("active", true),
-    supabase.from("items").select("id, item_code, name").eq("category", "raw").eq("active", true),
-    supabase.from("mfr_definitions").select("name"),
+    fetchAllRows((from, to) => supabase.from("item_types").select("id, description").eq("active", true).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("items").select("id, item_code, name").eq("category", "raw").eq("active", true).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("mfr_definitions").select("name").order("id", { ascending: true }).range(from, to)),
   ]);
   const itemTypeByName = new Map((itemTypes ?? []).map((t) => [t.description.trim().toLowerCase(), t.id]));
   // Keyed by name (not code), 20 Sept 2026 — Ravi: "Replace Line Item Code
@@ -834,11 +835,11 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
 
   const supabase = await createClient();
   const [{ data: vendors }, { data: items }, { data: existingPoRows }] = await Promise.all([
-    supabase.from("vendors").select("id, vendor_code, name").eq("active", true),
+    fetchAllRows((from, to) => supabase.from("vendors").select("id, vendor_code, name").eq("active", true).order("id", { ascending: true }).range(from, to)),
     // Only Raw Material and Packaging items are purchasable — same rule
     // createPurchaseLine()'s own item picker enforces (purchase/[id]/page.tsx).
-    supabase.from("items").select("id, item_code, name, category").in("category", ["raw", "packaging"]).eq("active", true),
-    supabase.from("purchase_orders").select("vendor_id, invoice_number"),
+    fetchAllRows((from, to) => supabase.from("items").select("id, item_code, name, category").in("category", ["raw", "packaging"]).eq("active", true).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("purchase_orders").select("vendor_id, invoice_number").order("id", { ascending: true }).range(from, to)),
   ]);
   // Keyed by name (not code) — several active rows can share a name, so
   // each key maps to an array; a row is only usable once that array
@@ -1158,7 +1159,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
   // distinct Asset ID, is the normal shape for this module's real data).
   // App-level only, no DB constraint — same as every other duplicate
   // check in this app (Ravi's explicit choice, via AskUserQuestion).
-  const { data: existingEquipmentRows } = await supabase.from("equipment").select("asset_id");
+  const { data: existingEquipmentRows } = await fetchAllRows((from, to) => supabase.from("equipment").select("asset_id").order("id", { ascending: true }).range(from, to));
   const existingAssetIds = new Set(
     (existingEquipmentRows ?? []).flatMap((e) => (e.asset_id ? [e.asset_id.trim().toLowerCase()] : []))
   );
@@ -1287,7 +1288,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
   // reasoning and pattern as Item/Vendor's name dedup. Ravi (13 Sept 2026,
   // via AskUserQuestion): "add duplicate blocking on ... Dead Stock Article
   // Name ... for both bulk upload and the regular one-at-a-time forms."
-  const { data: existingDeadStockRows } = await supabase.from("dead_stock_items").select("article_name");
+  const { data: existingDeadStockRows } = await fetchAllRows((from, to) => supabase.from("dead_stock_items").select("article_name").order("id", { ascending: true }).range(from, to));
   const existingArticleNames = new Set((existingDeadStockRows ?? []).map((d) => d.article_name.trim().toLowerCase()));
 
   type Parsed = {
@@ -1459,8 +1460,8 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
 
   const supabase = await createClient();
   const [{ data: itemTypes }, { data: existingTemplates }] = await Promise.all([
-    supabase.from("item_types").select("id, description").eq("active", true),
-    supabase.from("coa_templates").select("item_type_id"),
+    fetchAllRows((from, to) => supabase.from("item_types").select("id, description").eq("active", true).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("coa_templates").select("item_type_id").order("id", { ascending: true }).range(from, to)),
   ]);
   // Keyed by name (not id) — item_types.description has no DB-level
   // unique constraint (same gap as items.name, vendors.name, mfr_

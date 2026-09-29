@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -16,12 +17,16 @@ export default async function NewFinishedProductPage() {
   // recipe would have no item to push the eventual yield onto. This
   // closes that gap by only ever offering approved (and active) MFRs
   // here, not just active ones.
-  const { data: mfrDefinitions } = await supabase
-    .from("mfr_definitions")
-    .select("id, code, name, version, batch_size_qty, batch_size_unit")
-    .eq("active", true)
-    .not("approved_by", "is", null)
-    .order("code");
+  const { data: mfrDefinitions } = await fetchAllRows((from, to) =>
+    supabase
+      .from("mfr_definitions")
+      .select("id, code, name, version, batch_size_qty, batch_size_unit")
+      .eq("active", true)
+      .not("approved_by", "is", null)
+      .order("code")
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   return (
     <div>

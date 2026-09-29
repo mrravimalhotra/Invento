@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -12,12 +13,16 @@ export default async function NewMfrPage() {
 
   const [{ data: itemTypes }, { data: rawItems }] = await Promise.all([
     supabase.from("item_types").select("id, description").eq("active", true).order("description"),
-    supabase
-      .from("items")
-      .select("id, item_code, name, unit")
-      .eq("category", "raw")
-      .eq("active", true)
-      .order("created_at", { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("items")
+        .select("id, item_code, name, unit")
+        .eq("category", "raw")
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
   ]);
   // No more next-FP-code preview here (FB-0010's peek_next_item_code
   // call, removed): as of 0041_mfr_deferred_approval.sql the Finished

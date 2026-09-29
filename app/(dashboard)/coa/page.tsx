@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
@@ -16,12 +17,16 @@ export default async function CoaListPage({
   const user = await getCurrentUser();
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("coa_records")
-    .select(
-      "id, coa_number, issued_at, file_url, coa_type, quality_checks(ar_number, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number)"
-    )
-    .order("issued_at", { ascending: false });
+  const { data } = await fetchAllRows((from, to) =>
+    supabase
+      .from("coa_records")
+      .select(
+        "id, coa_number, issued_at, file_url, coa_type, quality_checks(ar_number, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number)"
+      )
+      .order("issued_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const rows = (data ?? []) as unknown as CoaRow[];
 

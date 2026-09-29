@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/ui/page-header";
@@ -75,20 +76,25 @@ export default async function BmrDetailPage({ params }: { params: Promise<{ id: 
   const items: ItemRow[] = itemsRaw ?? [];
   const itemIds = items.map((i) => i.id);
 
-  const [{ data: approvedStatusRows }, { data: candidateBatches }] = await Promise.all([
-    supabase
-      .from("purchase_batch_status")
-      .select("purchase_line_id, qc_status, retest_date")
-      .eq("qc_status", "approved"),
-    itemIds.length
-      ? supabase
-          .from("purchase_lines")
-          .select("id, item_id, batch_number, expiry_date")
-          .in("item_id", itemIds)
-          .eq("active", true)
-          .order("expiry_date", { ascending: true })
-      : Promise.resolve({ data: [] as ApprovedBatch[] }),
-  ]);
+  const { data: candidateBatches } = itemIds.length
+    ? await supabase
+        .from("purchase_lines")
+        .select("id, item_id, batch_number, expiry_date")
+        .in("item_id", itemIds)
+        .eq("active", true)
+        .order("expiry_date", { ascending: true })
+    : { data: [] as ApprovedBatch[] };
+  // ACC-08: approved status only for these batches, in chunks — the whole
+  // view was read in one request before, capped at 1,000 rows.
+  const { data: approvedStatusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null }>(
+    (candidateBatches ?? []).map((b) => b.id),
+    (chunk) =>
+      supabase
+        .from("purchase_batch_status")
+        .select("purchase_line_id, qc_status, retest_date")
+        .eq("qc_status", "approved")
+        .in("purchase_line_id", chunk)
+  );
 
   // "Only QC Approved batches can be used for making finished product"
   // (3 Sept 2026) — a batch due for retest (retest_date <= today) no longer

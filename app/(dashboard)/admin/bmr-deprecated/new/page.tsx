@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/ui/page-header";
@@ -15,12 +16,20 @@ export default async function NewBmrPage() {
 
   const supabase = await createClient();
   const [{ data: fpBatches }, { data: bmrRows }] = await Promise.all([
-    supabase
-      .from("finished_product_batches")
-      .select("id, batch_number")
-      .eq("active", true)
-      .order("batch_number", { ascending: false }),
-    supabase.from("bmr_records").select("finished_product_batch_id"),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("finished_product_batches")
+        .select("id, batch_number")
+        .eq("active", true)
+        .order("batch_number", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("bmr_records").select("finished_product_batch_id")
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
   const usedIds = new Set((bmrRows ?? []).map((r) => r.finished_product_batch_id));

@@ -18,7 +18,11 @@ import type { PostgrestError } from "@supabase/supabase-js";
 // only if a specific table's row shape is large enough to hit a response
 // size limit before the row-count cap.
 //
-// Requires the underlying query to have a stable, deterministic order
+// Requires the underlying query to have a stable, deterministic order —
+// and that order must be UNIQUE (ACC-07, 29 Sept 2026): ordering only by
+// created_at, which many bulk-inserted rows share, let pages overlap and
+// skip rows. Always end with a unique column, e.g. .order("id").
+// Original note: requires the underlying query to have a stable, deterministic order
 // (a real `.order()` call) — `.range()` pagination across an unordered
 // result is not guaranteed consistent between pages by Postgres itself.
 //
@@ -67,4 +71,30 @@ export async function fetchAllRows<T>(
   }
 
   return { data: waves.flat(), error: null };
+}
+
+// ACC-08 (29 Sept 2026): look up rows for a long list of ids without one
+// huge `.in("id", [...])` request. Thousands of ids in one request make a
+// URL too long for the API (it fails, or the error is ignored and the page
+// silently shows defaults). Splits the ids into chunks, fetches the chunks
+// in parallel (each chunk well under the 1,000-row cap), and concatenates.
+export async function fetchByIdChunks<T>(
+  ids: readonly string[],
+  buildChunk: (chunk: string[]) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
+  chunkSize = 150
+): Promise<{ data: T[]; error: PostgrestError | null }> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return { data: [], error: null };
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += chunkSize) chunks.push(unique.slice(i, i + chunkSize));
+  const out: T[] = [];
+  // At most 8 requests in flight at a time, like fetchAllRows.
+  for (let i = 0; i < chunks.length; i += 8) {
+    const results = await Promise.all(chunks.slice(i, i + 8).map((c) => buildChunk(c)));
+    for (const { data, error } of results) {
+      if (error) return { data: out, error };
+      out.push(...(data ?? []));
+    }
+  }
+  return { data: out, error: null };
 }

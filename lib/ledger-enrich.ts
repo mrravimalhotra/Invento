@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchByIdChunks } from "@/lib/supabase/fetch-all";
 
 // Shared server-side enrichment for raw inventory_ledger rows, factored
 // out of the Ledger tab's page.tsx during Phase 4 (Inventory Ledger
@@ -52,7 +53,9 @@ export async function enrichLedgerRows<T extends RawLedgerRow>(
   const userIds = Array.from(new Set(ledgerRows.map((r) => r.event_by).filter((v): v is string => !!v)));
   const nameById = new Map<string, string>();
   if (userIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+    const { data: profiles } = await fetchByIdChunks(userIds, (chunk) =>
+      supabase.from("profiles").select("id, full_name").in("id", chunk)
+    );
     (profiles ?? []).forEach((p: { id: string; full_name: string | null }) => {
       if (p.full_name) nameById.set(p.id, p.full_name);
     });
@@ -94,13 +97,12 @@ export async function enrichLedgerRows<T extends RawLedgerRow>(
     .filter((r) => r.reference_type === "packaging" && r.reference_id)
     .map((r) => r.reference_id as string);
 
+  // ACC-08: id lookups in chunks — up to one id per ledger row shown.
   const [fpDirect, fpViaPackaging] = await Promise.all([
-    fpDirectIds.length > 0
-      ? supabase.from("finished_product_batches").select("id, batch_number").in("id", fpDirectIds)
-      : Promise.resolve({ data: [] }),
-    packagingIds.length > 0
-      ? supabase.from("packaging_issues").select("id, finished_product_batches(batch_number)").in("id", packagingIds)
-      : Promise.resolve({ data: [] }),
+    fetchByIdChunks(fpDirectIds, (chunk) => supabase.from("finished_product_batches").select("id, batch_number").in("id", chunk)),
+    fetchByIdChunks(packagingIds, (chunk) =>
+      supabase.from("packaging_issues").select("id, finished_product_batches(batch_number)").in("id", chunk)
+    ),
   ]);
   (fpDirect.data ?? []).forEach((b: { id: string; batch_number: string }) => {
     fpBatchByLedgerId.set(b.id, b.batch_number);

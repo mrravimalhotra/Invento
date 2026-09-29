@@ -1,3 +1,4 @@
+import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/card";
@@ -24,13 +25,15 @@ export default async function DashboardPage() {
     { count: fpCount },
     { count: poThisMonth },
     { count: pendingQc },
-    { data: qcAll },
+    { count: qcSubmitted },
+    { count: qcCheckerApproved },
+    { count: qcApproved },
+    { count: qcRejected },
     { data: ledger30 },
     { data: purchase30 },
     { data: fp30 },
     { data: retestSoon },
     { data: items },
-    { data: balances },
   ] = await Promise.all([
     supabase.from("items").select("*", { count: "exact", head: true }).eq("category", "raw").eq("active", true),
     supabase.from("vendors").select("*", { count: "exact", head: true }).eq("active", true),
@@ -41,10 +44,42 @@ export default async function DashboardPage() {
     // submitted (awaiting the QC Checker) and checker_approved (awaiting
     // the QC Reviewer) both still need a next action from someone.
     supabase.from("quality_checks").select("*", { count: "exact", head: true }).in("status", ["submitted", "checker_approved"]),
-    supabase.from("quality_checks").select("status"),
-    supabase.from("inventory_ledger").select("event_type, event_at, quantity").gte("event_at", daysAgo(30)),
-    supabase.from("purchase_lines").select("created_at, quantity, unit_price").gte("created_at", daysAgo(30)),
-    supabase.from("finished_product_batches").select("created_at").gte("created_at", daysAgo(30)),
+    // ACC-08 (29 Sept 2026): the QC chart counted statuses from a plain
+    // select, capped at 1,000 rows (and so disagreeing with the Pending QC
+    // card, which is an exact count). Exact counts per status instead.
+    supabase.from("quality_checks").select("*", { count: "exact", head: true }).eq("status", "submitted"),
+    supabase.from("quality_checks").select("*", { count: "exact", head: true }).eq("status", "checker_approved"),
+    supabase.from("quality_checks").select("*", { count: "exact", head: true }).eq("status", "approved"),
+    supabase.from("quality_checks").select("*", { count: "exact", head: true }).eq("status", "rejected"),
+    // ACC-08: the 30-day chart data is paged, so busy months aren't cut off
+    // at 1,000 rows.
+    fetchAllRows<{ event_type: string; event_at: string; quantity: number }>((from, to) =>
+      supabase
+        .from("inventory_ledger")
+        .select("event_type, event_at, quantity")
+        .gte("event_at", daysAgo(30))
+        .order("event_at", { ascending: true })
+        .order("seq", { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllRows<{ created_at: string; quantity: number; unit_price: number | null }>((from, to) =>
+      supabase
+        .from("purchase_lines")
+        .select("created_at, quantity, unit_price")
+        .gte("created_at", daysAgo(30))
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllRows<{ created_at: string }>((from, to) =>
+      supabase
+        .from("finished_product_batches")
+        .select("created_at")
+        .gte("created_at", daysAgo(30))
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     supabase
       .from("quality_checks")
       .select("ar_number, retest_date, item_id, items(name)")
@@ -53,14 +88,32 @@ export default async function DashboardPage() {
       .lte("retest_date", daysAgo(-30).slice(0, 10))
       .order("retest_date", { ascending: true })
       .limit(5),
-    supabase.from("items").select("id, name, item_code, low_stock_threshold").not("low_stock_threshold", "is", null).eq("active", true),
-    supabase.from("stock_balance").select("item_id, on_hand"),
+    fetchAllRows<{ id: string; name: string; item_code: string; low_stock_threshold: string | number }>((from, to) =>
+      supabase
+        .from("items")
+        .select("id, name, item_code, low_stock_threshold")
+        .not("low_stock_threshold", "is", null)
+        .eq("active", true)
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
-  const qcCounts = { submitted: 0, checker_approved: 0, approved: 0, rejected: 0 };
-  (qcAll ?? []).forEach((q) => {
-    if (q.status in qcCounts) qcCounts[q.status as keyof typeof qcCounts]++;
-  });
+  const qcCounts = {
+    submitted: qcSubmitted ?? 0,
+    checker_approved: qcCheckerApproved ?? 0,
+    approved: qcApproved ?? 0,
+    rejected: qcRejected ?? 0,
+  };
+
+  // ACC-08: balances only for the items that have a threshold, looked up in
+  // chunks. Before, the whole stock_balance view was read in one capped
+  // request, so an item outside the first 1,000 counted as 0 on hand and
+  // showed as a false "Low stock".
+  const { data: balances } = await fetchByIdChunks<{ item_id: string; on_hand: string | number }>(
+    (items ?? []).map((it) => it.id),
+    (chunk) => supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk)
+  );
 
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
   const lowStockItems = (items ?? []).filter(

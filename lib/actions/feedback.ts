@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -72,15 +73,19 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
 
 export async function listPageFeedback(pagePath: string): Promise<FeedbackRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("page_feedback")
-    // submitted_by included (not previously selected) so the widget can
-    // show Edit/Delete only on the current tester's own tickets — FB-0012.
-    .select(
-      "id, ticket_number, page_path, page_label, url_path, observation, submitted_by, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
-    )
-    .eq("page_path", pagePath)
-    .order("created_at", { ascending: false });
+  const { data, error } = await fetchAllRows((from, to) =>
+    supabase
+      .from("page_feedback")
+      // submitted_by included (not previously selected) so the widget can
+      // show Edit/Delete only on the current tester's own tickets — FB-0012.
+      .select(
+        "id, ticket_number, page_path, page_label, url_path, observation, submitted_by, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
+      )
+      .eq("page_path", pagePath)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
   if (error) return [];
   return data ?? [];
 }
@@ -144,12 +149,16 @@ export async function deleteOwnFeedback(id: string, _prev: ActionState, _formDat
 
 export async function listAllFeedback(): Promise<FeedbackRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("page_feedback")
-    .select(
-      "id, ticket_number, page_path, page_label, url_path, observation, submitted_by, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
-    )
-    .order("created_at", { ascending: false });
+  const { data, error } = await fetchAllRows((from, to) =>
+    supabase
+      .from("page_feedback")
+      .select(
+        "id, ticket_number, page_path, page_label, url_path, observation, submitted_by, submitted_by_name, category, status, claude_notes, resolved_at, created_at, updated_at"
+      )
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
   if (error) return [];
   return data ?? [];
 }

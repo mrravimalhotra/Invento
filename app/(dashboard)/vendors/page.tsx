@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
@@ -16,7 +17,11 @@ export default async function VendorsPage({
   const canCreate = canWrite(user?.roles ?? [], "vendors");
 
   const [{ data, error }, nextVendorCode] = await Promise.all([
-    supabase.from("vendors").select("id, vendor_code, name, mobile, phone, email").eq("active", true).order("vendor_code"),
+    fetchAllRows((from, to) =>
+      supabase.from("vendors").select("id, vendor_code, name, mobile, phone, email").eq("active", true).order("vendor_code")
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     // Only needed when the Add-vendor panel renders — peek_next_vendor_code()
     // is a non-consuming preview (0012_peek_next_codes.sql), skip the call
     // otherwise.

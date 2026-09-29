@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
@@ -16,12 +17,16 @@ export default async function EquipmentPage({
   const canCreate = canWrite(user?.roles ?? [], "equipment");
 
   const [{ data, error }, nextEquipmentCode] = await Promise.all([
-    supabase
-      .from("equipment")
-      .select("id, equipment_code, name, room_no, section, asset_id, quantity, calibration_status")
-      .eq("active", true)
-      .order("room_no")
-      .order("equipment_code"),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("equipment")
+        .select("id, equipment_code, name, room_no, section, asset_id, quantity, calibration_status")
+        .eq("active", true)
+        .order("room_no")
+        .order("equipment_code")
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     // Non-consuming preview (0034_equipment_master.sql) — skip the call
     // entirely when the Add-equipment panel won't render.
     canCreate ? supabase.rpc("peek_next_equipment_code").then((r) => r.data ?? "EQ-…") : Promise.resolve(null),

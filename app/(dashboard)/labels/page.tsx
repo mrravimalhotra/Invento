@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { PageHeader } from "@/components/ui/page-header";
 import { LabelPicker, type RmRecord, type FpRecord } from "./label-picker";
 
@@ -57,56 +58,64 @@ type FpBatchFetch = {
 export default async function LabelsPage() {
   const supabase = await createClient();
 
-  const [{ data: linesData }, { data: statusData }, { data: fpData }] = await Promise.all([
-    // Raw material only (2 Sept 2026): the three templates offered for a
-    // purchase-line batch here (Approved Raw Material / RM Under Test /
-    // In-process — real legacy label formats, requirements-gap-analysis.md)
-    // are all specifically raw-material labels. Packaging purchase lines
-    // exist now (Purchase screen's Raw Material / Packaging Item toggle),
-    // and without this filter every one of them would show up here too,
-    // letting someone print an "Approved Raw Material" label for a
-    // packaging item — caught during a related change, not separately
-    // reported. `items!inner(...)` is required for `.eq("items.category",
-    // ...)` to actually filter the joined table in PostgREST.
-    supabase
-      .from("purchase_lines")
-      .select(
-        "id, batch_number, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
-      )
-      .eq("active", true)
-      .eq("items.category", "raw")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("purchase_batch_status")
-      .select("purchase_line_id, qc_status, ar_number, quality_check_id"),
-    supabase
-      .from("finished_product_batches")
-      .select(
-        "id, batch_number, short_batch_no, batch_yield, unit, finish_date, expiry_month, status, mfr_definition:mfr_definitions(name)"
-      )
-      .eq("active", true)
-      .order("created_at", { ascending: false }),
+  // ACC-08 (29 Sept 2026): every list here is paged past Supabase's
+  // 1,000-row cap, and QC status is fetched only for the lines shown (in
+  // chunks) — before, the whole purchase_batch_status view was read in one
+  // request, so most batches fell outside the 1,000 returned and showed as
+  // "not submitted" with a blank retest period on the Approved label.
+  const [{ data: linesData }, { data: fpData }] = await Promise.all([
+    // Raw material only (2 Sept 2026): the three purchase-line templates here
+    // (Approved Raw Material / RM Under Test / In-process) are raw-material
+    // labels; `items!inner(...)` is required for `.eq("items.category", ...)`
+    // to filter the joined table in PostgREST.
+    fetchAllRows<unknown>((from, to) =>
+      supabase
+        .from("purchase_lines")
+        .select(
+          "id, batch_number, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
+        )
+        .eq("active", true)
+        .eq("items.category", "raw")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<unknown[]>()
+    ),
+    fetchAllRows<unknown>((from, to) =>
+      supabase
+        .from("finished_product_batches")
+        .select(
+          "id, batch_number, short_batch_no, batch_yield, unit, finish_date, expiry_month, status, mfr_definition:mfr_definitions(name)"
+        )
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<unknown[]>()
+    ),
   ]);
 
-  // supabase-js infers embedded relations as arrays here (no generated
-  // Database types in this project to tell it these are all single-row
-  // "belongs to" foreign keys) — that inferred type doesn't match the
-  // actual runtime shape PostgREST returns for a to-one embed (a plain
-  // object), so a direct structural assignment against it fails to
-  // compile. Cast through `unknown`, same convention already used
-  // elsewhere in the app for the same reason (e.g. qc/page.tsx's
-  // `items(...)`/`items!inner(...)` embeds) — see the PurchaseLineFetch/
-  // FpBatchFetch comments above for how this was found and confirmed.
-  const lines = (linesData ?? []) as unknown as PurchaseLineFetch[];
-  const statuses: BatchStatusFetch[] = statusData ?? [];
-  const fpBatches = (fpData ?? []) as unknown as FpBatchFetch[];
+  // supabase-js infers embedded relations as arrays (no generated Database
+  // types here) while PostgREST returns a plain object for a to-one embed —
+  // cast through `unknown`, same convention as elsewhere in the app.
+  const lines = linesData as unknown as PurchaseLineFetch[];
+  const fpBatches = fpData as unknown as FpBatchFetch[];
+
+  const { data: statusData } = await fetchByIdChunks<BatchStatusFetch>(
+    lines.map((l) => l.id),
+    (chunk) =>
+      supabase
+        .from("purchase_batch_status")
+        .select("purchase_line_id, qc_status, ar_number, quality_check_id")
+        .in("purchase_line_id", chunk)
+  );
+  const statuses: BatchStatusFetch[] = statusData;
 
   const qcIds = statuses.map((s) => s.quality_check_id).filter((id): id is string => !!id);
-  const { data: qcData } =
-    qcIds.length > 0
-      ? await supabase.from("quality_checks").select("id, retest_period_days").in("id", qcIds)
-      : { data: [] as QualityCheckFetch[] };
-  const qcRows: QualityCheckFetch[] = qcData ?? [];
+  const { data: qcData } = await fetchByIdChunks<QualityCheckFetch>(qcIds, (chunk) =>
+    supabase.from("quality_checks").select("id, retest_period_days").in("id", chunk)
+  );
+  const qcRows: QualityCheckFetch[] = qcData;
   const retestByQcId = new Map(qcRows.map((q) => [q.id, q.retest_period_days]));
   const statusByLineId = new Map(statuses.map((s) => [s.purchase_line_id, s]));
 

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
@@ -47,12 +48,16 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
     // the client can offer a Raw Material / Packaging Item toggle and hide
     // QC/Stability/R&D sample capture for packaging lines, which never go
     // through QC.
-    supabase
-      .from("items")
-      .select("id, item_code, name, unit, category, default_qc_qty, default_stability_qty, default_rnd_qty, default_sample_unit")
-      .in("category", ["raw", "packaging"])
-      .eq("active", true)
-      .order("created_at", { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("items")
+        .select("id, item_code, name, unit, category, default_qc_qty, default_stability_qty, default_rnd_qty, default_sample_unit")
+        .in("category", ["raw", "packaging"])
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
   const lineRows = (lines ?? []) as unknown as LineRow[];

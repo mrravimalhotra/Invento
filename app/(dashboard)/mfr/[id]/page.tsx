@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -42,12 +43,16 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
       .eq("mfr_definition_id", id)
       .eq("version", def.version)
       .order("id"),
-    supabase
-      .from("items")
-      .select("id, item_code, name, unit")
-      .eq("category", "raw")
-      .eq("active", true)
-      .order("created_at", { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("items")
+        .select("id, item_code, name, unit")
+        .eq("category", "raw")
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     def.approved_by
       ? supabase.from("profiles").select("full_name").eq("id", def.approved_by).maybeSingle()
       : Promise.resolve({ data: null }),

@@ -52,6 +52,7 @@ export default async function ItemsPage({
         .from("items")
         .select("id, item_code, name, category, unit, active, low_stock_threshold, item_types(description), created_at")
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to);
       if (category && category !== "all") query = query.eq("category", category);
       return query.returns<ItemQueryRow[]>();

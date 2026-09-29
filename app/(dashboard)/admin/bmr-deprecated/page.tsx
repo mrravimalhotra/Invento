@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/ui/page-header";
@@ -45,10 +46,14 @@ export default async function BmrListPage() {
 
   const isSystemAdmin = user.roles.includes("system_admin");
 
-  const { data } = await supabase
-    .from("bmr_records")
-    .select("id, prepared_at, checked_at, approved_at, finished_product_batches(batch_number)")
-    .order("created_at", { ascending: false });
+  const { data } = await fetchAllRows((from, to) =>
+    supabase
+      .from("bmr_records")
+      .select("id, prepared_at, checked_at, approved_at, finished_product_batches(batch_number)")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const rows = (data ?? []) as unknown as BmrRow[];
 

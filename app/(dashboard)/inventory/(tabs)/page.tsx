@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { Card } from "@/components/ui/card";
 import { InventoryLedgerTable, type LedgerRow } from "./inventory-ledger-table";
 import { LedgerFilters, type ItemFilterOption } from "./ledger-filters";
@@ -89,13 +90,17 @@ export default async function InventoryLedgerPage({
 
   const [{ data, error }, { data: items }] = await Promise.all([
     query.returns<LedgerQueryRow[]>(),
-    supabase
-      .from("items")
-      .select("id, item_code, name")
-      .eq("active", true)
-      .order("created_at", { ascending: false })
-      .limit(5000)
-      .returns<ItemFilterOption[]>(),
+    // ACC-08: paged — .limit(5000) was still cut to 1,000 by the server.
+    fetchAllRows((from, to) =>
+      supabase
+        .from("items")
+        .select("id, item_code, name")
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<ItemFilterOption[]>()
+    ),
   ]);
 
   const ledgerRows = data ?? [];

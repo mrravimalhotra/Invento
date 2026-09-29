@@ -387,3 +387,44 @@ not a major win like step 1. Real payload savings depend on how many QC
 records and FP batches exist, but it's a legitimate zero-risk cut, not a
 guess. `tsc --noEmit`, `eslint`, `next build` all clean, plus a local
 `next dev` smoke test confirming `/reports` still responds correctly.
+
+## Row caps and paging: every list complete (29 Sept 2026, accuracy audit ACC-07/08, migration 0077)
+
+Supabase returns at most **1,000 rows per request**. A screen that reads a
+table in one plain request silently shows only the first 1,000 rows, with no
+error. Found in `claude/app-accuracy-audit-2026-09-28.md`.
+
+**Rules now applied across the app:**
+
+1. **Lists and pickers that can grow are paged** with `fetchAllRows`
+   (`lib/supabase/fetch-all.ts`). Covered:
+   - Purchase list; Environmental Control; Line Clearance; Dead Stock; Equipment; Documents; COA list; Packaging register; FP list; MFR list; Vendors.
+   - RM Report; Labels; Dashboard charts and low stock; feedback lists.
+   - Item pickers on Purchase, MFR, Packaging and Wastage (Wastage now lists only batches with stock left).
+   - COA picker (newest first; it used to sort AR numbers as text).
+   - Bulk-upload duplicate checks and lookups; template reference lists.
+   - Ledger item filter (`.limit(5000)` was still cut to 1,000).
+2. **Paged queries must end with a unique order** (`.order("id")`). Ordering
+   only by `created_at`, which bulk-inserted rows share, let pages overlap and
+   skip rows. Proven against a real PostgREST with the 1,000 cap: 3,002 items
+   came back as 3,002 rows but only 2,999 distinct.
+3. **Long id lists are looked up in chunks** with `fetchByIdChunks`. One
+   `.in("id", [...])` with ~1,000 ids is too long a URL and the request fails
+   outright; the page then showed defaults, e.g. every batch "QC Pending".
+4. **QC status queries filter in the database, not in the browser.** The new
+   `purchase_line_qc` view (0077) joins each purchase line to its item, PO
+   status and current QC status. The QC page's Awaiting QC and Due-for-retest
+   cards, and the New AR picker, ask it for exactly the batches they need in one
+   paged request.
+
+**Verification** was run against a real PostgREST 12 with `db-max-rows = 1000`
+and 5,200 not-submitted lines, of which 1,200 were genuinely awaiting QC:
+
+| Screen / query | Before | After |
+|---|---|---|
+| Awaiting QC / New AR | The id-list request failed, **0 of 1,200** batches found | **1,200 of 1,200** |
+| Items with an id tiebreaker | — | 3,002 rows, every item exactly once |
+| Chunked status lookup | — | 1,200 of 1,200 |
+
+The Dashboard's QC chart now uses exact counts per status, so it agrees with
+the Pending QC card.

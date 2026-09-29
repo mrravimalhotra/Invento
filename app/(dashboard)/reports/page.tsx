@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { latestQcByBatch, resolveDisplayStatus } from "@/lib/finished-product-status";
-import { fetchAllRows } from "@/lib/supabase/fetch-all";
+import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import {
   RmStockReport,
   QcRegisterReport,
@@ -37,6 +37,7 @@ export default async function ReportsPage() {
         .eq("category", "raw")
         .eq("active", true)
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)
         .returns<Omit<RmStockRow, "onHand">[]>()
     ),
@@ -68,6 +69,7 @@ export default async function ReportsPage() {
           "ar_number, status, reviewed_at, retest_date, item:items(name), purchase_line:purchase_lines(batch_number), fp_batch:finished_product_batches(batch_number)"
         )
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)
         .returns<unknown[]>()
     ),
@@ -76,6 +78,7 @@ export default async function ReportsPage() {
         .from("finished_product_batches")
         .select("id, batch_number, target_qty, actual_yield_pct, status, finish_date, mfr:mfr_definitions(name)")
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)
         .returns<unknown[]>()
     ),
@@ -90,6 +93,7 @@ export default async function ReportsPage() {
           "batch_number, quantity, live_remaining_qty, expiry_date, created_at, item:items(name, category), purchase_order:purchase_orders(po_number, vendor:vendors(name))"
         )
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)
         .returns<unknown[]>()
     ),
@@ -114,16 +118,16 @@ export default async function ReportsPage() {
   // Finished Product list does; otherwise every row here would show
   // "In Process" even for batches long since approved or rejected.
   const fpBatchRows = (fpRes.data ?? []) as unknown as (FpRow & { id: string })[];
-  const { data: fpQcRows } = fpBatchRows.length
-    ? await supabase
+  // ACC-08: looked up in chunks (see fetchByIdChunks).
+  const { data: fpQcRows } = await fetchByIdChunks(
+    fpBatchRows.map((r) => r.id),
+    (chunk) =>
+      supabase
         .from("quality_checks")
         .select("finished_product_batch_id, status, created_at")
-        .in(
-          "finished_product_batch_id",
-          fpBatchRows.map((r) => r.id)
-        )
+        .in("finished_product_batch_id", chunk)
         .not("finished_product_batch_id", "is", null)
-    : { data: [] };
+  );
   const latestFpQc = latestQcByBatch(
     (fpQcRows ?? []) as { finished_product_batch_id: string; status: string; created_at: string }[]
   );

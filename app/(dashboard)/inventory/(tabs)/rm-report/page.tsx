@@ -1,3 +1,4 @@
+import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { formatNumber } from "@/lib/utils";
@@ -56,17 +57,24 @@ export default async function RmReportPage({
   // permanently "QC Pending," which is actively misleading — packaging
   // never goes through QC in this app, same reasoning already applied to
   // the QC/Labels/FP-compose pickers.
-  const { data, error } = await supabase
-    .from("purchase_lines")
-    .select(
-      "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, remaining_qty, live_remaining_qty, unit, unit_price, expiry_date, created_at, items!inner(name, item_code, category), purchase_orders!inner(status)"
-    )
-    .eq("active", true)
-    .eq("purchase_orders.status", "submitted")
-    .eq("items.category", "raw")
-    .lte("created_at", `${asOf}T23:59:59.999`)
-    .order("created_at", { ascending: false })
-    .returns<PurchaseLineRow[]>();
+  // ACC-08 (29 Sept 2026): paged with fetchAllRows — a plain select stops at
+  // Supabase's 1,000-row cap, so the report and its Grand Total silently
+  // covered only the newest 1,000 batches.
+  const { data, error } = await fetchAllRows<PurchaseLineRow>((from, to) =>
+    supabase
+      .from("purchase_lines")
+      .select(
+        "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, remaining_qty, live_remaining_qty, unit, unit_price, expiry_date, created_at, items!inner(name, item_code, category), purchase_orders!inner(status)"
+      )
+      .eq("active", true)
+      .eq("purchase_orders.status", "submitted")
+      .eq("items.category", "raw")
+      .lte("created_at", `${asOf}T23:59:59.999`)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+      .returns<PurchaseLineRow[]>()
+  );
 
   // QC Status column (3 Sept 2026): purchase_batch_status is a view
   // PostgREST can't embed through directly (no declared FK), same
@@ -75,9 +83,12 @@ export default async function RmReportPage({
   // cards). See lib/batch-qc-status.ts for the qc_status + retest_date ->
   // display-state mapping.
   const lineIds = (data ?? []).map((r) => r.id);
-  const { data: statusRows } = lineIds.length
-    ? await supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date").in("purchase_line_id", lineIds)
-    : { data: [] as { purchase_line_id: string; qc_status: string; retest_date: string | null }[] };
+  // ACC-08: fetched in chunks — thousands of ids in one request is too long
+  // a URL, and a failed lookup showed every batch as "QC Pending".
+  const { data: statusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null }>(
+    lineIds,
+    (chunk) => supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date").in("purchase_line_id", chunk)
+  );
   const statusByLine = new Map((statusRows ?? []).map((s) => [s.purchase_line_id, s]));
 
   const rows: RmReportExportRow[] = (data ?? []).map((r) => {

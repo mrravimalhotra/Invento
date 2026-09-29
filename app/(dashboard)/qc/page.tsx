@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QcTable, type QcListRow } from "./qc-table";
+import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { DueForRetest, type DueForRetestLine } from "./due-for-retest";
 import { AwaitingQc, type AwaitingQcLine } from "./awaiting-qc";
 import { AwaitingFpQc, type AwaitingFpQcLine } from "./awaiting-fp-qc";
@@ -82,29 +83,44 @@ export default async function QcListPage() {
 // QC list page itself, is what actually prompts someone to go assign QC
 // for a batch that just arrived, instead of it silently waiting to be
 // found on /qc/new.
+// One row of the purchase_line_qc view (0077_purchase_line_qc_view.sql).
+type PurchaseLineQcRow = {
+  purchase_line_id: string;
+  batch_number: string;
+  qc_qty: string | number | null;
+  stability_qty: string | number;
+  unit: string;
+  item_code: string;
+  item_name: string;
+};
+
 async function getAwaitingQcLines(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<AwaitingQcLine[]> {
-  const { data: openStatuses } = await supabase
-    .from("purchase_batch_status")
-    .select("purchase_line_id")
-    .eq("qc_status", "not_submitted");
-
-  const openIds = (openStatuses ?? [])
-    .map((s) => s.purchase_line_id)
-    .filter((id): id is string => !!id);
-  if (!openIds.length) return [];
-
-  const { data: lines } = await supabase
-    .from("purchase_lines")
-    .select("id, batch_number, qc_qty, unit, items!inner(item_code, name, category), purchase_orders!inner(status)")
-    .in("id", openIds)
-    .eq("active", true)
-    .eq("purchase_orders.status", "submitted")
-    .eq("items.category", "raw")
-    .order("created_at", { ascending: false });
-
-  return (lines ?? []) as unknown as AwaitingQcLine[];
+  // ACC-08 (29 Sept 2026): one filtered request on purchase_line_qc
+  // (0077) instead of fetching every not-yet-submitted line in the system
+  // (legacy, packaging and draft lines included) and hitting the 1,000-row
+  // cap before the real filters applied — a batch that had just arrived
+  // could be missing. Paged, so the list itself is never capped either.
+  const { data } = await fetchAllRows<PurchaseLineQcRow>((from, to) =>
+    supabase
+      .from("purchase_line_qc")
+      .select("purchase_line_id, batch_number, qc_qty, stability_qty, unit, item_code, item_name")
+      .eq("qc_status", "not_submitted")
+      .eq("active", true)
+      .eq("po_status", "submitted")
+      .eq("item_category", "raw")
+      .order("created_at", { ascending: false })
+      .order("purchase_line_id", { ascending: true })
+      .range(from, to)
+  );
+  return data.map((r) => ({
+    id: r.purchase_line_id,
+    batch_number: r.batch_number,
+    qc_qty: r.qc_qty,
+    unit: r.unit,
+    items: { item_code: r.item_code, name: r.item_name },
+  }));
 }
 
 // Finished Product equivalent of getAwaitingQcLines above (21 Sept 2026 —
@@ -140,28 +156,28 @@ async function getDueForRetestLines(
 ): Promise<DueForRetestLine[]> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: dueStatuses } = await supabase
-    .from("purchase_batch_status")
-    .select("purchase_line_id")
-    .eq("qc_status", "approved")
-    .not("retest_date", "is", null)
-    .lte("retest_date", today);
-
-  const dueIds = (dueStatuses ?? [])
-    .map((s) => s.purchase_line_id)
-    .filter((id): id is string => !!id);
-  if (!dueIds.length) return [];
-
-  const { data: lines } = await supabase
-    .from("purchase_lines")
-    .select("id, batch_number, stability_qty, unit, items!inner(item_code, name, category)")
-    .in("id", dueIds)
-    .eq("active", true)
-    .eq("items.category", "raw")
-    .gt("stability_qty", 0)
-    .order("batch_number");
-
-  return (lines ?? []) as unknown as DueForRetestLine[];
+  // ACC-08: one filtered, paged request on purchase_line_qc (0077).
+  const { data } = await fetchAllRows<PurchaseLineQcRow>((from, to) =>
+    supabase
+      .from("purchase_line_qc")
+      .select("purchase_line_id, batch_number, qc_qty, stability_qty, unit, item_code, item_name")
+      .eq("qc_status", "approved")
+      .not("retest_date", "is", null)
+      .lte("retest_date", today)
+      .eq("active", true)
+      .eq("item_category", "raw")
+      .gt("stability_qty", 0)
+      .order("batch_number", { ascending: true })
+      .order("purchase_line_id", { ascending: true })
+      .range(from, to)
+  );
+  return data.map((r) => ({
+    id: r.purchase_line_id,
+    batch_number: r.batch_number,
+    stability_qty: r.stability_qty,
+    unit: r.unit,
+    items: { item_code: r.item_code, name: r.item_name },
+  }));
 }
 
 // FB-0043 (28 Sept 2026) — Production-issued RM equivalent of
@@ -173,24 +189,32 @@ async function getDueForRetestLines(
 async function getAwaitingProductionQcLines(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<AwaitingProductionQcLine[]> {
-  const { data: openStatuses } = await supabase
-    .from("production_batch_status")
-    .select("production_batch_id")
-    .eq("qc_status", "not_submitted");
+  const { data: openStatuses } = await fetchAllRows<{ production_batch_id: string | null }>((from, to) =>
+    supabase
+      .from("production_batch_status")
+      .select("production_batch_id")
+      .eq("qc_status", "not_submitted")
+      .order("production_batch_id", { ascending: true })
+      .range(from, to)
+  );
 
   const openIds = (openStatuses ?? [])
     .map((s) => s.production_batch_id)
     .filter((id): id is string => !!id);
   if (!openIds.length) return [];
 
-  const { data: lines } = await supabase
-    .from("production_issue_batches")
-    .select("id, batch_number, qc_qty, unit, items!inner(item_code, name)")
-    .in("id", openIds)
-    .eq("active", true)
-    .order("created_at", { ascending: false });
+  // ACC-08: ids looked up in chunks (a single huge .in() list is too long a
+  // URL); newest first as before.
+  const { data: lines } = await fetchByIdChunks<AwaitingProductionQcLine & { created_at: string }>(openIds, (chunk) =>
+    supabase
+      .from("production_issue_batches")
+      .select("id, batch_number, qc_qty, unit, created_at, items!inner(item_code, name)")
+      .in("id", chunk)
+      .eq("active", true)
+      .returns<(AwaitingProductionQcLine & { created_at: string })[]>()
+  );
 
-  return (lines ?? []) as unknown as AwaitingProductionQcLine[];
+  return lines.sort((x, y) => y.created_at.localeCompare(x.created_at));
 }
 
 // Production equivalent of getDueForRetestLines above.
@@ -199,25 +223,31 @@ async function getProductionDueForRetestLines(
 ): Promise<ProductionDueForRetestLine[]> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: dueStatuses } = await supabase
-    .from("production_batch_status")
-    .select("production_batch_id")
-    .eq("qc_status", "approved")
-    .not("retest_date", "is", null)
-    .lte("retest_date", today);
+  const { data: dueStatuses } = await fetchAllRows<{ production_batch_id: string | null }>((from, to) =>
+    supabase
+      .from("production_batch_status")
+      .select("production_batch_id")
+      .eq("qc_status", "approved")
+      .not("retest_date", "is", null)
+      .lte("retest_date", today)
+      .order("production_batch_id", { ascending: true })
+      .range(from, to)
+  );
 
   const dueIds = (dueStatuses ?? [])
     .map((s) => s.production_batch_id)
     .filter((id): id is string => !!id);
   if (!dueIds.length) return [];
 
-  const { data: lines } = await supabase
-    .from("production_issue_batches")
-    .select("id, batch_number, stability_qty, unit, items!inner(item_code, name)")
-    .in("id", dueIds)
-    .eq("active", true)
-    .gt("stability_qty", 0)
-    .order("batch_number");
+  const { data: lines } = await fetchByIdChunks<ProductionDueForRetestLine>(dueIds, (chunk) =>
+    supabase
+      .from("production_issue_batches")
+      .select("id, batch_number, stability_qty, unit, items!inner(item_code, name)")
+      .in("id", chunk)
+      .eq("active", true)
+      .gt("stability_qty", 0)
+      .returns<ProductionDueForRetestLine[]>()
+  );
 
-  return (lines ?? []) as unknown as ProductionDueForRetestLine[];
+  return lines.sort((x, y) => x.batch_number.localeCompare(y.batch_number));
 }

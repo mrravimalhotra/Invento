@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
@@ -132,13 +133,11 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
 
     const lineRows = lines ?? [];
     const lineIds = lineRows.map((r) => r.id);
-    const { data: statusRows } =
-      item.category === "raw" && lineIds.length > 0
-        ? await supabase
-            .from("purchase_batch_status")
-            .select("purchase_line_id, qc_status, retest_date")
-            .in("purchase_line_id", lineIds)
-        : { data: [] as { purchase_line_id: string; qc_status: string; retest_date: string | null }[] };
+    // ACC-08: looked up in chunks (see fetchByIdChunks).
+    const { data: statusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null }>(
+      item.category === "raw" ? lineIds : [],
+      (chunk) => supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date").in("purchase_line_id", chunk)
+    );
     const statusByLine = new Map((statusRows ?? []).map((s) => [s.purchase_line_id, s]));
 
     purchaseBatches = lineRows.map((r) => {
@@ -173,18 +172,22 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
       // embed through directly, so fetched separately and merged in JS,
       // same two-step shape qc/page.tsx already uses for the analogous
       // purchase_batch_status lookups.
-      const [{ data: prodBatches }, { data: prodStatuses }] = await Promise.all([
-        supabase
-          .from("production_issue_batches")
-          .select(
-            "id, batch_number, quantity, live_remaining_qty, unit, qc_qty, stability_qty, rnd_qty, created_at, packaging_issues(code, created_at)"
-          )
-          .eq("item_id", id)
-          .eq("active", true)
-          .order("created_at", { ascending: false })
-          .returns<ProductionBatchRow[]>(),
-        supabase.from("production_batch_status").select("production_batch_id, qc_status, retest_date"),
-      ]);
+      const { data: prodBatches } = await supabase
+        .from("production_issue_batches")
+        .select(
+          "id, batch_number, quantity, live_remaining_qty, unit, qc_qty, stability_qty, rnd_qty, created_at, packaging_issues(code, created_at)"
+        )
+        .eq("item_id", id)
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .returns<ProductionBatchRow[]>();
+      // ACC-08: status only for this item's batches — the whole view was read
+      // in one request before, capped at 1,000 rows.
+      const { data: prodStatuses } = await fetchByIdChunks<{ production_batch_id: string; qc_status: string; retest_date: string | null }>(
+        (prodBatches ?? []).map((b) => b.id),
+        (chunk) =>
+          supabase.from("production_batch_status").select("production_batch_id, qc_status, retest_date").in("production_batch_id", chunk)
+      );
       const statusByBatch = new Map((prodStatuses ?? []).map((s) => [s.production_batch_id, s]));
       productionBatches = (prodBatches ?? []).map((b) => ({
         ...b,

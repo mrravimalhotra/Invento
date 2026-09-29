@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
@@ -8,10 +9,14 @@ import { ItemTypesTable, type ItemTypeRow } from "./item-types-table";
 
 export default async function ItemTypesPage() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
-  const { data } = await supabase
-    .from("item_types")
-    .select("id, description, active, created_at")
-    .order("description", { ascending: true });
+  const { data } = await fetchAllRows((from, to) =>
+    supabase
+      .from("item_types")
+      .select("id, description, active, created_at")
+      .order("description", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const rows: ItemTypeRow[] = data ?? [];
   const canCreate = canWrite(user?.roles ?? [], "item_types");

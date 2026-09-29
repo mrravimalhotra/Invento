@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
@@ -16,13 +17,17 @@ export default async function DeadStockPage({
   const canCreate = canWrite(user?.roles ?? [], "dead_stock");
 
   const [{ data, error }, nextAssetCode] = await Promise.all([
-    supabase
-      .from("dead_stock_items")
-      .select(
-        "id, asset_code, article_name, date_of_purchase, quantity, purchase_price, depreciation_pct, depreciated_unit_value, balance_qty, balance_value"
-      )
-      .eq("active", true)
-      .order("asset_code"),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("dead_stock_items")
+        .select(
+          "id, asset_code, article_name, date_of_purchase, quantity, purchase_price, depreciation_pct, depreciated_unit_value, balance_qty, balance_value"
+        )
+        .eq("active", true)
+        .order("asset_code")
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     // Non-consuming preview (0035_dead_stock_register.sql) — skip the call
     // entirely when the Add-asset panel won't render.
     canCreate ? supabase.rpc("peek_next_dead_stock_code").then((r) => r.data ?? "DS-…") : Promise.resolve(null),

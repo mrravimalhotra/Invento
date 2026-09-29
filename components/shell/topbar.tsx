@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import Link from "next/link";
 import { signOut } from "@/lib/actions/auth";
 import { LogOut, UserCircle, TriangleAlert } from "lucide-react";
@@ -8,11 +9,15 @@ import { createClient } from "@/lib/supabase/server";
 
 async function LowStockBanner() {
   const supabase = await createClient();
-  const { data: items } = await supabase
-    .from("items")
-    .select("id, name, item_code, low_stock_threshold")
-    .not("low_stock_threshold", "is", null)
-    .eq("active", true);
+  const { data: items } = await fetchAllRows((from, to) =>
+    supabase
+      .from("items")
+      .select("id, name, item_code, low_stock_threshold")
+      .not("low_stock_threshold", "is", null)
+      .eq("active", true)
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
   if (!items?.length) return null;
 
   // Scoped to just the items with a threshold set (usually a small subset of
@@ -28,7 +33,11 @@ async function LowStockBanner() {
   // seq scan + aggregate every row), the same query scoped to 5 item_ids via
   // a literal IN list took <1ms (index scan of ~1,000 relevant rows only).
   const itemIds = items.map((it) => it.id);
-  const { data: balances } = await supabase.from("stock_balance").select("item_id, on_hand").in("item_id", itemIds);
+  // ACC-08: in chunks, so a large set of threshold items never makes an
+  // over-long request (each chunk is still a literal IN list, as above).
+  const { data: balances } = await fetchByIdChunks<{ item_id: string; on_hand: number }>(itemIds, (chunk) =>
+    supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk)
+  );
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
 
   const low = items.filter((it) => (balanceMap.get(it.id) ?? 0) < Number(it.low_stock_threshold));

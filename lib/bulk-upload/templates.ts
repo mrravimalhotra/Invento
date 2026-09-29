@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { UNITS } from "@/lib/constants/units";
 import {
   BULK_UPLOAD_MODULE_META,
@@ -207,9 +208,9 @@ async function buildItemTypesWorkbook(): Promise<ExcelJS.Workbook> {
 async function buildPurchaseWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   const [{ data: vendors }, { data: rawItems }, { data: packagingItems }] = await Promise.all([
-    supabase.from("vendors").select("name").eq("active", true).order("name"),
-    supabase.from("items").select("name").eq("category", "raw").eq("active", true).order("name").limit(2000),
-    supabase.from("items").select("name").eq("category", "packaging").eq("active", true).order("name").limit(2000),
+    fetchAllRows((from, to) => supabase.from("vendors").select("name").eq("active", true).order("name", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("items").select("name").eq("category", "raw").eq("active", true).order("name", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("items").select("name").eq("category", "packaging").eq("active", true).order("name", { ascending: true }).order("id", { ascending: true }).range(from, to)),
   ]);
   const vendorNames = (vendors ?? []).map((v) => v.name);
   const rawItemNames = (rawItems ?? []).map((i) => i.name);
@@ -289,8 +290,8 @@ async function buildDeadStockWorkbook(): Promise<ExcelJS.Workbook> {
 async function buildMfrWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   const [{ data: itemTypes }, { data: rawItems }] = await Promise.all([
-    supabase.from("item_types").select("description").eq("active", true).order("description"),
-    supabase.from("items").select("name").eq("category", "raw").eq("active", true).order("name").limit(2000),
+    fetchAllRows((from, to) => supabase.from("item_types").select("description").eq("active", true).order("description", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("items").select("name").eq("category", "raw").eq("active", true).order("name", { ascending: true }).order("id", { ascending: true }).range(from, to)),
   ]);
   const itemTypeNames = (itemTypes ?? []).map((t) => t.description);
   const rawItemNames = (rawItems ?? []).map((i) => i.name);
@@ -402,8 +403,8 @@ const DEAD_STOCK_COLUMNS_WITH_EXAMPLE = {
 async function buildCoaTemplatesWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   const [{ data: itemTypes }, { data: existingTemplates }] = await Promise.all([
-    supabase.from("item_types").select("id, description").eq("active", true).order("description"),
-    supabase.from("coa_templates").select("item_type_id"),
+    fetchAllRows((from, to) => supabase.from("item_types").select("id, description").eq("active", true).order("description", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("coa_templates").select("item_type_id").order("id", { ascending: true }).range(from, to)),
   ]);
   // Reference sheet deliberately excludes item types that already have a
   // template — the upload rejects those rows anyway (edit an existing

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
@@ -16,12 +17,16 @@ export default async function NewPurchaseOrderPage() {
   // Add-line form needs, same query [id]/page.tsx runs for an existing PO.
   const [{ data: vendors }, { data: rawItems }] = await Promise.all([
     supabase.from("vendors").select("id, vendor_code, name").eq("active", true).order("name"),
-    supabase
-      .from("items")
-      .select("id, item_code, name, unit, category, default_qc_qty, default_stability_qty, default_rnd_qty, default_sample_unit")
-      .in("category", ["raw", "packaging"])
-      .eq("active", true)
-      .order("created_at", { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("items")
+        .select("id, item_code, name, unit, category, default_qc_qty, default_stability_qty, default_rnd_qty, default_sample_unit")
+        .in("category", ["raw", "packaging"])
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
   const isSystemAdmin = (user?.roles ?? []).includes("system_admin");

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,12 +21,16 @@ export default async function PackagingListPage({
   // one issue can now carry several materials (bottles, caps, labels, …),
   // each with its own quantity/unit — embedded here in place of the old
   // singular items(name) FK read off packaging_item_id.
-  const { data } = await supabase
-    .from("packaging_issues")
-    .select(
-      "id, code, pack_size, unit_count, department, transaction_type, created_at, finished_product_batches(batch_number), packaging_issue_items(quantity, unit, items(name, item_code))"
-    )
-    .order("created_at", { ascending: false });
+  const { data } = await fetchAllRows((from, to) =>
+    supabase
+      .from("packaging_issues")
+      .select(
+        "id, code, pack_size, unit_count, department, transaction_type, created_at, finished_product_batches(batch_number), packaging_issue_items(quantity, unit, items(name, item_code))"
+      )
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const rows = (data ?? []) as unknown as PackagingRow[];
   const canCreate = canWrite(user?.roles ?? [], "packaging");

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { canWrite } from "@/lib/constants/roles";
 import { isLegacyCode, formatDate, formatNumber } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
@@ -131,19 +132,26 @@ async function fetchBatchOptions(
   subject: Subject
 ): Promise<BatchOption[]> {
   if (subject === "raw_material") {
-    const { data } = await supabase
-      .from("quality_checks")
-      .select("id, ar_number, purchase_lines(batch_number, items(item_code, name))")
-      .eq("status", "approved")
-      .not("purchase_line_id", "is", null)
-      .order("ar_number")
-      .returns<
-        {
-          id: string;
-          ar_number: string;
-          purchase_lines: { batch_number: string; items: { item_code: string; name: string } | null } | null;
-        }[]
-      >();
+    // ACC-08 (29 Sept 2026): paged past the 1,000-row cap, newest first.
+    // Ordering by ar_number sorted as text ("AR-1000…" before "AR-101…"), so
+    // once there were more than 1,000 approvals the newest ones fell off.
+    const { data } = await fetchAllRows((from, to) =>
+      supabase
+        .from("quality_checks")
+        .select("id, ar_number, purchase_lines(batch_number, items(item_code, name))")
+        .eq("status", "approved")
+        .not("purchase_line_id", "is", null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<
+          {
+            id: string;
+            ar_number: string;
+            purchase_lines: { batch_number: string; items: { item_code: string; name: string } | null } | null;
+          }[]
+        >()
+    );
     return (data ?? []).map((qc) => ({
       qualityCheckId: qc.id,
       label: `${qc.ar_number} · ${qc.purchase_lines?.items?.item_code ?? "—"} ${qc.purchase_lines?.items?.name ?? ""} · Batch ${qc.purchase_lines?.batch_number ?? "—"}`,
@@ -151,19 +159,23 @@ async function fetchBatchOptions(
     }));
   }
 
-  const { data } = await supabase
-    .from("quality_checks")
-    .select("id, ar_number, finished_product_batches(batch_number, mfr_definitions(name))")
-    .eq("status", "approved")
-    .not("finished_product_batch_id", "is", null)
-    .order("ar_number")
-    .returns<
-      {
-        id: string;
-        ar_number: string;
-        finished_product_batches: { batch_number: string; mfr_definitions: { name: string } | null } | null;
-      }[]
-    >();
+  const { data } = await fetchAllRows((from, to) =>
+    supabase
+      .from("quality_checks")
+      .select("id, ar_number, finished_product_batches(batch_number, mfr_definitions(name))")
+      .eq("status", "approved")
+      .not("finished_product_batch_id", "is", null)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+      .returns<
+        {
+          id: string;
+          ar_number: string;
+          finished_product_batches: { batch_number: string; mfr_definitions: { name: string } | null } | null;
+        }[]
+      >()
+  );
   return (data ?? []).map((qc) => ({
     qualityCheckId: qc.id,
     label: `${qc.ar_number} · ${qc.finished_product_batches?.mfr_definitions?.name ?? "—"} · Batch ${qc.finished_product_batches?.batch_number ?? "—"}`,

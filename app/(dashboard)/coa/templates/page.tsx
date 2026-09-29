@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -24,7 +25,11 @@ export default async function CoaTemplatesPage() {
 
   const [{ data: itemTypes }, { data: templates }] = await Promise.all([
     supabase.from("item_types").select("id, description").eq("active", true).order("description"),
-    supabase.from("coa_templates").select("item_type_id, coa_template_lines(id)").returns<TemplateRow[]>(),
+    fetchAllRows((from, to) =>
+      supabase.from("coa_templates").select("item_type_id, coa_template_lines(id)")
+        .order("id", { ascending: true })
+        .range(from, to).returns<TemplateRow[]>()
+    ),
   ]);
 
   const lineCountByItemType = new Map((templates ?? []).map((t) => [t.item_type_id, t.coa_template_lines.length]));

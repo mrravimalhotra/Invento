@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
@@ -13,11 +14,15 @@ export default async function DocumentsPage({
 }) {
   const { created } = await searchParams;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
-  const { data } = await supabase
-    .from("documents")
-    .select("id, doc_type, title, revision_number, file_url, effective_date, active")
-    .eq("active", true)
-    .order("title", { ascending: true });
+  const { data } = await fetchAllRows((from, to) =>
+    supabase
+      .from("documents")
+      .select("id, doc_type, title, revision_number, file_url, effective_date, active")
+      .eq("active", true)
+      .order("title", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const rows: DocumentRow[] = data ?? [];
   const canCreate = canWrite(user?.roles ?? [], "documents");

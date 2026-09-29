@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -13,11 +14,15 @@ export default async function NewWastagePage() {
 
   const supabase = await createClient();
   const [{ data: items }, { data: purchaseLines }] = await Promise.all([
-    supabase
-      .from("items")
-      .select("id, name, item_code, unit")
-      .eq("active", true)
-      .order("created_at", { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("items")
+        .select("id, name, item_code, unit")
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     // FB-0018: a draft line was never pushed to inventory (see
     // 0019_purchase_submit_workflow.sql) — offering it here would let
     // wastage be recorded against a batch that never actually became
@@ -27,12 +32,19 @@ export default async function NewWastagePage() {
     // instead of the static remaining_qty — this dropdown's whole purpose
     // is telling the user what's actually left in a batch before they
     // record more wastage against it.
-    supabase
-      .from("purchase_lines")
-      .select("id, item_id, batch_number, live_remaining_qty, unit, purchase_orders!inner(status)")
-      .eq("active", true)
-      .eq("purchase_orders.status", "submitted")
-      .order("created_at", { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("purchase_lines")
+        .select("id, item_id, batch_number, live_remaining_qty, unit, purchase_orders!inner(status)")
+        .eq("active", true)
+        .eq("purchase_orders.status", "submitted")
+        // Only batches with something left — wastage can't be recorded
+        // against an empty batch, and it keeps this list short.
+        .gt("live_remaining_qty", 0)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
   return (

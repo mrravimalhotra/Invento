@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
@@ -29,13 +30,17 @@ function lineTotal(l: LineForTotal) {
 export default async function PurchasePage() {
   const user = await getCurrentUser();
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("purchase_orders")
-    .select(
-      "id, po_number, invoice_number, invoice_date, status, vendor:vendors(name), purchase_lines(quantity, unit_price, gst_pct)"
-    )
-    .eq("active", true)
-    .order("created_at", { ascending: false });
+  const { data, error } = await fetchAllRows((from, to) =>
+    supabase
+      .from("purchase_orders")
+      .select(
+        "id, po_number, invoice_number, invoice_date, status, vendor:vendors(name), purchase_lines(quantity, unit_price, gst_pct)"
+      )
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const rows: PurchaseRow[] = ((data ?? []) as unknown as PORow[]).map((po) => ({
     id: po.id,

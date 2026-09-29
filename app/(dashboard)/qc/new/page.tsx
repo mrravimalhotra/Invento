@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
@@ -24,41 +25,43 @@ export default async function NewQualityCheckPage({
 
   const supabase = await createClient();
 
-  // Batches still open for QC: purchase_batch_status.qc_status = 'not_submitted'.
-  const { data: openStatuses } = await supabase
-    .from("purchase_batch_status")
-    .select("purchase_line_id")
-    .eq("qc_status", "not_submitted");
-
-  const openIds = (openStatuses ?? []).map((s) => s.purchase_line_id).filter((id): id is string => !!id);
-
-  // FB-0018: a batch can only be pulled for QC once its purchase order has
-  // actually been Final Submitted — a draft line was never pushed to
-  // inventory in the first place (0019_purchase_submit_workflow.sql), so
-  // offering it here would let a sample be "pulled" from stock that never
-  // existed.
-  //
-  // Raw material only (2 Sept 2026): Packaging Item was added as a second
-  // purchasable category on the Purchase screen, deliberately without
-  // QC/Stability/R&D sample capture — packaging has never gone through QC
-  // in this app. Without this filter, every packaging purchase line would
-  // sit here forever as "awaiting QC" (nothing ever creates a quality_checks
-  // row for it), which is misleading and would let someone accidentally
-  // pull a QC sample from packaging stock. `items!inner(...)` (rather than
-  // the previous unqualified embed) is required for `.eq("items.category",
-  // ...)` to actually filter the joined table in PostgREST.
-  const { data: lines } = openIds.length
-    ? await supabase
-        .from("purchase_lines")
-        .select(
-          "id, batch_number, qc_qty, unit, item_id, items!inner(item_code, name, default_sample_unit, category), purchase_orders!inner(status)"
-        )
-        .in("id", openIds)
-        .eq("active", true)
-        .eq("purchase_orders.status", "submitted")
-        .eq("items.category", "raw")
-        .order("batch_number")
-    : { data: [] as PendingLine[] };
+  // Batches still open for QC (qc_status = 'not_submitted'), only from
+  // Final-Submitted purchase orders (FB-0018 — a draft line was never pushed
+  // to stock) and raw material only (packaging never goes through QC).
+  // ACC-08 (29 Sept 2026): one filtered, paged request on purchase_line_qc
+  // (0077). Before, every not-submitted line in the system was fetched
+  // first and cut off at Supabase's 1,000-row cap before these filters
+  // applied, so a newly arrived batch could be missing from this picker.
+  type OpenLine = {
+    purchase_line_id: string;
+    batch_number: string;
+    qc_qty: string | number | null;
+    unit: string | null;
+    item_id: string;
+    item_code: string;
+    item_name: string;
+    default_sample_unit: string | null;
+  };
+  const { data: open } = await fetchAllRows<OpenLine>((from, to) =>
+    supabase
+      .from("purchase_line_qc")
+      .select("purchase_line_id, batch_number, qc_qty, unit, item_id, item_code, item_name, default_sample_unit")
+      .eq("qc_status", "not_submitted")
+      .eq("active", true)
+      .eq("po_status", "submitted")
+      .eq("item_category", "raw")
+      .order("batch_number", { ascending: true })
+      .order("purchase_line_id", { ascending: true })
+      .range(from, to)
+  );
+  const lines: PendingLine[] = open.map((r) => ({
+    id: r.purchase_line_id,
+    batch_number: r.batch_number,
+    qc_qty: r.qc_qty,
+    unit: r.unit,
+    item_id: r.item_id,
+    items: { item_code: r.item_code, name: r.item_name, default_sample_unit: r.default_sample_unit },
+  }));
 
   return (
     <div>
@@ -68,7 +71,7 @@ export default async function NewQualityCheckPage({
       />
       <Card className="max-w-2xl">
         <CardBody>
-          <QcAssignForm lines={(lines ?? []) as unknown as PendingLine[]} initialLineId={initialLineId} />
+          <QcAssignForm lines={lines} initialLineId={initialLineId} />
         </CardBody>
       </Card>
     </div>
