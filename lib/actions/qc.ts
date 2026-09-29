@@ -37,10 +37,15 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
   // hidden form field, and confirm the batch is still open for QC.
   const { data: line, error: lineError } = await supabase
     .from("purchase_lines")
-    .select("id, item_id")
+    .select("id, item_id, pushed_at")
     .eq("id", purchaseLineId)
     .maybeSingle();
   if (lineError || !line) return { error: "Selected batch could not be found." };
+  // ACC-06 (29 Sept 2026): only a batch whose purchase order is submitted is
+  // in stock — a draft (or reopened) PO's batch can't be sampled for QC.
+  if (!line.pushed_at) {
+    return { error: "This batch's purchase order isn't submitted (it may have been reopened for editing). Submit it first." };
+  }
 
   const { data: status } = await supabase
     .from("purchase_batch_status")

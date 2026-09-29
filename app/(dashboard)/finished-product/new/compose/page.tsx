@@ -62,7 +62,11 @@ async function getCandidateBatches(
       // avail." hint from suggesting more than a batch actually has left.
       .select("id, batch_number, created_at, live_remaining_qty, unit")
       .eq("item_id", itemId)
-      .eq("active", true),
+      .eq("active", true)
+      // ACC-06 (29 Sept 2026): only batches whose purchase order is submitted
+      // (in stock) — a reopened PO's batch keeps its QC approval but must not
+      // be used until the PO is submitted again (the database refuses it too).
+      .not("pushed_at", "is", null),
     // Production-sourced Raw Material batches (Ravi, 19 Sept 2026 —
     // "Packaging issued to Production"; supabase/migrations/
     // 0050_production_rm_from_packaging.sql). These never go through

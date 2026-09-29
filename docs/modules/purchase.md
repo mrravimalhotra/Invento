@@ -952,3 +952,25 @@ and triggers, the Supabase SQL editor and the service role pass untouched
 Every step the app performs today keeps working — verified on a local replay
 of all 70 migrations (65/65 checks; the same checks with the guards removed
 show 36 failures, proving each bypass was real).
+
+## Reopening a submitted PO: stock stays correct (29 Sept 2026, migration 0078 — accuracy audit ACC-01/06/27)
+
+- **Any number of submit/reopen cycles is now correct (ACC-01).** Reopen
+  reverses only what is still net in stock for each line: receipts minus
+  earlier reversals, and sample pulls minus earlier returns. Before, the
+  second reopen reversed stock twice. Example with a 100 kg line and 1/2/3 kg
+  samples: 94 → 0 → 94 → **−94** → 0.
+- **Reopen is refused once a batch has been used (ACC-27).** If any batch on
+  the PO has been taken into a finished-product batch or written off as
+  wastage, reopen stops with a message naming the batch and the amount used.
+  Reverse that use first. A cancelled FP draft gives its stock back, so it
+  doesn't block reopen.
+- **A reopened PO's batches can't be used (ACC-06).** QC approval is kept
+  through a reopen, but the QC gate (`check_batch_qc_approved`) now also
+  requires the batch's PO to be submitted. The FP compose screen and New AR
+  only offer submitted batches, and `createQualityCheck` refuses a batch on a
+  draft PO.
+
+Verification (local replay of 78 migrations): 36/36 checks. The same checks
+without 0078 fail 15 times, reproducing each problem. The unit, security and
+audit suites still pass.
