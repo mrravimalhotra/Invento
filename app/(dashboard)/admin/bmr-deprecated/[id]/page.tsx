@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, todayIst } from "@/lib/utils";
 import { WeighmentLineForm, ObservationForm, SignOffPanel } from "../bmr-forms";
 
 type ItemRow = { id: string; name: string; item_code: string; unit: string | null };
@@ -102,7 +102,7 @@ export default async function BmrDetailPage({ params }: { params: Promise<{ id: 
   // Mirrors check_batch_qc_approved() (0026_qc_retest_consumption_gate.sql),
   // the real DB-level enforcement; this is just so the picker never offers
   // a batch the insert would reject.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIst();
   const approvedIds = new Set(
     (approvedStatusRows ?? [])
       .filter((r) => !r.retest_date || r.retest_date > today)

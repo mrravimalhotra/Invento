@@ -1,3 +1,4 @@
+import { todayIst } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
@@ -156,7 +157,7 @@ async function getAwaitingFpQcLines(
 async function getDueForRetestLines(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<DueForRetestLine[]> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIst();
 
   // ACC-08: one filtered, paged request on purchase_line_qc (0077).
   const { data } = await fetchAllRows<PurchaseLineQcRow>((from, to) =>
@@ -230,7 +231,7 @@ async function getAwaitingProductionQcLines(
 async function getProductionDueForRetestLines(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<ProductionDueForRetestLine[]> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIst();
 
   const { data: dueStatuses } = await fetchAllRows<{ production_batch_id: string | null }>((from, to) =>
     supabase

@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/card";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { DashboardCharts } from "./charts";
-import { formatDate } from "@/lib/utils";
+import { formatDate, todayIst, toIstDateString } from "@/lib/utils";
 import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { HideLegacyToggle } from "@/components/ui/hide-legacy-toggle";
@@ -84,8 +84,8 @@ export default async function DashboardPage() {
       .from("quality_checks")
       .select("ar_number, retest_date, item_id, items(name)")
       .not("retest_date", "is", null)
-      .gte("retest_date", new Date().toISOString().slice(0, 10))
-      .lte("retest_date", daysAgo(-30).slice(0, 10))
+      .gte("retest_date", todayIst())
+      .lte("retest_date", toIstDateString(daysAgo(-30)))
       .order("retest_date", { ascending: true })
       .limit(5),
     fetchAllRows<{ id: string; name: string; item_code: string; low_stock_threshold: string | number }>((from, to) =>

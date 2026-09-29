@@ -1,5 +1,6 @@
 "use client";
 
+import { todayIst } from "@/lib/utils";
 import { downloadPdfTable } from "@/lib/pdf";
 import { Button } from "@/components/ui/button";
 
@@ -12,7 +13,7 @@ export function PackagingExportButton({ rows }: { rows: (string | number)[][] })
           title: "Packing Register",
           columns: ["Code", "FP Batch", "Pack Size", "Unit Count", "Department", "Packaging Materials", "Date"],
           rows,
-          filename: `packing-register-${new Date().toISOString().slice(0, 10)}.pdf`,
+          filename: `packing-register-${todayIst()}.pdf`,
         })
       }
     >

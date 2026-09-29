@@ -1,3 +1,4 @@
+import { istDayStart, istDayEnd } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { Card } from "@/components/ui/card";
@@ -85,8 +86,8 @@ export default async function InventoryLedgerPage({
     .limit(LEDGER_LIMIT);
   if (itemId) query = query.eq("item_id", itemId);
   if (referenceType) query = query.eq("reference_type", referenceType);
-  if (from) query = query.gte("event_at", `${from}T00:00:00`);
-  if (to) query = query.lte("event_at", `${to}T23:59:59.999`);
+  if (from) query = query.gte("event_at", istDayStart(from));
+  if (to) query = query.lte("event_at", istDayEnd(to));
 
   const [{ data, error }, { data: items }] = await Promise.all([
     query.returns<LedgerQueryRow[]>(),

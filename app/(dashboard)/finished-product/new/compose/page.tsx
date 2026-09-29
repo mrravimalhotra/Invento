@@ -1,3 +1,4 @@
+import { todayIst } from "@/lib/utils";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -125,7 +126,7 @@ async function getCandidateBatches(
   // against such a batch is still rejected by the DB trigger regardless
   // of what this query returns. No code change was needed for this half
   // of the request — only the display cleanup above.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIst();
   type DatedCandidate = Candidate & { createdAt: string };
   const purchaseCandidates: DatedCandidate[] = (lines ?? [])
     .filter((l) => {

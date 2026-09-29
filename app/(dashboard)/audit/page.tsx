@@ -1,3 +1,4 @@
+import { istDayStart, istDayEnd } from "@/lib/utils";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -63,8 +64,8 @@ async function AuditLogList({ table, from, to }: { table: string; from: string; 
     .order("changed_at", { ascending: false })
     .limit(AUDIT_LIMIT);
   if (table) query = query.eq("table_name", table);
-  if (from) query = query.gte("changed_at", `${from}T00:00:00`);
-  if (to) query = query.lte("changed_at", `${to}T23:59:59.999`);
+  if (from) query = query.gte("changed_at", istDayStart(from));
+  if (to) query = query.lte("changed_at", istDayEnd(to));
 
   type RawRow = Omit<AuditLogRow, "changed_by_name"> & { changed_by: string | null };
   const { data, error } = await query.returns<RawRow[]>();

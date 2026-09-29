@@ -1,7 +1,7 @@
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, todayIst, istDayEnd } from "@/lib/utils";
 import { computeBatchQcState } from "@/lib/batch-qc-status";
 import { RmReportFilter } from "./rm-report-filter";
 import { RmReportExport, type RmReportExportRow } from "./rm-report-export";
@@ -30,7 +30,7 @@ type PurchaseLineRow = {
 };
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return todayIst();
 }
 
 export default async function RmReportPage({
@@ -69,7 +69,7 @@ export default async function RmReportPage({
       .eq("active", true)
       .eq("purchase_orders.status", "submitted")
       .eq("items.category", "raw")
-      .lte("created_at", `${asOf}T23:59:59.999`)
+      .lte("created_at", istDayEnd(asOf))
       .order("created_at", { ascending: false })
       .order("id", { ascending: true })
       .range(from, to)

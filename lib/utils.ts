@@ -25,28 +25,64 @@ export function cn(...inputs: ClassValue[]) {
 // browser/OS locale, not by this app, and isn't something formatDate()
 // touches. Also out of scope: label-picker.tsx's separate month/year-only
 // "Best Before" formatter, which has no day component to reformat.
+// ACC-13 (29 Sept 2026): the business runs on India time, but the app server
+// (Vercel) runs in UTC — so dates were worked out in UTC: between midnight
+// and 05:30 IST "today" was still yesterday, and a timestamp formatted on the
+// server showed the UTC day/time (e.g. the Audit Log detail page showed a
+// different time from the list, and COA dates prefilled a day early). Every
+// date below is now worked out in IST, wherever the code runs.
+export const IST_TIME_ZONE = "Asia/Kolkata";
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+const istDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: IST_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const istTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: IST_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** The IST calendar day of a timestamp, as "YYYY-MM-DD". A date-only value ("2026-09-14") is returned as-is. */
+export function toIstDateString(d: string | Date): string {
+  if (typeof d === "string" && DATE_ONLY.test(d)) return d;
+  const date = typeof d === "string" ? new Date(d) : d;
+  return istDateFormatter.format(date); // en-CA formats as YYYY-MM-DD
+}
+
+/** Today's date in India, as "YYYY-MM-DD" — use instead of new Date().toISOString().slice(0, 10). */
+export function todayIst(): string {
+  return toIstDateString(new Date());
+}
+
+/** Start / end of an IST calendar day, for timestamp filters (e.g. .gte("event_at", istDayStart(from))). */
+export function istDayStart(day: string): string {
+  return `${day}T00:00:00+05:30`;
+}
+export function istDayEnd(day: string): string {
+  return `${day}T23:59:59.999+05:30`;
+}
+
 export function formatDate(d: string | Date | null | undefined) {
   if (!d) return "—";
-  const date = typeof d === "string" ? new Date(d) : d;
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
+  if (typeof d !== "string" && Number.isNaN(d.getTime())) return "—";
+  if (typeof d === "string" && !DATE_ONLY.test(d) && Number.isNaN(new Date(d).getTime())) return "—";
+  const [year, month, day] = toIstDateString(d).split("-");
   return `${day}-${month}-${year}`;
 }
 
-// Audit Log (21 Sept 2026) needs a precise "when," not just a day — every
-// other formatDate() call site in the app is fine losing the time-of-day
-// (an expiry/re-test/finish date genuinely only means a calendar day), but
-// "who changed this and when" loses exactly the information that matters
-// if two edits land on the same day. Same dd-mm-yyyy convention as
-// formatDate() above, with HH:mm appended, local time (same getters,
-// same "no change to which moment this resolves to" note as formatDate).
+// Audit Log (21 Sept 2026) needs a precise "when," not just a day — same
+// dd-mm-yyyy convention as formatDate() above, with HH:mm (24-hour) appended,
+// both in IST.
 export function formatDateTime(d: string | Date | null | undefined) {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${formatDate(date)} ${hours}:${minutes}`;
+  if (Number.isNaN(date.getTime())) return "—";
+  return `${formatDate(date)} ${istTimeFormatter.format(date)}`;
 }
 
 export function formatNumber(n: number | string | null | undefined, decimals = 2) {

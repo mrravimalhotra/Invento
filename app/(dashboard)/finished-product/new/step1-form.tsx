@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { entryUnitsFor } from "@/lib/constants/units";
-import { isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, todayIst } from "@/lib/utils";
 
 type MfrOption = {
   id: string;
@@ -26,7 +26,7 @@ export function Step1Form({ mfrDefinitions }: { mfrDefinitions: MfrOption[] }) {
   // Same "today" convention used elsewhere in this app (e.g. rm-report's
   // todayIso(), compose/page.tsx) — defaults the field to today but stays
   // a plain editable date input, same as every other date field here.
-  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const [today] = useState(() => todayIst());
 
   return (
     <form action="/finished-product/new/compose" method="get" className="flex flex-col gap-4 max-w-lg">

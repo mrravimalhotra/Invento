@@ -1,3 +1,4 @@
+import { todayIst } from "@/lib/utils";
 // Shared "is this raw-material batch usable" status, derived from
 // purchase_batch_status (0001_init.sql: qc_status + retest_date, one row
 // per purchase_line via a lateral join to its latest quality_checks row).
@@ -24,7 +25,7 @@ export const BATCH_QC_LABELS: Record<BatchQcState, string> = {
 export function computeBatchQcState(
   qcStatus: string | null | undefined,
   retestDate: string | null | undefined,
-  today: string = new Date().toISOString().slice(0, 10)
+  today: string = todayIst()
 ): BatchQcState {
   if (qcStatus === "approved") {
     return retestDate && retestDate <= today ? "awaiting_retest" : "approved";

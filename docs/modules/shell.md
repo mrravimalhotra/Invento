@@ -73,3 +73,23 @@ app-shell files. Verified: `tsc`/`eslint`/`next build` all clean, plus a
 local `next dev` smoke test (unauthenticated requests to `/login`, `/`, and
 `/items` all responded correctly with no server errors) to confirm the new
 files don't break the app from booting.
+
+## India time everywhere (29 Sept 2026 — ACC-13)
+
+The server and the database ran on UTC, so between 00:00 and 05:30 IST the
+app still treated it as yesterday: retest dates came out a day early,
+"today" defaults and "due for retest" checks used yesterday, AR/PO/batch
+numbers carried the previous day (and on 1 January the previous year), and
+date filters ended 5½ hours early.
+
+- **App:** `lib/utils.ts` has `todayIst()`, `toIstDateString()`,
+  `istDayStart()` / `istDayEnd()` and IST-aware `formatDate()` /
+  `formatDateTime()`. Every "today" default, date filter (audit trail,
+  stock ledger, RM report, reports) and export file name uses them.
+- **Database (0081):** the database time zone is `Asia/Kolkata`, so
+  `current_date`, `now()::date` and generated numbers follow IST. The QC
+  retest date is computed from the IST day of approval explicitly.
+- Stored timestamps are unchanged (absolute moments); only the day they are
+  counted in changed. New connections pick it up; the API recycles its
+  connections within about 30 minutes.
+- Not in this change: date parsing in bulk upload (ACC-23, group 8).

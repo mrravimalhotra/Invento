@@ -1,5 +1,6 @@
 "use client";
 
+import { toIstDateString } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -40,15 +41,15 @@ export function ReportSection<T>({
 
   const filtered = useMemo(() => {
     if (!dateOf || (!from && !to)) return rows;
-    const fromTime = from ? new Date(from).getTime() : -Infinity;
-    // include the whole "to" day
-    const toTime = to ? new Date(to).getTime() + 24 * 60 * 60 * 1000 - 1 : Infinity;
+    // ACC-13: compare IST calendar days ("YYYY-MM-DD" strings compare in
+    // date order). Before, `new Date(from)` was UTC midnight, so the filter
+    // window was 5½ hours off India time.
     return rows.filter((r) => {
       const d = dateOf(r);
       if (!d) return false;
-      const t = new Date(d).getTime();
-      if (Number.isNaN(t)) return false;
-      return t >= fromTime && t <= toTime;
+      if (Number.isNaN(new Date(d).getTime())) return false;
+      const day = toIstDateString(d);
+      return (!from || day >= from) && (!to || day <= to);
     });
   }, [rows, from, to, dateOf]);
 
