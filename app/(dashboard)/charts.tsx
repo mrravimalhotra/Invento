@@ -5,7 +5,8 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, PieChart, Pie, Cell, Legend,
 } from "recharts";
-import { format } from "date-fns";
+import { dailySeries, dayLabel } from "@/lib/dashboard-series";
+import { formatNumber } from "@/lib/utils";
 
 const BRAND = "#1f6f4e";
 const AMBER = "#b45309";
@@ -16,45 +17,27 @@ const MUTED = "#94a3a0";
 // pre-existing amber "Submitted" slice on the same pie.
 const BLUE = "#2563eb";
 
-function byDay<T>(rows: T[], dateKey: keyof T, valueFn: (r: T) => number) {
-  const map = new Map<string, number>();
-  rows.forEach((r) => {
-    const day = format(new Date(r[dateKey] as string), "MMM d");
-    map.set(day, (map.get(day) ?? 0) + valueFn(r));
-  });
-  return Array.from(map.entries()).map(([day, value]) => ({ day, value }));
-}
-
-export function DashboardCharts({
-  qcCounts,
-  ledger30,
-  purchase30,
-  fp30,
-}: {
+export type DashboardChartData = {
   qcCounts: { submitted: number; checker_approved: number; approved: number; rejected: number };
   ledger30: { event_type: string; event_at: string; quantity: number }[];
-  purchase30: { created_at: string; quantity: number; unit_price: number | null }[];
+  purchase30: { created_at: string; value: number }[];
   fp30: { created_at: string }[];
-}) {
-  const push = byDay(
-    ledger30.filter((l) => l.event_type === "push"),
-    "event_at",
-    (r) => Number(r.quantity)
-  );
-  const pull = byDay(
-    ledger30.filter((l) => l.event_type !== "push"),
-    "event_at",
-    (r) => Number(r.quantity)
-  );
-  const movementDays = Array.from(new Set([...push.map((p) => p.day), ...pull.map((p) => p.day)]));
-  const movement = movementDays.map((day) => ({
-    day,
-    push: push.find((p) => p.day === day)?.value ?? 0,
-    pull: pull.find((p) => p.day === day)?.value ?? 0,
-  }));
+  // The 30 India-time calendar days the charts cover, oldest first.
+  days: string[];
+};
 
-  const purchaseValue = byDay(purchase30, "created_at", (r) => Number(r.quantity) * Number(r.unit_price ?? 0));
-  const fpByDay = byDay(fp30.map((r) => ({ ...r, one: 1 })), "created_at", () => 1);
+export function DashboardCharts({ qcCounts, ledger30, purchase30, fp30, days }: DashboardChartData) {
+  // ACC-26: every series uses the same 30 days, in date order, with 0 on
+  // days when nothing happened.
+  const push = dailySeries(ledger30.filter((l) => l.event_type === "push"), days, (r) => r.event_at, (r) => Number(r.quantity));
+  const pull = dailySeries(ledger30.filter((l) => l.event_type !== "push"), days, (r) => r.event_at, (r) => Number(r.quantity));
+  const movement = days.map((day, i) => ({ day: dayLabel(day), push: push[i].value, pull: pull[i].value }));
+
+  const purchaseValue = dailySeries(purchase30, days, (r) => r.created_at, (r) => r.value).map((p) => ({
+    day: dayLabel(p.day),
+    value: Math.round(p.value * 100) / 100,
+  }));
+  const fpByDay = dailySeries(fp30, days, (r) => r.created_at, () => 1).map((p) => ({ day: dayLabel(p.day), value: p.value }));
 
   const qcPie = [
     { name: "Submitted", value: qcCounts.submitted, color: AMBER },
@@ -100,14 +83,14 @@ export function DashboardCharts({
       </Card>
 
       <Card>
-        <CardHeader title="Purchase value — last 30 days" />
+        <CardHeader title="Purchase value (incl. GST) — last 30 days" />
         <CardBody className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={purchaseValue}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8e5" />
               <XAxis dataKey="day" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
+              <Tooltip formatter={(v) => `₹ ${formatNumber(Number(v))}`} />
               <Line type="monotone" dataKey="value" name="Value" stroke={BRAND} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>

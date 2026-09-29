@@ -93,3 +93,26 @@ date filters ended 5½ hours early.
   counted in changed. New connections pick it up; the API recycles its
   connections within about 30 minutes.
 - Not in this change: date parsing in bulk upload (ACC-23, group 8).
+
+## Dashboard agrees with its lists (29 Sept 2026, ACC-26)
+
+The Dashboard (`app/(dashboard)/page.tsx`, drawn by `dashboard-view.tsx`)
+now counts the same rows as the list each card opens, and follows the
+"Hide legacy data" switch.
+
+- **Cards.** Raw materials = active raw materials; Vendors = active
+  vendors; MFR definitions = every MFR (the MFR list shows inactive ones
+  too); Finished batches = active batches; POs (30d) = active purchase
+  orders in the last 30 days; Pending QC = submitted + awaiting review.
+- **Purchase value chart** includes GST (quantity x unit price x (1 + GST%),
+  the rule the Purchase list uses) and counts only submitted, undeleted
+  lines. Draft orders are not purchases yet.
+- **Charts** cover the last 30 India-time calendar days in date order; a day
+  with no activity shows 0 instead of being skipped.
+- **Hide legacy data.** The switch lives in the browser, so the server sends
+  each count twice (all / not legacy) and each chart row with a legacy flag,
+  and the page picks. Legacy = a `LEG-` code, the same test as the lists. QC
+  counts come from `dashboard_qc_counts()` (migration 0084) because a QC
+  record's legacy status depends on four tables. The Movement chart tests
+  the item and the raw-material batch a ledger event moved (not the finished
+  product batch). **Reports are not affected** — they stay complete registers.
