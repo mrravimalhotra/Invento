@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { isLegacyCode } from "@/lib/utils";
+import { LEDGER_FILTER_OPTIONS } from "@/lib/ledger-reasons";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
 // Option A folded into this phase) — the Ledger tab was a flat,
@@ -15,16 +16,6 @@ import { isLegacyCode } from "@/lib/utils";
 // a client-side re-filter of whatever page the 1,000-row cap happened to
 // return — the same row-cap-truncation lesson this app's other pickers
 // already learned the hard way (see claude/known-issues.md).
-const REFERENCE_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: "purchase", label: "Purchase" },
-  { value: "qc_sample", label: "QC Sample" },
-  { value: "stability_sample", label: "Stability Sample" },
-  { value: "rnd_sample", label: "R&D Sample" },
-  { value: "finished_product", label: "Finished Product (RM use)" },
-  { value: "fp_yield", label: "FP Batch Yield" },
-  { value: "packaging", label: "Packaging" },
-];
-
 export type ItemFilterOption = { id: string; name: string; item_code: string };
 
 export function LedgerFilters({
@@ -67,7 +58,7 @@ export function LedgerFilters({
           onChange={(e) => e.currentTarget.form?.requestSubmit()}
         >
           <option value="">All reasons</option>
-          {REFERENCE_TYPE_OPTIONS.map((o) => (
+          {LEDGER_FILTER_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>

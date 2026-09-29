@@ -5,21 +5,11 @@ import { Card } from "@/components/ui/card";
 import { InventoryLedgerTable, type LedgerRow } from "./inventory-ledger-table";
 import { LedgerFilters, type ItemFilterOption } from "./ledger-filters";
 import { enrichLedgerRows, type RawLedgerRow } from "@/lib/ledger-enrich";
+import { LEDGER_REASON_VALUES } from "@/lib/ledger-reasons";
 
 const LEDGER_LIMIT = 1000;
 
 type LedgerQueryRow = RawLedgerRow;
-
-const REFERENCE_TYPES = new Set([
-  "purchase",
-  "qc",
-  "qc_sample",
-  "stability_sample",
-  "rnd_sample",
-  "finished_product",
-  "fp_yield",
-  "packaging",
-]);
 
 function isValidDate(s: string | undefined): s is string {
   return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -32,7 +22,7 @@ export default async function InventoryLedgerPage({
 }) {
   const params = await searchParams;
   const itemId = params.item ?? "";
-  const referenceType = REFERENCE_TYPES.has(params.reference_type ?? "") ? (params.reference_type as string) : "";
+  const referenceType = LEDGER_REASON_VALUES.has(params.reference_type ?? "") ? (params.reference_type as string) : "";
   const from = isValidDate(params.from) ? params.from : "";
   const to = isValidDate(params.to) ? params.to : "";
 

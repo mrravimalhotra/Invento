@@ -67,7 +67,9 @@ export default async function NewQualityCheckPage({
     <div>
       <PageHeader
         title="New Assign Record"
-        description="Pull a sample and assign an AR number to a batch awaiting QC. The sample deducts from available stock automatically on save."
+        // ACC-38: saving no longer moves stock — the QC sample is set aside when the
+        // purchase order is submitted (0028), so the old "deducts on save" text was wrong.
+        description="Assign an AR number to a batch awaiting QC and record the sample. The QC sample was already set aside from stock when the purchase order was submitted, so saving here does not change stock."
       />
       <Card className="max-w-2xl">
         <CardBody>

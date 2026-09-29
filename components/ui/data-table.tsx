@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/form";
 import { Search } from "lucide-react";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
+import { clampPage } from "@/lib/paging";
 
 export type Column<T> = {
   header: string;
@@ -55,7 +56,11 @@ export function DataTable<T>({
   }, [legacyFiltered, query, columns]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageRows = filtered.slice(page * pageSize, page * pageSize + pageSize);
+  // ACC-25: the page is clamped to the last page that exists. A filter outside
+  // the table (date range, category…) can shrink the rows while the table is
+  // on a later page; without this it showed an empty table and "Page 11 of 2".
+  const currentPage = clampPage(page, filtered.length, pageSize);
+  const pageRows = filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   const legacyCount = isLegacy ? rows.filter(isLegacy).length : 0;
 
   return (
@@ -120,20 +125,20 @@ export function DataTable<T>({
       {pageCount > 1 && (
         <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-sm text-muted">
           <span>
-            Page {page + 1} of {pageCount} · {filtered.length} rows
+            Page {currentPage + 1} of {pageCount} · {filtered.length} rows
           </span>
           <div className="flex gap-2">
             <button
               className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40"
-              disabled={page === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              onClick={() => setPage(Math.max(0, currentPage - 1))}
             >
               Prev
             </button>
             <button
               className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40"
-              disabled={page >= pageCount - 1}
-              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              disabled={currentPage >= pageCount - 1}
+              onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))}
             >
               Next
             </button>

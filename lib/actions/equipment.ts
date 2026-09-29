@@ -72,8 +72,8 @@ export async function createEquipment(_prev: ActionState, formData: FormData): P
       .from("equipment")
       .select("id")
       .ilike("asset_id", escapeLike(parsed.data.asset_id))
-      .maybeSingle();
-    if (dupAsset) return { error: `Asset ID "${parsed.data.asset_id}" already exists on another equipment record.` };
+      .limit(1);
+    if (dupAsset && dupAsset.length > 0) return { error: `Asset ID "${parsed.data.asset_id}" already exists on another equipment record.` };
   }
 
   const { data: equipmentCode, error: codeError } = await supabase.rpc("get_next_equipment_code");
@@ -124,8 +124,8 @@ export async function updateEquipment(
       .select("id")
       .ilike("asset_id", escapeLike(parsed.data.asset_id))
       .neq("id", id)
-      .maybeSingle();
-    if (dupAsset) return { error: `Asset ID "${parsed.data.asset_id}" already exists on another equipment record.` };
+      .limit(1);
+    if (dupAsset && dupAsset.length > 0) return { error: `Asset ID "${parsed.data.asset_id}" already exists on another equipment record.` };
   }
 
   const { error } = await supabase

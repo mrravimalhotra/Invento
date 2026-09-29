@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDateTime, formatNumber } from "@/lib/utils";
 
 export type EnvReadingRow = {
   id: string;
@@ -16,7 +16,8 @@ export function EnvironmentalControlTable({ rows }: { rows: EnvReadingRow[] }) {
     { header: "Area", accessor: (r) => <span className="font-medium">{r.area}</span>, searchValue: (r) => r.area },
     { header: "Temperature (°C)", accessor: (r) => formatNumber(r.temperature, 1) },
     { header: "Humidity (%RH)", accessor: (r) => formatNumber(r.humidity, 1) },
-    { header: "Recorded at", accessor: (r) => formatDate(r.recorded_at) },
+    // ACC-40: recorded_at is a timestamp — show the time too, in IST.
+    { header: "Recorded at", accessor: (r) => <span className="whitespace-nowrap">{formatDateTime(r.recorded_at)}</span>, sortValue: (r) => r.recorded_at },
   ];
 
   return (

@@ -4,33 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatNumber, isLegacyCode } from "@/lib/utils";
 import type { EnrichedLedgerRow } from "@/lib/ledger-enrich";
+import { ledgerReasonLabel } from "@/lib/ledger-reasons";
 
 export type LedgerRow = EnrichedLedgerRow;
 
-// Inventory Ledger redesign, Phase 1 (claude/inventory-ledger-redesign.md)
-// — 0028_ledger_sample_pull_fix.sql added three new reference_type values
-// (qc_sample/stability_sample/rnd_sample) alongside the existing ones.
-// The old rendering (`className="capitalize"` over the raw column value)
-// only capitalizes the first letter, so an underscored value would have
-// shown as "Qc_sample" rather than a real label — fixed with an explicit
-// map instead of trying to out-clever CSS for every future value too.
-//
-// Phase 3 (0030_finished_product_ledger.sql) adds 'fp_yield' — the push of
-// a Finished Product batch's own output at QC approval. qc_sample/
-// stability_sample/rnd_sample are reused as-is for the FP-context pulls
-// captured on the same screen (Complete Batch) — a QC sample is a QC
-// sample whether it came from a purchase batch or a production batch, so
-// no separate labels are needed for those.
-const REFERENCE_TYPE_LABELS: Record<string, string> = {
-  purchase: "Purchase",
-  qc: "QC",
-  qc_sample: "QC Sample",
-  stability_sample: "Stability Sample",
-  rnd_sample: "R&D Sample",
-  finished_product: "Finished Product",
-  packaging: "Packaging",
-  fp_yield: "FP Batch Yield",
-};
+// Reference labels: lib/ledger-reasons.ts (ACC-32) — one list shared with the
+// Reason filter.
 
 function formatEventAt(iso: string) {
   // known-issues.md ("React error #418 on /inventory") — with no explicit
@@ -114,8 +93,8 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
     {
       header: "Reference",
       accessor: (r) =>
-        r.reference_type ? (REFERENCE_TYPE_LABELS[r.reference_type] ?? r.reference_type) : "—",
-      searchValue: (r) => r.reference_type ?? "",
+        r.reference_type ? ledgerReasonLabel(r.reference_type) : "—",
+      searchValue: (r) => (r.reference_type ? `${r.reference_type} ${ledgerReasonLabel(r.reference_type)}` : ""),
     },
     {
       header: "By",

@@ -10,9 +10,9 @@ import { friendlyDbError } from "@/lib/db-errors";
 export type ActionState = { error?: string; success?: string } | undefined;
 
 // Assign step — assign an AR number to an incoming raw-material batch and
-// pull the sample out of stock (the pull itself is automatic: trg_qc_sample_pull
-// in 0002_transactions.sql fires on this insert, this action never touches
-// inventory_ledger directly). Whoever assigns an AR is no longer tracked as
+// record the sample. This does not move stock (ACC-38, 29 Sept 2026): since
+// 0028 the QC sample is pulled when the purchase order is submitted
+// (submit_purchase_order) and trg_qc_sample_pull is retired to a no-op. Whoever assigns an AR is no longer tracked as
 // a distinct "maker" identity (20 Sept 2026, see docs/modules/qc.md's
 // "Two-round QC review" entry) — they may go on to be its own Round 1 QC
 // Checker.

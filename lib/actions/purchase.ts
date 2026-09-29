@@ -72,13 +72,17 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
   // 2026, via AskUserQuestion): "add duplicate blocking on ... Purchase
   // Invoice Number (per vendor) ... for both bulk upload and the regular
   // one-at-a-time forms."
+  // ACC-37: a list with .limit(1), not .maybeSingle() — maybeSingle() errors when
+  // MORE than one row matches (duplicates that already exist, e.g. from a bulk
+  // upload), and the error was ignored, so the check passed. Same fix in the
+  // other name / code duplicate checks (items, dead stock, equipment).
   const { data: dupPo } = await supabase
     .from("purchase_orders")
     .select("id")
     .eq("vendor_id", parsed.data.vendor_id)
     .ilike("invoice_number", escapeLike(parsed.data.invoice_number))
-    .maybeSingle();
-  if (dupPo) return { error: `Invoice "${parsed.data.invoice_number}" already exists for this vendor.` };
+    .limit(1);
+  if (dupPo && dupPo.length > 0) return { error: `Invoice "${parsed.data.invoice_number}" already exists for this vendor.` };
 
   // po_number is always generated here via the Postgres RPC, never in JS.
   const { data: poNumber, error: numError } = await supabase.rpc("get_next_po_number");

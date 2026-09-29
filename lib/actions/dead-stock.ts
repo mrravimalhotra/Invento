@@ -63,8 +63,8 @@ export async function createDeadStockItem(_prev: ActionState, formData: FormData
     .from("dead_stock_items")
     .select("id")
     .ilike("article_name", escapeLike(parsed.data.article_name))
-    .maybeSingle();
-  if (dupArticle) return { error: `"${parsed.data.article_name}" already exists as a dead stock record.` };
+    .limit(1);
+  if (dupArticle && dupArticle.length > 0) return { error: `"${parsed.data.article_name}" already exists as a dead stock record.` };
 
   const { data: assetCode, error: codeError } = await supabase.rpc("get_next_dead_stock_code");
   if (codeError) return { error: friendlyDbError(codeError) };
@@ -112,8 +112,8 @@ export async function updateDeadStockItem(
     .select("id")
     .ilike("article_name", escapeLike(parsed.data.article_name))
     .neq("id", id)
-    .maybeSingle();
-  if (dupArticle) return { error: `"${parsed.data.article_name}" already exists as a dead stock record.` };
+    .limit(1);
+  if (dupArticle && dupArticle.length > 0) return { error: `"${parsed.data.article_name}" already exists as a dead stock record.` };
 
   const { error } = await supabase
     .from("dead_stock_items")

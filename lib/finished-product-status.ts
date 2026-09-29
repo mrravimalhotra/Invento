@@ -53,7 +53,20 @@ export function latestQcByBatch(rows: QcStatusRow[]): Map<string, QcStatusRow> {
 // everywhere else can't produce (that combination would render it
 // "Complete Awaiting Qc"). Every other status keeps using the generic
 // underscore-to-space fallback unchanged.
+//
+// ACC-34 (29 Sept 2026): "submitted_to_qc" now has its own label too ("QC" in
+// capitals). The FP Register and its PDF printed the raw code / "submitted
+// to_qc"; they use this function now, so the PDF (no CSS) reads properly too.
+const FP_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  in_process: "In Process",
+  complete_awaiting_qc: "Complete - Awaiting QC",
+  submitted_to_qc: "Submitted to QC",
+  approved: "Approved",
+  rejected: "Rejected",
+  cancelled: "Cancelled",
+};
+
 export function fpStatusLabel(status: string): string {
-  if (status === "complete_awaiting_qc") return "Complete - Awaiting QC";
-  return status.replace(/_/g, " ");
+  return FP_STATUS_LABELS[status] ?? status.replace(/_/g, " ");
 }

@@ -143,7 +143,7 @@ export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; i
         <Field
           label="Sample unit"
           htmlFor="sample_unit"
-          hint="Converted to this batch's own unit when the sample is pulled from stock."
+          hint="Recorded on the AR. Stock was already reduced when the purchase order was submitted."
         >
           <Select
             id="sample_unit"

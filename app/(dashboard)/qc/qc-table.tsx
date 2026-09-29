@@ -71,7 +71,9 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
         r.items
           ? `${r.items.item_code} — ${r.items.name}`
           : r.finished_product_batches?.mfr_definitions?.name ?? "—",
-      searchValue: (r) => r.items?.name ?? r.finished_product_batches?.mfr_definitions?.name ?? "",
+      // ACC-36: the code is matched as well as the name (the box says "item").
+      searchValue: (r) =>
+        r.items ? `${r.items.item_code} ${r.items.name}` : r.finished_product_batches?.mfr_definitions?.name ?? "",
     },
     {
       header: "Batch",

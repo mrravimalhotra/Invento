@@ -55,9 +55,10 @@ layer.
 - On submit: inserts `purchase_line_id` + `item_id` (item_id is re-derived
   server-side from the chosen batch, not trusted from a hidden field),
   `finished_product_batch_id` left `null`, `status` defaults `'submitted'`.
-  The sample-pull ledger row is written automatically by
-  `trg_qc_sample_pull` (0002_transactions.sql) — this action never touches
-  `inventory_ledger`.
+  Saving does not move stock (ACC-38, 29 Sept 2026): the QC sample is set
+  aside when the purchase order is submitted (0028 retired
+  `trg_qc_sample_pull`), and the page text now says so. This action never
+  touches `inventory_ledger`.
 - Guards against double-submission: re-checks `purchase_batch_status` at
   submit time and rejects if the batch is no longer `not_submitted`.
 

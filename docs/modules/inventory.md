@@ -942,3 +942,15 @@ kind of movement seeded directly (production RM, FP yield/samples/packaging,
 packaged FP to Store and R&D, packaging issue); the check "every item in the
 database reconciles" passes. Control without 0083: 8 failures (e.g. after a
 cancel FP use stays 602.1). All nine earlier suites still pass.
+
+## Small accuracy fixes, no decision needed (29 Sept 2026 — ACC-25, 32, 34, 36, 37, 38, 40)
+
+Code only, no migration.
+
+- **ACC-25, list paging.** Every table (`DataTable`) keeps its page inside the pages that exist (`lib/paging.ts`, `clampPage`). Before, a filter outside the table (date range, category…) could leave it on page 11 of a 2-page list: an empty table reading "Page 11 of 2".
+- **ACC-32, ledger Reason.** One list (`lib/ledger-reasons.ts`) drives the Reason filter, the Reference column and the accepted filter values. Packaging use of FP, Packaged FP yield / issued, FP draft cancelled and Production RM yield now have labels and can be filtered. A test checks every reference type the database allows has a label.
+- **ACC-34, FP Register status.** The list and the PDF show readable status names (`fpStatusLabel`), e.g. "Submitted to QC", not "submitted to_qc" or the raw code.
+- **ACC-36, QC search.** The Item column search matches the item code as well as the name.
+- **ACC-37, duplicate checks.** The duplicate-invoice check (and the same check for item names, dead stock article names and equipment asset IDs) used `.maybeSingle()`, which errors when more than one row matches, so the check passed exactly when duplicates already existed. They now ask for one matching row (`.limit(1)`).
+- **ACC-38, New AR text.** The page and the sample-unit hint no longer say the sample deducts on save. The QC sample is set aside when the purchase order is submitted (0028).
+- **ACC-40, Dead Stock and Environmental Control.** Dead Stock shows dates as dd-mm-yyyy and numbers with Indian grouping. Environmental Control "Recorded at" shows date and time (IST).

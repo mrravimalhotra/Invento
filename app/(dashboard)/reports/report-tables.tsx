@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Field, Select } from "@/components/ui/form";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
+import { fpStatusLabel } from "@/lib/finished-product-status";
 import { ReportSection, type ReportColumn } from "./report-section";
 
 // ---------- RM Stock report ----------
@@ -115,7 +116,9 @@ export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
   const columns: ReportColumn<FpRow>[] = [
     { header: "Batch Number", cell: (r) => r.batch_number, pdfValue: (r) => r.batch_number },
     { header: "MFR", cell: (r) => r.mfr?.name ?? "—", pdfValue: (r) => r.mfr?.name ?? "—" },
-    { header: "Status", cell: (r) => <Badge status={r.status}>{r.status.replace("_", " ")}</Badge>, pdfValue: (r) => r.status },
+    // ACC-34: readable status in the list and the PDF (was "submitted to_qc",
+    // and the raw code in the PDF).
+    { header: "Status", cell: (r) => <Badge status={r.status}>{fpStatusLabel(r.status)}</Badge>, pdfValue: (r) => fpStatusLabel(r.status) },
     { header: "Target Qty", cell: (r) => formatNumber(r.target_qty), pdfValue: (r) => formatNumber(r.target_qty) },
     {
       header: "Actual Yield %",
