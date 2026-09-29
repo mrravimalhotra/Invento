@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { formatDate, formatNumber, todayIst } from "@/lib/utils";
+import { formatDate, todayIst, formatQty } from "@/lib/utils";
 import { WeighmentLineForm, ObservationForm, SignOffPanel } from "../bmr-forms";
 
 type ItemRow = { id: string; name: string; item_code: string; unit: string | null };
@@ -201,10 +201,10 @@ export default async function BmrDetailPage({ params }: { params: Promise<{ id: 
                       <td className="px-3 py-2">{l.items?.name ?? "—"}</td>
                       <td className="px-3 py-2">{l.purchase_lines?.batch_number ?? "—"}</td>
                       <td className="px-3 py-2">
-                        {formatNumber(l.standard_qty)} {l.items?.unit ?? ""}
+                        {formatQty(l.standard_qty)} {l.items?.unit ?? ""}
                       </td>
                       <td className="px-3 py-2">
-                        {l.actual_qty === null ? "—" : `${formatNumber(l.actual_qty)} ${l.items?.unit ?? ""}`}
+                        {l.actual_qty === null ? "—" : `${formatQty(l.actual_qty)} ${l.items?.unit ?? ""}`}
                       </td>
                     </tr>
                   ))}

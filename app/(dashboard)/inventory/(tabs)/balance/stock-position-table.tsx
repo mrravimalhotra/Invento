@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatNumber, isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, formatQty } from "@/lib/utils";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
 // Option B) — Stock Balance becomes Stock Position: on top of the same
@@ -55,36 +55,36 @@ export type PositionRow = {
 function Breakdown({ r }: { r: PositionRow }) {
   const parts: string[] = [];
   if (r.category === "processed") {
-    parts.push(`Yield ${formatNumber(r.yielded)}`);
-    if (r.heldQc > 0) parts.push(`QC ${formatNumber(r.heldQc)}`);
-    if (r.heldStability > 0) parts.push(`Stability ${formatNumber(r.heldStability)}`);
-    if (r.heldRnd > 0) parts.push(`R&D ${formatNumber(r.heldRnd)}`);
-    if (r.consumedByPackaging > 0) parts.push(`Packaged ${formatNumber(r.consumedByPackaging)}`);
+    parts.push(`Yield ${formatQty(r.yielded)}`);
+    if (r.heldQc > 0) parts.push(`QC ${formatQty(r.heldQc)}`);
+    if (r.heldStability > 0) parts.push(`Stability ${formatQty(r.heldStability)}`);
+    if (r.heldRnd > 0) parts.push(`R&D ${formatQty(r.heldRnd)}`);
+    if (r.consumedByPackaging > 0) parts.push(`Packaged ${formatQty(r.consumedByPackaging)}`);
   } else if (r.category === "packaged_fp") {
     // Task F (claude/packaged-fp-redesign.md) — always fully issued,
     // one-shot: on-hand nets to zero once yield and issue both land, so
     // the breakdown is the only place this item's history is visible at
     // a glance.
-    parts.push(`Packaged ${formatNumber(r.packagedYield)}`);
-    if (r.issuedStore > 0) parts.push(`Store ${formatNumber(r.issuedStore)}`);
-    if (r.issuedRnd > 0) parts.push(`R&D ${formatNumber(r.issuedRnd)}`);
+    parts.push(`Packaged ${formatQty(r.packagedYield)}`);
+    if (r.issuedStore > 0) parts.push(`Store ${formatQty(r.issuedStore)}`);
+    if (r.issuedRnd > 0) parts.push(`R&D ${formatQty(r.issuedRnd)}`);
   } else if (r.category === "packaging") {
-    parts.push(`Received ${formatNumber(r.received)}`);
-    if (r.issuedPackaging > 0) parts.push(`Issued ${formatNumber(r.issuedPackaging)}`);
+    parts.push(`Received ${formatQty(r.received)}`);
+    if (r.issuedPackaging > 0) parts.push(`Issued ${formatQty(r.issuedPackaging)}`);
     // ACC-21: wastage also reduces On hand, so it belongs in the breakdown.
-    if (r.wastage > 0) parts.push(`Wastage ${formatNumber(r.wastage)}`);
+    if (r.wastage > 0) parts.push(`Wastage ${formatQty(r.wastage)}`);
   } else {
     // raw material. ACC-21: material made from production issues is never
     // purchased, so it shows "Produced" instead of "Received 0"; the figures
     // are net of reversals (a reopened PO, returned samples, cancelled FP
     // drafts), so they add up to On hand.
-    if (r.received > 0 || r.productionRmYield <= 0) parts.push(`Received ${formatNumber(r.received)}`);
-    if (r.productionRmYield > 0) parts.push(`Produced ${formatNumber(r.productionRmYield)}`);
-    if (r.heldQc > 0) parts.push(`QC ${formatNumber(r.heldQc)}`);
-    if (r.heldStability > 0) parts.push(`Stability ${formatNumber(r.heldStability)}`);
-    if (r.heldRnd > 0) parts.push(`R&D ${formatNumber(r.heldRnd)}`);
-    if (r.consumedByFp > 0) parts.push(`FP use ${formatNumber(r.consumedByFp)}`);
-    if (r.wastage > 0) parts.push(`Wastage ${formatNumber(r.wastage)}`);
+    if (r.received > 0 || r.productionRmYield <= 0) parts.push(`Received ${formatQty(r.received)}`);
+    if (r.productionRmYield > 0) parts.push(`Produced ${formatQty(r.productionRmYield)}`);
+    if (r.heldQc > 0) parts.push(`QC ${formatQty(r.heldQc)}`);
+    if (r.heldStability > 0) parts.push(`Stability ${formatQty(r.heldStability)}`);
+    if (r.heldRnd > 0) parts.push(`R&D ${formatQty(r.heldRnd)}`);
+    if (r.consumedByFp > 0) parts.push(`FP use ${formatQty(r.consumedByFp)}`);
+    if (r.wastage > 0) parts.push(`Wastage ${formatQty(r.wastage)}`);
   }
   return <span className="text-xs text-muted">{parts.join(" · ")}</span>;
 }
@@ -110,7 +110,7 @@ export function StockPositionTable({ rows }: { rows: PositionRow[] }) {
       header: "On hand",
       accessor: (r) => (
         <span className={r.low ? "font-semibold text-red" : "font-medium"}>
-          {formatNumber(r.onHand)} {r.unit}
+          {formatQty(r.onHand)} {r.unit}
         </span>
       ),
       sortValue: (r) => r.onHand,
@@ -121,7 +121,7 @@ export function StockPositionTable({ rows }: { rows: PositionRow[] }) {
     },
     {
       header: "Low-stock threshold",
-      accessor: (r) => (r.low_stock_threshold === null ? "—" : `${formatNumber(r.low_stock_threshold)} ${r.unit ?? ""}`),
+      accessor: (r) => (r.low_stock_threshold === null ? "—" : `${formatQty(r.low_stock_threshold)} ${r.unit ?? ""}`),
     },
     {
       header: "Status",

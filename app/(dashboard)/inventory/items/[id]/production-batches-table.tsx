@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 import { BATCH_QC_LABELS, computeBatchQcState } from "@/lib/batch-qc-status";
 import { ProductionRmIntimationLink } from "./production-rm-intimation-link";
 
@@ -50,7 +50,7 @@ export function ProductionBatchesTable({
       header: "Produced",
       accessor: (r) => (
         <span className="whitespace-nowrap">
-          {formatNumber(r.quantity)} {r.unit}
+          {formatQty(r.quantity)} {r.unit}
         </span>
       ),
     },
@@ -58,7 +58,7 @@ export function ProductionBatchesTable({
       header: "Remaining now",
       accessor: (r) => (
         <span className="whitespace-nowrap font-medium">
-          {formatNumber(r.live_remaining_qty)} {r.unit}
+          {formatQty(r.live_remaining_qty)} {r.unit}
         </span>
       ),
       sortValue: (r) => Number(r.live_remaining_qty),
@@ -67,7 +67,7 @@ export function ProductionBatchesTable({
       header: "QC / Stability / R&D",
       accessor: (r) => (
         <span className="whitespace-nowrap text-xs text-muted">
-          {formatNumber(r.qc_qty ?? 0)} / {formatNumber(r.stability_qty ?? 0)} / {formatNumber(r.rnd_qty ?? 0)} {r.unit}
+          {formatQty(r.qc_qty ?? 0)} / {formatQty(r.stability_qty ?? 0)} / {formatQty(r.rnd_qty ?? 0)} {r.unit}
         </span>
       ),
     },

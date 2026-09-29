@@ -1,4 +1,4 @@
-import { formatNumber } from "@/lib/utils";
+import { formatQty } from "@/lib/utils";
 
 // Shared between packaging-table.tsx (client, for the list column) and
 // packaging/page.tsx (server, for the PDF export rows). Deliberately NOT in
@@ -21,5 +21,5 @@ export type PackagingMaterialRow = {
 // the list table and the PDF export, rather than a single item name.
 export function materialsSummary(materials: PackagingMaterialRow[] | null): string {
   if (!materials || materials.length === 0) return "—";
-  return materials.map((m) => `${m.items?.name ?? "—"} (${formatNumber(m.quantity, 0)} ${m.unit})`).join(", ");
+  return materials.map((m) => `${m.items?.name ?? "—"} (${formatQty(m.quantity)} ${m.unit})`).join(", ");
 }

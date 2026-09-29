@@ -7,7 +7,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 import { ApproveForm } from "./approve-form";
 import { EditRecipeForm } from "./edit-recipe-form";
 import { EditProcedureForm } from "./edit-procedure-form";
@@ -119,7 +119,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
     procedureIntro:
       def.procedure_intro ??
       (hasProcedure
-        ? `Weigh/measure all raw materials at production level. (Batch size ${formatNumber(def.batch_size_qty)} ${def.batch_size_unit})`
+        ? `Weigh/measure all raw materials at production level. (Batch size ${formatQty(def.batch_size_qty)} ${def.batch_size_unit})`
         : null),
     procedureSteps: stepRows.map((s) => ({ stage: s.stage, operation: s.operation })),
     theoreticalYieldPct: def.theoretical_yield_pct,
@@ -149,7 +149,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
             <div className="flex justify-between sm:block">
               <span className="text-muted">Batch size</span>
               <span className="sm:block sm:mt-1 font-medium">
-                {formatNumber(def.batch_size_qty)} {def.batch_size_unit}
+                {formatQty(def.batch_size_qty)} {def.batch_size_unit}
               </span>
             </div>
             <div className="flex justify-between sm:block">
@@ -232,7 +232,7 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
                       <td className="px-4 py-2.5">
                         {l.items ? `${l.items.item_code} · ${l.items.name}` : "—"}
                       </td>
-                      <td className="px-4 py-2.5">{formatNumber(l.quantity)}</td>
+                      <td className="px-4 py-2.5">{formatQty(l.quantity)}</td>
                       <td className="px-4 py-2.5">{l.unit}</td>
                     </tr>
                   ))}

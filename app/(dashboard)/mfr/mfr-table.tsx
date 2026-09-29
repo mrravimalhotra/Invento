@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 
 export type MfrRow = {
   id: string;
@@ -44,7 +44,7 @@ export function MfrTable({ rows }: { rows: MfrRow[] }) {
       searchValue: (r) => r.items?.item_code ?? "",
     },
     { header: "Item type", accessor: (r) => r.items?.item_types?.description ?? "—" },
-    { header: "Batch size", accessor: (r) => `${formatNumber(r.batch_size_qty)} ${r.batch_size_unit}` },
+    { header: "Batch size", accessor: (r) => `${formatQty(r.batch_size_qty)} ${r.batch_size_unit}` },
     {
       header: "Approval",
       accessor: (r) =>

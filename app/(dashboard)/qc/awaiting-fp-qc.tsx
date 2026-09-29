@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { submitFinishedProductToQc, type ActionState } from "@/lib/actions/finished-product";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
-import { formatNumber, isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, formatQty } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 
 export type AwaitingFpQcLine = {
@@ -74,7 +74,7 @@ function AwaitingFpQcRow({ line, canSubmit }: { line: AwaitingFpQcLine; canSubmi
         </p>
         {line.qc_sample_qty !== null && (
           <p className="text-xs text-muted">
-            QC sample: {formatNumber(line.qc_sample_qty)} {line.unit}
+            QC sample: {formatQty(line.qc_sample_qty)} {line.unit}
           </p>
         )}
         {state?.error && <p className="mt-1 text-xs text-red">{state.error}</p>}

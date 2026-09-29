@@ -6,7 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatQty } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 import { QcCheckerForm } from "./qc-checker-form";
 import { QcReviewerForm } from "./qc-reviewer-form";
@@ -111,7 +111,7 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
             <Field label="Batch" value={batchLabel} />
             <Field
               label="Sample quantity"
-              value={record.sample_qty !== null ? `${formatNumber(record.sample_qty)} ${record.sample_unit ?? ""}` : "—"}
+              value={record.sample_qty !== null ? `${formatQty(record.sample_qty)} ${record.sample_unit ?? ""}` : "—"}
             />
             <Field label="Expiry date" value={formatDate(record.expiry_date)} />
             <Field label="Assigned by" value={assignerName} />

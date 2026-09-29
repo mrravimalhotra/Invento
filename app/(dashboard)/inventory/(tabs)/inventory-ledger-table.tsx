@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatNumber, isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, formatQty } from "@/lib/utils";
 import type { EnrichedLedgerRow } from "@/lib/ledger-enrich";
 import { ledgerReasonLabel } from "@/lib/ledger-reasons";
 
@@ -65,7 +65,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
       header: "Quantity",
       accessor: (r) => (
         <span className="whitespace-nowrap">
-          {formatNumber(r.quantity)} {r.unit}
+          {formatQty(r.quantity)} {r.unit}
         </span>
       ),
     },
@@ -81,7 +81,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
           "—"
         ) : (
           <span className="whitespace-nowrap font-medium">
-            {formatNumber(r.running_balance)} {r.unit}
+            {formatQty(r.running_balance)} {r.unit}
           </span>
         ),
       sortValue: (r) => (r.running_balance === null || r.running_balance === undefined ? 0 : Number(r.running_balance)),

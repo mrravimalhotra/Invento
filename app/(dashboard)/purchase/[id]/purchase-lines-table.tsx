@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useActionState } from "react";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 import { lineFinancials } from "./line-financials";
 import { deletePurchaseLine, type ActionState } from "@/lib/actions/purchase";
 import { downloadRmIntimationPdf } from "./rm-intimation-pdf";
@@ -153,16 +153,16 @@ export function PurchaseLinesTable({
         const hasConsumption = Number(r.live_remaining_qty) !== Number(r.remaining_qty);
         return (
           <span>
-            {formatNumber(r.quantity)} {r.unit}
+            {formatQty(r.quantity)} {r.unit}
             <br />
             <span className="text-xs text-muted">
-              of which {formatNumber(r.remaining_qty)} {r.unit} remaining after QC/Stability/R&D
+              of which {formatQty(r.remaining_qty)} {r.unit} remaining after QC/Stability/R&D
             </span>
             {hasConsumption && (
               <>
                 <br />
                 <span className="text-xs text-muted">
-                  {formatNumber(r.live_remaining_qty)} {r.unit} remaining now (after production/wastage)
+                  {formatQty(r.live_remaining_qty)} {r.unit} remaining now (after production/wastage)
                 </span>
               </>
             )}
@@ -170,9 +170,9 @@ export function PurchaseLinesTable({
         );
       },
     },
-    { header: "QC qty", accessor: (r) => formatNumber(r.qc_qty) },
-    { header: "Stability qty", accessor: (r) => formatNumber(r.stability_qty) },
-    { header: "R&D qty", accessor: (r) => formatNumber(r.rnd_qty) },
+    { header: "QC qty", accessor: (r) => formatQty(r.qc_qty) },
+    { header: "Stability qty", accessor: (r) => formatQty(r.stability_qty) },
+    { header: "R&D qty", accessor: (r) => formatQty(r.rnd_qty) },
     { header: "Unit Price (₹)", accessor: (r) => formatNumber(r.unit_price) },
     { header: "GST %", accessor: (r) => formatNumber(r.gst_pct) },
     { header: "Item Total Excl GST (₹)", accessor: (r) => formatNumber(lineFinancials(r).itemTotalExclGst) },

@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { SignatureBlock } from "@/components/ui/signature-block";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/pdf";
 import { MfrPdfButton, type MfrPdfData } from "./mfr-pdf-button";
 
@@ -69,7 +69,7 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
     approvedAt: def.approved_at ? formatDate(def.approved_at) : null,
     lines: lineRows.map((l) => ({
       itemLabel: l.items ? `${l.items.item_code} · ${l.items.name}` : "—",
-      quantity: formatNumber(l.quantity),
+      quantity: formatQty(l.quantity),
       unit: l.unit,
     })),
     procedureIntro: def.procedure_intro,
@@ -115,7 +115,7 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
               <span className="text-muted">Item type:</span> {itemType}
             </p>
             <p>
-              <span className="text-muted">Batch size:</span> {formatNumber(def.batch_size_qty)} {def.batch_size_unit}
+              <span className="text-muted">Batch size:</span> {formatQty(def.batch_size_qty)} {def.batch_size_unit}
             </p>
             <p>
               <span className="text-muted">Approval:</span>{" "}
@@ -137,7 +137,7 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
                 <tr key={l.id} className="border-b border-border last:border-0">
                   <td className="px-3 py-2">{i + 1}</td>
                   <td className="px-3 py-2">{l.items ? `${l.items.item_code} · ${l.items.name}` : "—"}</td>
-                  <td className="px-3 py-2">{formatNumber(l.quantity)}</td>
+                  <td className="px-3 py-2">{formatQty(l.quantity)}</td>
                   <td className="px-3 py-2">{l.unit}</td>
                 </tr>
               ))}

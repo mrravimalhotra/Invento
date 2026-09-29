@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { createFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
 import { Button, LinkButton } from "@/components/ui/button";
-import { formatNumber } from "@/lib/utils";
+import { formatQty } from "@/lib/utils";
 
 // One batch actually drawn from as part of an ingredient's automatic FIFO
 // allocation (see allocateFifo() in page.tsx) — `qty` is how much of THIS
@@ -125,7 +125,7 @@ export function ComposeForm({
               <tr key={line.itemId} className="border-b border-border last:border-0 align-top">
                 <td className="px-3 py-2">{line.itemLabel}</td>
                 <td className="px-3 py-2">
-                  {formatNumber(line.quantity)} {line.unit}
+                  {formatQty(line.quantity)} {line.unit}
                 </td>
                 <td className="px-3 py-2">
                   {line.allocations.length === 0 ? (
@@ -134,13 +134,13 @@ export function ComposeForm({
                     <div className="flex flex-col gap-0.5">
                       {line.allocations.map((a) => (
                         <div key={`${a.source}-${a.id}`}>
-                          {a.batchNumber} · {formatNumber(a.qty)} {line.unit}
+                          {a.batchNumber} · {formatQty(a.qty)} {line.unit}
                           {a.source === "production" && <span className="text-muted"> (from Production)</span>}
                         </div>
                       ))}
                       {line.shortfallQty > 0 && (
                         <div className="text-red">
-                          Short by {formatNumber(line.shortfallQty)} {line.unit} — no further stock available
+                          Short by {formatQty(line.shortfallQty)} {line.unit} — no further stock available
                         </div>
                       )}
                     </div>

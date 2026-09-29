@@ -6,7 +6,7 @@ import { createPurchaseLine, updatePurchaseLine, previewBatchNumber, type Action
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { UNITS, compatibleUnits, convertUnit, entryUnitsFor } from "@/lib/constants/units";
-import { formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatNumber, isLegacyCode, formatQty } from "@/lib/utils";
 import type { LineRow } from "./[id]/purchase-lines-table";
 
 export type RawItemOption = {
@@ -215,7 +215,7 @@ export function PurchaseLineForm({
           required
           hint={
             itemStockUnit && unit && unit !== itemStockUnit
-              ? `Stock is kept in ${itemStockUnit}: this line is saved as ${formatNumber(convertUnit(Number(quantity) || 0, unit, itemStockUnit) ?? 0)} ${itemStockUnit}, and the unit price as per ${itemStockUnit}.`
+              ? `Stock is kept in ${itemStockUnit}: this line is saved as ${formatQty(convertUnit(Number(quantity) || 0, unit, itemStockUnit) ?? 0)} ${itemStockUnit}, and the unit price as per ${itemStockUnit}.`
               : undefined
           }
         >
@@ -275,7 +275,7 @@ export function PurchaseLineForm({
           label="QC qty"
           htmlFor="qc_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}
+          hint={sampleUnitDiffers ? `= ${formatQty(qcConverted)} ${unit}` : undefined}
         >
           <Input
             id="qc_qty"
@@ -292,7 +292,7 @@ export function PurchaseLineForm({
           label="Stability qty"
           htmlFor="stability_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : undefined}
+          hint={sampleUnitDiffers ? `= ${formatQty(stabilityConverted)} ${unit}` : undefined}
         >
           <Input
             id="stability_qty"
@@ -309,7 +309,7 @@ export function PurchaseLineForm({
           label="R&D qty"
           htmlFor="rnd_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}
+          hint={sampleUnitDiffers ? `= ${formatQty(rndConverted)} ${unit}` : undefined}
         >
           <Input
             id="rnd_qty"
@@ -337,7 +337,7 @@ export function PurchaseLineForm({
         <p className="-mt-2 text-xs text-muted">
           Remaining after sampling (available for production):{" "}
           <strong className="text-foreground">
-            {formatNumber(remainingPreview)} {unit}
+            {formatQty(remainingPreview)} {unit}
           </strong>
         </p>
       )}
@@ -484,7 +484,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         </Field>
         {isRaw && (
           <>
-        <Field label="QC qty" htmlFor="qc_qty" required hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}>
+        <Field label="QC qty" htmlFor="qc_qty" required hint={sampleUnitDiffers ? `= ${formatQty(qcConverted)} ${unit}` : undefined}>
           <Input
             id="qc_qty"
             name="qc_qty"
@@ -500,7 +500,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
           label="Stability qty"
           htmlFor="stability_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : undefined}
+          hint={sampleUnitDiffers ? `= ${formatQty(stabilityConverted)} ${unit}` : undefined}
         >
           <Input
             id="stability_qty"
@@ -513,7 +513,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
             onChange={(e) => setStabilityQty(e.target.value)}
           />
         </Field>
-        <Field label="R&D qty" htmlFor="rnd_qty" required hint={sampleUnitDiffers ? `= ${formatNumber(rndConverted)} ${unit}` : undefined}>
+        <Field label="R&D qty" htmlFor="rnd_qty" required hint={sampleUnitDiffers ? `= ${formatQty(rndConverted)} ${unit}` : undefined}>
           <Input
             id="rnd_qty"
             name="rnd_qty"
@@ -540,7 +540,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         <p className="-mt-2 text-xs text-muted">
           Remaining after sampling (available for production):{" "}
           <strong className="text-foreground">
-            {formatNumber(remainingPreview)} {unit}
+            {formatQty(remainingPreview)} {unit}
           </strong>
         </p>
       )}

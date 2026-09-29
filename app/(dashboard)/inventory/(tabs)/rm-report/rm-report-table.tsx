@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatQty } from "@/lib/utils";
 import { BATCH_QC_LABELS } from "@/lib/batch-qc-status";
 import type { RmReportExportRow } from "./rm-report-export";
 
@@ -10,9 +10,9 @@ export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf:
   const columns: Column<RmReportExportRow>[] = [
     { header: "Item", accessor: (r) => r.item, searchValue: (r) => r.item },
     { header: "Batch No.", accessor: (r) => r.batchNumber, searchValue: (r) => r.batchNumber },
-    { header: "PQTY", accessor: (r) => formatNumber(r.pqty) },
-    { header: "SQTY", accessor: (r) => formatNumber(r.sqty) },
-    { header: "QTY", accessor: (r) => <span className="font-medium">{formatNumber(r.qty)}</span> },
+    { header: "PQTY", accessor: (r) => formatQty(r.pqty) },
+    { header: "SQTY", accessor: (r) => formatQty(r.sqty) },
+    { header: "QTY", accessor: (r) => <span className="font-medium">{formatQty(r.qty)}</span> },
     { header: "Unit", accessor: (r) => r.unit },
     { header: "Unit Price", accessor: (r) => formatNumber(r.unitPrice) },
     { header: "Total", accessor: (r) => formatNumber(r.total) },

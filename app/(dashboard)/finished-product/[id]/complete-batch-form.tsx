@@ -6,7 +6,7 @@ import { completeFinishedProductBatch, type ActionState } from "@/lib/actions/fi
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { compatibleUnits, convertUnit } from "@/lib/constants/units";
-import { formatNumber } from "@/lib/utils";
+import { formatQty } from "@/lib/utils";
 
 type Defaults = {
   batch_yield: string | number | null;
@@ -188,7 +188,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
           label="QC sample qty"
           htmlFor="qc_sample_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(qcConverted)} ${unit}` : undefined}
+          hint={sampleUnitDiffers ? `= ${formatQty(qcConverted)} ${unit}` : undefined}
         >
           <Input
             id="qc_sample_qty"
@@ -205,7 +205,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
           label="Stability sample qty"
           htmlFor="stability_qty"
           required
-          hint={sampleUnitDiffers ? `= ${formatNumber(stabilityConverted)} ${unit}` : undefined}
+          hint={sampleUnitDiffers ? `= ${formatQty(stabilityConverted)} ${unit}` : undefined}
         >
           <Input
             id="stability_qty"
@@ -223,7 +223,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
           htmlFor="rnd_qty"
           hint={
             rndQty && sampleUnitDiffers
-              ? `= ${formatNumber(rndConverted)} ${unit}`
+              ? `= ${formatQty(rndConverted)} ${unit}`
               : "Optional — leave blank if no R&D sample is taken for this batch."
           }
         >
@@ -256,7 +256,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
             <div>
               <span className="text-muted">Batch yield</span>
               <p className="mt-1 font-medium">
-                {formatNumber(batchYield)} {unit}
+                {formatQty(batchYield)} {unit}
               </p>
             </div>
             <div>
@@ -274,15 +274,15 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
             <div>
               <span className="text-muted">QC sample qty</span>
               <p className="mt-1 font-medium">
-                {formatNumber(qcSampleQty)} {sampleUnit}
-                {sampleUnitDiffers && ` (= ${formatNumber(qcConverted)} ${unit})`}
+                {formatQty(qcSampleQty)} {sampleUnit}
+                {sampleUnitDiffers && ` (= ${formatQty(qcConverted)} ${unit})`}
               </p>
             </div>
             <div>
               <span className="text-muted">Stability sample qty</span>
               <p className="mt-1 font-medium">
-                {formatNumber(stabilityQty)} {sampleUnit}
-                {sampleUnitDiffers && ` (= ${formatNumber(stabilityConverted)} ${unit})`}
+                {formatQty(stabilityQty)} {sampleUnit}
+                {sampleUnitDiffers && ` (= ${formatQty(stabilityConverted)} ${unit})`}
               </p>
             </div>
             <div>
@@ -290,8 +290,8 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
               <p className="mt-1 font-medium">
                 {rndQty ? (
                   <>
-                    {formatNumber(rndQty)} {sampleUnit}
-                    {sampleUnitDiffers && ` (= ${formatNumber(rndConverted)} ${unit})`}
+                    {formatQty(rndQty)} {sampleUnit}
+                    {sampleUnitDiffers && ` (= ${formatQty(rndConverted)} ${unit})`}
                   </>
                 ) : (
                   "— (no R&D sample)"

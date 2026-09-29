@@ -954,3 +954,20 @@ Code only, no migration.
 - **ACC-37, duplicate checks.** The duplicate-invoice check (and the same check for item names, dead stock article names and equipment asset IDs) used `.maybeSingle()`, which errors when more than one row matches, so the check passed exactly when duplicates already existed. They now ask for one matching row (`.limit(1)`).
 - **ACC-38, New AR text.** The page and the sample-unit hint no longer say the sample deducts on save. The QC sample is set aside when the purchase order is submitted (0028).
 - **ACC-40, Dead Stock and Environmental Control.** Dead Stock shows dates as dd-mm-yyyy and numbers with Indian grouping. Environmental Control "Recorded at" shows date and time (IST).
+
+## Quantities show up to 3 decimals (29 Sept 2026 — accuracy audit ACC-28)
+
+**Problem.** Quantities were shown to 2 decimals, so 0.004 kg appeared as "0" on
+screen while the printed intimation slips already used 3 decimals. The
+Packaging materials list showed 2.5 ltr as "3" (it rounded to whole numbers).
+
+**Fix (code only).** A new `formatQty()` (`lib/utils.ts`) shows up to 3
+decimals, trailing zeros trimmed (0.004, 2.5, 1,250). Every quantity on screen
+uses it — stock on hand, ledger, batches, purchase lines, recipes, FP and QC
+sample quantities, Reports, labels, COA. Printed outputs use 3 fixed decimals:
+the BMR document (quantities, totals, batch size and yield) and the RM Report
+PDF (PQTY / SQTY / QTY), matching the slips.
+
+**Unchanged.** Money (rates, GST amounts, totals), percentages (GST %, yield %,
+depreciation %), Environmental Control readings and pack counts keep their own
+formats. Stored quantities are not rounded; this changes display only.

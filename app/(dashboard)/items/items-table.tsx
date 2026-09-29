@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatNumber, formatDate, isLegacyCode } from "@/lib/utils";
+import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
@@ -43,7 +43,7 @@ export function ItemsTable({ rows }: { rows: ItemRow[] }) {
     { header: "Unit", accessor: (r) => r.unit ?? "—" },
     {
       header: "Stock on hand",
-      accessor: (r) => (r.hasBalance ? formatNumber(r.on_hand) : "—"),
+      accessor: (r) => (r.hasBalance ? formatQty(r.on_hand) : "—"),
     },
     {
       header: "Low stock",

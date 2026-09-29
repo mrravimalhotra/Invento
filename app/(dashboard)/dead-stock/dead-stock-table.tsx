@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 
 export type DeadStockRow = {
   id: string;
@@ -36,11 +36,11 @@ export function DeadStockTable({ rows }: { rows: DeadStockRow[] }) {
     // ACC-40: dd-mm-yyyy like every other screen (was the raw yyyy-mm-dd), and
     // Indian digit grouping on numbers (was ungrouped).
     { header: "Purchased", accessor: (r) => formatDate(r.date_of_purchase) },
-    { header: "Qty", accessor: (r) => formatNumber(r.quantity) },
+    { header: "Qty", accessor: (r) => formatQty(r.quantity) },
     { header: "Purchase price / unit", accessor: (r) => formatNumber(r.purchase_price) },
     { header: "Depreciation %", accessor: (r) => `${formatNumber(r.depreciation_pct)}%` },
     { header: "Depreciated value / unit", accessor: (r) => formatNumber(r.depreciated_unit_value) },
-    { header: "Balance qty", accessor: (r) => formatNumber(r.balance_qty) },
+    { header: "Balance qty", accessor: (r) => formatQty(r.balance_qty) },
     { header: "Balance value", accessor: (r) => formatNumber(r.balance_value) },
   ];
 

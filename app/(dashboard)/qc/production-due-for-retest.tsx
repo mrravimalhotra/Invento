@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/form";
 import { compatibleUnits } from "@/lib/constants/units";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
-import { formatNumber, isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, formatQty } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 
 export type ProductionDueForRetestLine = {
@@ -67,7 +67,7 @@ function ProductionDueForRetestRow({ line, canStart }: { line: ProductionDueForR
           {line.items ? `${line.items.item_code} — ${line.items.name}` : "—"} · {line.batch_number}
         </p>
         <p className="text-xs text-muted">
-          Stability reserve left: {formatNumber(reserveLeft)} {line.unit} · Stock left: {formatNumber(stockLeft)} {line.unit}
+          Stability reserve left: {formatQty(reserveLeft)} {line.unit} · Stock left: {formatQty(stockLeft)} {line.unit}
         </p>
         {state?.error && <p className="mt-1 text-xs text-red">{state.error}</p>}
       </div>

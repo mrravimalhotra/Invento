@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { canWrite } from "@/lib/constants/roles";
-import { isLegacyCode, formatDate, formatNumber } from "@/lib/utils";
+import { isLegacyCode, formatDate, formatQty } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { SubjectBatchPicker, type BatchOption } from "./subject-batch-picker";
@@ -268,13 +268,13 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
       label: "Sampled Qty",
       value:
         qc.sample_qty !== null
-          ? `${formatNumber(qc.sample_qty)} ${qc.sample_unit ?? pl.unit}`
-          : `${formatNumber(pl.qc_qty)} ${pl.unit}`,
+          ? `${formatQty(qc.sample_qty)} ${qc.sample_unit ?? pl.unit}`
+          : `${formatQty(pl.qc_qty)} ${pl.unit}`,
     },
     { label: "Analysis date", value: formatDate(qc.created_at) },
     { label: "AR No", value: qc.ar_number },
     { label: "Batch No", value: pl.batch_number },
-    { label: "Qty Purchased", value: `${formatNumber(pl.quantity)} ${pl.unit}` },
+    { label: "Qty Purchased", value: `${formatQty(pl.quantity)} ${pl.unit}` },
     { label: "Challan No", value: pl.purchase_orders?.invoice_number ?? "" },
     { label: "Reporting Date", value: formatDate(qc.reviewed_at) },
   ];
@@ -353,14 +353,14 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
       label: "Sampled Qty",
       value:
         qc.sample_qty !== null
-          ? `${formatNumber(qc.sample_qty)} ${qc.sample_unit ?? fp.unit}`
+          ? `${formatQty(qc.sample_qty)} ${qc.sample_unit ?? fp.unit}`
           : fp.qc_sample_qty !== null
-            ? `${formatNumber(fp.qc_sample_qty)} ${fp.unit}`
+            ? `${formatQty(fp.qc_sample_qty)} ${fp.unit}`
             : "",
     },
     { label: "Analysis date", value: formatDate(qc.created_at) },
     { label: "FP Code", value: fpItem.item_code ?? "" },
-    { label: "Batch Quantity", value: `${formatNumber(fp.target_qty)} ${fp.unit}` },
+    { label: "Batch Quantity", value: `${formatQty(fp.target_qty)} ${fp.unit}` },
     { label: "Best before Dt", value: formatDate(fp.expiry_month) },
     { label: "Reporting date", value: formatDate(qc.reviewed_at) },
   ];

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Field, Select } from "@/components/ui/form";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 import { fpStatusLabel } from "@/lib/finished-product-status";
 import { ReportSection, type ReportColumn } from "./report-section";
@@ -24,11 +24,11 @@ export function RmStockReport({ rows }: { rows: RmStockRow[] }) {
     { header: "Item Code", cell: (r) => r.item_code, pdfValue: (r) => r.item_code },
     { header: "Name", cell: (r) => r.name, pdfValue: (r) => r.name },
     { header: "Unit", cell: (r) => r.unit ?? "—", pdfValue: (r) => r.unit ?? "—" },
-    { header: "On Hand", cell: (r) => formatNumber(r.onHand), pdfValue: (r) => formatNumber(r.onHand) },
+    { header: "On Hand", cell: (r) => formatQty(r.onHand), pdfValue: (r) => formatQty(r.onHand) },
     {
       header: "Low Stock Threshold",
-      cell: (r) => formatNumber(r.low_stock_threshold),
-      pdfValue: (r) => formatNumber(r.low_stock_threshold),
+      cell: (r) => formatQty(r.low_stock_threshold),
+      pdfValue: (r) => formatQty(r.low_stock_threshold),
     },
     {
       header: "Flag",
@@ -119,7 +119,7 @@ export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
     // ACC-34: readable status in the list and the PDF (was "submitted to_qc",
     // and the raw code in the PDF).
     { header: "Status", cell: (r) => <Badge status={r.status}>{fpStatusLabel(r.status)}</Badge>, pdfValue: (r) => fpStatusLabel(r.status) },
-    { header: "Target Qty", cell: (r) => formatNumber(r.target_qty), pdfValue: (r) => formatNumber(r.target_qty) },
+    { header: "Target Qty", cell: (r) => formatQty(r.target_qty), pdfValue: (r) => formatQty(r.target_qty) },
     {
       header: "Actual Yield %",
       cell: (r) => (r.actual_yield_pct === null ? "—" : `${formatNumber(r.actual_yield_pct)}%`),
@@ -181,8 +181,8 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
     },
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
     { header: "Batch", cell: (r) => r.batch_number, pdfValue: (r) => r.batch_number },
-    { header: "Quantity", cell: (r) => formatNumber(r.quantity), pdfValue: (r) => formatNumber(r.quantity) },
-    { header: "Remaining Qty", cell: (r) => formatNumber(r.live_remaining_qty), pdfValue: (r) => formatNumber(r.live_remaining_qty) },
+    { header: "Quantity", cell: (r) => formatQty(r.quantity), pdfValue: (r) => formatQty(r.quantity) },
+    { header: "Remaining Qty", cell: (r) => formatQty(r.live_remaining_qty), pdfValue: (r) => formatQty(r.live_remaining_qty) },
     { header: "Re-Test Date", cell: (r) => formatDate(r.expiry_date), pdfValue: (r) => formatDate(r.expiry_date) },
   ];
 

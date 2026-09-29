@@ -6,7 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 import { CompleteBatchForm } from "./complete-batch-form";
 import { SubmitToQcForm } from "./submit-to-qc-form";
@@ -174,7 +174,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
             <div>
               <span className="text-muted">Target quantity</span>
               <p className="mt-1 font-medium">
-                {formatNumber(batch.target_qty)} {batch.unit}
+                {formatQty(batch.target_qty)} {batch.unit}
               </p>
             </div>
             <div>
@@ -183,7 +183,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
             </div>
             <div>
               <span className="text-muted">Batch yield</span>
-              <p className="mt-1 font-medium">{batch.batch_yield != null ? `${formatNumber(batch.batch_yield)} ${batch.unit}` : "—"}</p>
+              <p className="mt-1 font-medium">{batch.batch_yield != null ? `${formatQty(batch.batch_yield)} ${batch.unit}` : "—"}</p>
             </div>
             <div>
               <span className="text-muted">Actual yield % (generated)</span>
@@ -236,7 +236,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
                         {c.production_batch_id && <span className="text-muted"> (from Production)</span>}
                       </td>
                       <td className="px-4 py-2.5">
-                        {formatNumber(c.quantity)} {c.items?.unit ?? ""}
+                        {formatQty(c.quantity)} {c.items?.unit ?? ""}
                       </td>
                     </tr>
                   ))}

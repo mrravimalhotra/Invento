@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { EditItemForm, DeleteItemForm } from "../item-form";
 import { Barcode } from "../barcode";
-import { formatNumber } from "@/lib/utils";
+import { formatQty } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
@@ -60,7 +60,7 @@ export default async function ItemDetailPage({
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Stock on hand" value={`${formatNumber(onHand)}${item.unit ? ` ${item.unit}` : ""}`} />
+        <StatCard label="Stock on hand" value={`${formatQty(onHand)}${item.unit ? ` ${item.unit}` : ""}`} />
         <StatCard label="Low stock" value={isLow ? "Yes" : "No"} />
         <StatCard label="Item code" value={item.item_code} />
       </div>
@@ -109,7 +109,7 @@ function ReadOnlyDetails({
     ["Botanical Name", item.botanical_alias ?? "—"],
     ["Category", CATEGORY_LABELS[item.category] ?? item.category],
     ["Unit", item.unit ?? "—"],
-    ["Low stock threshold", formatNumber(item.low_stock_threshold)],
+    ["Low stock threshold", formatQty(item.low_stock_threshold)],
     ["Barcode", item.barcode ?? "—"],
     ["Status", item.active ? "Active" : "Inactive"],
   ];

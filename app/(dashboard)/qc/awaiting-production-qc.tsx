@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { createProductionQualityCheck, type ActionState } from "@/lib/actions/qc";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
-import { formatNumber, isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, formatQty } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 
 export type AwaitingProductionQcLine = {
@@ -62,7 +62,7 @@ function AwaitingProductionQcRow({ line, canStart }: { line: AwaitingProductionQ
         </p>
         {line.qc_qty !== null && (
           <p className="text-xs text-muted">
-            QC qty: {formatNumber(line.qc_qty)} {line.unit}
+            QC qty: {formatQty(line.qc_qty)} {line.unit}
           </p>
         )}
         {state?.error && <p className="mt-1 text-xs text-red">{state.error}</p>}

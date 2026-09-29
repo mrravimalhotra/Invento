@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 
 export type QcListRow = {
@@ -90,7 +90,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
     },
     {
       header: "Sample qty",
-      accessor: (r) => (r.sample_qty !== null ? `${formatNumber(r.sample_qty)} ${r.sample_unit ?? ""}` : "—"),
+      accessor: (r) => (r.sample_qty !== null ? `${formatQty(r.sample_qty)} ${r.sample_unit ?? ""}` : "—"),
     },
     { header: "Retest date", accessor: (r) => formatDate(r.retest_date) },
   ];

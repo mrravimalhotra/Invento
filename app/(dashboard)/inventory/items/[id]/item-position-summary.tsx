@@ -1,4 +1,4 @@
-import { formatNumber } from "@/lib/utils";
+import { formatQty } from "@/lib/utils";
 import type { RmStockSplit } from "@/lib/usable-stock";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
@@ -30,7 +30,7 @@ function Stat({ label, value, unit, emphasize }: { label: string; value: number;
     <div>
       <p className="text-xs font-medium text-muted uppercase tracking-wide">{label}</p>
       <p className={emphasize ? "mt-1 text-2xl font-semibold text-foreground" : "mt-1 text-lg font-medium text-foreground"}>
-        {formatNumber(value)} {unit}
+        {formatQty(value)} {unit}
       </p>
     </div>
   );
@@ -42,10 +42,10 @@ export function notYetUsableText(split: RmStockSplit, unit: string | null): stri
   if (!(split.notYetUsable > 0)) return null;
   const u = unit ? ` ${unit}` : "";
   const parts: string[] = [];
-  if (split.awaitingQc > 0) parts.push(`${formatNumber(split.awaitingQc)}${u} awaiting QC`);
-  if (split.dueForRetest > 0) parts.push(`${formatNumber(split.dueForRetest)}${u} due for retest`);
-  if (split.rejected > 0) parts.push(`${formatNumber(split.rejected)}${u} rejected`);
-  return `Not yet usable: ${formatNumber(split.notYetUsable)}${u} (${parts.join(", ")})`;
+  if (split.awaitingQc > 0) parts.push(`${formatQty(split.awaitingQc)}${u} awaiting QC`);
+  if (split.dueForRetest > 0) parts.push(`${formatQty(split.dueForRetest)}${u} due for retest`);
+  if (split.rejected > 0) parts.push(`${formatQty(split.rejected)}${u} rejected`);
+  return `Not yet usable: ${formatQty(split.notYetUsable)}${u} (${parts.join(", ")})`;
 }
 
 export function ItemPositionSummary({

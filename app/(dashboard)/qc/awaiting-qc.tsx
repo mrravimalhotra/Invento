@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { LinkButton } from "@/components/ui/button";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
-import { formatNumber, isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, formatQty } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 
 export type AwaitingQcLine = {
@@ -62,7 +62,7 @@ export function AwaitingQc({ lines, canStart }: { lines: AwaitingQcLine[]; canSt
                 </p>
                 {line.qc_qty !== null && (
                   <p className="text-xs text-muted">
-                    QC qty: {formatNumber(line.qc_qty)} {line.unit}
+                    QC qty: {formatQty(line.qc_qty)} {line.unit}
                   </p>
                 )}
               </div>

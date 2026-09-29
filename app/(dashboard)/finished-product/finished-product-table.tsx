@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode, formatQty } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 
 export type FpRow = {
@@ -37,7 +37,7 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
         return <Badge status={status}>{fpStatusLabel(status)}</Badge>;
       },
     },
-    { header: "Target qty", accessor: (r) => `${formatNumber(r.target_qty)} ${r.unit}` },
+    { header: "Target qty", accessor: (r) => `${formatQty(r.target_qty)} ${r.unit}` },
     { header: "Actual yield %", accessor: (r) => (r.actual_yield_pct != null ? `${formatNumber(r.actual_yield_pct)}%` : "—") },
     { header: "Finish date", accessor: (r) => formatDate(r.finish_date) },
   ];

@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
 // Option C) — every Finished Product batch that fed into this FP item's
@@ -40,7 +40,7 @@ export function FpBatchesTable({ rows, unit }: { rows: FpBatchRow[]; unit: strin
       header: "Batch yield",
       accessor: (r) => (
         <span className="whitespace-nowrap">
-          {r.batch_yield === null ? "—" : `${formatNumber(r.batch_yield)} ${unit ?? ""}`}
+          {r.batch_yield === null ? "—" : `${formatQty(r.batch_yield)} ${unit ?? ""}`}
         </span>
       ),
     },
@@ -48,7 +48,7 @@ export function FpBatchesTable({ rows, unit }: { rows: FpBatchRow[]; unit: strin
       header: "QC / Stability / R&D",
       accessor: (r) => (
         <span className="whitespace-nowrap text-xs text-muted">
-          {formatNumber(r.qc_sample_qty ?? 0)} / {formatNumber(r.stability_qty ?? 0)} / {formatNumber(r.rnd_qty ?? 0)} {unit}
+          {formatQty(r.qc_sample_qty ?? 0)} / {formatQty(r.stability_qty ?? 0)} / {formatQty(r.rnd_qty ?? 0)} {unit}
         </span>
       ),
     },

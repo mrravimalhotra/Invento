@@ -96,6 +96,14 @@ function qty2(n: string | number): string {
   return Number.isFinite(num) ? num.toFixed(2) : "0.00";
 }
 
+// ACC-28 (29 Sept 2026): quantities on the BMR use 3 decimals, like the
+// intimation slips, so a small quantity (0.004 kg) isn't printed as 0.00.
+// Percentages keep qty2.
+function qty3(n: string | number): string {
+  const num = typeof n === "string" ? parseFloat(n) : n;
+  return Number.isFinite(num) ? num.toFixed(3) : "0.000";
+}
+
 // ACC-29 (29 Sept 2026): the "QTY" total under the RM table used to add
 // every component's quantity whatever its unit (kg + g + nos). Now weights
 // are totalled in kg, volumes in ltr, and anything else per its own unit,
@@ -109,8 +117,8 @@ function totalByUnit(components: { qtyAsPerMfr: string | number; unit: string }[
     const converted = convertUnit(n, c.unit, target) ?? n;
     totals.set(target, (totals.get(target) ?? 0) + converted);
   }
-  if (totals.size === 0) return qty2(0);
-  return [...totals.entries()].map(([u, v]) => (u ? `${qty2(v)} ${u}` : qty2(v))).join(" + ");
+  if (totals.size === 0) return qty3(0);
+  return [...totals.entries()].map(([u, v]) => (u ? `${qty3(v)} ${u}` : qty3(v))).join(" + ");
 }
 
 const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } as const;
@@ -216,7 +224,7 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
               rmDataCell(c.rmName, AlignmentType.LEFT),
               rmDataCell(c.batchNo),
               rmDataCell(c.arNumber || "—"),
-              rmDataCell(c.unit ? `${qty2(c.qtyAsPerMfr)} ${c.unit}` : qty2(c.qtyAsPerMfr)),
+              rmDataCell(c.unit ? `${qty3(c.qtyAsPerMfr)} ${c.unit}` : qty3(c.qtyAsPerMfr)),
               rmDataCell(""),
               rmDataCell(""),
             ],
@@ -248,8 +256,8 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
             rows: [
               kvRow("FP Code", data.fpCode, "Start Date", data.startDate),
               kvRow("FP Name", data.fpName, "End Date", data.endDate),
-              kvRow("Batch No", data.batchNo, "Yield", `${qty2(data.batchYield)} ${data.unit}`),
-              kvRow("Batch Size", `${qty2(data.batchSize)} ${data.unit}`, "Yield %", `${qty2(data.yieldPct)}%`),
+              kvRow("Batch No", data.batchNo, "Yield", `${qty3(data.batchYield)} ${data.unit}`),
+              kvRow("Batch Size", `${qty3(data.batchSize)} ${data.unit}`, "Yield %", `${qty2(data.yieldPct)}%`),
             ],
           }),
           new Paragraph({

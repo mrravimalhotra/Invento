@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 import { BATCH_QC_LABELS, computeBatchQcState, type BatchQcState } from "@/lib/batch-qc-status";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
@@ -45,7 +45,7 @@ export function PurchaseBatchesTable({ rows, showQcStatus }: { rows: PurchaseBat
       header: "Received",
       accessor: (r) => (
         <span className="whitespace-nowrap">
-          {formatNumber(r.quantity)} {r.unit}
+          {formatQty(r.quantity)} {r.unit}
         </span>
       ),
     },
@@ -53,7 +53,7 @@ export function PurchaseBatchesTable({ rows, showQcStatus }: { rows: PurchaseBat
       header: "Remaining now",
       accessor: (r) => (
         <span className="whitespace-nowrap font-medium">
-          {formatNumber(r.live_remaining_qty)} {r.unit}
+          {formatQty(r.live_remaining_qty)} {r.unit}
         </span>
       ),
       sortValue: (r) => Number(r.live_remaining_qty),
@@ -62,7 +62,7 @@ export function PurchaseBatchesTable({ rows, showQcStatus }: { rows: PurchaseBat
       header: "QC / Stability / R&D",
       accessor: (r) => (
         <span className="whitespace-nowrap text-xs text-muted">
-          {formatNumber(r.qc_qty)} / {formatNumber(r.stability_qty)} / {formatNumber(r.rnd_qty)} {r.unit}
+          {formatQty(r.qc_qty)} / {formatQty(r.stability_qty)} / {formatQty(r.rnd_qty)} {r.unit}
         </span>
       ),
     },

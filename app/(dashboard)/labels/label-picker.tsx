@@ -5,7 +5,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatNumber, isLegacyCode, todayIst } from "@/lib/utils";
+import { formatDate, isLegacyCode, todayIst, formatQty } from "@/lib/utils";
 import { rmEligibleFor, fpEligibleForLabel, ELIGIBILITY_HINT } from "./label-eligibility";
 import {
   downloadLabelPdf,
@@ -129,7 +129,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
         { label: "Name", value: rm.itemName },
         { label: "Status", value: "Approved" },
         { label: "Batch No.", value: rm.batchNumber },
-        { label: "Batch Quantity", value: `${formatNumber(rm.quantity)} ${rm.unit}` },
+        { label: "Batch Quantity", value: `${formatQty(rm.quantity)} ${rm.unit}` },
         { label: "Purchased From", value: rm.vendorName },
         { label: "Invoice/Ch. No.", value: rm.invoiceNumber },
         { label: "Date of Receipt", value: dateOrNull(rm.receiptDate) },
@@ -141,7 +141,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
       return [
         { label: "Name of RM/FP", value: rm.itemName },
         { label: "Batch No.", value: rm.batchNumber },
-        { label: "Batch Quantity", value: `${formatNumber(rm.quantity)} ${rm.unit}` },
+        { label: "Batch Quantity", value: `${formatQty(rm.quantity)} ${rm.unit}` },
         { label: "Purchased From", value: rm.vendorName },
         { label: "Invoice/Ch. No.", value: rm.invoiceNumber },
         { label: "Date of Receipt", value: dateOrNull(rm.receiptDate) },
@@ -153,7 +153,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
         { label: "Name", value: rm.itemName },
         { label: "Status", value: "IN-PROCESS" },
         { label: "Batch No.", value: rm.batchNumber },
-        { label: "Batch Quantity", value: `${formatNumber(rm.quantity)} ${rm.unit}` },
+        { label: "Batch Quantity", value: `${formatQty(rm.quantity)} ${rm.unit}` },
         { label: "Start Date", value: null },
         { label: "Sign", value: null },
       ];
@@ -166,7 +166,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
         // falling back to the full batch number for older batches created
         // before short_batch_no existed.
         { label: "Batch No.", value: fp.shortBatchNumber ?? fp.batchNumber },
-        { label: "Batch Quantity", value: fp.quantity != null ? `${formatNumber(fp.quantity)} ${fp.unit}` : null },
+        { label: "Batch Quantity", value: fp.quantity != null ? `${formatQty(fp.quantity)} ${fp.unit}` : null },
         { label: "Month of Manufacture", value: monthYear(fp.finishDate) },
         { label: "Best Before", value: monthYear(fp.expiryMonth) },
         { label: "Sign", value: null },

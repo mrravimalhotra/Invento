@@ -92,6 +92,14 @@ export function formatNumber(n: number | string | null | undefined, decimals = 2
   return num.toLocaleString("en-IN", { maximumFractionDigits: decimals });
 }
 
+// ACC-28 (29 Sept 2026): quantities show up to 3 decimals, trailing zeros
+// trimmed (0.004 kg, 2.5 ltr, 1,250 kg). Two decimals showed 0.004 kg as "0"
+// while printed slips already use 3, so screen and slip disagreed. Money,
+// percentages and readings keep formatNumber()'s 2 (or their own) decimals.
+export function formatQty(n: number | string | null | undefined) {
+  return formatNumber(n, 3);
+}
+
 // FB-0003: rows brought over from the old (pre-v2) app during the legacy
 // data import are consistently coded with a "LEG-" prefix ahead of their
 // normal code (e.g. LEG-RM-01967, LEG-V-00019, LEG-PO-14) — see

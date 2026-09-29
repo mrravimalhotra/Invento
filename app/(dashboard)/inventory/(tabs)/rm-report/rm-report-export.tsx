@@ -25,9 +25,9 @@ export function RmReportExport({ asOf, rows }: { asOf: string; rows: RmReportExp
       rows: rows.map((r) => [
         r.item,
         r.batchNumber,
-        r.pqty.toFixed(2),
-        r.sqty.toFixed(2),
-        r.qty.toFixed(2),
+        r.pqty.toFixed(3),
+        r.sqty.toFixed(3),
+        r.qty.toFixed(3),
         r.unit,
         r.unitPrice.toFixed(2),
         r.total.toFixed(2),
