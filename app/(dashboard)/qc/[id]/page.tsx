@@ -1,3 +1,4 @@
+import { qcRoundOutcomes } from "@/lib/qc-rounds";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -86,6 +87,7 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
   // blocked from also being its Round 2 reviewer, with an explanation
   // instead of just hiding the form.
   const isSystemAdmin = user.roles.includes("system_admin");
+  const rounds = qcRoundOutcomes(record);
   const isSameAsChecker = record.checker_by != null && record.checker_by === user.id && !isSystemAdmin;
 
   return (
@@ -134,14 +136,21 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
           </Card>
         )}
 
-        {/* Once Round 1 has happened (checker_approved, approved or rejected), show its decision read-only. */}
-        {record.status !== "submitted" && (
+        {/* Once Round 1 has happened, show its decision read-only — from
+            Round 1's own fields (ACC-24), not the record's final status. */}
+        {rounds.round1 !== "pending" && (
           <Card>
             <CardHeader title="Round 1 decision — QC Checker" />
             <CardBody className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <Field
                 label="Decision"
-                value={<Badge status={record.status === "checker_approved" ? "checker_approved" : record.status}>{record.status === "rejected" ? "Rejected" : "Approved"}</Badge>}
+                value={
+                  rounds.round1 === "not_recorded" ? (
+                    "Not recorded (decided in the earlier single-step review)"
+                  ) : (
+                    <Badge status={rounds.round1}>{rounds.round1 === "rejected" ? "Rejected" : "Approved"}</Badge>
+                  )
+                }
               />
               <Field label="Decided by" value={checkerName} />
               <Field label="Decided at" value={formatDate(record.checker_at)} />
@@ -181,8 +190,16 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
           </Card>
         )}
 
-        {/* Once Round 2 has happened, show its decision read-only. */}
-        {(record.status === "approved" || record.status === "rejected") && (
+        {/* Once Round 2 has happened, show its decision read-only. A Round 1
+            rejection never reaches Round 2 (ACC-24). */}
+        {rounds.round1 === "rejected" && (
+          <Card>
+            <CardBody>
+              <p className="text-sm text-muted">Rejected at Round 1 — no QC Reviewer decision was needed.</p>
+            </CardBody>
+          </Card>
+        )}
+        {(rounds.round2 === "approved" || rounds.round2 === "rejected") && (
           <Card>
             <CardHeader title="Round 2 decision — QC Reviewer" />
             <CardBody className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">

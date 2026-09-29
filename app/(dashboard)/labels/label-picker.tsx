@@ -5,7 +5,8 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode, todayIst } from "@/lib/utils";
+import { rmEligibleFor, fpEligibleForLabel, ELIGIBILITY_HINT } from "./label-eligibility";
 import {
   downloadLabelPdf,
   HEADER_TEXT,
@@ -46,6 +47,8 @@ export type RmRecord = {
   receiptDate: string | null;
   qcStatus: string;
   arNumber: string | null;
+  retestDate: string | null;
+  poSubmitted: boolean;
   retestPeriodDays: number | null;
 };
 
@@ -98,18 +101,27 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
   const [selectedId, setSelectedId] = useState<string>("");
 
   const isFp = labelType === "finished_product";
-  const rm = !isFp ? rmRecords.find((r) => r.id === selectedId) : undefined;
-  const fp = isFp ? fpRecords.find((r) => r.id === selectedId) : undefined;
+
+  // ACC-14: each template is offered only for batches whose current status
+  // matches it (see label-eligibility.ts).
+  const eligibleRmRecords = useMemo(() => {
+    const today = todayIst();
+    return rmRecords.filter((r) => rmEligibleFor(labelType, r, today));
+  }, [labelType, rmRecords]);
+  const eligibleFpRecords = useMemo(() => fpRecords.filter((r) => fpEligibleForLabel(r.status)), [fpRecords]);
+
+  const rm = !isFp ? eligibleRmRecords.find((r) => r.id === selectedId) : undefined;
+  const fp = isFp ? eligibleFpRecords.find((r) => r.id === selectedId) : undefined;
 
   // Distinct product names for the currently active record set, so the
   // name picker offers each RM/FP item once rather than once per batch.
   const nameOptions = useMemo(() => {
-    const names = isFp ? fpRecords.map((r) => r.productName) : rmRecords.map((r) => r.itemName);
+    const names = isFp ? eligibleFpRecords.map((r) => r.productName) : eligibleRmRecords.map((r) => r.itemName);
     return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
-  }, [isFp, rmRecords, fpRecords]);
+  }, [isFp, eligibleRmRecords, eligibleFpRecords]);
 
-  const filteredRmRecords = nameFilter ? rmRecords.filter((r) => r.itemName === nameFilter) : rmRecords;
-  const filteredFpRecords = nameFilter ? fpRecords.filter((r) => r.productName === nameFilter) : fpRecords;
+  const filteredRmRecords = nameFilter ? eligibleRmRecords.filter((r) => r.itemName === nameFilter) : eligibleRmRecords;
+  const filteredFpRecords = nameFilter ? eligibleFpRecords.filter((r) => r.productName === nameFilter) : eligibleFpRecords;
 
   const fields: LabelField[] = useMemo(() => {
     if (labelType === "approved_rm" && rm) {
@@ -219,7 +231,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
           </Field>
 
           {!isFp ? (
-            <Field label="Purchase batch" htmlFor="record" required hint="Raw material batch, from Purchase.">
+            <Field label="Purchase batch" htmlFor="record" required hint={`Raw material batch, from Purchase. ${ELIGIBILITY_HINT[labelType]}`}>
               <Select id="record" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
                 <option value="">Select a batch…</option>
                 {filteredRmRecords.map((r) => (
@@ -230,7 +242,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
               </Select>
             </Field>
           ) : (
-            <Field label="Finished product batch" htmlFor="record" required>
+            <Field label="Finished product batch" htmlFor="record" required hint={ELIGIBILITY_HINT.finished_product}>
               <Select id="record" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
                 <option value="">Select a batch…</option>
                 {filteredFpRecords.map((r) => (
@@ -260,11 +272,11 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             </div>
           )}
 
-          {!isFp && rmRecords.length === 0 && (
-            <p className="text-sm text-muted">No purchase batches available yet.</p>
+          {!nameFilter && !isFp && eligibleRmRecords.length === 0 && (
+            <p className="text-sm text-muted">No raw material batch currently qualifies for this label.</p>
           )}
-          {isFp && fpRecords.length === 0 && (
-            <p className="text-sm text-muted">No finished product batches available yet.</p>
+          {!nameFilter && isFp && eligibleFpRecords.length === 0 && (
+            <p className="text-sm text-muted">No finished product batch is QC-approved yet.</p>
           )}
 
           <div className="flex gap-2">

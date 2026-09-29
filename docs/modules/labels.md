@@ -503,3 +503,17 @@ Verified with `tsc --noEmit`, `eslint`, and a full `next build` — all
 clean, no other consumer of `previewRef`/`downloadingJpeg`/
 `handleDownloadJpeg` remained, and no other file dynamically imports
 `html2canvas` any more.
+
+## Labels only for batches whose status matches (29 Sept 2026 — ACC-14)
+
+The Approved Raw Material and Finished Product labels print "Status:
+Approved", but any batch could be picked — rejected, awaiting QC or due for
+retest. Now each template lists only the batches it truthfully applies to
+(`label-eligibility.ts`):
+
+| Template | Batches offered |
+|---|---|
+| Approved Raw Material | QC-approved now: not due for retest, purchase order submitted |
+| Under Test | Awaiting a QC decision (not yet assigned, Round 1 or Round 2 pending, retest in progress) or due for retest |
+| In-process | Any batch except rejected |
+| Finished Product | Finished product batches with status Approved |

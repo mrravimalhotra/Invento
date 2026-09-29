@@ -97,6 +97,14 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
     }>();
   if (qcError || !qc) return { error: "Selected quality check could not be found." };
   if (qc.status !== "approved") return { error: "Only an Approved quality check can be issued a COA." };
+  // ACC-15: and only the batch's current approval (latest QC record, not
+  // due for retest) — 0082 also enforces this on insert.
+  const { data: isCurrent } = await supabase.rpc("qc_is_current_approval", { p_quality_check_id: qc.id });
+  if (isCurrent !== true) {
+    return {
+      error: "This AR is no longer the batch's current approval (it was retested, rejected or is due for retest) — reload and pick the batch again.",
+    };
+  }
 
   const isRm = !!qc.purchase_line_id;
   if ((subjectType === "raw_material") !== isRm) {

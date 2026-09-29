@@ -31,7 +31,7 @@ export function SubjectBatchPicker({
         </Select>
       </Field>
       {subject && (
-        <Field label="Batch (Approved QC only)" htmlFor="quality_check_id">
+        <Field label="Batch (current QC approval only)" htmlFor="quality_check_id">
           <Select
             id="quality_check_id"
             name="quality_check_id"
@@ -49,7 +49,8 @@ export function SubjectBatchPicker({
           </Select>
           {batches.length === 0 && (
             <p className="mt-1 text-xs text-muted">
-              No {subject === "raw_material" ? "Raw Material" : "Finished Product"} batches have cleared QC yet.
+              No {subject === "raw_material" ? "Raw Material" : "Finished Product"} batch is currently QC-approved
+              (batches rejected, under retest or due for retest aren&apos;t listed).
             </p>
           )}
         </Field>

@@ -650,3 +650,18 @@ everything in one transaction:
   The card shows how much reserve and how much stock is left.
 - **Clear refusals.** A retest needing more than reserve plus stock is refused
   with the amounts left.
+
+## Each round shows its own result (29 Sept 2026 — ACC-24)
+
+The QC detail page read Round 1 from the record's final status. So a record
+the QC Checker approved and the QC Reviewer then rejected showed Round 1 as
+"Rejected", and a Round 1 rejection showed a Round 2 card as if the reviewer
+had decided it.
+
+`lib/qc-rounds.ts` now derives each round from its own fields:
+
+- **Round 1** comes from `checker_at`. Records from before two-round review
+  show "Not recorded".
+- **Round 2** comes from `reviewed_at`.
+- **A Round 1 rejection** shows "Rejected at Round 1 — no QC Reviewer decision
+  was needed".

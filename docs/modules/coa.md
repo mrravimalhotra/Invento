@@ -360,3 +360,18 @@ doesn't apply, not a typo). Changed the one shared `defaultRemarks` string
 Material and Finished Product, unchanged) to `"The above sample
 complies/Not complies as per IHS."`; still just a pre-fill, still fully
 editable on the form as before.
+
+## COA only for a batch's current approval (29 Sept 2026 — ACC-15)
+
+The New COA picker offered every QC record that had ever been approved, so a
+certificate could quote an approval the batch no longer has. Now:
+
+- **Picker:** lists only each batch's current approval (view
+  `current_qc_approvals`, migration 0082). That is the latest QC record for
+  the batch, approved, and for raw material not past its retest date.
+  Finished products have no retest workflow, so their retest date doesn't
+  retire an approval.
+- **Saving:** re-checks with `qc_is_current_approval()`, and the database
+  refuses a COA for any other AR (trigger on `coa_records`).
+- **Sampled Qty:** comes from the AR's own sample, so a retest COA shows the
+  retest sample, not the purchase line's first QC quantity.

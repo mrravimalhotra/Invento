@@ -41,7 +41,13 @@ export default async function NewCoaPage({
   // batch hits a different failure mode later.
   let resolveError: string | null = null;
 
-  if (subject && qualityCheckId) {
+  // ACC-15: a link (or an old tab) may carry an AR that is no longer the
+  // batch's current approval — say so instead of offering a form that would
+  // be refused on save.
+  if (subject && qualityCheckId && !batches.some((b) => b.qualityCheckId === qualityCheckId)) {
+    resolveError =
+      "This AR is no longer the batch's current QC approval (the batch was retested, rejected or is due for retest), so a COA can't be issued against it. Pick a batch from the list.";
+  } else if (subject && qualityCheckId) {
     const resolved = subject === "raw_material"
       ? await resolveRawMaterial(supabase, qualityCheckId)
       : await resolveFinishedProduct(supabase, qualityCheckId);
@@ -127,10 +133,35 @@ export default async function NewCoaPage({
   );
 }
 
+// ACC-15 (29 Sept 2026): only a batch's CURRENT approval can be certified —
+// the latest QC record for the batch, approved, and (for raw material) not
+// past its retest date. Before, every QC record that had ever been approved
+// was offered, so a COA could quote an approval the batch no longer has
+// (rejected on retest, retest in progress, or due for retest).
+// current_qc_approvals (0082) applies that rule; the database also refuses
+// a COA for any other QC record.
+async function fetchCurrentApprovalIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  subject: Subject
+): Promise<Set<string>> {
+  const column = subject === "raw_material" ? "purchase_line_id" : "finished_product_batch_id";
+  const { data } = await fetchAllRows((from, to) =>
+    supabase
+      .from("current_qc_approvals")
+      .select("quality_check_id")
+      .not(column, "is", null)
+      .order("quality_check_id", { ascending: true })
+      .range(from, to)
+      .returns<{ quality_check_id: string }[]>()
+  );
+  return new Set((data ?? []).map((r) => r.quality_check_id));
+}
+
 async function fetchBatchOptions(
   supabase: Awaited<ReturnType<typeof createClient>>,
   subject: Subject
 ): Promise<BatchOption[]> {
+  const current = await fetchCurrentApprovalIds(supabase, subject);
   if (subject === "raw_material") {
     // ACC-08 (29 Sept 2026): paged past the 1,000-row cap, newest first.
     // Ordering by ar_number sorted as text ("AR-1000…" before "AR-101…"), so
@@ -152,7 +183,7 @@ async function fetchBatchOptions(
           }[]
         >()
     );
-    return (data ?? []).map((qc) => ({
+    return (data ?? []).filter((qc) => current.has(qc.id)).map((qc) => ({
       qualityCheckId: qc.id,
       label: `${qc.ar_number} · ${qc.purchase_lines?.items?.item_code ?? "—"} ${qc.purchase_lines?.items?.name ?? ""} · Batch ${qc.purchase_lines?.batch_number ?? "—"}`,
       legacy: isLegacyCode(qc.purchase_lines?.items?.item_code) || isLegacyCode(qc.purchase_lines?.batch_number),
@@ -176,7 +207,7 @@ async function fetchBatchOptions(
         }[]
       >()
   );
-  return (data ?? []).map((qc) => ({
+  return (data ?? []).filter((qc) => current.has(qc.id)).map((qc) => ({
     qualityCheckId: qc.id,
     label: `${qc.ar_number} · ${qc.finished_product_batches?.mfr_definitions?.name ?? "—"} · Batch ${qc.finished_product_batches?.batch_number ?? "—"}`,
     legacy: isLegacyCode(qc.finished_product_batches?.batch_number),
@@ -191,7 +222,7 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
-      "id, ar_number, created_at, reviewed_at, purchase_lines(batch_number, quantity, unit, qc_qty, items(item_code, name, item_type_id, item_types(description)), purchase_orders(invoice_number, vendors(name)))"
+      "id, ar_number, created_at, reviewed_at, sample_qty, sample_unit, purchase_lines(batch_number, quantity, unit, qc_qty, items(item_code, name, item_type_id, item_types(description)), purchase_orders(invoice_number, vendors(name)))"
     )
     .eq("id", qualityCheckId)
     .maybeSingle<{
@@ -199,6 +230,8 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
       ar_number: string;
       created_at: string;
       reviewed_at: string | null;
+      sample_qty: number | string | null;
+      sample_unit: string | null;
       purchase_lines: {
         batch_number: string;
         quantity: number | string;
@@ -229,7 +262,15 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
     { label: "Name of Raw Material", value: pl.items?.name ?? "" },
     { label: "RM Code", value: pl.items?.item_code ?? "" },
     { label: "Purchased From", value: pl.purchase_orders?.vendors?.name ?? "" },
-    { label: "Sampled Qty", value: `${formatNumber(pl.qc_qty)} ${pl.unit}` },
+    // ACC-15: this AR's own sample (a retest's sample differs from the
+    // batch's first QC sample on the purchase line).
+    {
+      label: "Sampled Qty",
+      value:
+        qc.sample_qty !== null
+          ? `${formatNumber(qc.sample_qty)} ${qc.sample_unit ?? pl.unit}`
+          : `${formatNumber(pl.qc_qty)} ${pl.unit}`,
+    },
     { label: "Analysis date", value: formatDate(qc.created_at) },
     { label: "AR No", value: qc.ar_number },
     { label: "Batch No", value: pl.batch_number },
@@ -261,13 +302,15 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
-      "id, created_at, reviewed_at, finished_product_batches(batch_number, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(name, finished_product_item_id, items(item_code, item_type_id, item_types(description))))"
+      "id, created_at, reviewed_at, sample_qty, sample_unit, finished_product_batches(batch_number, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(name, finished_product_item_id, items(item_code, item_type_id, item_types(description))))"
     )
     .eq("id", qualityCheckId)
     .maybeSingle<{
       id: string;
       created_at: string;
       reviewed_at: string | null;
+      sample_qty: number | string | null;
+      sample_unit: string | null;
       finished_product_batches: {
         batch_number: string;
         target_qty: number | string;
@@ -306,7 +349,15 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
     { label: "Name of Product", value: mfr.name ?? "" },
     { label: "Batch no.", value: fp.batch_number },
     { label: "Mfg. Date", value: formatDate(fp.batch_start_date) },
-    { label: "Sampled Qty", value: fp.qc_sample_qty !== null ? `${formatNumber(fp.qc_sample_qty)} ${fp.unit}` : "" },
+    {
+      label: "Sampled Qty",
+      value:
+        qc.sample_qty !== null
+          ? `${formatNumber(qc.sample_qty)} ${qc.sample_unit ?? fp.unit}`
+          : fp.qc_sample_qty !== null
+            ? `${formatNumber(fp.qc_sample_qty)} ${fp.unit}`
+            : "",
+    },
     { label: "Analysis date", value: formatDate(qc.created_at) },
     { label: "FP Code", value: fpItem.item_code ?? "" },
     { label: "Batch Quantity", value: `${formatNumber(fp.target_qty)} ${fp.unit}` },

@@ -17,6 +17,7 @@ import { LabelPicker, type RmRecord, type FpRecord } from "./label-picker";
 type PurchaseLineFetch = {
   id: string;
   batch_number: string;
+  pushed_at: string | null;
   quantity: string | number;
   unit: string;
   item: { name: string } | null;
@@ -31,6 +32,7 @@ type BatchStatusFetch = {
   purchase_line_id: string;
   qc_status: string;
   ar_number: string | null;
+  retest_date: string | null;
   quality_check_id: string | null;
 };
 
@@ -72,7 +74,7 @@ export default async function LabelsPage() {
       supabase
         .from("purchase_lines")
         .select(
-          "id, batch_number, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
+          "id, batch_number, pushed_at, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
         )
         .eq("active", true)
         .eq("items.category", "raw")
@@ -106,7 +108,7 @@ export default async function LabelsPage() {
     (chunk) =>
       supabase
         .from("purchase_batch_status")
-        .select("purchase_line_id, qc_status, ar_number, quality_check_id")
+        .select("purchase_line_id, qc_status, ar_number, retest_date, quality_check_id")
         .in("purchase_line_id", chunk)
   );
   const statuses: BatchStatusFetch[] = statusData;
@@ -133,6 +135,8 @@ export default async function LabelsPage() {
       receiptDate: po?.invoice_date ?? null,
       qcStatus: status?.qc_status ?? "not_submitted",
       arNumber: status?.ar_number ?? null,
+      retestDate: status?.retest_date ?? null,
+      poSubmitted: l.pushed_at !== null,
       retestPeriodDays: status?.quality_check_id ? retestByQcId.get(status.quality_check_id) ?? null : null,
     };
   });
