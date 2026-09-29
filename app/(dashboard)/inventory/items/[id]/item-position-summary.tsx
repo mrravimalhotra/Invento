@@ -1,4 +1,5 @@
 import { formatNumber } from "@/lib/utils";
+import type { RmStockSplit } from "@/lib/usable-stock";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
 // Option C) — the per-item detail page's full-room version of the Stock
@@ -34,7 +35,29 @@ function Stat({ label, value, unit, emphasize }: { label: string; value: number;
   );
 }
 
-export function ItemPositionSummary({ category, unit, position }: { category: string; unit: string | null; position: Position }) {
+// ACC-22: the "Not yet usable" line under the raw-material card, e.g.
+// "Not yet usable: 40 kg (30 kg awaiting QC, 10 kg rejected)".
+export function notYetUsableText(split: RmStockSplit, unit: string | null): string | null {
+  if (!(split.notYetUsable > 0)) return null;
+  const u = unit ? ` ${unit}` : "";
+  const parts: string[] = [];
+  if (split.awaitingQc > 0) parts.push(`${formatNumber(split.awaitingQc)}${u} awaiting QC`);
+  if (split.dueForRetest > 0) parts.push(`${formatNumber(split.dueForRetest)}${u} due for retest`);
+  if (split.rejected > 0) parts.push(`${formatNumber(split.rejected)}${u} rejected`);
+  return `Not yet usable: ${formatNumber(split.notYetUsable)}${u} (${parts.join(", ")})`;
+}
+
+export function ItemPositionSummary({
+  category,
+  unit,
+  position,
+  rmStock,
+}: {
+  category: string;
+  unit: string | null;
+  position: Position;
+  rmStock?: RmStockSplit;
+}) {
   const p = position;
 
   if (category === "processed") {
@@ -77,16 +100,24 @@ export function ItemPositionSummary({ category, unit, position }: { category: st
     );
   }
 
-  // raw material
+  // raw material. ACC-22: "Available for FP production" is the stock in
+  // batches Compose can pick (QC-approved, not due for retest, purchase order
+  // submitted) — not the total on hand, which also counts batches awaiting QC,
+  // rejected or due for retest. Those are listed underneath.
+  const available = rmStock ? rmStock.usable : p.onHand;
+  const notUsable = rmStock ? notYetUsableText(rmStock, unit) : null;
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
-      <Stat label="Received" value={p.received} unit={unit} />
-      <Stat label="QC held" value={p.heldQc} unit={unit} />
-      <Stat label="Stability held" value={p.heldStability} unit={unit} />
-      <Stat label="R&D held" value={p.heldRnd} unit={unit} />
-      <Stat label="Used in FP" value={p.consumedByFp} unit={unit} />
-      <Stat label="Wastage" value={p.wastage} unit={unit} />
-      <Stat label="Available for FP production" value={p.onHand} unit={unit} emphasize />
+    <div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
+        <Stat label="Received" value={p.received} unit={unit} />
+        <Stat label="QC held" value={p.heldQc} unit={unit} />
+        <Stat label="Stability held" value={p.heldStability} unit={unit} />
+        <Stat label="R&D held" value={p.heldRnd} unit={unit} />
+        <Stat label="Used in FP" value={p.consumedByFp} unit={unit} />
+        <Stat label="Wastage" value={p.wastage} unit={unit} />
+        <Stat label="Available for FP production" value={available} unit={unit} emphasize />
+      </div>
+      {notUsable && <p className="mt-3 text-sm text-muted lg:text-right">{notUsable}</p>}
     </div>
   );
 }

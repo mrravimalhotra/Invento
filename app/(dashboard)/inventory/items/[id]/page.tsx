@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { fetchByIdChunks } from "@/lib/supabase/fetch-all";
+import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
@@ -10,6 +10,8 @@ import { ProductionBatchesTable, type ProductionBatchRow } from "./production-ba
 import { FpBatchesTable, type FpBatchRow } from "./fp-batches-table";
 import { InventoryLedgerTable, type LedgerRow } from "@/app/(dashboard)/inventory/(tabs)/inventory-ledger-table";
 import { enrichLedgerRows, type RawLedgerRow } from "@/lib/ledger-enrich";
+import { splitRmStock, type RmBatchStock, type RmStockSplit } from "@/lib/usable-stock";
+import { todayIst } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
@@ -58,6 +60,7 @@ type PurchaseLineQueryRow = {
   unit: string;
   expiry_date: string | null;
   created_at: string;
+  pushed_at: string | null;
   purchase_orders: { status: string } | null;
 };
 
@@ -119,19 +122,27 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
   let purchaseBatches: PurchaseBatchRow[] = [];
   let productionBatches: ProductionBatchRow[] = [];
   let fpBatches: FpBatchRow[] = [];
+  // ACC-22: raw-material stock production can actually use (see lib/usable-stock.ts).
+  let rmStock: RmStockSplit | undefined;
 
   if (item.category === "raw" || item.category === "packaging") {
-    const { data: lines } = await supabase
-      .from("purchase_lines")
-      .select(
-        "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, live_remaining_qty, unit, expiry_date, created_at, purchase_orders!inner(status)"
-      )
-      .eq("item_id", id)
-      .eq("active", true)
-      .order("created_at", { ascending: false })
-      .returns<PurchaseLineQueryRow[]>();
+    // ACC-22: paged (fetchAllRows) so the usable-stock total below can't be
+    // cut short by the 1,000-row cap; ordered by a unique tiebreak (ACC-07).
+    const { data: lines } = await fetchAllRows<PurchaseLineQueryRow>((from, to) =>
+      supabase
+        .from("purchase_lines")
+        .select(
+          "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, live_remaining_qty, unit, expiry_date, created_at, pushed_at, purchase_orders!inner(status)"
+        )
+        .eq("item_id", id)
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<PurchaseLineQueryRow[]>()
+    );
 
-    const lineRows = lines ?? [];
+    const lineRows = lines;
     const lineIds = lineRows.map((r) => r.id);
     // ACC-08: looked up in chunks (see fetchByIdChunks).
     const { data: statusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null }>(
@@ -172,28 +183,57 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
       // embed through directly, so fetched separately and merged in JS,
       // same two-step shape qc/page.tsx already uses for the analogous
       // purchase_batch_status lookups.
-      const { data: prodBatches } = await supabase
-        .from("production_issue_batches")
-        .select(
-          "id, batch_number, quantity, live_remaining_qty, unit, qc_qty, stability_qty, rnd_qty, created_at, packaging_issues(code, created_at)"
-        )
-        .eq("item_id", id)
-        .eq("active", true)
-        .order("created_at", { ascending: false })
-        .returns<ProductionBatchRow[]>();
+      const { data: prodBatches } = await fetchAllRows<ProductionBatchRow>((from, to) =>
+        supabase
+          .from("production_issue_batches")
+          .select(
+            "id, batch_number, quantity, live_remaining_qty, unit, qc_qty, stability_qty, rnd_qty, created_at, packaging_issues(code, created_at)"
+          )
+          .eq("item_id", id)
+          .eq("active", true)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+          .returns<ProductionBatchRow[]>()
+      );
       // ACC-08: status only for this item's batches — the whole view was read
       // in one request before, capped at 1,000 rows.
       const { data: prodStatuses } = await fetchByIdChunks<{ production_batch_id: string; qc_status: string; retest_date: string | null }>(
-        (prodBatches ?? []).map((b) => b.id),
+        prodBatches.map((b) => b.id),
         (chunk) =>
           supabase.from("production_batch_status").select("production_batch_id, qc_status, retest_date").in("production_batch_id", chunk)
       );
       const statusByBatch = new Map((prodStatuses ?? []).map((s) => [s.production_batch_id, s]));
-      productionBatches = (prodBatches ?? []).map((b) => ({
+      productionBatches = prodBatches.map((b) => ({
         ...b,
         qc_status: statusByBatch.get(b.id)?.qc_status ?? null,
         retest_date: statusByBatch.get(b.id)?.retest_date ?? null,
       }));
+    }
+
+    if (item.category === "raw") {
+      // Purchased batches count only while their purchase order is submitted
+      // (a reopened one is not in stock); production-sourced batches have no
+      // purchase order. Same rule as Compose and the database QC gate.
+      const today = todayIst();
+      const stock: RmBatchStock[] = [
+        ...lineRows.map((r) => {
+          const st = statusByLine.get(r.id);
+          return {
+            liveRemaining: Number(r.live_remaining_qty),
+            qcStatus: st?.qc_status ?? null,
+            retestDate: st?.retest_date ?? null,
+            inStock: r.pushed_at !== null,
+          };
+        }),
+        ...productionBatches.map((b) => ({
+          liveRemaining: Number(b.live_remaining_qty),
+          qcStatus: b.qc_status ?? null,
+          retestDate: b.retest_date ?? null,
+          inStock: true,
+        })),
+      ];
+      rmStock = splitRmStock(stock, today);
     }
   } else if (item.category === "processed") {
     const { data: mfrDef } = await supabase
@@ -254,7 +294,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
       <Card className="mb-6">
         <CardHeader title="Position" />
         <CardBody>
-          <ItemPositionSummary category={item.category} unit={item.unit} position={positionData} />
+          <ItemPositionSummary category={item.category} unit={item.unit} position={positionData} rmStock={rmStock} />
         </CardBody>
       </Card>
 

@@ -877,3 +877,29 @@ Weights are totalled in kg, volumes in ltr, and others per unit.
 security bundle and SEC-07 suites still pass (the one SEC-07 "failure" is the
 known test-setup case). Production had no mixed-unit rows (impact check,
 29 Sept), so no back-conversion was needed.
+
+## Item page: "Available for FP production" shows only usable stock (29 Sept 2026 — accuracy audit ACC-22)
+
+**Problem.** For a raw-material item, the **Available for FP production** card
+on the item page (`/inventory/items/[id]`) showed the item's total on-hand.
+That total also counts stock production can't use — batches still awaiting QC,
+rejected, or due for retest — so the card promised more than Compose would
+offer. Found in `claude/app-accuracy-audit-2026-09-28.md`.
+
+**Rule.** The card now shows the stock in batches that are **QC-approved, not
+due for retest, and (for purchased batches) on a submitted purchase order** —
+the same rule Compose and the database QC gate (`check_batch_qc_approved`,
+0078) apply. Stock in every other batch is listed underneath, split by reason,
+e.g. *Not yet usable: 40 kg (30 kg awaiting QC, 10 kg rejected)*:
+
+- **awaiting QC** — no decision yet, or only the QC Checker has approved (Round 2 pending);
+- **due for retest** — approved, but the retest date has arrived;
+- **rejected**.
+
+A batch whose purchase order was reopened for editing is not in stock (the
+reopen reverses it), so it appears in neither figure.
+
+Production-sourced raw material (e.g. RM-FP items) is counted the same way,
+using its own QC status. The rule lives in `lib/usable-stock.ts`
+(`splitRmStock`); the other cards (Received, QC held, …) and the other
+categories are unchanged. No database change.
