@@ -90,18 +90,24 @@ function parseProductionQty(formData: FormData): number | { error: string } {
 // sample unit is convenient and converted down to the Finished Product's
 // own unit at submit, same "no separate as-entered unit column" pattern
 // purchase_lines/finished_product_batches both use (0021's comment).
-// Unlike Purchase, these three are NOT mandatory here — a Production
-// issue with zero sampling is a legitimate choice a user can make (0 is
-// the honest default, not a placeholder to fill in later), so a blank
-// field is treated as 0 rather than rejected.
+// Ravi (29 Sept 2026): "while issuing to Production - Stability, R&D, QC
+// and Sample unit should be mandatory" — the same rule as Purchase: all
+// three quantities and the sample unit must be entered (a blank field is
+// refused), but 0 stays a valid, explicitly-typed value — a Production
+// issue with no sampling is legitimate; it just has to be said, not left
+// empty.
 function parseProductionSampleQtys(formData: FormData): { qc: number; stability: number; rnd: number } | { error: string } {
   const qcRaw = String(formData.get("production_qc_qty") || "").trim();
   const stabilityRaw = String(formData.get("production_stability_qty") || "").trim();
   const rndRaw = String(formData.get("production_rnd_qty") || "").trim();
 
-  const qc = qcRaw ? Number(qcRaw) : 0;
-  const stability = stabilityRaw ? Number(stabilityRaw) : 0;
-  const rnd = rndRaw ? Number(rndRaw) : 0;
+  if (!qcRaw) return { error: "QC quantity is required (enter 0 if none)." };
+  if (!stabilityRaw) return { error: "Stability quantity is required (enter 0 if none)." };
+  if (!rndRaw) return { error: "R&D quantity is required (enter 0 if none)." };
+
+  const qc = Number(qcRaw);
+  const stability = Number(stabilityRaw);
+  const rnd = Number(rndRaw);
 
   if (!Number.isFinite(qc) || qc < 0) return { error: "QC quantity can't be negative." };
   if (!Number.isFinite(stability) || stability < 0) return { error: "Stability quantity can't be negative." };
@@ -177,8 +183,8 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
     productionStability = sampleQtysOrError.stability;
     productionRnd = sampleQtysOrError.rnd;
     productionSampleUnit = String(formData.get("production_sample_unit") || "").trim();
-    if (productionQc + productionStability + productionRnd > 0 && !productionSampleUnit) {
-      return { error: "Select a sample unit for the QC/Stability/R&D quantities entered." };
+    if (!productionSampleUnit) {
+      return { error: "Sample unit is required." };
     }
   }
 

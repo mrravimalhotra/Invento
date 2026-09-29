@@ -157,17 +157,21 @@ export function PackagingForm({
 
           {/* FB-0043 (28 Sept 2026): "it should be treated as new Raw
               material reserving quantity for stability, R&D and QC" — same
-              UX Purchase's line form already has (purchase-line-form.tsx),
-              not mandatory here (0 is a legitimate, honest choice for a
-              Production issue that needs no sampling). */}
+              UX Purchase's line form already has (purchase-line-form.tsx).
+              Ravi (29 Sept 2026): "while issuing to Production - Stability,
+              R&D, QC and Sample unit should be mandatory" — same rule as
+              Purchase: each must be entered (blank is refused), but 0 stays
+              a valid, explicitly-typed value for an issue that needs no
+              sampling. */}
           <div className="grid grid-cols-2 gap-4">
-            <Field label="QC quantity" htmlFor="production_qc_qty" hint="Reserved for QC — goes through the same Awaiting QC / retest cycle as a purchased batch.">
-              <Input id="production_qc_qty" name="production_qc_qty" type="number" step="any" min="0" defaultValue="0" />
+            <Field label="QC quantity" htmlFor="production_qc_qty" required hint="Reserved for QC — goes through the same Awaiting QC / retest cycle as a purchased batch.">
+              <Input id="production_qc_qty" name="production_qc_qty" type="number" step="any" min="0" required />
             </Field>
-            <Field label="Sample unit" htmlFor="production_sample_unit" hint="Converted to this Finished Product's own unit when saved.">
+            <Field label="Sample unit" htmlFor="production_sample_unit" required hint="Converted to this Finished Product's own unit when saved.">
               <Select
                 id="production_sample_unit"
                 name="production_sample_unit"
+                required
                 value={productionSampleUnit}
                 onChange={(e) => setProductionSampleUnit(e.target.value)}
                 disabled={!selectedBatch?.fp_unit}
@@ -182,11 +186,11 @@ export function PackagingForm({
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Stability quantity" htmlFor="production_stability_qty">
-              <Input id="production_stability_qty" name="production_stability_qty" type="number" step="any" min="0" defaultValue="0" />
+            <Field label="Stability quantity" htmlFor="production_stability_qty" required>
+              <Input id="production_stability_qty" name="production_stability_qty" type="number" step="any" min="0" required />
             </Field>
-            <Field label="R&D quantity" htmlFor="production_rnd_qty">
-              <Input id="production_rnd_qty" name="production_rnd_qty" type="number" step="any" min="0" defaultValue="0" />
+            <Field label="R&D quantity" htmlFor="production_rnd_qty" required>
+              <Input id="production_rnd_qty" name="production_rnd_qty" type="number" step="any" min="0" required />
             </Field>
           </div>
 

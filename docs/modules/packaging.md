@@ -518,3 +518,12 @@ they're not silently forgotten.
   drawn from the oldest submitted purchase batches first (FIFO). Each batch's
   remaining quantity goes down, and every ledger row records its batch. Any
   part not covered by a batch is still taken from item stock.
+
+## Production issue: sampling fields are mandatory (29 Sept 2026)
+
+Ravi: *"while issuing to Production - Stability, R&D, QC and Sample unit should be
+mandatory."* On a Production issue, QC quantity, Stability quantity, R&D quantity and
+Sample unit must now all be filled in — the same rule as a Purchase line. The
+quantity fields start blank (no pre-filled 0). A blank one is refused in the form and
+again in `createPackagingIssue`; `0` is still accepted when typed, for an issue that
+needs no sampling. Store and R&D issues are unchanged.
