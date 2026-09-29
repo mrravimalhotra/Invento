@@ -49,6 +49,7 @@ export type PositionRow = {
   issuedStore: number;
   issuedRnd: number;
   wastage: number;
+  productionRmYield: number;
 };
 
 function Breakdown({ r }: { r: PositionRow }) {
@@ -70,9 +71,15 @@ function Breakdown({ r }: { r: PositionRow }) {
   } else if (r.category === "packaging") {
     parts.push(`Received ${formatNumber(r.received)}`);
     if (r.issuedPackaging > 0) parts.push(`Issued ${formatNumber(r.issuedPackaging)}`);
+    // ACC-21: wastage also reduces On hand, so it belongs in the breakdown.
+    if (r.wastage > 0) parts.push(`Wastage ${formatNumber(r.wastage)}`);
   } else {
-    // raw material
-    parts.push(`Received ${formatNumber(r.received)}`);
+    // raw material. ACC-21: material made from production issues is never
+    // purchased, so it shows "Produced" instead of "Received 0"; the figures
+    // are net of reversals (a reopened PO, returned samples, cancelled FP
+    // drafts), so they add up to On hand.
+    if (r.received > 0 || r.productionRmYield <= 0) parts.push(`Received ${formatNumber(r.received)}`);
+    if (r.productionRmYield > 0) parts.push(`Produced ${formatNumber(r.productionRmYield)}`);
     if (r.heldQc > 0) parts.push(`QC ${formatNumber(r.heldQc)}`);
     if (r.heldStability > 0) parts.push(`Stability ${formatNumber(r.heldStability)}`);
     if (r.heldRnd > 0) parts.push(`R&D ${formatNumber(r.heldRnd)}`);

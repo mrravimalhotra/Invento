@@ -903,3 +903,42 @@ Production-sourced raw material (e.g. RM-FP items) is counted the same way,
 using its own QC status. The rule lives in `lib/usable-stock.ts`
 (`splitRmStock`); the other cards (Received, QC held, …) and the other
 categories are unchanged. No database change.
+
+## Stock Position breakdown now adds up to On hand (29 Sept 2026, migration 0083 — accuracy audit ACC-21)
+
+**Problem.** The breakdown on Stock Position and on the item page did not add up
+to On hand. Three kinds of movement changed On hand without touching any
+breakdown figure:
+
+- **A purchase order reopened for editing** takes its receipt back out of stock, but Received still showed the full receipt.
+- **The samples handed back on a reopen** (QC / Stability / R&D) left the "held" figures showing them as still held.
+- **A cancelled draft FP batch** gives its raw materials back, but "FP use" still counted them.
+
+Example from the audit: Received 1,000 − FP use 602.1 ≠ On hand 497.9. Also,
+raw material made from production issues (RM-FP items) showed "Received 0"
+because the screens ignored what was produced.
+
+**Fix.** `item_position` (migration `0083_stock_position_reconciles.sql`) now
+reports these figures **net of their own reversals**:
+
+- **Received** = receipts − reopen reversals
+- **QC / Stability / R&D held** = samples taken − samples returned
+- **Used in FP** = components used − components returned by cancelled drafts
+
+So a reopened PO shows Received 0 and nothing held until it is submitted again,
+and a cancelled draft shows no FP use. The screens now also show **Produced**
+for raw material made from production issues (in place of "Received 0"), and the
+Packaging breakdown line now includes Wastage.
+
+**The rule the figures follow** (for every item):
+
+`On hand = Received + Yielded + Produced + Packaged − QC held − Stability held − R&D held − Used in FP − Issued (packaging) − Packaged use − Issued to Store − Issued to R&D − Wastage`
+
+`On hand` itself is unchanged (same expression as `stock_balance`).
+
+**Verification.** Local replay of 83 migrations: 25/25 checks, including
+receipt, FP draft then cancel, reopen and re-submit, wastage, and every other
+kind of movement seeded directly (production RM, FP yield/samples/packaging,
+packaged FP to Store and R&D, packaging issue); the check "every item in the
+database reconciles" passes. Control without 0083: 8 failures (e.g. after a
+cancel FP use stays 602.1). All nine earlier suites still pass.

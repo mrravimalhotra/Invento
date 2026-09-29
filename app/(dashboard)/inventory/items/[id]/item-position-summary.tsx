@@ -21,6 +21,7 @@ export type Position = {
   issuedStore: number;
   issuedRnd: number;
   wastage: number;
+  productionRmYield: number;
   onHand: number;
 };
 
@@ -106,10 +107,18 @@ export function ItemPositionSummary({
   // rejected or due for retest. Those are listed underneath.
   const available = rmStock ? rmStock.usable : p.onHand;
   const notUsable = rmStock ? notYetUsableText(rmStock, unit) : null;
+  // ACC-21: material made from production issues is never purchased, so it
+  // shows "Produced" instead of "Received 0". Every figure is net of reversals
+  // (a reopened PO, returned samples, cancelled FP drafts), so the cards add
+  // up to the available figure.
+  const showReceived = p.received > 0 || p.productionRmYield <= 0;
+  const showProduced = p.productionRmYield > 0;
+  const eightCards = showReceived && showProduced;
   return (
     <div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
-        <Stat label="Received" value={p.received} unit={unit} />
+      <div className={`grid grid-cols-2 gap-4 sm:grid-cols-4 ${eightCards ? "lg:grid-cols-8" : "lg:grid-cols-7"}`}>
+        {showReceived && <Stat label="Received" value={p.received} unit={unit} />}
+        {showProduced && <Stat label="Produced" value={p.productionRmYield} unit={unit} />}
         <Stat label="QC held" value={p.heldQc} unit={unit} />
         <Stat label="Stability held" value={p.heldStability} unit={unit} />
         <Stat label="R&D held" value={p.heldRnd} unit={unit} />
