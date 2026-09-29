@@ -1,8 +1,12 @@
 "use client";
 
-import { downloadRmIntimationPdf } from "@/app/(dashboard)/purchase/[id]/rm-intimation-pdf";
 import { COMPANY_NAME } from "@/lib/company";
 import { formatDate } from "@/lib/utils";
+
+// Loaded on click, not with the page (PERF-06): the PDF / Word library only
+// downloads when someone actually asks for the file.
+const downloadRmIntimationPdf = async (...args: Parameters<typeof import("@/app/(dashboard)/purchase/[id]/rm-intimation-pdf").downloadRmIntimationPdf>) =>
+  (await import("@/app/(dashboard)/purchase/[id]/rm-intimation-pdf")).downloadRmIntimationPdf(...args);
 
 // FB-0043 (28 Sept 2026): "In RM intimation slip for Raw Material created
 // from Finished Product, Use Packaging unique Id in Invoice Number, and

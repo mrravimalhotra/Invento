@@ -1,9 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { downloadPdfTable } from "@/lib/pdf";
 import { Download } from "lucide-react";
 import { BATCH_QC_LABELS, type BatchQcState } from "@/lib/batch-qc-status";
+
+// Loaded on click, not with the page (PERF-06): the PDF / Word library only
+// downloads when someone actually asks for the file.
+const downloadPdfTable = async (...args: Parameters<typeof import("@/lib/pdf").downloadPdfTable>) =>
+  (await import("@/lib/pdf")).downloadPdfTable(...args);
 
 export type RmReportExportRow = {
   item: string;

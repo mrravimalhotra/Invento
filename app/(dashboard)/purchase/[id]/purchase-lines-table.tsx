@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 import { lineFinancials } from "./line-financials";
 import { deletePurchaseLine, type ActionState } from "@/lib/actions/purchase";
-import { downloadRmIntimationPdf } from "./rm-intimation-pdf";
+
+// Loaded on click, not with the page (PERF-06): the PDF / Word library only
+// downloads when someone actually asks for the file.
+const downloadRmIntimationPdf = async (...args: Parameters<typeof import("./rm-intimation-pdf").downloadRmIntimationPdf>) =>
+  (await import("./rm-intimation-pdf")).downloadRmIntimationPdf(...args);
 
 export type LineRow = {
   id: string;

@@ -7,8 +7,12 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Field, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { downloadPdfTable } from "@/lib/pdf";
 import { exportTable, type ExportColumnType } from "@/lib/table-export";
+
+// Loaded on click, not with the page (PERF-06): the PDF / Word library only
+// downloads when someone actually asks for the file.
+const downloadPdfTable = async (...args: Parameters<typeof import("@/lib/pdf").downloadPdfTable>) =>
+  (await import("@/lib/pdf")).downloadPdfTable(...args);
 
 export type ReportColumn<T> = {
   header: string;

@@ -1,7 +1,11 @@
 "use client";
 
-import { downloadFpIntimationPdf } from "./fp-intimation-pdf";
 import { formatDate } from "@/lib/utils";
+
+// Loaded on click, not with the page (PERF-06): the PDF / Word library only
+// downloads when someone actually asks for the file.
+const downloadFpIntimationPdf = async (...args: Parameters<typeof import("./fp-intimation-pdf").downloadFpIntimationPdf>) =>
+  (await import("./fp-intimation-pdf")).downloadFpIntimationPdf(...args);
 
 // Ravi (15 Sept 2026): "when a Finished Product batch is submitted to QC, a
 // Finish Product Intimation Slip should be generated and link should be

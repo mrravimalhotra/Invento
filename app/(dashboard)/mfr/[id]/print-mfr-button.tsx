@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { downloadMfrDocx, type MfrDocxData } from "./mfr-docx";
+import type { MfrDocxData } from "./mfr-docx";
+
+// Loaded on click, not with the page (PERF-06): the PDF / Word library only
+// downloads when someone actually asks for the file.
+const downloadMfrDocx = async (...args: Parameters<typeof import("./mfr-docx").downloadMfrDocx>) =>
+  (await import("./mfr-docx")).downloadMfrDocx(...args);
 
 // Ravi (16 Sept 2026): "Print MFR option should give me .docx document in
 // attached format" — replaces the LinkButton that used to send this click

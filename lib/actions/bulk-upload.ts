@@ -69,6 +69,25 @@ import {
 } from "@/lib/bulk-upload/schemas";
 import { friendlyDbError } from "@/lib/db-errors";
 
+// One round trip for all the codes a bulk import needs (0087; PERF-04),
+// instead of one RPC per row. Returns the codes in order, or an error text
+// in the same "Could not generate ..." wording the per-row loop used.
+async function nextCodes(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fn: "get_next_item_codes" | "get_next_vendor_codes" | "get_next_equipment_codes" | "get_next_dead_stock_codes",
+  args: Record<string, unknown>,
+  count: number,
+  label: string
+): Promise<{ codes: string[] } | { error: string }> {
+  if (count === 0) return { codes: [] };
+  const { data, error } = await supabase.rpc(fn, { ...args, p_count: count });
+  const codes = (data ?? []) as string[];
+  if (error || codes.length !== count) {
+    return { error: `Could not generate ${label} codes: ${friendlyDbError(error, "unknown error")}` };
+  }
+  return { codes };
+}
+
 export type BulkUploadState =
   | { error?: string; rowErrors?: string[]; success?: string }
   | undefined;
@@ -266,16 +285,19 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
-  // Codes are always server-generated, one nextval() round trip per row,
-  // done sequentially before the one bulk insert below (see 0037's header
-  // comment on why a failed later insert only leaves a harmless code-
-  // number gap, never a partial import).
+  // Codes are always server-generated, fetched in one call per category
+  // before the one bulk insert below (see 0037's header comment on why a
+  // failed later insert only leaves a harmless code-number gap, never a
+  // partial import).
+  const itemCodesByCategory = new Map<string, string[]>();
+  for (const category of new Set(parsed.map((p) => p.category))) {
+    const result = await nextCodes(supabase, "get_next_item_codes", { p_category: category }, parsed.filter((p) => p.category === category).length, "item");
+    if ("error" in result) return { error: result.error };
+    itemCodesByCategory.set(category, result.codes);
+  }
   const insertRows: Record<string, unknown>[] = [];
   for (const p of parsed) {
-    const { data: itemCode, error: codeError } = await supabase.rpc("get_next_item_code", { p_category: p.category });
-    if (codeError || !itemCode) {
-      return { error: `Could not generate an item code (stopped after ${insertRows.length} of ${parsed.length}): ${friendlyDbError(codeError, "unknown error")}` };
-    }
+    const itemCode = itemCodesByCategory.get(p.category)!.shift()!;
     insertRows.push({
       item_code: itemCode,
       name: p.name,
@@ -367,12 +389,11 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
+  const vendorCodes = await nextCodes(supabase, "get_next_vendor_codes", {}, parsed.length, "vendor");
+  if ("error" in vendorCodes) return { error: vendorCodes.error };
   const insertRows: Record<string, unknown>[] = [];
-  for (const p of parsed) {
-    const { data: vendorCode, error: codeError } = await supabase.rpc("get_next_vendor_code");
-    if (codeError || !vendorCode) {
-      return { error: `Could not generate a vendor code (stopped after ${insertRows.length} of ${parsed.length}): ${friendlyDbError(codeError, "unknown error")}` };
-    }
+  for (const [i, p] of parsed.entries()) {
+    const vendorCode = vendorCodes.codes[i];
     insertRows.push({ vendor_code: vendorCode, name: p.name, address: p.address, mobile: p.mobile, phone: p.phone, email: p.email });
   }
 
@@ -1259,16 +1280,12 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
+  const equipmentCodes = await nextCodes(supabase, "get_next_equipment_codes", {}, parsed.length, "equipment");
+  if ("error" in equipmentCodes) return { error: equipmentCodes.error };
   const insertRows: Record<string, unknown>[] = [];
-  for (const p of parsed) {
-    const { data: equipmentCode, error: codeError } = await supabase.rpc("get_next_equipment_code");
-    if (codeError || !equipmentCode) {
-      return {
-        error: `Could not generate an equipment code (stopped after ${insertRows.length} of ${parsed.length}): ${friendlyDbError(codeError, "unknown error")}`,
-      };
-    }
+  for (const [i, p] of parsed.entries()) {
     insertRows.push({
-      equipment_code: equipmentCode,
+      equipment_code: equipmentCodes.codes[i],
       name: p.name,
       room_no: p.room_no,
       section: p.section,
@@ -1419,16 +1436,12 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
+  const assetCodes = await nextCodes(supabase, "get_next_dead_stock_codes", {}, parsed.length, "asset");
+  if ("error" in assetCodes) return { error: assetCodes.error };
   const insertRows: Record<string, unknown>[] = [];
-  for (const p of parsed) {
-    const { data: assetCode, error: codeError } = await supabase.rpc("get_next_dead_stock_code");
-    if (codeError || !assetCode) {
-      return {
-        error: `Could not generate an asset code (stopped after ${insertRows.length} of ${parsed.length}): ${friendlyDbError(codeError, "unknown error")}`,
-      };
-    }
+  for (const [i, p] of parsed.entries()) {
     insertRows.push({
-      asset_code: assetCode,
+      asset_code: assetCodes.codes[i],
       article_name: p.article_name,
       date_of_purchase: p.date_of_purchase,
       quantity: p.quantity,

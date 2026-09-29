@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { downloadBmrDocx, type BmrComponentRow } from "./bmr-docx";
+import type { BmrComponentRow } from "./bmr-docx";
+
+// Loaded on click, not with the page (PERF-06): the PDF / Word library only
+// downloads when someone actually asks for the file.
+const downloadBmrDocx = async (...args: Parameters<typeof import("./bmr-docx").downloadBmrDocx>) =>
+  (await import("./bmr-docx")).downloadBmrDocx(...args);
 
 // Ravi (15 Sept 2026): "Once Batch is in Completed - Awaiting QC, start
 // showing link to 'BATCH MANUFACTURING RECORD' as attached in the .docx
