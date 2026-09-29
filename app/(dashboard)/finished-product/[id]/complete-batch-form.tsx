@@ -6,7 +6,7 @@ import { completeFinishedProductBatch, type ActionState } from "@/lib/actions/fi
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { compatibleUnits, convertUnit } from "@/lib/constants/units";
-import { formatQty } from "@/lib/utils";
+import { formatDate, formatQty } from "@/lib/utils";
 
 type Defaults = {
   batch_yield: string | number | null;
@@ -33,7 +33,18 @@ const numOrEmpty = (v: string | number | null) => (v === null || v === undefined
 // completeFinishedProductBatch in lib/actions/finished-product.ts, which
 // now also moves the batch to the new "complete_awaiting_qc" status
 // (0047_fp_batch_complete_awaiting_qc.sql) on that same save.
-export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string; defaults: Defaults; unit: string }) {
+export function CompleteBatchForm({
+  batchId,
+  defaults,
+  unit,
+  startDate,
+}: {
+  batchId: string;
+  defaults: Defaults;
+  unit: string;
+  // yyyy-mm-dd; the finish date can not be earlier than this (FB-0025).
+  startDate?: string | null;
+}) {
   const boundAction = completeFinishedProductBatch.bind(null, batchId);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
 
@@ -83,6 +94,10 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
     }
     if (!finishDate) {
       setClientError("Finish date is required.");
+      return;
+    }
+    if (startDate && finishDate < startDate) {
+      setClientError(`Finish date can't be earlier than the batch start date (${formatDate(startDate)}).`);
       return;
     }
     if (!expiryMonth) {
@@ -148,6 +163,7 @@ export function CompleteBatchForm({ batchId, defaults, unit }: { batchId: string
             name="finish_date"
             type="date"
             required
+            min={startDate ?? undefined}
             value={finishDate}
             onChange={(e) => setFinishDate(e.target.value)}
           />

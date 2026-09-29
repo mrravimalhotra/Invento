@@ -175,6 +175,10 @@ export function PurchaseLineForm({
   const stabilityConverted = convertUnit(Number(stabilityQty) || 0, sampleUnit || unit, unit) ?? (Number(stabilityQty) || 0);
   const rndConverted = convertUnit(Number(rndQty) || 0, sampleUnit || unit, unit) ?? (Number(rndQty) || 0);
   const remainingPreview = qty - qcConverted - stabilityConverted - rndConverted;
+  // DES-11: the server and database refuse samples above the quantity; the
+  // form now says so before the button is pressed (tiny tolerance so a
+  // unit-conversion rounding error is not reported as over-sampling).
+  const overSampled = isRaw && remainingPreview < -1e-9;
 
   return (
     <form ref={formRef} action={formAction} className="grid gap-4">
@@ -341,6 +345,12 @@ export function PurchaseLineForm({
           </strong>
         </p>
       )}
+      {overSampled && (
+        <p role="alert" className="-mt-2 text-sm text-red">
+          QC + Stability + R&amp;D samples ({formatQty(qcConverted + stabilityConverted + rndConverted)} {unit}) are more
+          than the quantity received ({formatQty(qty)} {unit}). Reduce a sample quantity to continue.
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Unit Price (₹)" htmlFor="unit_price" required>
@@ -388,7 +398,7 @@ export function PurchaseLineForm({
       </div>
 
       <div>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || overSampled}>
           {pending ? "Adding…" : "Add line"}
         </Button>
       </div>
@@ -436,6 +446,10 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
   const stabilityConverted = convertUnit(Number(stabilityQty) || 0, sampleUnit, unit) ?? (Number(stabilityQty) || 0);
   const rndConverted = convertUnit(Number(rndQty) || 0, sampleUnit, unit) ?? (Number(rndQty) || 0);
   const remainingPreview = qty - qcConverted - stabilityConverted - rndConverted;
+  // DES-11: the server and database refuse samples above the quantity; the
+  // form now says so before the button is pressed (tiny tolerance so a
+  // unit-conversion rounding error is not reported as over-sampling).
+  const overSampled = isRaw && remainingPreview < -1e-9;
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -544,6 +558,12 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
           </strong>
         </p>
       )}
+      {overSampled && (
+        <p role="alert" className="-mt-2 text-sm text-red">
+          QC + Stability + R&amp;D samples ({formatQty(qcConverted + stabilityConverted + rndConverted)} {unit}) are more
+          than the quantity received ({formatQty(qty)} {unit}). Reduce a sample quantity to continue.
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Unit Price (₹)" htmlFor="unit_price" required>
@@ -588,7 +608,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
       </div>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || overSampled}>
           {pending ? "Saving…" : "Save changes"}
         </Button>
         <Button type="button" variant="secondary" onClick={onDone} disabled={pending}>

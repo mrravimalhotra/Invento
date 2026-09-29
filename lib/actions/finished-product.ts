@@ -7,6 +7,7 @@ import { convertUnit } from "@/lib/constants/units";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
+import { formatDate } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -161,7 +162,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   const batch = { id: batchId };
 
   revalidatePath("/finished-product");
-  redirect(`/finished-product/${batch.id}`);
+  redirect(`/finished-product/${batch.id}?saved=fp_draft_created`);
 }
 
 // "Create Batch" on the detail page — the second, explicit step that
@@ -192,7 +193,7 @@ export async function confirmFinishedProductBatch(id: string, _prev: ActionState
 
   revalidatePath(`/finished-product/${id}`);
   revalidatePath("/finished-product");
-  return { success: "Batch created — now in process." };
+  redirect(`/finished-product/${id}?saved=fp_confirmed`);
 }
 
 // "Cancel" on the detail page, only available while a batch is still a
@@ -224,7 +225,7 @@ export async function cancelFinishedProductBatch(id: string, _prev: ActionState,
 
   revalidatePath(`/finished-product/${id}`);
   revalidatePath("/finished-product");
-  return { success: "Batch cancelled — its raw material has been returned to inventory." };
+  redirect(`/finished-product/${id}?saved=fp_cancelled`);
 }
 
 // "Complete batch". As of 0022_fp_batch_yield.sql (2 Sept 2026), Batch Yield
@@ -302,10 +303,16 @@ export async function completeFinishedProductBatch(
   const supabase = await createClient();
   const { data: current, error: fetchError } = await supabase
     .from("finished_product_batches")
-    .select("status, unit")
+    .select("status, unit, batch_start_date")
     .eq("id", id)
     .maybeSingle();
   if (fetchError || !current) return { error: friendlyDbError(fetchError, "Batch not found.") };
+  // FB-0025 (rest): a batch cannot finish before it started. ISO dates
+  // (yyyy-mm-dd) compare correctly as text. Also enforced by the
+  // fp_finish_not_before_start CHECK (0085).
+  if (current.batch_start_date && finishDate < current.batch_start_date) {
+    return { error: `Finish date can't be earlier than the batch start date (${formatDate(current.batch_start_date)}).` };
+  }
   if (current.status !== "in_process") {
     return {
       error: "This batch is no longer in progress — it may already be completed or submitted to QC. Refresh to see its current status.",
@@ -363,6 +370,9 @@ export async function completeFinishedProductBatch(
     // quantities are all set together, so it's the one place this new
     // constraint can actually be hit (mirrors Phase 2's live_remaining_not_negative
     // translation in lib/actions/inventory.ts).
+    if (error.message.includes("fp_finish_not_before_start")) {
+      return { error: "Finish date can't be earlier than the batch start date." };
+    }
     if (error.message.includes("fp_batch_yield_not_negative")) {
       return { error: "QC + stability + R&D sample quantities can't exceed the batch yield — reduce one of the sample amounts." };
     }
@@ -371,7 +381,7 @@ export async function completeFinishedProductBatch(
 
   revalidatePath(`/finished-product/${id}`);
   revalidatePath("/finished-product");
-  return { success: "Batch completed — now Complete - Awaiting QC." };
+  redirect(`/finished-product/${id}?saved=fp_completed`);
 }
 
 // Status flow gap fix (DESIGN.md §4.8): in_process -> submitted_to_qc closes the
@@ -408,23 +418,14 @@ export async function submitFinishedProductToQc(
     return { error: "Complete the batch (batch yield, finish date, expiry date, sample quantities) before submitting to QC." };
   }
 
-  const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
-  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an AR number.") };
-
-  // expiry_month (not expiry_date — see migration 0044's comment): the
-  // Complete Batch screen's Expiry date field is the batch's one real
-  // expiry value now, only knowable once the batch is actually finished.
-  const { error: qcError } = await supabase.from("quality_checks").insert({
-    ar_number: arNumber,
-    finished_product_batch_id: id,
-    sample_qty: batch.qc_sample_qty,
-    sample_unit: batch.unit,
-    expiry_date: batch.expiry_month,
-    // Maker/checker (17 Sept 2026): see the matching comment in
-    // lib/actions/qc.ts's createQualityCheck — whoever submits this batch
-    // to QC is its maker.
-    created_by: user.id,
-  });
+  // A6 (29 Sept 2026): the QC record and the batch status change used to be
+  // two separate writes; if the second failed, the batch stayed "Complete -
+  // Awaiting QC" with a QC record already made, and a retry said "already
+  // submitted". submit_fp_batch_to_qc() (0085) does the AR number, the QC
+  // insert and the status change in one transaction, running as the caller,
+  // so the same access rules apply as before. expiry_month (not
+  // expiry_date, see migration 0044) is the batch's one real expiry value.
+  const { error: qcError } = await supabase.rpc("submit_fp_batch_to_qc", { p_batch_id: id });
   if (qcError) {
     if (qcError.code === "42501") {
       return {
@@ -434,21 +435,14 @@ export async function submitFinishedProductToQc(
     }
     if (qcError.code === "23505") {
       // quality_checks_fp_batch_unique (0015_qc_duplicate_backstop.sql) —
-      // backstop for the status-check-above-then-insert race: someone else
-      // already submitted this same batch to QC between our check and this
-      // insert.
+      // someone else already submitted this same batch to QC between our
+      // status check above and the RPC.
       return { error: "This batch has already been submitted to QC." };
     }
     return { error: friendlyDbError(qcError) };
   }
 
-  const { error: statusError } = await supabase
-    .from("finished_product_batches")
-    .update({ status: "submitted_to_qc" })
-    .eq("id", id);
-  if (statusError) return { error: friendlyDbError(statusError) };
-
   revalidatePath(`/finished-product/${id}`);
   revalidatePath("/finished-product");
-  return { success: "Submitted to QC." };
+  redirect(`/finished-product/${id}?saved=fp_submitted_to_qc`);
 }

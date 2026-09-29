@@ -146,7 +146,7 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
 
   revalidatePath("/qc");
   revalidatePath(`/qc/${id}`);
-  redirect(`/qc/${id}`);
+  redirect(`/qc/${id}?saved=${status === "rejected" ? "qc_round1_rejected" : "qc_round1_approved"}`);
 }
 
 // Round 2 — "QC Reviewer": checker_approved -> approved/rejected. This is
@@ -210,7 +210,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
 
   revalidatePath("/qc");
   revalidatePath(`/qc/${id}`);
-  redirect(`/qc/${id}`);
+  redirect(`/qc/${id}?saved=${status === "rejected" ? "qc_round2_rejected" : "qc_round2_approved"}`);
 }
 
 // Retest workflow (Part B) — once an approved batch's QC-computed

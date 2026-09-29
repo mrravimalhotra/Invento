@@ -557,7 +557,9 @@ export async function submitPurchaseOrder(id: string, _prev: ActionState, _formD
 
   revalidatePath(`/purchase/${id}`);
   revalidatePath("/purchase");
-  return { success: "Purchase order submitted — inventory has been updated." };
+  // UX-02: the page switches to the submitted view under the button, so the
+  // confirmation is shown as a banner on the reloaded page (saved-messages.ts).
+  redirect(`/purchase/${id}?saved=po_submitted`);
 }
 
 // Admin-only, matching deletePurchaseOrder()'s convention — reversing

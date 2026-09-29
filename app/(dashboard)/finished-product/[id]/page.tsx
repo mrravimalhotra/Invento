@@ -9,12 +9,20 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 import { CompleteBatchForm } from "./complete-batch-form";
+import { SavedBanner } from "@/components/ui/saved-banner";
 import { SubmitToQcForm } from "./submit-to-qc-form";
 import { DraftActionsPanel } from "./draft-actions-panel";
 import { FpIntimationLink } from "./fp-intimation-link";
 import { BmrDownloadLink } from "./bmr-download-link";
 
-export default async function FinishedProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function FinishedProductDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string }>;
+}) {
+  const { saved } = await searchParams;
   const { id } = await params;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
 
@@ -113,6 +121,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
 
   return (
     <div>
+      <SavedBanner code={saved} />
       <PageHeader
         title={batch.batch_number}
         description={mfr ? `Built from ${mfr.code} · ${mfr.name} (recipe v${batch.mfr_version})` : `Recipe v${batch.mfr_version}`}
@@ -309,6 +318,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
               <CompleteBatchForm
                 batchId={id}
                 unit={batch.unit}
+                startDate={batch.batch_start_date}
                 defaults={{
                   batch_yield: batch.batch_yield,
                   finish_date: batch.finish_date,

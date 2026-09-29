@@ -8,7 +8,7 @@ import { useActionState, useState } from "react";
 import { reviewQcRound1, type ActionState } from "@/lib/actions/qc";
 import { Field, Textarea } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { DecisionChoice } from "@/components/ui/decision-choice";
 
 export function QcCheckerForm({ id }: { id: string }) {
   const boundAction = reviewQcRound1.bind(null, id);
@@ -19,34 +19,16 @@ export function QcCheckerForm({ id }: { id: string }) {
     <form action={formAction} className="flex flex-col gap-4">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
 
-      <input type="hidden" name="status" value={status} />
       <Field label="Decision" required>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setStatus("checker_approved")}
-            className={cn(
-              "flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors",
-              status === "checker_approved"
-                ? "border-brand bg-brand-light text-brand-dark"
-                : "border-border bg-white hover:bg-black/5"
-            )}
-          >
-            Approved
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatus("rejected")}
-            className={cn(
-              "flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors",
-              status === "rejected"
-                ? "border-red bg-red-bg text-red"
-                : "border-border bg-white hover:bg-black/5"
-            )}
-          >
-            Rejected
-          </button>
-        </div>
+        <DecisionChoice
+          name="status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: "checker_approved", label: "Approved", tone: "approve" },
+            { value: "rejected", label: "Rejected", tone: "reject" },
+          ]}
+        />
       </Field>
 
       <Field label="Comments" htmlFor="checker_comments">

@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
+import { SavedBanner } from "@/components/ui/saved-banner";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatQty } from "@/lib/utils";
@@ -35,8 +36,15 @@ type QcDetail = {
   production_issue_batches: { batch_number: string } | null;
 };
 
-export default async function QualityCheckDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function QualityCheckDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string }>;
+}) {
   const { id } = await params;
+  const { saved } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -92,6 +100,7 @@ export default async function QualityCheckDetailPage({ params }: { params: Promi
 
   return (
     <div>
+      <SavedBanner code={saved} />
       <PageHeader
         title={record.ar_number}
         description={record.items ? `${record.items.item_code} — ${record.items.name}` : undefined}
