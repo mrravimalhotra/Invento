@@ -56,7 +56,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
       // approval) but still has its own batch number, needed here for
       // traceability.
       .select(
-        "id, quantity, purchase_line_id, production_batch_id, items(item_code, name, unit), purchase_lines(batch_number, expiry_date), production_issue_batches(batch_number)"
+        "id, quantity, purchase_line_id, production_batch_id, items(item_code, name, unit), purchase_lines(batch_number), production_issue_batches(batch_number)"
       )
       .eq("finished_product_batch_id", id),
     supabase
@@ -86,7 +86,7 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
     purchase_line_id: string | null;
     production_batch_id: string | null;
     items: { item_code: string; name: string; unit: string | null } | null;
-    purchase_lines: { batch_number: string; expiry_date: string | null } | null;
+    purchase_lines: { batch_number: string } | null;
     production_issue_batches: { batch_number: string } | null;
   };
   const componentRows = (components ?? []) as unknown as ComponentRow[];
@@ -204,6 +204,11 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
         </Card>
 
         <Card>
+          {/* ACC-31: the "Re-Test Date" column is gone — it read
+              purchase_lines.expiry_date, which is no longer collected (3 Sept
+              2026), so it was blank for every new batch. The real retest date
+              is QC's (quality_checks.retest_date) and is shown on the RM
+              batch's own screens. */}
           <CardHeader title="Composition (RM batches consumed)" />
           <CardBody className="p-0">
             <div className="overflow-x-auto">
@@ -212,14 +217,13 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
                   <tr className="border-b border-border bg-black/[0.02] text-left text-xs font-semibold uppercase tracking-wide text-muted">
                     <th className="px-4 py-2.5">Item</th>
                     <th className="px-4 py-2.5">RM batch</th>
-                    <th className="px-4 py-2.5">Re-Test Date</th>
                     <th className="px-4 py-2.5">Quantity consumed</th>
                   </tr>
                 </thead>
                 <tbody>
                   {componentRows.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-10 text-center text-muted">
+                      <td colSpan={3} className="px-4 py-10 text-center text-muted">
                         No components recorded.
                       </td>
                     </tr>
@@ -231,7 +235,6 @@ export default async function FinishedProductDetailPage({ params }: { params: Pr
                         {c.purchase_lines?.batch_number ?? c.production_issue_batches?.batch_number ?? "—"}
                         {c.production_batch_id && <span className="text-muted"> (from Production)</span>}
                       </td>
-                      <td className="px-4 py-2.5">{formatDate(c.purchase_lines?.expiry_date)}</td>
                       <td className="px-4 py-2.5">
                         {formatNumber(c.quantity)} {c.items?.unit ?? ""}
                       </td>

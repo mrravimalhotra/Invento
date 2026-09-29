@@ -1262,3 +1262,14 @@ show 36 failures, proving each bypass was real).
 - **Same raw material on two recipe lines (ACC-30).** Allocation keeps one
   running total per batch across lines, so the same stock is never promised
   twice.
+
+## FP detail: blank "Re-Test Date" column removed (29 Sept 2026 — accuracy audit ACC-31)
+
+The Composition table on the Finished Product detail page had a **Re-Test Date**
+column that read `purchase_lines.expiry_date`. That field stopped being
+collected on 3 Sept 2026 (see `docs/modules/purchase.md`, "Re-Test Date manual
+entry removed"), so the column was blank for every batch received since. Ravi
+(29 Sept 2026) agreed to remove it. The real retest date is QC's
+(`quality_checks.retest_date`) and stays on the raw-material batch screens
+(Purchase batches on the item page, QC). The page no longer fetches
+`purchase_lines.expiry_date` either. Code only.
