@@ -846,3 +846,34 @@ other units are converted on save.
 
 Verified on a fresh local replay of all 71 migrations: 22/22 checks pass; the
 same checks against the previous function fail 15 times.
+
+## One stock unit per item (29 Sept 2026, migration 0076 — accuracy audit ACC-02/03/04/29)
+
+**Problem.** Quantities were stored in whatever unit a line was typed in and
+then added up as one unit. For example, a kg item bought once as 500 g showed
+**509.9 kg** on hand instead of 10.4. A 500 g recipe line took 500 kg out of a
+kg batch. A 50,000 g target for a 100 kg MFR scaled every ingredient ×500.
+Found in `claude/app-accuracy-audit-2026-09-28.md`.
+
+**Rule.** Every item has one stock unit, the Unit on its Item Master record.
+Quantities can still be typed in a unit that converts to it, and the database
+(`0076_single_unit_per_item.sql`) converts on save:
+
+- **Purchase lines:** quantity, QC/Stability/R&D and the **unit price** are converted. 500 g @ ₹0.50/g is saved as 0.5 kg @ ₹500/kg, so the line value is unchanged.
+- **Recipe (MFR) lines:** converted to the item's unit.
+- **Finished-product batches:** always in the MFR's batch-size unit. Compose scales the recipe in that unit (`convertUnit`), and the batch is saved in it.
+- **Packaging material lines:** converted to the item's unit.
+- **Stock ledger safety net:** every movement is stored in its item's unit, whatever wrote it. Rows written without a unit (e.g. RM consumed by an FP batch) are now labelled with the item's unit.
+- **Refused:** a unit that can't be converted (e.g. "nos" for a kg item) is refused with a message naming the item and its unit.
+- **Existing lines:** a line's unit can't be changed after it's created (delete and re-add instead).
+- **Item units:** an item's unit can't be changed once it has purchases, recipes, packaging or stock movements. An item with no unit yet takes the unit of its first use.
+
+The unit pickers on Purchase line, MFR recipe, Packaging materials and FP
+Step 1 now offer only the item's unit and units that convert to it, with a
+hint showing the saved value. The BMR "QTY" total no longer adds kg + g + nos.
+Weights are totalled in kg, volumes in ltr, and others per unit.
+
+**Verification.** Local replay of 76 migrations: 36/36 unit checks. The DES-02,
+security bundle and SEC-07 suites still pass (the one SEC-07 "failure" is the
+known test-setup case). Production had no mixed-unit rows (impact check,
+29 Sept), so no back-conversion was needed.

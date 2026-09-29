@@ -156,7 +156,11 @@ export function EditItemForm({
             ))}
           </Select>
         </Field>
-        <Field label="Unit" htmlFor="unit">
+        <Field
+          label="Unit"
+          htmlFor="unit"
+          hint="The item's stock unit — every quantity is stored in it. Can't be changed once the item has purchases, recipes or stock."
+        >
           <Select id="unit" name="unit" defaultValue={item.unit ?? ""}>
             <option value="">— none —</option>
             {UNITS.map((u) => (

@@ -12,6 +12,7 @@ import {
   BorderStyle,
   VerticalAlign,
 } from "docx";
+import { convertUnit, unitFamily } from "@/lib/constants/units";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
 
 // Ravi (15 Sept 2026): "Once Batch is in Completed - Awaiting QC, start
@@ -95,6 +96,23 @@ function qty2(n: string | number): string {
   return Number.isFinite(num) ? num.toFixed(2) : "0.00";
 }
 
+// ACC-29 (29 Sept 2026): the "QTY" total under the RM table used to add
+// every component's quantity whatever its unit (kg + g + nos). Now weights
+// are totalled in kg, volumes in ltr, and anything else per its own unit,
+// e.g. "12.35 kg + 3.00 nos".
+function totalByUnit(components: { qtyAsPerMfr: string | number; unit: string }[]): string {
+  const totals = new Map<string, number>();
+  for (const c of components) {
+    const n = parseFloat(String(c.qtyAsPerMfr)) || 0;
+    const family = unitFamily(c.unit);
+    const target = family === "weight" ? "kg" : family === "volume" ? "ltr" : c.unit || "";
+    const converted = convertUnit(n, c.unit, target) ?? n;
+    totals.set(target, (totals.get(target) ?? 0) + converted);
+  }
+  if (totals.size === 0) return qty2(0);
+  return [...totals.entries()].map(([u, v]) => (u ? `${qty2(v)} ${u}` : qty2(v))).join(" + ");
+}
+
 const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } as const;
 const NO_CELL_BORDERS = { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER };
 
@@ -172,7 +190,7 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
     ],
   });
 
-  const totalMfrQty = data.components.reduce((sum, c) => sum + (parseFloat(String(c.qtyAsPerMfr)) || 0), 0);
+  const totalMfrQty = totalByUnit(data.components);
 
   const rmTable = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -247,7 +265,7 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
             spacing: { before: 120, after: 260 },
             children: [
               new TextRun({ text: "QTY  ", bold: true, size: 18 }),
-              new TextRun({ text: qty2(totalMfrQty), size: 18 }),
+              new TextRun({ text: totalMfrQty, size: 18 }),
             ],
           }),
           new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: "Production Chemist", size: 18 })] }),

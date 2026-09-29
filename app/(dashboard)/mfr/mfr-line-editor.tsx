@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus } from "lucide-react";
-import { UNITS } from "@/lib/constants/units";
+import { entryUnitsFor } from "@/lib/constants/units";
 import { isLegacyCode } from "@/lib/utils";
 
 export type RawItemOption = { id: string; item_code: string; name: string; unit: string | null };
@@ -97,7 +97,9 @@ export function MfrLineEditor({
                     required={i === 0}
                   >
                     <option value="">Unit…</option>
-                    {UNITS.map((u) => (
+                    {/* Only the item's stock unit and units that convert to it
+                        (0076): e.g. 500 g for a kg item is saved as 0.5 kg. */}
+                    {entryUnitsFor(rawItems.find((it) => it.id === line.itemId)?.unit).map((u) => (
                       <option key={u} value={u}>
                         {u}
                       </option>

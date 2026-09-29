@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus } from "lucide-react";
-import { UNITS } from "@/lib/constants/units";
+import { entryUnitsFor } from "@/lib/constants/units";
 import { isLegacyCode } from "@/lib/utils";
 
 export type PackagingItemOption = { id: string; item_code: string; name: string; unit: string | null };
@@ -89,7 +89,8 @@ export function PackagingMaterialsEditor({ packagingItems }: { packagingItems: P
                     required={i === 0}
                   >
                     <option value="">Unit…</option>
-                    {UNITS.map((u) => (
+                    {/* Item's stock unit and units that convert to it (0076). */}
+                    {entryUnitsFor(packagingItems.find((it) => it.id === line.itemId)?.unit).map((u) => (
                       <option key={u} value={u}>
                         {u}
                       </option>

@@ -56,6 +56,17 @@ export function compatibleUnits(u: string): readonly Unit[] {
   return UNITS.filter((x) => x === u);
 }
 
+/**
+ * Units a quantity for an item can be ENTERED in (29 Sept 2026, accuracy
+ * audit ACC-02/03/04, 0076_single_unit_per_item.sql): the item's own stock
+ * unit plus any unit that converts to it (g/mg for a kg item). The database
+ * converts to the item's unit on save; anything else is refused there. An
+ * item with no unit set yet can be entered in any unit (it adopts it).
+ */
+export function entryUnitsFor(itemUnit: string | null | undefined): readonly Unit[] {
+  return itemUnit ? compatibleUnits(itemUnit) : UNITS;
+}
+
 /** Converts `value` from `from` to `to`. Returns null if the two units aren't in the same convertible family (never guessed at). */
 export function convertUnit(value: number, from: string, to: string): number | null {
   if (from === to) return value;

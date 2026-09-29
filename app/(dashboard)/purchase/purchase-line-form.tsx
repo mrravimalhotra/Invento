@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { createPurchaseLine, updatePurchaseLine, previewBatchNumber, type ActionState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { UNITS, compatibleUnits, convertUnit } from "@/lib/constants/units";
+import { UNITS, compatibleUnits, convertUnit, entryUnitsFor } from "@/lib/constants/units";
 import { formatNumber, isLegacyCode } from "@/lib/utils";
 import type { LineRow } from "./[id]/purchase-lines-table";
 
@@ -53,6 +53,8 @@ export function PurchaseLineForm({
   const [batchNumber, setBatchNumber] = useState("");
   const [batchPending, startBatchTransition] = useTransition();
   const [quantity, setQuantity] = useState("");
+  // The item's stock unit — every quantity is saved in it (0076).
+  const itemStockUnit = categoryItems.find((i) => i.id === itemId)?.unit ?? null;
   const [unit, setUnit] = useState("");
   const [qcQty, setQcQty] = useState("");
   const [stabilityQty, setStabilityQty] = useState("");
@@ -207,10 +209,19 @@ export function PurchaseLineForm({
         <Field label="Batch number" hint="Auto-generated when an item is selected.">
           <Input value={batchPending ? "Generating…" : batchNumber} readOnly disabled />
         </Field>
-        <Field label="Unit" htmlFor="unit" required>
+        <Field
+          label="Unit"
+          htmlFor="unit"
+          required
+          hint={
+            itemStockUnit && unit && unit !== itemStockUnit
+              ? `Stock is kept in ${itemStockUnit}: this line is saved as ${formatNumber(convertUnit(Number(quantity) || 0, unit, itemStockUnit) ?? 0)} ${itemStockUnit}, and the unit price as per ${itemStockUnit}.`
+              : undefined
+          }
+        >
           <Select id="unit" name="unit" required value={unit} onChange={(e) => handleUnitChange(e.target.value)}>
             <option value="">Select unit…</option>
-            {UNITS.map((u) => (
+            {entryUnitsFor(itemStockUnit).map((u) => (
               <option key={u} value={u}>
                 {u}
               </option>

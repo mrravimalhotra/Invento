@@ -5,6 +5,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { ComposeForm, type ComposeLine, type Allocation } from "./compose-form";
+import { convertUnit } from "@/lib/constants/units";
 
 type Candidate = {
   // Which table this batch's live_remaining_qty is tracked in — Ravi (19
@@ -228,7 +229,26 @@ export default async function ComposeFinishedProductPage({
     .order("id");
 
   const batchSizeQty = Number(def!.batch_size_qty);
-  const scaleFactor = batchSizeQty > 0 ? targetQty / batchSizeQty : 0;
+  // ACC-04 (29 Sept 2026): the target can be entered in any unit that
+  // converts to the MFR's batch-size unit (e.g. 50,000 g for a 100 kg MFR).
+  // Scale in the batch-size unit — dividing 50,000 g by 100 kg used to scale
+  // every ingredient ×500 instead of ×0.5. The batch itself is saved in the
+  // batch-size unit too (0076_single_unit_per_item.sql).
+  const targetInBatchUnit = convertUnit(targetQty, unit, def!.batch_size_unit);
+  if (targetInBatchUnit === null) {
+    return (
+      <div>
+        <PageHeader title="Calculate composition" />
+        <Card>
+          <CardBody className="text-sm text-red">
+            {def!.code} is made in {def!.batch_size_unit}, so a target in {unit} can&apos;t be used. Go back and
+            enter the target in {def!.batch_size_unit} (or a unit that converts to it).
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
+  const scaleFactor = batchSizeQty > 0 ? targetInBatchUnit / batchSizeQty : 0;
 
   type MfrLineRow = { id: string; quantity: string | number; unit: string; items: { id: string; item_code: string; name: string } | null };
   const rows = (mfrLines ?? []) as unknown as MfrLineRow[];
@@ -256,7 +276,7 @@ export default async function ComposeFinishedProductPage({
     <div>
       <PageHeader
         title="Calculate composition"
-        description={`Step 2 of 2 — ${def!.code} · ${def!.name}, scaled to ${targetQty} ${unit}. Each ingredient is drawn automatically from its oldest received QC-Approved batches (FIFO), cascading into the next batch whenever one isn't enough on its own.`}
+        description={`Step 2 of 2 — ${def!.code} · ${def!.name}, scaled to ${targetInBatchUnit} ${def!.batch_size_unit}${unit !== def!.batch_size_unit ? ` (${targetQty} ${unit})` : ""}. Each ingredient is drawn automatically from its oldest received QC-Approved batches (FIFO), cascading into the next batch whenever one isn't enough on its own.`}
       />
       <Card>
         <CardBody>
@@ -266,8 +286,8 @@ export default async function ComposeFinishedProductPage({
             <ComposeForm
               mfrDefinitionId={mfrDefinitionId!}
               mfrVersion={mfrVersion}
-              targetQty={targetQty}
-              unit={unit}
+              targetQty={targetInBatchUnit}
+              unit={def!.batch_size_unit}
               batchStartDate={batchStartDate}
               lines={composeLines}
             />

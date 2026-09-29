@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
-import { UNITS } from "@/lib/constants/units";
+import { entryUnitsFor } from "@/lib/constants/units";
 import { isLegacyCode } from "@/lib/utils";
 
 type MfrOption = {
@@ -71,10 +71,19 @@ export function Step1Form({ mfrDefinitions }: { mfrDefinitions: MfrOption[] }) {
       <Field label="Target quantity" htmlFor="target_qty" required>
         <Input id="target_qty" name="target_qty" type="number" step="any" min="0" required />
       </Field>
-      <Field label="Unit" htmlFor="unit" required>
+      <Field
+        label="Unit"
+        htmlFor="unit"
+        required
+        hint={
+          selected && unit && unit !== selected.batch_size_unit
+            ? `The batch is kept in ${selected.batch_size_unit} (the MFR's batch-size unit); the target is converted on save.`
+            : undefined
+        }
+      >
         <Select id="unit" name="unit" value={unit} onChange={(e) => setUnit(e.target.value)} required>
           <option value="">Select unit…</option>
-          {UNITS.map((u) => (
+          {entryUnitsFor(selected?.batch_size_unit).map((u) => (
             <option key={u} value={u}>
               {u}
             </option>
