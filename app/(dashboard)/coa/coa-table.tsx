@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate } from "@/lib/utils";
+import type { TableExport } from "@/lib/table-export";
 
 export type CoaRow = {
   id: string;
@@ -64,7 +65,32 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
     },
   ];
 
+  const exportConfig: TableExport<CoaRow> = {
+    title: "Certificates of Analysis",
+    filename: "coa-register",
+    formats: ["pdf"],
+    columns: [
+      { header: "COA Number", value: (r) => r.coa_number },
+      { header: "AR Number", value: (r) => r.quality_checks?.ar_number ?? "" },
+      {
+        header: "Item",
+        value: (r) => (r.quality_checks?.items ? `${r.quality_checks.items.item_code} — ${r.quality_checks.items.name}` : ""),
+      },
+      {
+        header: "Batch",
+        value: (r) => r.quality_checks?.purchase_lines?.batch_number ?? r.finished_product_batches?.batch_number ?? "",
+      },
+      { header: "Issued", type: "date", value: (r) => r.issued_at },
+    ],
+  };
+
   return (
-    <DataTable columns={columns} rows={rows} emptyLabel="No certificates issued yet." searchPlaceholder="Search COA or AR number…" />
+    <DataTable
+      columns={columns}
+      rows={rows}
+      emptyLabel="No certificates issued yet."
+      searchPlaceholder="Search COA or AR number…"
+      exportConfig={exportConfig}
+    />
   );
 }

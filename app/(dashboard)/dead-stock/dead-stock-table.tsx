@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, formatQty } from "@/lib/utils";
+import type { TableExport } from "@/lib/table-export";
 
 export type DeadStockRow = {
   id: string;
@@ -44,12 +45,30 @@ export function DeadStockTable({ rows }: { rows: DeadStockRow[] }) {
     { header: "Balance value", accessor: (r) => formatNumber(r.balance_value) },
   ];
 
+  const exportConfig: TableExport<DeadStockRow> = {
+    title: "Dead Stock Register",
+    filename: "dead-stock-register",
+    formats: ["excel"],
+    columns: [
+      { header: "Code", value: (r) => r.asset_code },
+      { header: "Article", value: (r) => r.article_name },
+      { header: "Purchased", type: "date", value: (r) => r.date_of_purchase },
+      { header: "Qty", type: "number", decimals: 3, value: (r) => r.quantity },
+      { header: "Purchase price / unit", type: "number", value: (r) => r.purchase_price },
+      { header: "Depreciation %", type: "number", value: (r) => r.depreciation_pct },
+      { header: "Depreciated value / unit", type: "number", value: (r) => r.depreciated_unit_value },
+      { header: "Balance qty", type: "number", decimals: 3, value: (r) => r.balance_qty },
+      { header: "Balance value", type: "number", value: (r) => r.balance_value },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
       rows={rows}
       emptyLabel="No dead stock recorded yet."
       searchPlaceholder="Search assets…"
+      exportConfig={exportConfig}
     />
   );
 }

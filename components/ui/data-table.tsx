@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/form";
-import { Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { exportTable, type ExportFormat, type TableExport } from "@/lib/table-export";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 import { clampPage } from "@/lib/paging";
 
@@ -20,6 +22,7 @@ export function DataTable<T>({
   searchPlaceholder = "Search…",
   pageSize = 15,
   isLegacy,
+  exportConfig,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -29,8 +32,13 @@ export function DataTable<T>({
   // When provided, rows this returns true for are treated as legacy data
   // migrated from the old app, and a "Hide legacy data" toggle appears.
   isLegacy?: (row: T) => boolean;
+  // When provided, Excel / PDF buttons appear and export every row that
+  // matches the search box and the "Hide legacy data" switch (not just the
+  // page on screen). See lib/table-export.ts.
+  exportConfig?: TableExport<T>;
 }) {
   const [query, setQuery] = useState("");
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [page, setPage] = useState(0);
   // Shared app-wide preference (lib/hooks/use-hide-legacy.ts) — also
   // readable/writable from the Dashboard's toggle and from every
@@ -63,6 +71,16 @@ export function DataTable<T>({
   const pageRows = filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   const legacyCount = isLegacy ? rows.filter(isLegacy).length : 0;
 
+  async function runExport(format: ExportFormat) {
+    if (!exportConfig) return;
+    setExporting(format);
+    try {
+      await exportTable(exportConfig, format, filtered, { search: query, hideLegacy: !!isLegacy && hideLegacy });
+    } finally {
+      setExporting(null);
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-3">
@@ -89,6 +107,22 @@ export function DataTable<T>({
             Hide legacy data
             <span className="text-xs text-muted">({legacyCount} migrated from old app)</span>
           </label>
+        )}
+        {exportConfig && (
+          <div className="flex items-center gap-2">
+            {exportConfig.formats.includes("excel") && (
+              <Button size="sm" variant="secondary" disabled={exporting !== null || filtered.length === 0} onClick={() => runExport("excel")}>
+                <Download className="h-3.5 w-3.5" />
+                {exporting === "excel" ? "Preparing…" : "Excel"}
+              </Button>
+            )}
+            {exportConfig.formats.includes("pdf") && (
+              <Button size="sm" variant="secondary" disabled={exporting !== null || filtered.length === 0} onClick={() => runExport("pdf")}>
+                <Download className="h-3.5 w-3.5" />
+                {exporting === "pdf" ? "Preparing…" : "PDF"}
+              </Button>
+            )}
+          </div>
         )}
       </div>
       <div className="overflow-x-auto">

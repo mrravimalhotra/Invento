@@ -5,6 +5,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatNumber, formatQty } from "@/lib/utils";
 import { BATCH_QC_LABELS } from "@/lib/batch-qc-status";
 import type { RmReportExportRow } from "./rm-report-export";
+import type { TableExport } from "@/lib/table-export";
 
 export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf: string }) {
   const columns: Column<RmReportExportRow>[] = [
@@ -23,10 +24,30 @@ export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf:
     },
   ];
 
+  // Export decision (c), 29 Sept 2026: Excel added next to the existing
+  // Export PDF (which is unchanged).
+  const exportConfig: TableExport<RmReportExportRow> = {
+    title: `RM Report as on ${asOf}`,
+    filename: `rm-report-${asOf}`,
+    formats: ["excel"],
+    columns: [
+      { header: "Item", value: (r) => r.item },
+      { header: "Batch No.", value: (r) => r.batchNumber },
+      { header: "PQTY", type: "number", decimals: 3, value: (r) => r.pqty },
+      { header: "SQTY", type: "number", decimals: 3, value: (r) => r.sqty },
+      { header: "QTY", type: "number", decimals: 3, value: (r) => r.qty },
+      { header: "Unit", value: (r) => r.unit },
+      { header: "Unit Price", type: "number", value: (r) => r.unitPrice },
+      { header: "Total", type: "number", value: (r) => r.total },
+      { header: "QC Status", value: (r) => BATCH_QC_LABELS[r.qcState] },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
       rows={rows}
+      exportConfig={exportConfig}
       searchPlaceholder="Search item or batch…"
       emptyLabel={`No purchase batches received on or before ${asOf}.`}
       pageSize={20}

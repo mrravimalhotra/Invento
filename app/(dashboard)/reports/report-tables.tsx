@@ -24,11 +24,17 @@ export function RmStockReport({ rows }: { rows: RmStockRow[] }) {
     { header: "Item Code", cell: (r) => r.item_code, pdfValue: (r) => r.item_code },
     { header: "Name", cell: (r) => r.name, pdfValue: (r) => r.name },
     { header: "Unit", cell: (r) => r.unit ?? "—", pdfValue: (r) => r.unit ?? "—" },
-    { header: "On Hand", cell: (r) => formatQty(r.onHand), pdfValue: (r) => formatQty(r.onHand) },
+    {
+      header: "On Hand",
+      cell: (r) => formatQty(r.onHand),
+      pdfValue: (r) => formatQty(r.onHand),
+      xl: { type: "number", decimals: 3, value: (r) => r.onHand },
+    },
     {
       header: "Low Stock Threshold",
       cell: (r) => formatQty(r.low_stock_threshold),
       pdfValue: (r) => formatQty(r.low_stock_threshold),
+      xl: { type: "number", decimals: 3, value: (r) => (r.low_stock_threshold === null || r.low_stock_threshold === "" ? null : Number(r.low_stock_threshold)) },
     },
     {
       header: "Flag",
@@ -85,8 +91,18 @@ export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
       pdfValue: (r) => r.purchase_line?.batch_number ?? r.fp_batch?.batch_number ?? "—",
     },
     { header: "Status", cell: (r) => <Badge status={r.status}>{qcRecordStatusLabel(r.status)}</Badge>, pdfValue: (r) => qcRecordStatusLabel(r.status) },
-    { header: "Reviewed At", cell: (r) => formatDate(r.reviewed_at), pdfValue: (r) => formatDate(r.reviewed_at) },
-    { header: "Retest Date", cell: (r) => formatDate(r.retest_date), pdfValue: (r) => formatDate(r.retest_date) },
+    {
+      header: "Reviewed At",
+      cell: (r) => formatDate(r.reviewed_at),
+      pdfValue: (r) => formatDate(r.reviewed_at),
+      xl: { type: "date", value: (r) => r.reviewed_at },
+    },
+    {
+      header: "Retest Date",
+      cell: (r) => formatDate(r.retest_date),
+      pdfValue: (r) => formatDate(r.retest_date),
+      xl: { type: "date", value: (r) => r.retest_date },
+    },
   ];
 
   return (
@@ -119,13 +135,24 @@ export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
     // ACC-34: readable status in the list and the PDF (was "submitted to_qc",
     // and the raw code in the PDF).
     { header: "Status", cell: (r) => <Badge status={r.status}>{fpStatusLabel(r.status)}</Badge>, pdfValue: (r) => fpStatusLabel(r.status) },
-    { header: "Target Qty", cell: (r) => formatQty(r.target_qty), pdfValue: (r) => formatQty(r.target_qty) },
+    {
+      header: "Target Qty",
+      cell: (r) => formatQty(r.target_qty),
+      pdfValue: (r) => formatQty(r.target_qty),
+      xl: { type: "number", decimals: 3, value: (r) => (r.target_qty === null ? null : Number(r.target_qty)) },
+    },
     {
       header: "Actual Yield %",
       cell: (r) => (r.actual_yield_pct === null ? "—" : `${formatNumber(r.actual_yield_pct)}%`),
       pdfValue: (r) => (r.actual_yield_pct === null ? "—" : `${formatNumber(r.actual_yield_pct)}%`),
+      xl: { type: "number", value: (r) => (r.actual_yield_pct === null ? null : Number(r.actual_yield_pct)) },
     },
-    { header: "Finish Date", cell: (r) => formatDate(r.finish_date), pdfValue: (r) => formatDate(r.finish_date) },
+    {
+      header: "Finish Date",
+      cell: (r) => formatDate(r.finish_date),
+      pdfValue: (r) => formatDate(r.finish_date),
+      xl: { type: "date", value: (r) => r.finish_date },
+    },
   ];
 
   return (
@@ -181,9 +208,19 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
     },
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
     { header: "Batch", cell: (r) => r.batch_number, pdfValue: (r) => r.batch_number },
-    { header: "Quantity", cell: (r) => formatQty(r.quantity), pdfValue: (r) => formatQty(r.quantity) },
+    {
+      header: "Quantity",
+      cell: (r) => formatQty(r.quantity),
+      pdfValue: (r) => formatQty(r.quantity),
+      xl: { type: "number", decimals: 3, value: (r) => Number(r.quantity) },
+    },
     { header: "Unit", cell: (r) => r.unit, pdfValue: (r) => r.unit },
-    { header: "Remaining Qty", cell: (r) => formatQty(r.live_remaining_qty), pdfValue: (r) => formatQty(r.live_remaining_qty) },
+    {
+      header: "Remaining Qty",
+      cell: (r) => formatQty(r.live_remaining_qty),
+      pdfValue: (r) => formatQty(r.live_remaining_qty),
+      xl: { type: "number", decimals: 3, value: (r) => Number(r.live_remaining_qty) },
+    },
     // ACC-35: Unit column added; the blank Re-Test Date column removed (it read
     // purchase_lines.expiry_date, no longer collected — same as ACC-31).
   ];

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { isLegacyCode } from "@/lib/utils";
+import type { TableExport } from "@/lib/table-export";
 
 export type VendorRow = {
   id: string;
@@ -34,6 +35,19 @@ export function VendorsTable({ rows }: { rows: VendorRow[] }) {
     { header: "Email", accessor: (r) => r.email ?? "—", searchValue: (r) => r.email ?? "" },
   ];
 
+  const exportConfig: TableExport<VendorRow> = {
+    title: "Vendor Master",
+    filename: "vendor-master",
+    formats: ["excel"],
+    columns: [
+      { header: "Code", value: (r) => r.vendor_code },
+      { header: "Name", value: (r) => r.name },
+      { header: "Mobile", value: (r) => r.mobile ?? "" },
+      { header: "Phone", value: (r) => r.phone ?? "" },
+      { header: "Email", value: (r) => r.email ?? "" },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
@@ -41,6 +55,7 @@ export function VendorsTable({ rows }: { rows: VendorRow[] }) {
       emptyLabel="No vendors yet."
       searchPlaceholder="Search vendors…"
       isLegacy={(r) => isLegacyCode(r.vendor_code)}
+      exportConfig={exportConfig}
     />
   );
 }

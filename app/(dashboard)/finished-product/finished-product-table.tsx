@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, isLegacyCode, formatQty } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
+import type { TableExport } from "@/lib/table-export";
 
 export type FpRow = {
   id: string;
@@ -42,6 +43,25 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
     { header: "Finish date", accessor: (r) => formatDate(r.finish_date) },
   ];
 
+  const exportConfig: TableExport<FpRow> = {
+    title: "Finished Product Register",
+    filename: "finished-product-register",
+    formats: ["excel", "pdf"],
+    columns: [
+      { header: "Batch", value: (r) => r.batch_number },
+      { header: "MFR", value: (r) => r.mfr_definitions?.name ?? "" },
+      {
+        header: "Status",
+        value: (r) =>
+          fpStatusLabel(resolveDisplayStatus(r.status, r.latestQcStatus ? { status: r.latestQcStatus } : undefined)),
+      },
+      { header: "Target qty", type: "number", decimals: 3, value: (r) => Number(r.target_qty) },
+      { header: "Unit", value: (r) => r.unit },
+      { header: "Actual yield %", type: "number", value: (r) => (r.actual_yield_pct != null ? Number(r.actual_yield_pct) : null) },
+      { header: "Finish date", type: "date", value: (r) => r.finish_date },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
@@ -49,6 +69,7 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
       searchPlaceholder="Search batch number or MFR…"
       emptyLabel="No finished product batches yet."
       isLegacy={(r) => isLegacyCode(r.batch_number)}
+      exportConfig={exportConfig}
     />
   );
 }

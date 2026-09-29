@@ -8,6 +8,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Field, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { downloadPdfTable } from "@/lib/pdf";
+import { exportTable, type ExportColumnType } from "@/lib/table-export";
 
 export type ReportColumn<T> = {
   header: string;
@@ -15,6 +16,12 @@ export type ReportColumn<T> = {
   cell: (row: T) => React.ReactNode;
   /** Plain value for the exported PDF table (and for text search). */
   pdfValue: (row: T) => string | number;
+  /**
+   * Excel version of the column (export decision (c), 29 Sept 2026): a raw
+   * number for quantities, a date / timestamp for dates, so Excel can sort and
+   * add them up. Omit to use pdfValue as text.
+   */
+  xl?: { type: ExportColumnType; decimals?: number; value: (row: T) => string | number | null };
 };
 
 export function ReportSection<T>({
@@ -59,6 +66,30 @@ export function ReportSection<T>({
     searchValue: (r) => String(c.pdfValue(r) ?? ""),
   }));
 
+  const filterText = [
+    from || to ? `${dateLabel}: ${from ? formatDate(from) : "start"} to ${to ? formatDate(to) : "today"}` : "All dates",
+    `${filtered.length} row${filtered.length === 1 ? "" : "s"}`,
+  ].join(" · ");
+
+  function handleExcel() {
+    void exportTable(
+      {
+        title,
+        filename,
+        formats: ["excel"],
+        columns: columns.map((c) => ({
+          header: c.header,
+          type: c.xl?.type ?? "text",
+          decimals: c.xl?.decimals,
+          value: c.xl ? c.xl.value : (r: T) => c.pdfValue(r),
+        })),
+      },
+      "excel",
+      filtered,
+      { search: "", hideLegacy: false, filterText }
+    );
+  }
+
   function handleDownload() {
     downloadPdfTable({
       title,
@@ -79,10 +110,16 @@ export function ReportSection<T>({
       <CardHeader
         title={`${title} (${filtered.length})`}
         action={
-          <Button size="sm" variant="secondary" onClick={handleDownload}>
-            <Download className="h-3.5 w-3.5" />
-            Download PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={handleExcel}>
+              <Download className="h-3.5 w-3.5" />
+              Download Excel
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleDownload}>
+              <Download className="h-3.5 w-3.5" />
+              Download PDF
+            </Button>
+          </div>
         }
       />
       <div className="border-b border-border px-5 py-4">

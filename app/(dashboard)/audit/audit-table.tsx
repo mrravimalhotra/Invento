@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDateTime } from "@/lib/utils";
+import type { TableExport } from "@/lib/table-export";
 import {
   type AuditLogRow,
   tableLabel,
@@ -48,6 +49,23 @@ export function AuditTable({ rows }: { rows: AuditLogRow[] }) {
     },
   ];
 
+  // Only System Admin and Super Auditor can open this page (canReadAudit), so
+  // the export is limited to them too.
+  const exportConfig: TableExport<AuditLogRow> = {
+    title: "Audit Log",
+    filename: "audit-log",
+    formats: ["excel"],
+    columns: [
+      { header: "When", type: "datetime", value: (r) => r.changed_at },
+      { header: "Table", value: (r) => tableLabel(r.table_name) },
+      { header: "Record", value: (r) => recordLabel(r) },
+      { header: "Action", value: (r) => r.action },
+      { header: "Changed By", value: (r) => changedByLabel(r) },
+      { header: "Via", value: (r) => changedViaLabel(r.changed_via) },
+      { header: "What changed", value: (r) => summarizeChange(r) },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
@@ -55,6 +73,7 @@ export function AuditTable({ rows }: { rows: AuditLogRow[] }) {
       emptyLabel="No audit history yet for this filter."
       searchPlaceholder="Search record, table, or changed by…"
       pageSize={25}
+      exportConfig={exportConfig}
     />
   );
 }

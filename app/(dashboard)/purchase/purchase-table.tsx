@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import type { TableExport } from "@/lib/table-export";
 
 export type PurchaseRow = {
   id: string;
@@ -47,6 +48,21 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
     },
   ];
 
+  const exportConfig: TableExport<PurchaseRow> = {
+    title: "Purchase Orders",
+    filename: "purchase-orders",
+    formats: ["excel"],
+    columns: [
+      { header: "PO number", value: (r) => r.po_number },
+      { header: "Vendor", value: (r) => r.vendor?.name ?? "" },
+      { header: "Invoice #", value: (r) => r.invoice_number },
+      { header: "Invoice date", type: "date", value: (r) => r.invoice_date },
+      { header: "Lines", type: "number", decimals: 0, value: (r) => r.lineCount },
+      { header: "Total value (₹)", type: "number", value: (r) => r.totalValue },
+      { header: "Status", value: (r) => (r.status === "draft" ? "Draft" : "Submitted") },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
@@ -54,6 +70,7 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
       emptyLabel="No purchase orders yet."
       searchPlaceholder="Search purchase orders…"
       isLegacy={(r) => isLegacyCode(r.po_number)}
+      exportConfig={exportConfig}
     />
   );
 }

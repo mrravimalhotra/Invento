@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { isLegacyCode, formatQty } from "@/lib/utils";
+import type { TableExport } from "@/lib/table-export";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
 // Option B) — Stock Balance becomes Stock Position: on top of the same
@@ -25,6 +26,13 @@ import { isLegacyCode, formatQty } from "@/lib/utils";
 // context line.
 const CATEGORY_LABELS: Record<string, string> = {
   processed: "Finished product",
+  packaged_fp: "Packaged finished product",
+};
+
+const EXPORT_CATEGORY_LABELS: Record<string, string> = {
+  raw: "Raw material",
+  processed: "Finished product",
+  packaging: "Packaging",
   packaged_fp: "Packaged finished product",
 };
 
@@ -136,10 +144,47 @@ export function StockPositionTable({ rows }: { rows: PositionRow[] }) {
     },
   ];
 
+  // Export decision (c), 29 Sept 2026: Excel with every breakdown figure in
+  // its own column (the screen shows them as one line of text), so the parts
+  // can be summed and checked against On hand.
+  const exportConfig: TableExport<PositionRow> = {
+    title: "Stock Position",
+    filename: "stock-position",
+    formats: ["excel"],
+    columns: [
+      { header: "Item code", value: (r) => r.item_code },
+      { header: "Item", value: (r) => r.name },
+      { header: "Category", value: (r) => EXPORT_CATEGORY_LABELS[r.category] ?? r.category },
+      { header: "Unit", value: (r) => r.unit ?? "" },
+      { header: "On hand", type: "number", decimals: 3, value: (r) => r.onHand },
+      { header: "Received", type: "number", decimals: 3, value: (r) => r.received },
+      { header: "Produced (RM)", type: "number", decimals: 3, value: (r) => r.productionRmYield },
+      { header: "Yielded (FP)", type: "number", decimals: 3, value: (r) => r.yielded },
+      { header: "Packaged yield", type: "number", decimals: 3, value: (r) => r.packagedYield },
+      { header: "QC held", type: "number", decimals: 3, value: (r) => r.heldQc },
+      { header: "Stability held", type: "number", decimals: 3, value: (r) => r.heldStability },
+      { header: "R&D held", type: "number", decimals: 3, value: (r) => r.heldRnd },
+      { header: "Used in FP", type: "number", decimals: 3, value: (r) => r.consumedByFp },
+      { header: "Packaged (FP)", type: "number", decimals: 3, value: (r) => r.consumedByPackaging },
+      { header: "Issued (packaging)", type: "number", decimals: 3, value: (r) => r.issuedPackaging },
+      { header: "Issued to Store", type: "number", decimals: 3, value: (r) => r.issuedStore },
+      { header: "Issued to R&D", type: "number", decimals: 3, value: (r) => r.issuedRnd },
+      { header: "Wastage", type: "number", decimals: 3, value: (r) => r.wastage },
+      {
+        header: "Low-stock threshold",
+        type: "number",
+        decimals: 3,
+        value: (r) => (r.low_stock_threshold === null ? null : Number(r.low_stock_threshold)),
+      },
+      { header: "Status", value: (r) => (r.low_stock_threshold === null ? "No threshold set" : r.low ? "Low stock" : "OK") },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
       rows={rows}
+      exportConfig={exportConfig}
       searchPlaceholder="Search item name or code…"
       emptyLabel="No active items yet."
       pageSize={20}

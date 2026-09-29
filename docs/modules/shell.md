@@ -137,3 +137,31 @@ reads them.
   COA no longer print the name in capitals.
 - **Not changed:** layouts, the COA's own logo file, the e-mail/web line on the
   MFR document, and the label sheets (which already used the shared values).
+
+## Excel / PDF export from lists (29 Sept 2026, export decision (c))
+
+A list's table can offer **Excel** and/or **PDF** buttons in its toolbar by
+passing `exportConfig` to `DataTable` (`lib/table-export.ts`). The export holds
+every row that matches the search box and "Hide legacy data" — not only the
+page on screen — with raw numbers (so Excel can total them) and real Excel
+dates. An Excel file has the data on the first sheet (header row, frozen,
+filterable) and an "About this export" sheet (company, list, generated on/by,
+row count, filter used). PDFs use the shared letterhead.
+
+| Screen | Export |
+|---|---|
+| Item Master, Vendor Master, Instrument / Equipment Master, Dead Stock Register, Purchase (orders list), Inventory Ledger, Stock Position, Audit Log | Excel |
+| RM Report | Excel (added beside the existing Export PDF, unchanged) |
+| Quality Control list, Finished Product list | Excel and PDF |
+| MFR list, Certificate of Analysis list | PDF |
+| Reports page (four registers) | Excel added beside Download PDF; the PDFs are unchanged |
+| Packaging | unchanged (already has PDF) |
+
+No action, by decision: SOP / STP Documents, Item Type Master, Tester
+Feedback, User Roles, and everything marked Deprecated.
+
+Notes: the Audit Log export is available only to those who can open the Audit
+Log (System Admin and Super Auditor). The Ledger export holds the events loaded
+on the page (the most recent 1,000 unless the date / item / reason filters narrow
+it); the "About this export" sheet says so when the cap is hit. The Excel
+library loads only when a button is clicked.

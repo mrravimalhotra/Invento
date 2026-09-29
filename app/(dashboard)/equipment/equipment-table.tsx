@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import type { TableExport } from "@/lib/table-export";
 
 export type EquipmentRow = {
   id: string;
@@ -52,12 +53,31 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
     },
   ];
 
+  const exportConfig: TableExport<EquipmentRow> = {
+    title: "Instrument and Equipment Master",
+    filename: "equipment-master",
+    formats: ["excel"],
+    columns: [
+      { header: "Code", value: (r) => r.equipment_code },
+      { header: "Name", value: (r) => r.name },
+      { header: "Room", value: (r) => r.room_no ?? "" },
+      { header: "Section", value: (r) => r.section ?? "" },
+      { header: "Asset ID", value: (r) => r.asset_id ?? "" },
+      { header: "Qty", type: "number", decimals: 0, value: (r) => r.quantity },
+      {
+        header: "Calibration",
+        value: (r) => (r.calibration_status ? CALIBRATION_LABELS[r.calibration_status] ?? r.calibration_status : ""),
+      },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
       rows={rows}
       emptyLabel="No equipment yet."
       searchPlaceholder="Search equipment, room, or asset ID…"
+      exportConfig={exportConfig}
     />
   );
 }

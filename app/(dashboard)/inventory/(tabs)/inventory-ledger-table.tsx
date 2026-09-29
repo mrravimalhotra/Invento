@@ -5,6 +5,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { isLegacyCode, formatQty } from "@/lib/utils";
 import type { EnrichedLedgerRow } from "@/lib/ledger-enrich";
 import { ledgerReasonLabel } from "@/lib/ledger-reasons";
+import type { TableExport } from "@/lib/table-export";
 
 export type LedgerRow = EnrichedLedgerRow;
 
@@ -102,6 +103,34 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
     },
   ];
 
+  // Export decision (c), 29 Sept 2026: Excel of the ledger events loaded on
+  // this page (narrow with the item / reason / date filters above the table).
+  const exportConfig: TableExport<LedgerRow> = {
+    title: "Inventory Ledger",
+    filename: "inventory-ledger",
+    formats: ["excel"],
+    note: rows.length === ledgerLimit ? `Most recent ${ledgerLimit.toLocaleString("en-IN")} events only — narrow the filters to see others` : undefined,
+    columns: [
+      { header: "Date / time", type: "datetime", value: (r) => r.event_at },
+      { header: "Event", value: (r) => r.event_type },
+      { header: "Item code", value: (r) => r.items?.item_code ?? "" },
+      { header: "Item", value: (r) => r.items?.name ?? "" },
+      { header: "Batch", value: (r) => r.purchase_lines?.batch_number ?? r.production_issue_batches?.batch_number ?? "" },
+      { header: "FP batch", value: (r) => r.fpBatchNumber ?? "" },
+      { header: "Quantity", type: "number", decimals: 3, value: (r) => Number(r.quantity) },
+      { header: "Unit", value: (r) => r.unit ?? "" },
+      {
+        header: "Running balance",
+        type: "number",
+        decimals: 3,
+        value: (r) => (r.running_balance === null || r.running_balance === undefined ? null : Number(r.running_balance)),
+      },
+      { header: "Department", value: (r) => r.department ?? "" },
+      { header: "Reference", value: (r) => (r.reference_type ? ledgerReasonLabel(r.reference_type) : "") },
+      { header: "By", value: (r) => r.eventByName ?? "" },
+    ],
+  };
+
   return (
     <>
       <DataTable
@@ -110,6 +139,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
         searchPlaceholder="Search item, batch, event type, reference…"
         emptyLabel="No ledger events yet."
         pageSize={20}
+        exportConfig={exportConfig}
         // FB-0019 ("when legacy rows are hidden, legacy stock should not be
         // visibile in the ledger") — a ledger event is legacy if the item
         // itself is a legacy code, or the batch it moved (raw-material or

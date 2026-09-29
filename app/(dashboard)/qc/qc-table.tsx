@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
+import type { TableExport } from "@/lib/table-export";
 
 export type QcListRow = {
   id: string;
@@ -95,6 +96,33 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
     { header: "Retest date", accessor: (r) => formatDate(r.retest_date) },
   ];
 
+  const exportConfig: TableExport<QcListRow> = {
+    title: "Quality Control Register",
+    filename: "qc-register",
+    formats: ["excel", "pdf"],
+    columns: [
+      { header: "AR Number", value: (r) => r.ar_number },
+      { header: "Retest", value: (r) => (r.is_retest ? "Yes" : "No") },
+      { header: "Status", value: (r) => qcRecordStatusLabel(r.status) },
+      {
+        header: "Item",
+        value: (r) =>
+          r.items ? `${r.items.item_code} — ${r.items.name}` : r.finished_product_batches?.mfr_definitions?.name ?? "",
+      },
+      {
+        header: "Batch",
+        value: (r) =>
+          r.purchase_lines?.batch_number ??
+          r.finished_product_batches?.batch_number ??
+          r.production_issue_batches?.batch_number ??
+          "",
+      },
+      { header: "Sample qty", type: "number", decimals: 3, value: (r) => (r.sample_qty !== null ? Number(r.sample_qty) : null) },
+      { header: "Sample unit", value: (r) => r.sample_unit ?? "" },
+      { header: "Retest date", type: "date", value: (r) => r.retest_date },
+    ],
+  };
+
   return (
     <DataTable
       columns={columns}
@@ -102,6 +130,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
       emptyLabel="No quality checks yet."
       searchPlaceholder="Search AR number, item, or batch…"
       isLegacy={isLegacyQcRow}
+      exportConfig={exportConfig}
     />
   );
 }
