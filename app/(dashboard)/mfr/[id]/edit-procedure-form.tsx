@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useState } from "react";
 import { updateMfrProcedure, type ActionState } from "@/lib/actions/mfr";
 import { Field, Textarea, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ export function EditProcedureForm({
 }) {
   const [open, setOpen] = useState(false);
   const boundAction = updateMfrProcedure.bind(null, mfrId);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   if (!open) {
     return (

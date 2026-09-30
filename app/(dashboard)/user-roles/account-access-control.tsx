@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useState } from "react";
 import { disableUserAccount, enableUserAccount, type AdminUserActionState } from "@/lib/actions/admin-users";
 import { Button } from "@/components/ui/button";
 
@@ -16,11 +17,11 @@ export function AccountAccessControl({
   displayName: string;
   disabled: boolean;
 }) {
-  const [disableState, disableAction, disabling] = useActionState<AdminUserActionState, FormData>(
+  const [disableState, disableAction, disabling] = useFlashActionState<AdminUserActionState, FormData>(
     disableUserAccount.bind(null, userId),
     undefined
   );
-  const [enableState, enableAction, enabling] = useActionState<AdminUserActionState, FormData>(
+  const [enableState, enableAction, enabling] = useFlashActionState<AdminUserActionState, FormData>(
     enableUserAccount.bind(null, userId),
     undefined
   );

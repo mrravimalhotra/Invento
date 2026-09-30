@@ -13,7 +13,7 @@ pharma (GMP) SME. Not live: all data is test data. Deployed by pushing `main` (V
   `fetchByIdChunks` — PostgREST caps at 1,000 rows, always page and end with a unique `.order("id")`),
   `lib/constants/{roles,nav,units}.ts`, `lib/table-export.ts`, `lib/pdf.ts`, `lib/excel-export.ts`,
   `components/ui/*` (`saved-banner`, `decision-choice`, `combobox`, `data-table`, `form`).
-- Success banners after redirects: `?saved=<key>` (`lib/saved-messages.ts` + `SavedBanner`).
+- Every action must end with a visible message: forms use `useFlashActionState` (not `useActionState`); actions that redirect use `?saved=<key>` (`lib/saved-messages.ts`, shown by `FlashHost` in the dashboard layout).
 - Heavy libraries (jspdf, docx, exceljs) are imported on click, not at page load — keep it that way.
 - Database: `supabase/migrations/NNNN_name.sql` (next number = highest + 1). The latest definition of a function
   or policy wins. Workflow guards are triggers (`_is_direct_client_write()`); RPCs that bypass RLS are SECURITY DEFINER.

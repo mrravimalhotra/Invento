@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { triageFeedback, type ActionState, type FeedbackRow } from "@/lib/actions/feedback";
 import { FEEDBACK_CATEGORIES, FEEDBACK_CATEGORY_LABELS, FEEDBACK_STATUSES, FEEDBACK_STATUS_LABELS } from "@/lib/constants/feedback";
 import { Select, Textarea } from "@/components/ui/form";
@@ -9,7 +10,7 @@ import { formatDate } from "@/lib/utils";
 
 export function FeedbackAdminRow({ row }: { row: FeedbackRow }) {
   const boundAction = triageFeedback.bind(null, row.id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="grid grid-cols-1 gap-3 border-b border-border p-4 lg:grid-cols-[1fr_260px]">

@@ -369,7 +369,7 @@ export async function deletePurchaseOrder(id: string, _prev: ActionState, _formD
   }
 
   revalidatePath("/purchase");
-  redirect("/purchase");
+  redirect("/purchase?saved=po_deleted");
 }
 
 // ------------------------------------------------------------

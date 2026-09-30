@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { submitFinishedProductToQc, type ActionState } from "@/lib/actions/finished-product";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
@@ -61,7 +62,7 @@ export function AwaitingFpQc({ lines, canSubmit }: { lines: AwaitingFpQcLine[]; 
 
 function AwaitingFpQcRow({ line, canSubmit }: { line: AwaitingFpQcLine; canSubmit: boolean }) {
   const boundAction = submitFinishedProductToQc.bind(null, line.id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form

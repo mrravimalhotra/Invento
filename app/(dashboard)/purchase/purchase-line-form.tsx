@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useActionState } from "react";
 import { createPurchaseLine, updatePurchaseLine, previewBatchNumber, type ActionState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export function PurchaseLineForm({
   purchaseOrderId: string;
   items: RawItemOption[];
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createPurchaseLine, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createPurchaseLine, undefined);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Purchase type: which of the two purchasable categories this line is
@@ -417,7 +417,7 @@ export function PurchaseLineForm({
 // unit kept on record), and can still be changed to re-enter/re-convert.
 export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: () => void }) {
   const boundAction = updatePurchaseLine.bind(null, line.id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   const unit = line.unit;
   const isRaw = line.item?.category !== "packaging";

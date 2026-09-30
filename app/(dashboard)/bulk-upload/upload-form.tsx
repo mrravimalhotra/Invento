@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { BulkUploadState } from "@/lib/actions/bulk-upload";
 
@@ -11,7 +12,7 @@ type Action = (prev: BulkUploadState, formData: FormData) => Promise<BulkUploadS
 // browser keeps showing the just-imported file's name, which reads as
 // "did this upload again?" the next time someone glances at the card.
 export function BulkUploadForm({ action, templateHref }: { action: Action; templateHref: string }) {
-  const [state, formAction, pending] = useActionState<BulkUploadState, FormData>(action, undefined);
+  const [state, formAction, pending] = useFlashActionState<BulkUploadState, FormData>(action, undefined);
   const [inputKey, setInputKey] = useState(0);
   // `state` only changes when the form is actually submitted — picking a
   // different file never touches it, so the previous result (error/
@@ -55,7 +56,11 @@ export function BulkUploadForm({ action, templateHref }: { action: Action; templ
         </a>
       </div>
 
-      {!dismissed && state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
+      {!dismissed && state?.success && (
+        <p role="status" className="rounded-md border border-brand/30 bg-brand-light px-3 py-2 text-sm font-medium text-brand-dark">
+          ✓ {state.success}
+        </p>
+      )}
 
       {!dismissed && state?.error && (
         <div className="rounded-md border border-red/30 bg-red/5 p-3">

@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useEffect, useState } from "react";
-import { useActionState } from "react";
 import { deletePurchaseOrder, submitPurchaseOrder, reopenPurchaseOrder, type ActionState } from "@/lib/actions/purchase";
 import { Button } from "@/components/ui/button";
 
@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 // (items/item-form.tsx) and DeleteMfrForm.
 export function DeletePurchaseOrderForm({ id, poNumber }: { id: string; poNumber: string }) {
   const boundAction = deletePurchaseOrder.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {
@@ -59,7 +59,7 @@ export function DeletePurchaseOrderForm({ id, poNumber }: { id: string; poNumber
 // role) is true — see page.tsx.
 export function SubmitPurchaseOrderForm({ id }: { id: string }) {
   const boundAction = submitPurchaseOrder.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="flex flex-col items-end gap-2">
@@ -76,7 +76,7 @@ export function SubmitPurchaseOrderForm({ id }: { id: string }) {
 // system_admin-only (reopenPurchaseOrder() enforces the same server-side).
 export function ReopenPurchaseOrderForm({ id }: { id: string }) {
   const boundAction = reopenPurchaseOrder.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {

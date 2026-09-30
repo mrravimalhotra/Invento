@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useState } from "react";
 import { generateCoaCertificate, type ActionState, type HeaderField } from "@/lib/actions/coa";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export function GenerateCoaForm({
   templateLines: TemplateLine[];
   defaultRemarks: string;
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(generateCoaCertificate, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(generateCoaCertificate, undefined);
   const [headerFields, setHeaderFields] = useState<HeaderField[]>(initialHeaderFields);
   const [results, setResults] = useState<string[]>(templateLines.map(() => ""));
   const [remarks, setRemarks] = useState(defaultRemarks);

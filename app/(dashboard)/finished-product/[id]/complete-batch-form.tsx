@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
-import { useActionState } from "react";
 import { completeFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ export function CompleteBatchForm({
   startDate?: string | null;
 }) {
   const boundAction = completeFinishedProductBatch.bind(null, batchId);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   const [step, setStep] = useState<"form" | "review">("form");
   const [clientError, setClientError] = useState<string | undefined>(undefined);

@@ -224,7 +224,7 @@ export async function completePasswordChange(
   await supabase.auth.refreshSession();
   await recordAccountAction(supabase, user.id, "password_changed_by_user");
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect("/?saved=password_changed");
 }
 
 // Disable a leaver's account (28 Sept 2026, Ravi: "add functionality to

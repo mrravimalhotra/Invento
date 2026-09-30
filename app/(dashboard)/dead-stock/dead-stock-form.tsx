@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
-import { useActionState } from "react";
 import {
   createDeadStockItem,
   updateDeadStockItem,
@@ -34,7 +34,7 @@ type DeadStockItem = {
 // screen. Balance qty/value are plain editable fields, not auto-computed —
 // see the note in 0035_dead_stock_register.sql for why.
 export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createDeadStockItem, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createDeadStockItem, undefined);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -92,7 +92,7 @@ export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
 
 export function EditDeadStockForm({ item }: { item: DeadStockItem }) {
   const boundAction = updateDeadStockItem.bind(null, item.id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -192,7 +192,7 @@ export function EditDeadStockForm({ item }: { item: DeadStockItem }) {
 // else in the app.
 export function DeleteDeadStockForm({ id, name }: { id: string; name: string }) {
   const boundAction = deleteDeadStockItem.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {

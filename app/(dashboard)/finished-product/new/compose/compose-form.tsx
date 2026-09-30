@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { createFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
 import { Button, LinkButton } from "@/components/ui/button";
 import { formatQty } from "@/lib/utils";
@@ -64,7 +65,7 @@ export function ComposeForm({
   batchStartDate: string;
   lines: ComposeLine[];
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createFinishedProductBatch, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createFinishedProductBatch, undefined);
 
   // Blocked either because nothing was QC-Approved at all (allocations
   // empty) or because every QC-Approved batch together still doesn't cover

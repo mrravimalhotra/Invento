@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useMemo, useState } from "react";
 import { createQualityCheck, type ActionState } from "@/lib/actions/qc";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -42,7 +43,7 @@ function computeBatchDisplay(line: PendingLine | undefined): { sampleQty: string
 }
 
 export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; initialLineId?: string }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createQualityCheck, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createQualityCheck, undefined);
 
   const items = useMemo(() => {
     const map = new Map<string, { label: string; legacy: boolean }>();

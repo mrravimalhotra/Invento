@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useRef, useState } from "react";
 import { updateProfile, updatePassword, type ActionState } from "@/lib/actions/auth";
 import { Field, Input, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
 
 export function ProfileForm({ defaultName }: { defaultName: string }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(updateProfile, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(updateProfile, undefined);
   return (
     <form action={formAction} className="flex flex-col gap-3">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
@@ -25,7 +26,7 @@ export function ProfileForm({ defaultName }: { defaultName: string }) {
 }
 
 export function PasswordForm() {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(updatePassword, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(updatePassword, undefined);
   const [clientError, setClientError] = useState<string | undefined>();
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);

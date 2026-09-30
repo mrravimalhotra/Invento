@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { upsertCoaTemplate, type ActionState, type EditableTemplateLine } from "@/lib/actions/coa-templates";
 import { Button } from "@/components/ui/button";
 import { CoaTemplateLineEditor } from "../../coa-template-line-editor";
@@ -13,7 +14,7 @@ export function TemplateEditForm({
   initialLines: EditableTemplateLine[];
 }) {
   const boundAction = upsertCoaTemplate.bind(null, itemTypeId);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

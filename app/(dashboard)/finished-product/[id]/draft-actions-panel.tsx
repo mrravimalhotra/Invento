@@ -1,8 +1,8 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useActionState } from "react";
 import { confirmFinishedProductBatch, cancelFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
 import { Button } from "@/components/ui/button";
 
@@ -55,9 +55,9 @@ export function DraftActionsPanel({ batchId, createdAt, canEdit }: { batchId: st
   }, [expired]);
 
   const confirmBound = confirmFinishedProductBatch.bind(null, batchId);
-  const [confirmState, confirmAction, confirmPending] = useActionState<ActionState, FormData>(confirmBound, undefined);
+  const [confirmState, confirmAction, confirmPending] = useFlashActionState<ActionState, FormData>(confirmBound, undefined);
   const cancelBound = cancelFinishedProductBatch.bind(null, batchId);
-  const [cancelState, cancelAction, cancelPending] = useActionState<ActionState, FormData>(cancelBound, undefined);
+  const [cancelState, cancelAction, cancelPending] = useFlashActionState<ActionState, FormData>(cancelBound, undefined);
 
   const lowTime = remainingMs < 5 * 60 * 1000;
 

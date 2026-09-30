@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
-import { useActionState } from "react";
 import { deleteMfrDefinition, type ActionState } from "@/lib/actions/mfr";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 // why instead of silently snapping back to "Yes, delete".
 export function DeleteMfrForm({ id, code, name }: { id: string; code: string; name: string }) {
   const boundAction = deleteMfrDefinition.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {

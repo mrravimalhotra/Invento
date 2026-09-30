@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
-import { useActionState } from "react";
 import { createVendor, updateVendor, deleteVendor, type ActionState } from "@/lib/actions/vendors";
 import { Field, Input } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -25,7 +25,7 @@ type Vendor = {
 // save always comes from get_next_vendor_code() (nextval) inside
 // createVendor() itself.
 export function NewVendorForm({ nextVendorCode }: { nextVendorCode: string }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createVendor, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createVendor, undefined);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -59,7 +59,7 @@ export function NewVendorForm({ nextVendorCode }: { nextVendorCode: string }) {
 
 export function EditVendorForm({ vendor }: { vendor: Vendor }) {
   const boundAction = updateVendor.bind(null, vendor.id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -104,7 +104,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
 // two-step-confirm pattern as DeleteItemTypeForm / DeleteItemForm.
 export function DeleteVendorForm({ id, name }: { id: string; name: string }) {
   const boundAction = deleteVendor.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {

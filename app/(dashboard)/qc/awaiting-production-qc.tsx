@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { createProductionQualityCheck, type ActionState } from "@/lib/actions/qc";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
@@ -49,7 +50,7 @@ export function AwaitingProductionQc({ lines, canStart }: { lines: AwaitingProdu
 
 function AwaitingProductionQcRow({ line, canStart }: { line: AwaitingProductionQcLine; canStart: boolean }) {
   const boundAction = createProductionQualityCheck.bind(null, line.id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form

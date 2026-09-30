@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { startProductionRetestQualityCheck, type ActionState } from "@/lib/actions/qc";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/form";
@@ -52,7 +53,7 @@ export function ProductionDueForRetest({ lines, canStart }: { lines: ProductionD
 
 function ProductionDueForRetestRow({ line, canStart }: { line: ProductionDueForRetestLine; canStart: boolean }) {
   const boundAction = startProductionRetestQualityCheck.bind(null, line.id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const reserveLeft = Number(line.stability_reserve_left ?? 0);
   const stockLeft = Number(line.live_remaining_qty ?? 0);
   const defaultSample = Number(line.qc_qty ?? 0) > 0 ? String(line.qc_qty) : "";

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { createMfrDefinition, type ActionState } from "@/lib/actions/mfr";
 import { Field, Input, Select, ErrorText } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -14,7 +15,7 @@ export function NewMfrForm({
   itemTypes: { id: string; description: string }[];
   rawItems: RawItemOption[];
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createMfrDefinition, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createMfrDefinition, undefined);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">

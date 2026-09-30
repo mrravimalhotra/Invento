@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
-import { useActionState } from "react";
 import { createEquipment, updateEquipment, deleteEquipment, type ActionState } from "@/lib/actions/equipment";
 import { Field, Input, Select, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -26,7 +26,7 @@ type Equipment = {
 // 0034_equipment_master.sql) — the code actually assigned on save always
 // comes from get_next_equipment_code() inside createEquipment().
 export function NewEquipmentForm({ nextEquipmentCode }: { nextEquipmentCode: string }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createEquipment, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createEquipment, undefined);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -76,7 +76,7 @@ export function NewEquipmentForm({ nextEquipmentCode }: { nextEquipmentCode: str
 
 export function EditEquipmentForm({ equipment }: { equipment: Equipment }) {
   const boundAction = updateEquipment.bind(null, equipment.id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -153,7 +153,7 @@ export function EditEquipmentForm({ equipment }: { equipment: Equipment }) {
 // DeleteVendorForm / DeleteItemTypeForm.
 export function DeleteEquipmentForm({ id, name }: { id: string; name: string }) {
   const boundAction = deleteEquipment.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {

@@ -1,10 +1,11 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 // Round 1 — "QC Checker": approve (-> checker_approved, awaiting Round 2)
 // or reject (-> rejected, terminal). No retest period here — see
 // reviewQcRound1's own comment for why that's collected at Round 2
 // instead.
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { reviewQcRound1, type ActionState } from "@/lib/actions/qc";
 import { Field, Textarea } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { DecisionChoice } from "@/components/ui/decision-choice";
 
 export function QcCheckerForm({ id }: { id: string }) {
   const boundAction = reviewQcRound1.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [status, setStatus] = useState<"checker_approved" | "rejected" | "">("");
 
   return (

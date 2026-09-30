@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { submitFinishedProductToQc, type ActionState } from "@/lib/actions/finished-product";
 import { Button } from "@/components/ui/button";
 
 export function SubmitToQcForm({ batchId }: { batchId: string }) {
   const boundAction = submitFinishedProductToQc.bind(null, batchId);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="flex flex-col items-end gap-1">

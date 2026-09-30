@@ -5,6 +5,8 @@ import { Topbar } from "@/components/shell/topbar";
 import { PageFeedback } from "@/components/feedback/page-feedback";
 import { PdfUserSetter } from "@/components/shell/pdf-user-setter";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { FlashHost } from "@/components/ui/flash-host";
+import { Suspense } from "react";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -40,6 +42,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="flex flex-1 flex-col min-w-0">
         <Topbar user={user} />
         <main className="flex-1 overflow-x-hidden p-6">
+          <Suspense fallback={null}>
+            <FlashHost />
+          </Suspense>
           {children}
           <PageFeedback currentUserId={user.id} />
           <PdfUserSetter name={user.fullName} />

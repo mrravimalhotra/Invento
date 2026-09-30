@@ -161,5 +161,5 @@ export async function deleteEquipment(id: string, _prev: ActionState, _formData:
   if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/equipment");
-  redirect("/equipment");
+  redirect("/equipment?saved=equipment_deleted");
 }

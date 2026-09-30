@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
-import { useActionState } from "react";
 import { createPackagingIssue, type ActionState } from "@/lib/actions/packaging";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -24,7 +24,7 @@ export function PackagingForm({
   fpBatches: { id: string; batch_number: string; fp_unit: string | null; fp_name: string | null }[];
   packagingItems: PackagingItemOption[];
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createPackagingIssue, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createPackagingIssue, undefined);
   const [department, setDepartment] = useState("");
   const [batchId, setBatchId] = useState("");
   const storeOrRnd = isStoreOrRnd(department);

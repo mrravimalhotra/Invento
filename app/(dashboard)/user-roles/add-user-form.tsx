@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useState } from "react";
 import { createUserAccount, type AdminUserActionState } from "@/lib/actions/admin-users";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/constants/roles";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
@@ -11,7 +12,7 @@ import { generateTemporaryPassword } from "./temp-password";
 type Submitted = { fullName: string; email: string; tempPassword: string };
 
 export function AddUserForm() {
-  const [state, formAction, pending] = useActionState<AdminUserActionState, FormData>(
+  const [state, formAction, pending] = useFlashActionState<AdminUserActionState, FormData>(
     createUserAccount,
     undefined
   );

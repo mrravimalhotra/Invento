@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { createDocument, type ActionState } from "@/lib/actions/documents";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 
 export function NewDocumentForm() {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createDocument, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createDocument, undefined);
   return (
     <form action={formAction} className="flex flex-col gap-4 max-w-md">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}

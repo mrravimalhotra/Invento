@@ -145,5 +145,5 @@ export async function deleteVendor(id: string, _prev: ActionState, _formData: Fo
   }
 
   revalidatePath("/vendors");
-  redirect("/vendors");
+  redirect("/vendors?saved=vendor_deleted");
 }

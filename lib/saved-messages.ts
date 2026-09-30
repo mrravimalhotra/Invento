@@ -17,6 +17,22 @@ export const SAVED_MESSAGES = {
   fp_cancelled: "Batch cancelled — its raw material has been returned to inventory.",
   fp_completed: "Batch completed — now Complete - Awaiting QC.",
   fp_submitted_to_qc: "Submitted to QC. A QC record has been created for this batch.",
+  // Added 30 Sept 2026 (Ravi: every operation must give a success or failure message).
+  item_type_updated: "Item type updated.",
+  item_type_deleted: "Item type deleted.",
+  item_deleted: "Item deleted.",
+  vendor_deleted: "Vendor deleted.",
+  equipment_deleted: "Equipment record deleted.",
+  dead_stock_deleted: "Dead stock record deleted.",
+  mfr_created: "MFR saved. It needs approval (on this page) before it can be used for production.",
+  mfr_recipe_saved: "Recipe saved.",
+  mfr_deleted: "MFR deleted.",
+  po_deleted: "Purchase order deleted.",
+  qc_created: "QC record created.",
+  qc_retest_started: "Retest started — a new QC record has been created.",
+  wastage_recorded: "Wastage recorded — inventory has been updated.",
+  coa_generated: "Certificate of Analysis generated.",
+  password_changed: "Password changed. You can now use the app.",
 } as const;
 
 export type SavedKey = keyof typeof SAVED_MESSAGES;

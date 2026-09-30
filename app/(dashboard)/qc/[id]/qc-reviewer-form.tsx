@@ -1,10 +1,11 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 // Round 2 — "QC Reviewer": the final decision. Approve (-> approved, the
 // batch is added to inventory) or reject (-> rejected, terminal). Retest
 // period is mandatory on approve, same rule the old single-step review
 // form had.
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { reviewQcRound2, type ActionState } from "@/lib/actions/qc";
 import { Field, Textarea, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { DecisionChoice } from "@/components/ui/decision-choice";
 
 export function QcReviewerForm({ id }: { id: string }) {
   const boundAction = reviewQcRound2.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [status, setStatus] = useState<"approved" | "rejected" | "">("");
   const [retestPeriodDays, setRetestPeriodDays] = useState("");
 

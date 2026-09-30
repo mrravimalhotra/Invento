@@ -1,7 +1,7 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
-import { useActionState } from "react";
 import { createItem, updateItem, deleteItem, type ActionState } from "@/lib/actions/items";
 import { Field, Input, Select, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -19,7 +19,7 @@ type ItemTypeOption = { id: string; description: string };
 type NextItemCodes = { raw: string; packaging: string };
 
 export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOption[]; nextCodes: NextItemCodes }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createItem, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createItem, undefined);
   const [category, setCategory] = useState<"raw" | "packaging">("raw");
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -111,7 +111,7 @@ export function EditItemForm({
   };
 }) {
   const boundAction = updateItem.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -206,7 +206,7 @@ export function EditItemForm({
 // pattern as DeleteItemTypeForm in item-types/item-type-form.tsx.
 export function DeleteItemForm({ id, name }: { id: string; name: string }) {
   const boundAction = deleteItem.bind(null, id);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {

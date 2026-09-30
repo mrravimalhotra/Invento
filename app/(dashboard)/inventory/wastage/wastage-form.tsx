@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useMemo, useState } from "react";
 import { recordWastage, type ActionState } from "@/lib/actions/inventory";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ export function WastageForm({
   items: ItemOption[];
   purchaseLines: PurchaseLineOption[];
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(recordWastage, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(recordWastage, undefined);
   const [itemId, setItemId] = useState("");
   const [lineId, setLineId] = useState("");
 

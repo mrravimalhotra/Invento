@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useState } from "react";
 import { resetUserPassword, type AdminUserActionState } from "@/lib/actions/admin-users";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
 import { Input } from "@/components/ui/form";
@@ -11,7 +12,7 @@ import { generateTemporaryPassword } from "./temp-password";
 // "Reset password" → enter/generate a temporary password → Confirm.
 export function ResetPasswordControl({ userId, displayName }: { userId: string; displayName: string }) {
   const boundAction = resetUserPassword.bind(null, userId);
-  const [state, formAction, pending] = useActionState<AdminUserActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<AdminUserActionState, FormData>(boundAction, undefined);
   const [open, setOpen] = useState(false);
   const [tempPassword, setTempPassword] = useState("");
   const [issued, setIssued] = useState<string | null>(null);

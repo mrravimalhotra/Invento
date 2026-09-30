@@ -69,5 +69,5 @@ export async function recordWastage(_prev: ActionState, formData: FormData): Pro
   revalidatePath("/inventory");
   revalidatePath("/inventory/balance");
   revalidatePath("/inventory/rm-report");
-  redirect("/inventory");
+  redirect("/inventory?saved=wastage_recorded");
 }

@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useState } from "react";
 import { purgeTestData, type PurgeResult } from "@/lib/actions/admin";
 import { PURGE_CONFIRM_PHRASE } from "@/lib/constants/admin";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 
 export function PurgeTestDataForm() {
-  const [state, formAction, pending] = useActionState<PurgeResult, FormData>(purgeTestData, undefined);
+  const [state, formAction, pending] = useFlashActionState<PurgeResult, FormData>(purgeTestData, undefined);
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useEffect, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronDown, MessageSquarePlus, Pencil, Trash2 } from "lucide-react";
 import {
@@ -55,7 +56,7 @@ function PageFeedbackInner({
   const [items, setItems] = useState<FeedbackRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [, startTransition] = useTransition();
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(submitFeedback, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(submitFeedback, undefined);
 
   function refresh() {
     startTransition(async () => {
@@ -150,11 +151,11 @@ function FeedbackItem({
   onChanged: () => void;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "confirmDelete">("view");
-  const [updateState, updateAction, updatePending] = useActionState<ActionState, FormData>(
+  const [updateState, updateAction, updatePending] = useFlashActionState<ActionState, FormData>(
     updateOwnFeedback.bind(null, item.id),
     undefined
   );
-  const [deleteState, deleteAction, deletePending] = useActionState<ActionState, FormData>(
+  const [deleteState, deleteAction, deletePending] = useFlashActionState<ActionState, FormData>(
     deleteOwnFeedback.bind(null, item.id),
     undefined
   );

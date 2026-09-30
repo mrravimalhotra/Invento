@@ -1,7 +1,8 @@
 "use client";
 
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { flash } from "@/lib/flash";
 import { useEffect } from "react";
-import { useActionState } from "react";
 import { createPurchaseOrder, type CreatePurchaseOrderState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -44,11 +45,12 @@ export function PurchaseOrderForm({
   items: RawItemOption[];
   isSystemAdmin: boolean;
 }) {
-  const [state, formAction, pending] = useActionState<CreatePurchaseOrderState, FormData>(createPurchaseOrder, undefined);
+  const [state, formAction, pending] = useFlashActionState<CreatePurchaseOrderState, FormData>(createPurchaseOrder, undefined);
 
   useEffect(() => {
     if (state?.success) {
       window.history.replaceState(null, "", `/purchase/${state.po.id}`);
+      flash(`Purchase order ${state.po.po_number} created as Draft. Add its lines below.`, "success");
     }
   }, [state]);
 

@@ -153,5 +153,5 @@ export async function deleteDeadStockItem(id: string, _prev: ActionState, _formD
   if (error) return { error: friendlyDbError(error) };
 
   revalidatePath("/dead-stock");
-  redirect("/dead-stock");
+  redirect("/dead-stock?saved=dead_stock_deleted");
 }

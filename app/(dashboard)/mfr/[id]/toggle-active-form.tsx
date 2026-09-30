@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { setMfrActive, type ActionState } from "@/lib/actions/mfr";
 import { Button } from "@/components/ui/button";
 
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 // same one-click convention as ApproveForm.
 export function ToggleMfrActiveForm({ id, active }: { id: string; active: boolean }) {
   const boundAction = setMfrActive.bind(null, id, !active);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   return (
     <form action={formAction} className="flex flex-col items-end gap-1">

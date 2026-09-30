@@ -52,7 +52,7 @@ export async function updateItemType(
 
   revalidatePath("/item-types");
   revalidatePath(`/item-types/${id}`);
-  redirect("/item-types");
+  redirect("/item-types?saved=item_type_updated");
 }
 
 export async function deleteItemType(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
@@ -78,5 +78,5 @@ export async function deleteItemType(id: string, _prev: ActionState, _formData: 
   }
 
   revalidatePath("/item-types");
-  redirect("/item-types");
+  redirect("/item-types?saved=item_type_deleted");
 }

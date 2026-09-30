@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updatePassword, type ActionState } from "@/lib/actions/auth";
 import { Field, PasswordInput } from "@/components/ui/form";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
 
 export default function ResetPasswordPage() {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(updatePassword, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(updatePassword, undefined);
   const router = useRouter();
   const [clientError, setClientError] = useState<string | undefined>();
   const passwordRef = useRef<HTMLInputElement>(null);

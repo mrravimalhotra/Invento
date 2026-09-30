@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { createLineClearanceCheck, type ActionState } from "@/lib/actions/line-clearance";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 
 export function NewLineClearanceForm() {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(
     createLineClearanceCheck,
     undefined
   );

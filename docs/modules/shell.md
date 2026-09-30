@@ -165,3 +165,11 @@ Log (System Admin and Super Auditor). The Ledger export holds the events loaded
 on the page (the most recent 1,000 unless the date / item / reason filters narrow
 it); the "About this export" sheet says so when the cap is hit. The Excel
 library loads only when a button is clicked.
+
+## Every operation gives a message (30 Sept 2026)
+
+Every save, delete, upload, approval and other action ends with a notice at the top of the screen (`components/ui/flash-host.tsx`, mounted once in the dashboard layout). Success notices fade after 8 seconds; failure notices stay until closed. They sit at the top of the window, so they are seen however far the page is scrolled.
+
+- Actions that stay on the same form (`{ success }` / `{ error }`): the form uses `useFlashActionState` (`lib/use-flash-action.ts`) instead of `useActionState`. The notice appears the moment the server replies.
+- Actions that move to another page (create, delete, decisions): redirect to `?saved=<key>`; the wording lives in `lib/saved-messages.ts`. The notice shows once and the address is tidied.
+- Adding a new action: use `useFlashActionState` in its form, or add a key to `SAVED_MESSAGES` and redirect with it. Not covered on purpose: sign-in / sign-out and the deprecated BMR screens.

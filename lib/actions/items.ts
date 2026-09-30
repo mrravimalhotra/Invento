@@ -226,5 +226,5 @@ export async function deleteItem(id: string, _prev: ActionState, _formData: Form
   }
 
   revalidatePath("/items");
-  redirect("/items");
+  redirect("/items?saved=item_deleted");
 }

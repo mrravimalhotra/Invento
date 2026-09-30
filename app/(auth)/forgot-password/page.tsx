@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import Link from "next/link";
 import { requestPasswordReset, type ActionState } from "@/lib/actions/auth";
 import { Field, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 export default function ForgotPasswordPage() {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(
     requestPasswordReset,
     undefined
   );

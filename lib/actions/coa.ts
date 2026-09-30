@@ -148,5 +148,5 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   if (error || !inserted) return { error: friendlyDbError(error, "Could not save the certificate.") };
 
   revalidatePath("/coa");
-  redirect(`/coa/${inserted.id}?created=1`);
+  redirect(`/coa/${inserted.id}?saved=coa_generated`);
 }

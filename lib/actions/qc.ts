@@ -93,7 +93,7 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
   }
 
   revalidatePath("/qc");
-  redirect(`/qc/${inserted.id}`);
+  redirect(`/qc/${inserted.id}?saved=qc_created`);
 }
 
 // Two-round review (20 Sept 2026, replacing the old single-decision
@@ -261,7 +261,7 @@ async function startRetest(
   }
 
   revalidatePath("/qc");
-  redirect(`/qc/${qcId as string}`);
+  redirect(`/qc/${qcId as string}?saved=qc_retest_started`);
 }
 
 // FB-0043 (28 Sept 2026) — Production-issued RM equivalent of
@@ -327,7 +327,7 @@ export async function createProductionQualityCheck(
   }
 
   revalidatePath("/qc");
-  redirect(`/qc/${inserted.id}`);
+  redirect(`/qc/${inserted.id}?saved=qc_created`);
 }
 
 // Production equivalent of startRetestQualityCheck above — same one-click,

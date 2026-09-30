@@ -6,17 +6,13 @@ import { canWrite } from "@/lib/constants/roles";
 import type { RawItemOption } from "../purchase-line-form";
 import { PurchaseOrderView } from "../purchase-order-view";
 import type { LineRow } from "./purchase-lines-table";
-import { SavedBanner } from "@/components/ui/saved-banner";
 
 export default async function PurchaseOrderDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
 }) {
   const { id } = await params;
-  const { saved } = await searchParams;
   const user = await getCurrentUser();
   const supabase = await createClient();
 
@@ -74,7 +70,6 @@ export default async function PurchaseOrderDetailPage({
 
   return (
     <div>
-      <SavedBanner code={saved} />
       <PurchaseOrderView
         po={po}
         lineRows={lineRows}

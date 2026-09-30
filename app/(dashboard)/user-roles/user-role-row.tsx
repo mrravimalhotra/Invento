@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { setUserRoles, type ActionState } from "@/lib/actions/user-roles";
 import { Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export function UserRoleRow({
   account: AccountStatus | null;
 }) {
   const boundAction = setUserRoles.bind(null, userId);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const disabled = account?.disabled ?? false;
 
   return (

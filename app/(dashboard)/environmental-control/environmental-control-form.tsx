@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+
 import { createEnvironmentalReading, type ActionState } from "@/lib/actions/environmental-control";
 import { Field, Input } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 
 export function NewEnvironmentalReadingForm() {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(
     createEnvironmentalReading,
     undefined
   );

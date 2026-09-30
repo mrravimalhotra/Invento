@@ -103,7 +103,7 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   if (!def) return { error: "Could not create the MFR definition." };
 
   revalidatePath("/mfr");
-  redirect(`/mfr/${def.id}`);
+  redirect(`/mfr/${def.id}?saved=mfr_created`);
 }
 
 // Ravi (14 Sept 2026): "before MFR is approved there should be option to
@@ -145,7 +145,7 @@ export async function updateMfrLines(id: string, _prev: ActionState, formData: F
 
   revalidatePath(`/mfr/${id}`);
   revalidatePath("/mfr");
-  redirect(`/mfr/${id}`);
+  redirect(`/mfr/${id}?saved=mfr_recipe_saved`);
 }
 
 type ProcedureStepInput = { stage: string; operation: string };
@@ -257,7 +257,7 @@ export async function deleteMfrDefinition(id: string, _prev: ActionState, _formD
   }
 
   revalidatePath("/mfr");
-  redirect("/mfr");
+  redirect("/mfr?saved=mfr_deleted");
 }
 
 // Deactivate/reactivate — the write path for mfr_definitions.active, which

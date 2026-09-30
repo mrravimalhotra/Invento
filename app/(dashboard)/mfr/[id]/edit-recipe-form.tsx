@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useFlashActionState } from "@/lib/use-flash-action";
+import { useState } from "react";
 import { updateMfrLines, type ActionState } from "@/lib/actions/mfr";
 import { Button } from "@/components/ui/button";
 import { MfrLineEditor, type RawItemOption, type EditableLine } from "../mfr-line-editor";
@@ -16,7 +17,7 @@ export function EditRecipeForm({
 }) {
   const [open, setOpen] = useState(false);
   const boundAction = updateMfrLines.bind(null, mfrId);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(boundAction, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
 
   if (!open) {
     return (
