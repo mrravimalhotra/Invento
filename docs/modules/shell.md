@@ -173,3 +173,12 @@ Every save, delete, upload, approval and other action ends with a notice at the 
 - Actions that stay on the same form (`{ success }` / `{ error }`): the form uses `useFlashActionState` (`lib/use-flash-action.ts`) instead of `useActionState`. The notice appears the moment the server replies.
 - Actions that move to another page (create, delete, decisions): redirect to `?saved=<key>`; the wording lives in `lib/saved-messages.ts`. The notice shows once and the address is tidied.
 - Adding a new action: use `useFlashActionState` in its form, or add a key to `SAVED_MESSAGES` and redirect with it. Not covered on purpose: sign-in / sign-out and the deprecated BMR screens.
+
+## Phone-friendly menu (30 Sept 2026)
+Under 768 px the fixed sidebar is hidden, so the top bar now carries a ☰ button (`components/shell/mobile-nav.tsx`)
+that slides the same menu in over the page. Tapping a link, the dark backdrop, the ✕ button or Esc closes it.
+- The menu list lives in one place, `components/shell/nav-list.tsx`, used by both the desktop `Sidebar` and `MobileNav`.
+- Top bar on phones: ☰, logo, "N low" stock pill, Profile, sign-out. The name/role block shows from 640 px up.
+- 768 px and wider: nothing changes. The "Awaiting access" screen has no menu button (`Topbar showMenu={false}`).
+- `app/layout.tsx` exports an explicit `viewport` (device-width, scale 1); the page padding is 16 px on phones, 24 px from 768 px.
+- Navigation only: no data, action or database change.

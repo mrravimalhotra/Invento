@@ -19,7 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (user.roles.length === 0) {
     return (
       <div className="flex min-h-screen flex-col">
-        <Topbar user={user} />
+        <Topbar user={user} showMenu={false} />
         <main className="flex flex-1 items-start justify-center p-6">
           <Card className="w-full max-w-lg">
             <CardHeader title="Awaiting access" />
@@ -41,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0">
         <Topbar user={user} />
-        <main className="flex-1 overflow-x-hidden p-6">
+        <main className="flex-1 overflow-x-hidden p-4 md:p-6">
           <Suspense fallback={null}>
             <FlashHost />
           </Suspense>

@@ -1,11 +1,13 @@
 import { Suspense } from "react";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
+import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "@/lib/actions/auth";
 import { LogOut, UserCircle, TriangleAlert } from "lucide-react";
 import type { CurrentUser } from "@/lib/auth/session";
 import { ROLE_LABELS } from "@/lib/constants/roles";
 import { createClient } from "@/lib/supabase/server";
+import { MobileNav } from "./mobile-nav";
 
 async function LowStockBanner() {
   const supabase = await createClient();
@@ -46,19 +48,34 @@ async function LowStockBanner() {
   return (
     <Link
       href="/items"
-      className="flex items-center gap-1.5 rounded-full bg-amber-bg px-3 py-1 text-xs font-medium text-amber hover:opacity-80"
+      className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-bg px-3 py-1 text-xs font-medium text-amber hover:opacity-80"
     >
       <TriangleAlert className="h-3.5 w-3.5" />
-      {low.length} item{low.length > 1 ? "s" : ""} low on stock
+      <span className="sm:hidden">{low.length} low</span>
+      <span className="hidden sm:inline">
+        {low.length} item{low.length > 1 ? "s" : ""} low on stock
+      </span>
     </Link>
   );
 }
 
-export function Topbar({ user }: { user: CurrentUser }) {
+// showMenu: false on the "Awaiting access" screen, which has no sidebar to open.
+export function Topbar({ user, showMenu = true }: { user: CurrentUser; showMenu?: boolean }) {
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-5">
-      <div />
-      <div className="flex items-center gap-3">
+    <header className="flex h-14 items-center justify-between gap-2 border-b border-border bg-card px-3 md:px-5">
+      {/* Phones: ☰ menu button + logo (the desktop sidebar carries the logo from 768 px up). */}
+      <div className="flex min-w-0 items-center gap-2 md:hidden">
+        {showMenu && <MobileNav />}
+        <Image
+          src="/atharva-logo.svg"
+          alt="Atharva Nature Healthcare"
+          width={1344}
+          height={516}
+          className="h-7 w-auto"
+        />
+      </div>
+      <div className="hidden md:block" />
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         {/*
           Suspense-wrapped so this banner's own queries never hold up the
           rest of the page. Topbar renders on EVERY dashboard route (it's
@@ -77,8 +94,8 @@ export function Topbar({ user }: { user: CurrentUser }) {
           <LowStockBanner />
         </Suspense>
         <div className="flex items-center gap-2 text-sm">
-          <UserCircle className="h-5 w-5 text-muted" />
-          <div className="leading-tight">
+          <UserCircle className="h-5 w-5 shrink-0 text-muted" />
+          <div className="hidden leading-tight sm:block">
             <p className="font-medium">{user.fullName}</p>
             <p className="text-xs text-muted">
               {user.roles.length ? user.roles.map((r) => ROLE_LABELS[r]).join(", ") : "No roles assigned"}
