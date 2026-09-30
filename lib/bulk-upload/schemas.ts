@@ -99,7 +99,7 @@ export const BULK_UPLOAD_MODULE_META: Record<
 export const ITEM_COLUMNS: ColumnDef[] = [
   { header: "Name", required: true },
   { header: "Category", required: true, hint: "Raw Material or Packaging" },
-  { header: "Item Type", required: false, hint: "must match an existing Item Type Master description exactly — see the Reference sheet; leave blank if none" },
+  { header: "Item Type", required: false, hint: "required for Raw Material; must match an existing Item Type Master description exactly — see the Reference sheet; may be blank for Packaging" },
   { header: "Unit", required: false, hint: "kg, g, mg, ltr, ml, nos, bottle, or pack — see the Reference sheet" },
   { header: "Botanical Name", required: false },
   { header: "Barcode", required: false },

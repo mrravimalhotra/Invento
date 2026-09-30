@@ -276,7 +276,5 @@ Where QC/Stability/R&D quantity is captured instead:
   15. If a real device rejects it, the fallback is trivial (swap the SVG for
   a plain text render of `item.barcode`, already the fallback path here for
   any value containing characters outside printable ASCII).
-- Item type and unit are optional on both forms (the schema allows null for
-  both `item_type_id` and `unit`) rather than required — the task brief
-  listed them as dropdowns without marking them required, so validation
-  matches the schema's own nullability rather than adding a stricter rule.
+- **Item type is mandatory for a Raw Material** (Ravi, 30 Sept 2026): required on the New and Edit forms (only while Category is Raw material), refused by `createItem` / `updateItem` with a clear message, and a row error in Item Master bulk upload. Packaging may still have none. No database constraint (older raw items without a type stay as they are until edited). Production-issued raw items (RM-FP) are created by the system, not here, but asking for a type applies if someone edits one.
+- Unit is optional on both forms (the schema allows null); Item type is optional for Packaging only.

@@ -46,6 +46,9 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
           : "Category must be Raw Material or Packaging.",
     };
   }
+  if (category === "raw" && !item_type_id) {
+    return { error: "Item type is required for a Raw Material — pick one from the list." };
+  }
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
@@ -127,6 +130,10 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   const submittedCategory = String(formData.get("category") || "");
 
   if (!name) return { error: "Name is required." };
+  // 30 Sept 2026 (Ravi): Item Type is mandatory for a Raw Material.
+  if (submittedCategory === "raw" && !item_type_id) {
+    return { error: "Item type is required for a Raw Material — pick one from the list." };
+  }
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");

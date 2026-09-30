@@ -20,7 +20,7 @@ export type ExampleKey =
   | "coa-templates";
 
 export const EXAMPLE_ROWS: Record<ExampleKey, string[][]> = {
-  items: [["Ashwagandha Powder", "Raw Material", "", "kg", "Withania somnifera", "", ""]],
+  items: [["Ashwagandha Powder", "Raw Material", "Powder", "kg", "Withania somnifera", "", ""]],
   vendors: [["Ambadas Vanaushadhalaya", "Pune, Maharashtra", "9800000000", "020-00000000", "vendor@example.com"]],
   "item-types": [["Powder"]],
   // Same A. Jatamansi Tail example, laid out across the two MFR sheets and

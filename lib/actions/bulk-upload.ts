@@ -243,6 +243,10 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
         return;
       }
       item_type_id = match;
+    } else if (category === "raw") {
+      // 30 Sept 2026 (Ravi): Item Type is mandatory for a Raw Material.
+      rowErrors.push(`Row ${r} ("${name}"): Item Type is required for a Raw Material — pick one from the Reference sheet.`);
+      return;
     }
 
     let unit: Unit | null = null;

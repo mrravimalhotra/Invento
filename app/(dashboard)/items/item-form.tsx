@@ -52,9 +52,14 @@ export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOptio
             <option value="packaging">Packaging</option>
           </Select>
         </Field>
-        <Field label="Item type" htmlFor="item_type_id">
-          <Select id="item_type_id" name="item_type_id" defaultValue="">
-            <option value="">— none —</option>
+        <Field
+          label="Item type"
+          htmlFor="item_type_id"
+          required={category === "raw"}
+          hint={category === "raw" ? "Required for Raw Material." : undefined}
+        >
+          <Select id="item_type_id" name="item_type_id" defaultValue="" required={category === "raw"}>
+            <option value="">{category === "raw" ? "— select —" : "— none —"}</option>
             {itemTypes.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.description}
@@ -112,6 +117,7 @@ export function EditItemForm({
 }) {
   const boundAction = updateItem.bind(null, id);
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
+  const [category, setCategory] = useState(item.category);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -140,15 +146,31 @@ export function EditItemForm({
           </Field>
         ) : (
           <Field label="Category" htmlFor="category" required>
-            <Select id="category" name="category" required defaultValue={item.category}>
+            <Select
+              id="category"
+              name="category"
+              required
+              defaultValue={item.category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
               <option value="raw">Raw material</option>
               <option value="packaging">Packaging</option>
             </Select>
           </Field>
         )}
-        <Field label="Item type" htmlFor="item_type_id">
-          <Select id="item_type_id" name="item_type_id" defaultValue={item.item_type_id ?? ""}>
-            <option value="">— none —</option>
+        <Field
+          label="Item type"
+          htmlFor="item_type_id"
+          required={category === "raw"}
+          hint={category === "raw" ? "Required for Raw Material." : undefined}
+        >
+          <Select
+            id="item_type_id"
+            name="item_type_id"
+            defaultValue={item.item_type_id ?? ""}
+            required={category === "raw"}
+          >
+            <option value="">{category === "raw" ? "— select —" : "— none —"}</option>
             {itemTypes.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.description}
