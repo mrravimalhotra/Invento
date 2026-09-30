@@ -990,3 +990,7 @@ numbers.
 **Fix.** The next number is now the highest number already used for that item
 (or MFR) this year, plus 1 (`_max_batch_seq`). A guard also refuses a
 duplicate purchase batch number for any item, LEG- items included.
+
+## Vendor address and mobile (30 Sept 2026, B23)
+
+Choosing a vendor on New Purchase Order shows that vendor's address and mobile under the dropdown, and the same line appears under the heading of a purchase order. Read-only; "not on file" is shown when a vendor has none. Change them on Vendor Master.

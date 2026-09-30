@@ -2,7 +2,8 @@
 
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { flash } from "@/lib/flash";
-import { useEffect } from "react";
+import { VendorContactLine } from "./vendor-contact-line";
+import { useEffect, useState } from "react";
 import { createPurchaseOrder, type CreatePurchaseOrderState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { isLegacyCode } from "@/lib/utils";
 import { PurchaseOrderView } from "./purchase-order-view";
 import type { RawItemOption } from "./purchase-line-form";
 
-type VendorOption = { id: string; vendor_code: string; name: string };
+type VendorOption = { id: string; vendor_code: string; name: string; address: string | null; mobile: string | null };
 
 // Single-screen New Purchase Order flow (13 Sept 2026 — Ravi: "have these
 // two in single screen to reduce number of clicks"). Previously this
@@ -46,6 +47,8 @@ export function PurchaseOrderForm({
   isSystemAdmin: boolean;
 }) {
   const [state, formAction, pending] = useFlashActionState<CreatePurchaseOrderState, FormData>(createPurchaseOrder, undefined);
+  const [vendorId, setVendorId] = useState("");
+  const selectedVendor = vendors.find((v) => v.id === vendorId) ?? null;
 
   useEffect(() => {
     if (state?.success) {
@@ -66,7 +69,7 @@ export function PurchaseOrderForm({
           <form action={formAction} className="grid gap-4">
             {state?.error && <p className="text-sm text-red">{state.error}</p>}
             <Field label="Vendor" htmlFor="vendor_id" required>
-              <Select id="vendor_id" name="vendor_id" required defaultValue="">
+              <Select id="vendor_id" name="vendor_id" required defaultValue="" onChange={(e) => setVendorId(e.target.value)}>
                 <option value="" disabled>
                   Select vendor…
                 </option>
@@ -76,6 +79,7 @@ export function PurchaseOrderForm({
                   </option>
                 ))}
               </Select>
+              {selectedVendor && <VendorContactLine address={selectedVendor.address} mobile={selectedVendor.mobile} />}
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Invoice number" htmlFor="invoice_number" required>

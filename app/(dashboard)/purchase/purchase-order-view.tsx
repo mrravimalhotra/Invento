@@ -6,6 +6,7 @@ import { DeletePurchaseOrderForm, SubmitPurchaseOrderForm, ReopenPurchaseOrderFo
 import { PurchaseLinesSection } from "./[id]/purchase-lines-section";
 import type { LineRow } from "./[id]/purchase-lines-table";
 import { purchaseLineTotal } from "./[id]/line-financials";
+import { VendorContactLine } from "./vendor-contact-line";
 
 export type PurchaseOrderHeader = {
   id: string;
@@ -16,7 +17,7 @@ export type PurchaseOrderHeader = {
   status: "draft" | "submitted";
   submitted_at: string | null;
   reopened_at: string | null;
-  vendor: { id: string; vendor_code: string; name: string } | null;
+  vendor: { id: string; vendor_code: string; name: string; address?: string | null; mobile?: string | null } | null;
 };
 
 // The full "purchase order record" screen — header summary cards, action
@@ -58,6 +59,11 @@ export function PurchaseOrderView({
           po.invoice_date
         )}`}
       />
+      {po.vendor && (
+        <div className="-mt-3 mb-5">
+          <VendorContactLine address={po.vendor.address} mobile={po.vendor.mobile} />
+        </div>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         <Card className="p-4">

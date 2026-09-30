@@ -96,7 +96,7 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
       invoice_number: parsed.data.invoice_number,
       invoice_date: parsed.data.invoice_date,
     })
-    .select("id, po_number, invoice_number, invoice_date, created_at, vendor:vendors(id, vendor_code, name)")
+    .select("id, po_number, invoice_number, invoice_date, created_at, vendor:vendors(id, vendor_code, name, address, mobile)")
     .single();
   if (error) return { error: friendlyDbError(error) };
 

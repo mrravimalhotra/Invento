@@ -16,7 +16,7 @@ export default async function NewPurchaseOrderPage() {
   // (13 Sept 2026, single-screen Purchase flow) — items is what its
   // Add-line form needs, same query [id]/page.tsx runs for an existing PO.
   const [{ data: vendors }, { data: rawItems }] = await Promise.all([
-    supabase.from("vendors").select("id, vendor_code, name").eq("active", true).order("name"),
+    supabase.from("vendors").select("id, vendor_code, name, address, mobile").eq("active", true).order("name"),
     fetchAllRows((from, to) =>
       supabase
         .from("items")
