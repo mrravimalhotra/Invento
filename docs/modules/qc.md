@@ -666,3 +666,7 @@ had decided it.
 - **Round 2** comes from `reviewed_at`.
 - **A Round 1 rejection** shows "Rejected at Round 1 — no QC Reviewer decision
   was needed".
+
+## Dashboard: retest and expiry alerts, next 90 days (30 Sept 2026, B15)
+
+The Dashboard has two alert cards next to Low stock. **Retest due in the next 90 days** covers raw materials (purchased batches still in stock, and raw material made from finished product issued to Production) and finished products; **Finished product expiring in the next 90 days** covers approved, active finished-product batches by their expiry date. Each line shows the item, batch, AR number (retest), a Raw material / Finished product tag, the date and days left. Up to 8 lines per card, with a "+ N more" link. The retest rule is the same as the QC page's Due for retest (latest QC of each batch, approved). "Hide legacy data" applies. Not checked: stock remaining for a finished-product batch (no per-batch remaining figure exists). Code: `app/(dashboard)/dashboard-alerts.ts`. No database change.

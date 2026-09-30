@@ -2,6 +2,7 @@ import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { istDayStart, isLegacyCode, todayIst } from "@/lib/utils";
 import { addDaysToDate, lastIstDays, lineValueInclGst } from "@/lib/dashboard-series";
+import { ALERT_WINDOW_DAYS, getDashboardAlerts } from "./dashboard-alerts";
 import { DashboardView, type CountPair, type DashboardData, type QcStatusCounts } from "./dashboard-view";
 
 // ACC-26 (29 Sept 2026, Ravi): the Dashboard now agrees with the lists its
@@ -34,7 +35,7 @@ export default async function DashboardPage() {
   const days = lastIstDays(DAYS);
   const since = istDayStart(days[0]);
   const retestFrom = todayIst();
-  const retestTo = addDaysToDate(retestFrom, 30);
+  const retestTo = addDaysToDate(retestFrom, ALERT_WINDOW_DAYS);
 
   const head = () => ({ count: "exact" as const, head: true });
 
@@ -54,7 +55,6 @@ export default async function DashboardPage() {
     { data: ledger30 },
     { data: purchase30 },
     { data: fp30 },
-    { data: retestSoon },
     { data: items },
   ] = await Promise.all([
     supabase.from("items").select("*", head()).eq("category", "raw").eq("active", true),
@@ -107,15 +107,6 @@ export default async function DashboardPage() {
         .order("id", { ascending: true })
         .range(from, to)
     ),
-    // A few extra rows so hiding legacy ones still leaves up to five to show.
-    supabase
-      .from("quality_checks")
-      .select("ar_number, retest_date, items(item_code), purchase_lines(batch_number)")
-      .not("retest_date", "is", null)
-      .gte("retest_date", retestFrom)
-      .lte("retest_date", retestTo)
-      .order("retest_date", { ascending: true })
-      .limit(40),
     fetchAllRows<{ id: string; name: string; item_code: string; low_stock_threshold: string | number }>((from, to) =>
       supabase
         .from("items")
@@ -126,6 +117,9 @@ export default async function DashboardPage() {
         .range(from, to)
     ),
   ]);
+
+  // B15: retest / expiry alerts, next 90 days (see dashboard-alerts.ts).
+  const alerts = await getDashboardAlerts(supabase, retestFrom, retestTo);
 
   const pair = (all: { count: number | null }, non: { count: number | null }): CountPair => ({
     all: all.count ?? 0,
@@ -171,16 +165,8 @@ export default async function DashboardPage() {
     pos30: pair(poAll, poNon),
     qc,
     lowStock,
-    retestSoon: ((retestSoon ?? []) as unknown as {
-      ar_number: string;
-      retest_date: string;
-      items: { item_code: string } | null;
-      purchase_lines: { batch_number: string } | null;
-    }[]).map((q) => ({
-      ar_number: q.ar_number,
-      retest_date: q.retest_date,
-      legacy: isLegacyCode(q.items?.item_code) || isLegacyCode(q.purchase_lines?.batch_number),
-    })),
+    retestSoon: alerts.retestSoon,
+    expirySoon: alerts.expirySoon,
     ledger30: ((ledger30 ?? []) as unknown as LedgerRow[]).map((l) => ({
       event_type: l.event_type,
       event_at: l.event_at,

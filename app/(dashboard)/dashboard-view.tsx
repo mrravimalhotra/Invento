@@ -6,7 +6,8 @@ import { StatCard, Card, CardHeader, CardBody } from "@/components/ui/card";
 import { HideLegacyToggle } from "@/components/ui/hide-legacy-toggle";
 import { PageHeader } from "@/components/ui/page-header";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
-import { formatDate, isLegacyCode } from "@/lib/utils";
+import { formatDate, isLegacyCode, todayIst } from "@/lib/utils";
+import type { AlertRow } from "./dashboard-alerts";
 import { DashboardCharts } from "./charts";
 
 // ACC-26 (29 Sept 2026): the "Hide legacy data" switch lives in the browser,
@@ -26,12 +27,44 @@ export type DashboardData = {
   pos30: CountPair;
   qc: QcStatusCounts;
   lowStock: { id: string; name: string; item_code: string; threshold: string | number; onHand: number }[];
-  retestSoon: { ar_number: string; retest_date: string; legacy: boolean }[];
+  retestSoon: AlertRow[];
+  expirySoon: AlertRow[];
   ledger30: { event_type: string; event_at: string; quantity: number; legacy: boolean }[];
   purchase30: { created_at: string; value: number; legacy: boolean }[];
   fp30: { created_at: string; legacy: boolean }[];
   days: string[];
 };
+
+const MAX_ALERTS = 8;
+
+function daysUntil(date: string): number {
+  const ms = Date.parse(`${date}T00:00:00Z`) - Date.parse(`${todayIst()}T00:00:00Z`);
+  return Math.round(ms / 86_400_000);
+}
+
+// B15: one alert — what it is (item, batch, Raw material / Finished product) and when.
+function AlertLine({ row, verb, href }: { row: AlertRow; verb: "retest" | "expires"; href: string }) {
+  const days = daysUntil(row.date);
+  return (
+    <Link href={href} className="flex items-start gap-2 text-sm hover:underline">
+      <TriangleAlert className="mt-0.5 h-3.5 w-3.5 text-amber shrink-0" />
+      <span>
+        <span className="font-medium">{row.title}</span> · {row.batch}
+        <span
+          className={`ml-2 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold no-underline ${
+            row.kind === "fp" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {row.kind === "fp" ? "Finished product" : "Raw material"}
+        </span>
+        <span className="block text-xs text-muted">
+          {row.ar ? `${row.ar} · ` : ""}
+          {verb} {formatDate(row.date)} · {days <= 0 ? "today" : days === 1 ? "in 1 day" : `in ${days} days`}
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 export function DashboardView({ data }: { data: DashboardData }) {
   const [hideLegacy] = useHideLegacy();
@@ -47,7 +80,10 @@ export function DashboardView({ data }: { data: DashboardData }) {
   const pendingQc = qc.submitted + qc.checker_approved;
 
   const lowStock = hideLegacy ? data.lowStock.filter((it) => !isLegacyCode(it.item_code)) : data.lowStock;
-  const retestSoon = keep(data.retestSoon).slice(0, 5);
+  const retestAll = keep(data.retestSoon);
+  const expiryAll = keep(data.expirySoon);
+  const retestSoon = retestAll.slice(0, MAX_ALERTS);
+  const expirySoon = expiryAll.slice(0, MAX_ALERTS);
 
   return (
     <div>
@@ -66,8 +102,8 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <StatCard label="Pending QC" value={pendingQc} href="/qc" />
       </div>
 
-      {(lowStock.length > 0 || retestSoon.length > 0) && (
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+      {(lowStock.length > 0 || retestSoon.length > 0 || expirySoon.length > 0) && (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lowStock.length > 0 && (
             <Card className="border-amber/40">
               <CardHeader title="Low stock" />
@@ -83,14 +119,31 @@ export function DashboardView({ data }: { data: DashboardData }) {
           )}
           {retestSoon.length > 0 && (
             <Card className="border-amber/40">
-              <CardHeader title="Retest due soon" />
-              <CardBody className="flex flex-col gap-2">
+              <CardHeader title="Retest due in the next 90 days" />
+              <CardBody className="flex flex-col gap-3">
                 {retestSoon.map((q) => (
-                  <Link key={q.ar_number} href="/qc" className="flex items-center gap-2 text-sm hover:underline">
-                    <TriangleAlert className="h-3.5 w-3.5 text-amber shrink-0" />
-                    {q.ar_number} — retest {formatDate(q.retest_date)}
-                  </Link>
+                  <AlertLine key={q.key} row={q} verb="retest" href="/qc" />
                 ))}
+                {retestAll.length > retestSoon.length && (
+                  <Link href="/qc" className="text-xs font-medium text-brand hover:underline">
+                    + {retestAll.length - retestSoon.length} more on the QC page
+                  </Link>
+                )}
+              </CardBody>
+            </Card>
+          )}
+          {expirySoon.length > 0 && (
+            <Card className="border-amber/40">
+              <CardHeader title="Finished product expiring in the next 90 days" />
+              <CardBody className="flex flex-col gap-3">
+                {expirySoon.map((q) => (
+                  <AlertLine key={q.key} row={q} verb="expires" href="/finished-product" />
+                ))}
+                {expiryAll.length > expirySoon.length && (
+                  <Link href="/finished-product" className="text-xs font-medium text-brand hover:underline">
+                    + {expiryAll.length - expirySoon.length} more on the Finished Product page
+                  </Link>
+                )}
               </CardBody>
             </Card>
           )}
