@@ -71,15 +71,29 @@ export function UserRoleRow({
             {state?.success && <p className="mt-1 text-xs text-brand-dark">{state.success}</p>}
           </div>
           <div className="flex flex-1 flex-wrap gap-x-4 gap-y-2">
-            {ROLES.map((role) => (
-              <Checkbox
-                key={role}
-                name="roles"
-                value={role}
-                label={ROLE_LABELS[role]}
-                defaultChecked={currentRoles.includes(role)}
-              />
-            ))}
+            {ROLES.map((role) => {
+              // 30 Sept 2026 (0089): you cannot take System Admin away from yourself — only
+              // another System Admin can. A disabled box is not submitted with the form, so
+              // a hidden field carries the role.
+              const locked = isSelf && role === "system_admin" && currentRoles.includes("system_admin");
+              return locked ? (
+                <span key={role} className="inline-flex flex-col">
+                  <Checkbox label={ROLE_LABELS[role]} checked disabled readOnly />
+                  <input type="hidden" name="roles" value={role} />
+                  <span className="ml-6 text-[11px] text-muted">
+                    Only another System Admin can change your System Admin access.
+                  </span>
+                </span>
+              ) : (
+                <Checkbox
+                  key={role}
+                  name="roles"
+                  value={role}
+                  label={ROLE_LABELS[role]}
+                  defaultChecked={currentRoles.includes(role)}
+                />
+              );
+            })}
           </div>
           <Button type="submit" size="sm" variant="secondary" disabled={pending} className="shrink-0">
             {pending ? "Saving…" : "Save roles"}

@@ -184,3 +184,11 @@ out). It can't change anything — their roles are already gone.
 - `lib/actions/user-roles.ts` — `setUserRoles` Server Action
 - `app/(dashboard)/user-roles/account-access-control.tsx` — Disable / Re-enable account control
 - `lib/actions/admin-users.ts` — `disableUserAccount` / `enableUserAccount`
+
+## A System Admin cannot remove their own System Admin role (30 Sept 2026, migration 0089)
+Ravi: "own System Admin option should be disabled for System Admins so they can not degrade their own access. Only another System Admin can degrade other System Admins."
+- On your own row the System Admin box is ticked and greyed out, with a note. Other rows are unchanged.
+- The save action refuses it with a clear message, and the database refuses it on every path (trigger `trg_user_roles_no_self_admin_removal` on `user_roles`): the screen, a direct API call, any attempt to clear your own roles.
+- Another System Admin can still change your roles, and the existing "at least one System Admin must remain" guard (0073) still applies. The SQL editor / service role is not affected (no signed-in user).
+- Adding roles to yourself, and removing your own non-admin roles, still work.
+- Suite `sec07` (41 checks; 1 known control failure unchanged) covers it.

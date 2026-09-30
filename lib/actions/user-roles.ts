@@ -31,6 +31,17 @@ export async function setUserRoles(
     .map(String)
     .filter((r): r is Role => validRoles.has(r));
 
+  // 30 Sept 2026 (0089): a System Admin cannot remove their own System Admin
+  // role — only another System Admin can. The database enforces this too
+  // (trigger on user_roles); this gives a clear message before the call.
+  if (
+    userId === currentUser?.id &&
+    currentUser.roles.includes("system_admin") &&
+    !selected.includes("system_admin")
+  ) {
+    return { error: "You cannot remove your own System Admin role. Ask another System Admin to do it." };
+  }
+
   const supabase = await createClient();
 
   // SEC-07 (28 Sept 2026, 0073_set_user_roles.sql): one database call that
