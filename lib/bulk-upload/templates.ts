@@ -184,7 +184,7 @@ async function buildItemsWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Wor
 
   addInstructionsSheet(workbook, "Item Master", [{ columns: ITEM_COLUMNS_WITH_EXAMPLE.columns }], [
     "Category must be exactly \"Raw Material\" or \"Packaging\" — Finished Product and Packaged Finished Product items are created automatically when an MFR is approved, not here.",
-    "Item Type is required for every Raw Material row (pick from the Reference sheet); it may be left blank for Packaging.",
+    "Item Type is required for every Raw Material row (pick from the Reference sheet); it may be left blank for Packaging. Unit is required on every row.",
   ]);
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META.items.sheetName);

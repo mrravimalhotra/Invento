@@ -190,3 +190,6 @@ The app then opens in its own window without the browser bar. Theme colour is th
 - **Not offline**: there is no service worker; every page still comes from the server. Deliberate — a stock system must never show stale quantities.
 - The icons are the Atharva wordmark centred on white (generated from `public/atharva-logo.svg`). To use a proper square icon, replace those four PNGs with the same names and sizes (192, 512, 512 maskable with ~20% margin, 180).
 - `proxy.ts` matcher skips `manifest.webmanifest` so the browser can read it before sign-in.
+
+## Browser-tab titles (30 Sept 2026)
+Each screen has its own tab title ("Purchase · Invento"): the root layout sets the `" · Invento"` template and every module folder has a tiny `layout.tsx` that sets its `metadata.title` (Dashboard sets it in `page.tsx`). Sign-in pages keep the default title. The three deprecated screens (Batch Mfg. Record, Line Clearance, Environmental Control) were deliberately left alone.

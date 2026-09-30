@@ -49,7 +49,9 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   if (category === "raw" && !item_type_id) {
     return { error: "Item type is required for a Raw Material — pick one from the list." };
   }
-  if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
+  // 30 Sept 2026 (Ravi): Unit is mandatory — every quantity is stored in it.
+  if (!unit) return { error: "Unit is required — pick the unit this item is stocked in." };
+  if (!UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
   if (low_stock_threshold && typeof low_stock_threshold === "object") return low_stock_threshold;
@@ -134,6 +136,11 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   if (submittedCategory === "raw" && !item_type_id) {
     return { error: "Item type is required for a Raw Material — pick one from the list." };
   }
+  // Unit is mandatory for Raw Material and Packaging (Finished Product items keep
+  // the unit MFR gave them). An item saved with no unit can always be given one:
+  // the unit lock (0076) only stops changing a unit that is already set.
+  const editable = submittedCategory === "raw" || submittedCategory === "packaging";
+  if (editable && !unit) return { error: "Unit is required — pick the unit this item is stocked in." };
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");

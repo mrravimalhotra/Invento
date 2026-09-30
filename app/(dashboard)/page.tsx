@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { istDayStart, isLegacyCode, todayIst } from "@/lib/utils";
@@ -27,6 +28,8 @@ type PurchaseLineRow = {
   gst_pct: number | null;
   purchase_orders: { po_number: string } | null;
 };
+
+export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const supabase = await createClient();

@@ -256,6 +256,10 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
         rowErrors.push(`Row ${r} ("${name}"): Unit "${unitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
         return;
       }
+    } else {
+      // 30 Sept 2026 (Ravi): Unit is mandatory for every item.
+      rowErrors.push(`Row ${r} ("${name}"): Unit is required (${UNITS.join(", ")}).`);
+      return;
     }
 
     let low_stock_threshold: number | null = null;

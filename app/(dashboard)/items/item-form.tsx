@@ -67,9 +67,9 @@ export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOptio
             ))}
           </Select>
         </Field>
-        <Field label="Unit" htmlFor="unit">
-          <Select id="unit" name="unit" defaultValue="">
-            <option value="">— none —</option>
+        <Field label="Unit" htmlFor="unit" required hint="Every quantity of this item is stored in this unit.">
+          <Select id="unit" name="unit" defaultValue="" required>
+            <option value="">— select —</option>
             {UNITS.map((u) => (
               <option key={u} value={u}>
                 {u}
@@ -181,10 +181,16 @@ export function EditItemForm({
         <Field
           label="Unit"
           htmlFor="unit"
+          required={category === "raw" || category === "packaging"}
           hint="The item's stock unit — every quantity is stored in it. Can't be changed once the item has purchases, recipes or stock."
         >
-          <Select id="unit" name="unit" defaultValue={item.unit ?? ""}>
-            <option value="">— none —</option>
+          <Select
+            id="unit"
+            name="unit"
+            defaultValue={item.unit ?? ""}
+            required={category === "raw" || category === "packaging"}
+          >
+            <option value="">— select —</option>
             {UNITS.map((u) => (
               <option key={u} value={u}>
                 {u}

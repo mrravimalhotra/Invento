@@ -277,4 +277,4 @@ Where QC/Stability/R&D quantity is captured instead:
   a plain text render of `item.barcode`, already the fallback path here for
   any value containing characters outside printable ASCII).
 - **Item type is mandatory for a Raw Material** (Ravi, 30 Sept 2026): required on the New and Edit forms (only while Category is Raw material), refused by `createItem` / `updateItem` with a clear message, and a row error in Item Master bulk upload. Packaging may still have none. No database constraint (older raw items without a type stay as they are until edited). Production-issued raw items (RM-FP) are created by the system, not here, but asking for a type applies if someone edits one.
-- Unit is optional on both forms (the schema allows null); Item type is optional for Packaging only.
+- **Unit is mandatory** for Raw Material and Packaging (Ravi, 30 Sept 2026): required on the New and Edit forms, in `createItem` / `updateItem` and in bulk upload (every row). Item type stays optional for Packaging. An older item saved with no unit can always be given one (the 0076 unit lock only blocks changing a unit that is already set). No database constraint.

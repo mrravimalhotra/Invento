@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Invento — Ayurvedic Inventory & Manufacturing ERP",
+  title: { default: "Invento — Ayurvedic Inventory & Manufacturing ERP", template: "%s · Invento" },
   icons: { apple: "/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "Invento", statusBarStyle: "default" },
   description: "Invento v2 — inventory, purchase, QC, MFR and finished-product ERP for Atharva Nature Healthcare.",
