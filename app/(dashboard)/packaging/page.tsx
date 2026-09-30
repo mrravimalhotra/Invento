@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { materialsSummary } from "@/lib/packaging-materials";
+import { materialsSummary, rmFpBatchesText, rmFpItemCodesText } from "@/lib/packaging-materials";
 import { PackagingExportButton } from "./packaging-export-button";
 import { PackagingTable, type PackagingRow } from "./packaging-table";
 
@@ -25,7 +25,7 @@ export default async function PackagingListPage({
     supabase
       .from("packaging_issues")
       .select(
-        "id, code, pack_size, unit_count, department, created_at, finished_product_batches(batch_number), packaging_issue_items(quantity, unit, items(name, item_code))"
+        "id, code, pack_size, unit_count, department, created_at, finished_product_batches(batch_number), packaging_issue_items(quantity, unit, items(name, item_code)), production_issue_batches(batch_number, quantity, unit, active, items(item_code))"
       )
       .order("created_at", { ascending: false })
       .order("id", { ascending: true })
@@ -42,6 +42,8 @@ export default async function PackagingListPage({
     formatNumber(r.unit_count, 0),
     r.department,
     materialsSummary(r.packaging_issue_items),
+    rmFpItemCodesText(r.production_issue_batches),
+    rmFpBatchesText(r.production_issue_batches),
     formatDate(r.created_at),
   ]);
 

@@ -527,3 +527,7 @@ Sample unit must now all be filled in — the same rule as a Purchase line. The
 quantity fields start blank (no pre-filled 0). A blank one is refused in the form and
 again in `createPackagingIssue`; `0` is still accepted when typed, for an issue that
 needs no sampling. Store and R&D issues are unchanged.
+
+## Packing Register shows the RM-FP item and batch (30 Sept 2026, B26)
+
+The Packaging list has two more columns, **RM-FP item code** and **RM-FP batch**, before Date. A Production issue shows the raw-material item it created (for example `RM-FP-00001`) and each batch with its quantity (for example `FP-02-26 (50 kg)`); several batches appear one per line. Store and R&D rows show "—". Both columns are searchable and appear in the PDF export. The list also gained an Excel export (`exportConfig`), like the other lists. Data comes from `production_issue_batches` (inactive rows ignored); no database change.

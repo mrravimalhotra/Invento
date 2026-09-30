@@ -23,3 +23,39 @@ export function materialsSummary(materials: PackagingMaterialRow[] | null): stri
   if (!materials || materials.length === 0) return "—";
   return materials.map((m) => `${m.items?.name ?? "—"} (${formatQty(m.quantity)} ${m.unit})`).join(", ");
 }
+
+// B26 (30 Sept 2026): a Production issue turns finished product into a new
+// raw-material item (RM-FP-…) and batch(es). These are read from
+// production_issue_batches so the Packing Register can show them.
+export type ProductionIssueBatchRow = {
+  batch_number: string;
+  quantity: number | string;
+  unit: string;
+  active?: boolean | null;
+  items: { item_code: string } | null;
+};
+
+function activeBatches(batches: ProductionIssueBatchRow[] | null): ProductionIssueBatchRow[] {
+  return (batches ?? []).filter((b) => b.active !== false);
+}
+
+// "RM-FP-00001" (one line per distinct item code), or "—" when there is none.
+export function rmFpItemCodes(batches: ProductionIssueBatchRow[] | null): string[] {
+  const codes = activeBatches(batches).map((b) => b.items?.item_code ?? "—");
+  return Array.from(new Set(codes));
+}
+
+// "FP-02-26 (50 kg)" — one entry per batch.
+export function rmFpBatchLines(batches: ProductionIssueBatchRow[] | null): string[] {
+  return activeBatches(batches).map((b) => `${b.batch_number} (${formatQty(b.quantity)} ${b.unit})`);
+}
+
+export function rmFpItemCodesText(batches: ProductionIssueBatchRow[] | null): string {
+  const c = rmFpItemCodes(batches);
+  return c.length ? c.join(", ") : "—";
+}
+
+export function rmFpBatchesText(batches: ProductionIssueBatchRow[] | null): string {
+  const l = rmFpBatchLines(batches);
+  return l.length ? l.join("; ") : "—";
+}
