@@ -7,6 +7,7 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { NewEquipmentForm } from "./equipment-form";
 import { EquipmentTable, type EquipmentRow } from "./equipment-table";
 
+import { friendlyDbError } from "@/lib/db-errors";
 export default async function EquipmentPage({
   searchParams,
 }: {
@@ -47,7 +48,7 @@ export default async function EquipmentPage({
           New equipment &quot;{createdRow.name}&quot; ({createdRow.equipment_code}) has been successfully added.
         </p>
       )}
-      {error && <p className="mb-4 text-sm text-red">{error.message}</p>}
+      {error && <p className="mb-4 text-sm text-red">{friendlyDbError(error, "Couldn't load this list.")}</p>}
 
       <div className={canCreate ? "grid items-start gap-6 lg:grid-cols-[360px_1fr]" : undefined}>
         {canCreate && nextEquipmentCode && (

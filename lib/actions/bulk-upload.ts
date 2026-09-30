@@ -398,7 +398,7 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
   }
 
   const { error } = await supabase.from("vendors").insert(insertRows);
-  if (error) return { error: friendlyDbError(error) };
+  if (error) return { error: friendlyDbError(error, "Nothing was imported — the vendor upload failed.") };
 
   revalidatePath("/vendors");
   return { success: `Imported ${insertRows.length} vendor${insertRows.length === 1 ? "" : "s"}.` };
@@ -823,7 +823,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   if (payload.length === 0) return { error: "No MFR rows found in that file." };
 
   const { data, error } = await supabase.rpc("bulk_create_mfr_definitions", { p_payload: payload });
-  if (error) return { error: friendlyDbError(error) };
+  if (error) return { error: friendlyDbError(error, "Nothing was imported — the MFR upload failed.") };
 
   // As of 0041_mfr_deferred_approval.sql, bulk-uploaded MFRs land the same
   // way a manually-created one now does: unapproved, with no Finished
@@ -1140,7 +1140,7 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
         error: "Two lines in this file needed the same auto-generated batch number at once — please try uploading again.",
       };
     }
-    return { error: friendlyDbError(error) };
+    return { error: friendlyDbError(error, "Nothing was imported — the purchase order upload failed.") };
   }
 
   revalidatePath("/purchase");
@@ -1298,7 +1298,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
   }
 
   const { error } = await supabase.from("equipment").insert(insertRows);
-  if (error) return { error: friendlyDbError(error) };
+  if (error) return { error: friendlyDbError(error, "Nothing was imported — the equipment upload failed.") };
 
   revalidatePath("/equipment");
   return { success: `Imported ${insertRows.length} equipment record${insertRows.length === 1 ? "" : "s"}.` };
@@ -1457,7 +1457,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
   }
 
   const { error } = await supabase.from("dead_stock_items").insert(insertRows);
-  if (error) return { error: friendlyDbError(error) };
+  if (error) return { error: friendlyDbError(error, "Nothing was imported — the dead stock upload failed.") };
 
   revalidatePath("/dead-stock");
   return { success: `Imported ${insertRows.length} dead stock record${insertRows.length === 1 ? "" : "s"}.` };
@@ -1563,7 +1563,7 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
   if (payload.length === 0) return { error: "No COA template rows found in that file." };
 
   const { data, error } = await supabase.rpc("bulk_create_coa_templates", { p_payload: payload });
-  if (error) return { error: friendlyDbError(error) };
+  if (error) return { error: friendlyDbError(error, "Nothing was imported — the COA template upload failed.") };
 
   revalidatePath("/coa/templates");
   const templateCount = data?.length ?? payload.length;

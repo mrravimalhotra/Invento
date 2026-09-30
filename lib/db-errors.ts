@@ -41,8 +41,33 @@ export function friendlyDbError(error: ErrorLike, fallback: string = GENERIC): s
     return mapped;
   }
 
+  // Unknown code: still say WHY in plain words where the code family tells us,
+  // and always give the code as a reference so it can be traced in the log.
   console.error(`[db-error] unexpected ${code}: ${message}${error.details ? ` — ${error.details}` : ""}`);
-  return `${fallback === GENERIC ? "Something went wrong" : fallback.replace(/\.$/, "")} (reference ${code}). Please try again, or report it with the Feedback button.`;
+  const lead = fallback === GENERIC ? "Something went wrong" : fallback.replace(/\.$/, "");
+  return `${lead}. ${explainFamily(code)} (reference ${code})`;
+}
+
+// Plain-language reason for a code we have no exact wording for.
+function explainFamily(code: string): string {
+  if (code.startsWith("PGRST")) {
+    return "The app asked the database for something it doesn't have — this usually means a database update hasn't been applied yet. Please tell your administrator, or report it with the Feedback button.";
+  }
+  switch (code.slice(0, 2)) {
+    case "08":
+    case "53":
+    case "57":
+    case "58":
+      return "The database is busy or temporarily unreachable. Please wait a minute and try again.";
+    case "42":
+      return "This feature needs a database update that hasn't been applied yet. Please tell your administrator, or report it with the Feedback button.";
+    case "22":
+      return "One of the values isn't acceptable — please check the numbers, dates and texts you entered.";
+    case "23":
+      return "The data conflicts with existing records or rules. Please check it and try again.";
+    default:
+      return "Please try again; if it keeps happening, report it with the Feedback button.";
+  }
 }
 
 function mapKnown(code: string, message: string): string | null {
@@ -50,7 +75,7 @@ function mapKnown(code: string, message: string): string | null {
     case "42501":
       // Our own role checks raise 42501 with a readable message; Postgres'
       // own permission / row-level-security refusals get a plain one.
-      if (/row-level security|permission denied/i.test(message)) return "You don't have permission to do that.";
+      if (/row-level security|permission denied/i.test(message)) return "You don't have permission to do that. Ask an administrator if you need access.";
       return message || "You don't have permission to do that.";
     case "23505":
       return "That already exists — a record with the same code, number or name is already saved.";
@@ -71,16 +96,33 @@ function mapKnown(code: string, message: string): string | null {
       return "A number is too large.";
     case "22001":
       return "One of the texts is too long.";
+    case "22012":
+      return "A calculation tried to divide by zero — check that quantities and conversion factors aren't zero.";
     case "40001":
     case "40P01":
+    case "55P03":
       return "Someone else was saving related data at the same moment. Please try again.";
     case "57014":
-      return "That took too long and was stopped. Please try again.";
+      return "That took too long and was stopped. Please try again, or narrow the dates/filters.";
     case "PGRST116":
       return "That record wasn't found — it may have been removed. Refresh the page.";
     case "PGRST301":
     case "PGRST303":
       return "Your session has expired. Please sign in again.";
+    case "PGRST202":
+      // The API cannot find a database function the app calls: the database is
+      // missing an update (or its function list is stale).
+      return "This feature isn't available in the database yet — a database update hasn't been applied. Nothing was saved. Please tell your administrator (reference PGRST202).";
+    case "PGRST200":
+    case "PGRST204":
+    case "PGRST205":
+    case "42703":
+    case "42P01":
+    case "42883":
+      return `This screen needs a database update that hasn't been applied yet. Nothing was saved. Please tell your administrator (reference ${code}).`;
+    case "PGRST100":
+    case "PGRST102":
+      return "The request wasn't understood. Please refresh the page and try again.";
     default:
       return null;
   }

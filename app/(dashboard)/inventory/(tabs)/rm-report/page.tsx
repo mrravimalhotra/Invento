@@ -7,6 +7,7 @@ import { RmReportFilter } from "./rm-report-filter";
 import { RmReportExport, type RmReportExportRow } from "./rm-report-export";
 import { RmReportTable } from "./rm-report-table";
 
+import { friendlyDbError } from "@/lib/db-errors";
 type PurchaseLineRow = {
   id: string;
   batch_number: string;
@@ -120,7 +121,7 @@ export default async function RmReportPage({
           <RmReportExport asOf={asOf} rows={rows} />
         </div>
       </div>
-      {error && <p className="p-4 text-sm text-red">{error.message}</p>}
+      {error && <p className="p-4 text-sm text-red">{friendlyDbError(error, "Couldn't load this list.")}</p>}
       <RmReportTable rows={rows} asOf={asOf} />
       {rows.length > 0 && (
         <div className="flex justify-end border-t border-border px-4 py-2.5 text-sm font-semibold">

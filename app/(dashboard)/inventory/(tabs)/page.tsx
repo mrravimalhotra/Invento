@@ -7,6 +7,7 @@ import { LedgerFilters, type ItemFilterOption } from "./ledger-filters";
 import { enrichLedgerRows, type RawLedgerRow } from "@/lib/ledger-enrich";
 import { LEDGER_REASON_VALUES } from "@/lib/ledger-reasons";
 
+import { friendlyDbError } from "@/lib/db-errors";
 const LEDGER_LIMIT = 1000;
 
 type LedgerQueryRow = RawLedgerRow;
@@ -100,7 +101,7 @@ export default async function InventoryLedgerPage({
   return (
     <Card>
       <LedgerFilters items={items ?? []} itemId={itemId} referenceType={referenceType} from={from} to={to} />
-      {error && <p className="p-4 text-sm text-red">{error.message}</p>}
+      {error && <p className="p-4 text-sm text-red">{friendlyDbError(error, "Couldn't load this list.")}</p>}
       <InventoryLedgerTable rows={rows} ledgerLimit={LEDGER_LIMIT} />
     </Card>
   );

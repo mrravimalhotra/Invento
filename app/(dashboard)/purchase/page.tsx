@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { PurchaseTable, type PurchaseRow } from "./purchase-table";
 
+import { friendlyDbError } from "@/lib/db-errors";
 type LineForTotal = { quantity: string | number; unit_price: string | number | null; gst_pct: string | number | null };
 
 type PORow = {
@@ -68,7 +69,7 @@ export default async function PurchasePage() {
           ) : undefined
         }
       />
-      {error && <p className="mb-4 text-sm text-red">{error.message}</p>}
+      {error && <p className="mb-4 text-sm text-red">{friendlyDbError(error, "Couldn't load this list.")}</p>}
       <Card>
         <PurchaseTable rows={rows} />
       </Card>

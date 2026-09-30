@@ -9,6 +9,7 @@ import { AuditFilters } from "./audit-filters";
 import { AuditTable } from "./audit-table";
 import { AUDIT_TABLE_OPTIONS, type AuditLogRow } from "./audit-diff";
 
+import { friendlyDbError } from "@/lib/db-errors";
 // Same row-cap-and-say-so pattern as the QC list (QC_LIMIT) and Inventory
 // Ledger (LEDGER_LIMIT) — most-recent-first with a server-side filter to
 // fall back on, rather than an unbounded fetch.
@@ -85,7 +86,7 @@ async function AuditLogList({ table, from, to }: { table: string; from: string; 
   return (
     <Card>
       <AuditFilters table={table} from={from} to={to} />
-      {error && <p className="p-4 text-sm text-red">{error.message}</p>}
+      {error && <p className="p-4 text-sm text-red">{friendlyDbError(error, "Couldn't load this list.")}</p>}
       <AuditTable rows={rows} />
       {rows.length === AUDIT_LIMIT && (
         <p className="border-t border-border px-5 py-3 text-xs text-muted">

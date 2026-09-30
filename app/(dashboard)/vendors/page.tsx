@@ -7,6 +7,7 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { NewVendorForm } from "./vendor-form";
 import { VendorsTable, type VendorRow } from "./vendors-table";
 
+import { friendlyDbError } from "@/lib/db-errors";
 export default async function VendorsPage({
   searchParams,
 }: {
@@ -43,7 +44,7 @@ export default async function VendorsPage({
           New vendor &quot;{createdVendor.name}&quot; ({createdVendor.vendor_code}) has been successfully added.
         </p>
       )}
-      {error && <p className="mb-4 text-sm text-red">{error.message}</p>}
+      {error && <p className="mb-4 text-sm text-red">{friendlyDbError(error, "Couldn't load this list.")}</p>}
 
       {/* Add form and list share the page — no navigating to a separate
           /new screen and back just to add one vendor. */}

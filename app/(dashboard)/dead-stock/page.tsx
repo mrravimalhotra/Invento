@@ -7,6 +7,7 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { NewDeadStockForm } from "./dead-stock-form";
 import { DeadStockTable, type DeadStockRow } from "./dead-stock-table";
 
+import { friendlyDbError } from "@/lib/db-errors";
 export default async function DeadStockPage({
   searchParams,
 }: {
@@ -48,7 +49,7 @@ export default async function DeadStockPage({
           New asset &quot;{createdRow.article_name}&quot; ({createdRow.asset_code}) has been successfully added.
         </p>
       )}
-      {error && <p className="mb-4 text-sm text-red">{error.message}</p>}
+      {error && <p className="mb-4 text-sm text-red">{friendlyDbError(error, "Couldn't load this list.")}</p>}
 
       <div className={canCreate ? "grid items-start gap-6 lg:grid-cols-[360px_1fr]" : undefined}>
         {canCreate && nextAssetCode && (
