@@ -182,3 +182,11 @@ that slides the same menu in over the page. Tapping a link, the dark backdrop, t
 - 768 px and wider: nothing changes. The "Awaiting access" screen has no menu button (`Topbar showMenu={false}`).
 - `app/layout.tsx` exports an explicit `viewport` (device-width, scale 1); the page padding is 16 px on phones, 24 px from 768 px.
 - Navigation only: no data, action or database change.
+
+## Install on the home screen (30 Sept 2026)
+`app/manifest.ts` (served at `/manifest.webmanifest`) plus icons in `public/` (`icon-192.png`, `icon-512.png`,
+`icon-maskable-512.png`, `apple-touch-icon.png`) let a phone or desktop browser offer "Install app" / "Add to Home screen".
+The app then opens in its own window without the browser bar. Theme colour is the brand green (#1f6f4e).
+- **Not offline**: there is no service worker; every page still comes from the server. Deliberate — a stock system must never show stale quantities.
+- The icons are the Atharva wordmark centred on white (generated from `public/atharva-logo.svg`). To use a proper square icon, replace those four PNGs with the same names and sizes (192, 512, 512 maskable with ~20% margin, 180).
+- `proxy.ts` matcher skips `manifest.webmanifest` so the browser can read it before sign-in.

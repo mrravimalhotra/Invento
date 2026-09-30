@@ -3,11 +3,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Invento — Ayurvedic Inventory & Manufacturing ERP",
+  icons: { apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Invento", statusBarStyle: "default" },
   description: "Invento v2 — inventory, purchase, QC, MFR and finished-product ERP for Atharva Nature Healthcare.",
 };
 
 // Standard phone setting: page width = screen width, no zoomed-out desktop view.
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#1f6f4e" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
