@@ -1273,3 +1273,12 @@ entry removed"), so the column was blank for every batch received since. Ravi
 (`quality_checks.retest_date`) and stays on the raw-material batch screens
 (Purchase batches on the item page, QC). The page no longer fetches
 `purchase_lines.expiry_date` either. Code only.
+
+## Oldest stock first is a hard rule (30 Sept 2026, B16, migration 0090)
+Ravi: "Hard rule". A raw material can only be consumed into a finished-product batch if no OLDER batch of the same item is still usable.
+- **Usable** = what the Compose screen offers: purchase batch active, PO submitted, QC-approved, retest date not reached, quantity left; production-issued raw-material batch active, QC-approved, retest date not reached, quantity left. An older batch that is quarantined, rejected, retest-due, reopened, inactive or used up does **not** block.
+- **Older** = received earlier (`created_at`), across purchase and production-issued batches. Batches received at the same moment (bulk loads) are interchangeable.
+- Enforced by trigger `trg_fp_component_z_fifo` on `finished_product_components` (runs after the QC gate), so it holds for the screen, a direct API call and the SQL editor. No exception path. Message: "Oldest stock must be used first. Batch X of <item> (n kg still available) is older than batch Y and has to be used before it."
+- `create_finished_product_batch` now saves the components oldest batch first, so a recipe spanning several batches always satisfies the rule in order. Consumption of one item is serialised with an advisory lock.
+- Packaging materials were already drawn oldest-first in the database (0079). **Not covered on purpose**: wastage (a specific damaged batch is chosen) and QC sample pulls (they come from the batch under test).
+- Suite `b16` (31 checks; 7 fail without the migration).
