@@ -1,1 +1,0 @@
-psql:/home/claude/invento-app/supabase/migrations/0082_current_qc_approval.sql:95: NOTICE:  trigger "trg_coa_current_approval" for relation "public.coa_records" does not exist, skipping

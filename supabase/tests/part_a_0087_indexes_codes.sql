@@ -1,0 +1,30 @@
+\set ON_ERROR_STOP off
+create or replace function public.t_ok(p_label text, p_sql text) returns void language plpgsql as $$ begin execute p_sql; raise notice 'PASS  | ok      | % (as %)', p_label, current_user; exception when others then raise notice 'FAIL  | ok      | % (as %) -> %', p_label, current_user, sqlerrm; end $$;
+create or replace function public.t_fail(p_label text, p_sql text, p_expect text) returns void language plpgsql as $$ begin execute p_sql; raise notice 'FAIL  | blocked | % -> ALLOWED', p_label; exception when others then if position(p_expect in sqlerrm) > 0 then raise notice 'PASS  | blocked | % -> %', p_label, sqlerrm; else raise notice 'FAIL  | blocked | % -> wrong error: %', p_label, sqlerrm; end if; end $$;
+create or replace function public.t_check(p_label text, p_cond boolean) returns void language plpgsql as $$ begin if coalesce(p_cond,false) then raise notice 'PASS  | check   | %', p_label; else raise notice 'FAIL  | check   | %', p_label; end if; end $$;
+grant execute on function public.t_ok(text,text), public.t_fail(text,text,text), public.t_check(text,boolean) to authenticated, anon;
+create or replace function public._plan(q text) returns text language plpgsql as $$ declare r text; o text := ''; begin for r in execute 'explain '||q loop o := o||r||E'\n'; end loop; return o; end $$;
+insert into auth.users (id,email) values ('00000000-0000-0000-0000-0000000000a1','a@t');
+insert into user_roles values ('00000000-0000-0000-0000-0000000000a1','system_admin');
+select t_check('15 new indexes exist', (select count(*)=15 from pg_indexes where indexname in ('inventory_ledger_item_event_idx','inventory_ledger_reference_idx','inventory_ledger_production_batch_idx','quality_checks_pl_created_idx','coa_records_quality_check_id_idx','coa_records_fp_batch_id_idx','coa_records_template_id_idx','purchase_orders_vendor_id_idx','items_item_type_id_idx','mfr_definitions_item_type_id_idx','mfr_lines_item_id_idx','packaging_issues_fp_batch_id_idx','packaging_issue_items_issue_id_idx','packaging_issue_items_item_id_idx','production_issue_batches_issue_id_idx')));
+select t_check('redundant single-column indexes gone', not exists (select 1 from pg_indexes where indexname in ('inventory_ledger_item_id_idx','quality_checks_purchase_line_id_idx')));
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
+create temp table _c as select * from public.get_next_item_codes('raw', 5) with ordinality as t(code, n);
+grant all on _c to authenticated;
+select t_check('5 raw item codes, consecutive and in order', (select count(*)=5 and array_agg(code order by n) = array['RM-00001','RM-00002','RM-00003','RM-00004','RM-00005'] from _c));
+select t_check('next single code continues the sequence', public.get_next_item_code('raw') = 'RM-00006');
+select t_check('packaging codes come from their own sequence', (select array_agg(c) = array['PKG-00001','PKG-00002'] from public.get_next_item_codes('packaging', 2) c));
+select t_check('3 vendor codes', (select array_agg(c) = array['V-0001','V-0002','V-0003'] from public.get_next_vendor_codes(3) c));
+select t_check('2 equipment codes, consecutive', (select count(*)=2 and max(substr(c,4)::int) - min(substr(c,4)::int) = 1 from public.get_next_equipment_codes(2) c));
+select t_check('2 dead stock codes', (select array_agg(c) = array['DS-0001','DS-0002'] from public.get_next_dead_stock_codes(2) c));
+select t_check('500 vendor codes are unique', (select count(distinct c)=500 from public.get_next_vendor_codes(500) c));
+select t_fail('count 0 refused', $q$select * from public.get_next_vendor_codes(0)$q$, 'between 1 and 5000');
+select t_fail('count 5001 refused', $q$select * from public.get_next_item_codes('raw', 5001)$q$, 'between 1 and 5000');
+select t_fail('null count refused', $q$select * from public.get_next_dead_stock_codes(null)$q$, 'between 1 and 5000');
+reset role; set role anon;
+select t_fail('anon cannot call it', $q$select * from public.get_next_vendor_codes(2)$q$, 'permission denied');
+reset role;
+-- reference lookup uses the new index
+set enable_seqscan = off;
+select t_check('reference lookup plans an index scan', (select bool_or(l like '%inventory_ledger_reference_idx%') from (select unnest(string_to_array(public._plan('select * from inventory_ledger where reference_type=''qc'' and reference_id=gen_random_uuid()'), E'\n')) l) x));
