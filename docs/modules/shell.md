@@ -193,3 +193,8 @@ The app then opens in its own window without the browser bar. Theme colour is th
 
 ## Browser-tab titles (30 Sept 2026)
 Each screen has its own tab title ("Purchase · Invento"): the root layout sets the `" · Invento"` template and every module folder has a tiny `layout.tsx` that sets its `metadata.title` (Dashboard sets it in `page.tsx`). Sign-in pages keep the default title. The three deprecated screens (Batch Mfg. Record, Line Clearance, Environmental Control) were deliberately left alone.
+
+## Forms keep what you typed when a save fails (FB-0045, 1 Oct 2026)
+React 19 clears a `<form action={…}>` after every attempt, which wiped every field when a save was refused ("Item type is required"). `lib/use-flash-action.ts` (used by 44 forms) now cancels that one clearing when the action returns an error: it remembers which form was submitted and cancels its `reset` event. On a success the form clears as before. The mark expires after 5 seconds and is cleared by the next submit, so it cannot affect another form or a later success. Sign-in, forgot/reset/change password (plain `useActionState`) still clear on purpose.
+Check: leave a required field empty on any form, save, and see the refusal message with everything else still filled in; fix the field, save, and the form clears (or redirects) as usual.
+

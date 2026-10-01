@@ -39,9 +39,9 @@ declare -A FILE=(
   [b]=b_batch_numbers_retests [p]=p_packaging [r]=r_po_reopen [u]=u_single_unit
   [sec04]=sec04_workflow_guards [des02]=des02_audit_trail [tz]=tz_india_time
   [sec07]=sec07_last_admin [sb]=sb_security_reads
-  [a0085]=part_a_0085_form_fixes [a0086]=part_a_0086_db_hardening [a0087]=part_a_0087_indexes_codes [a0088]=part_a_0088_coa_upload_rpc [b16]=part_b16_fifo
+  [a0085]=part_a_0085_form_fixes [a0086]=part_a_0086_db_hardening [a0087]=part_a_0087_indexes_codes [a0088]=part_a_0088_coa_upload_rpc [b16]=part_b16_fifo [fb45]=fb45_rm_code_3digits
 )
-ORDER=(b p r u sec04 des02 tz sec07 sb a0085 a0086 a0087 a0088 b16)
+ORDER=(b p r u sec04 des02 tz sec07 sb a0085 a0086 a0087 a0088 b16 fb45)
 HELPER="create or replace function public.t_check(p_label text, p_cond boolean) returns void language plpgsql as \$\$ begin if coalesce(p_cond,false) then raise notice 'PASS  | check   | %', p_label; else raise notice 'FAIL  | check   | %', p_label; end if; end \$\$;"
 
 bad=0

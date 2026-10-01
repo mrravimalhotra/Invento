@@ -9,7 +9,7 @@ import { UNITS } from "@/lib/constants/units";
 
 type ItemTypeOption = { id: string; description: string };
 
-// Preview-only, e.g. { raw: "RM-00005", packaging: "PKG-00012" } — fetched
+// Preview-only, e.g. { raw: "RM-005", packaging: "PKG-00012" } — fetched
 // once server-side (peek_next_item_code(), a non-consuming read of the
 // sequence) and switched between client-side as Category changes, so
 // picking a category never needs a round trip. The code actually assigned

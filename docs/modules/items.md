@@ -35,6 +35,7 @@ Read is open to any signed-in user.
   redirects to the new item's detail page where the generated code is shown
   for real. As of `0007_item_code_fp_and_sample_unit.sql`, codes are 5-digit
   and 3-way: `RM-00001` (raw), `PKG-00001` (packaging), `FP-00001`
+  (raw material changed to 3 digits, `RM-001`, by `0091`, see the FB-0045 note at the end)
   (processed/finished product, its own sequence, now only ever assigned via
   MFR — see below).
 
@@ -278,3 +279,4 @@ Where QC/Stability/R&D quantity is captured instead:
   any value containing characters outside printable ASCII).
 - **Item type is mandatory for a Raw Material** (Ravi, 30 Sept 2026): required on the New and Edit forms (only while Category is Raw material), refused by `createItem` / `updateItem` with a clear message, and a row error in Item Master bulk upload. Packaging may still have none. No database constraint (older raw items without a type stay as they are until edited). Production-issued raw items (RM-FP) are created by the system, not here, but asking for a type applies if someone edits one.
 - **Unit is mandatory** for Raw Material and Packaging (Ravi, 30 Sept 2026): required on the New and Edit forms, in `createItem` / `updateItem` and in bulk upload (every row). Item type stays optional for Packaging. An older item saved with no unit can always be given one (the 0076 unit lock only blocks changing a unit that is already set). No database constraint.
+- **Raw Material codes have 3 digits** (FB-0045, Ravi, 1 Oct 2026): new Raw Material items get `RM-001`, `RM-002` ... `RM-999`, and then `RM-1000`, `RM-1001` ... The number is padded to at least three digits and never cut, so reaching 999 cannot repeat or truncate a code (`get_next_item_code` / `peek_next_item_code`, migration `0091`, using the `_pad_seq_code` helper from `0069`). Packaging (`PKG-00001`), Finished Product (`FP-00001`), packaged Finished Product (`PKG-FP-00001`) and Production raw material (`RM-FP-00001`) keep five digits. Existing items keep their codes; the sequence is not reset, so the next new code continues the number (after `RM-00045` comes `RM-046`). Batch numbers that embed the code follow it (`RM-046-01/26`). Item lists are not sorted by code text; if you ever sort on it, `RM-1000` sorts before `RM-999` as text. Test: `scripts/dev/run-tests.sh fb45`.

@@ -223,7 +223,7 @@ Every item in Item Master can be tagged with one item type, and several bulk-upl
 4. System Admins also see a Delete button here, which asks for confirmation before permanently removing the item.
 
 **Fields you'll be asked for**
-- **Item code** — shown as a read-only preview while creating (e.g. "RM-00006"); the real code is only assigned once you save, and it never changes afterward.
+- **Item code** — shown as a read-only preview while creating (e.g. "RM-006" for a raw material; after RM-999 it carries on as RM-1000); the real code is only assigned once you save, and it never changes afterward.
 - **Botanical Name** — an optional alternate/scientific name for the raw material.
 - **Category** — Raw material or Packaging only when creating; existing Finished Product items show Category locked and read-only.
 - **Item type** — optional dropdown pulled from Item Type Master's active entries.
