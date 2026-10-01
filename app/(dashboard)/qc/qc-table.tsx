@@ -46,7 +46,7 @@ function isLegacyQcRow(r: QcListRow) {
 export function QcTable({ rows }: { rows: QcListRow[] }) {
   const columns: Column<QcListRow>[] = [
     {
-      header: "AR Number",
+      header: "Analytical Report No.",
       accessor: (r) => (
         <span className="flex items-center gap-1.5">
           <Link href={`/qc/${r.id}`} className="font-medium text-brand-dark hover:underline">
@@ -128,7 +128,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
       columns={columns}
       rows={rows}
       emptyLabel="No quality checks yet."
-      searchPlaceholder="Search AR number, item, or batch…"
+      searchPlaceholder="Search Analytical Report No., item, or batch…"
       isLegacy={isLegacyQcRow}
       exportConfig={exportConfig}
     />

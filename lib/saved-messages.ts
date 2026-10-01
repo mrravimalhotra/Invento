@@ -7,7 +7,7 @@
 // the same banner style as the `?created=1` notices on the create screens.
 export const SAVED_MESSAGES = {
   qc_round1_approved:
-    "Decision saved: Approved. This AR now goes to a QC Reviewer for the final decision.",
+    "Decision saved: Approved. This Analytical Report now goes to a QC Reviewer for the final decision.",
   qc_round1_rejected: "Decision saved: Rejected. The batch is rejected and this record can no longer be edited.",
   qc_round2_approved: "Final decision saved: Approved. The retest date has been set.",
   qc_round2_rejected: "Final decision saved: Rejected. The batch is rejected.",

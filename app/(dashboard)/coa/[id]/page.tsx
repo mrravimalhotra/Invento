@@ -50,7 +50,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
       </Link>
       <PageHeader
         title={row.coa_number}
-        description={`Issued ${formatDateTime(row.issued_at)} · AR ${row.quality_checks?.ar_number ?? "—"} · ${itemLabel} · Batch ${batchLabel}`}
+        description={`Issued ${formatDateTime(row.issued_at)} · Analytical Report No. ${row.quality_checks?.ar_number ?? "—"} · ${itemLabel} · Batch ${batchLabel}`}
         action={
           row.coa_type && row.header_data && row.result_lines ? (
             <CoaPdfButton

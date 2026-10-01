@@ -164,7 +164,7 @@ export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; i
       </div>
 
       <p className="text-xs text-muted">
-        The AR number is assigned automatically on save. Retest date is set automatically at review time (Retest
+        The Analytical Report No. is assigned automatically on save. Retest date is set automatically at review time (Retest
         period + review date) — there&apos;s nothing to enter here.
       </p>
 

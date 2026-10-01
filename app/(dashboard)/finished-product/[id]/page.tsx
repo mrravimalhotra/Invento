@@ -255,7 +255,7 @@ export default async function FinishedProductDetailPage({
             <CardHeader title="QC record" />
             <CardBody className="grid gap-3 text-sm sm:grid-cols-3">
               <div>
-                <span className="text-muted">AR number</span>
+                <span className="text-muted">Analytical Report No.</span>
                 <p className="mt-1 font-medium">{latestQc.ar_number}</p>
               </div>
               <div>
@@ -336,7 +336,7 @@ export default async function FinishedProductDetailPage({
             <CardBody>
               <p className="text-sm text-muted">
                 Moves this batch to <Badge status="submitted_to_qc">submitted to qc</Badge> and opens a QC record
-                (AR number) for it — the same gate the legacy system uses (&ldquo;Finish Product Intimation
+                (Analytical Report No.) for it — the same gate the legacy system uses (&ldquo;Finish Product Intimation
                 Slip&rdquo;) before
                 a batch can be released. A QC reviewer sets it Approved/Rejected on the QC Review screen; this page
                 reflects that verdict automatically once set.

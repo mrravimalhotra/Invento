@@ -57,7 +57,7 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
-  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an AR number.") };
+  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an Analytical Report No.") };
 
   const { data: inserted, error } = await supabase
     .from("quality_checks")
@@ -300,7 +300,7 @@ export async function createProductionQualityCheck(
   }
 
   const { data: arNumber, error: arError } = await supabase.rpc("get_next_ar_number");
-  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an AR number.") };
+  if (arError || !arNumber) return { error: friendlyDbError(arError, "Could not generate an Analytical Report No.") };
 
   const { data: inserted, error: insertError } = await supabase
     .from("quality_checks")

@@ -83,7 +83,7 @@ export type QcRow = {
 
 export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
   const columns: ReportColumn<QcRow>[] = [
-    { header: "AR Number", cell: (r) => r.ar_number, pdfValue: (r) => r.ar_number },
+    { header: "Analytical Report No.", exportHeader: "AR Number", cell: (r) => r.ar_number, pdfValue: (r) => r.ar_number },
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
     {
       header: "Batch",

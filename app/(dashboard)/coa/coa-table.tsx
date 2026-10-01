@@ -27,7 +27,7 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
       searchValue: (r) => r.coa_number,
     },
     {
-      header: "AR Number",
+      header: "Analytical Report No.",
       accessor: (r) => r.quality_checks?.ar_number ?? "—",
       searchValue: (r) => r.quality_checks?.ar_number ?? "",
     },
@@ -89,7 +89,7 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
       columns={columns}
       rows={rows}
       emptyLabel="No certificates issued yet."
-      searchPlaceholder="Search COA or AR number…"
+      searchPlaceholder="Search COA or Analytical Report No.…"
       exportConfig={exportConfig}
     />
   );

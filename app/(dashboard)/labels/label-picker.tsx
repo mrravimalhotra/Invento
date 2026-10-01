@@ -262,7 +262,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             <div className="flex items-center gap-2 text-sm text-muted">
               <span>Current QC status:</span>
               <Badge status={rm.qcStatus}>{rm.qcStatus.replace("_", " ")}</Badge>
-              {rm.arNumber && <span>AR No. {rm.arNumber}</span>}
+              {rm.arNumber && <span>Analytical Report No. {rm.arNumber}</span>}
             </div>
           )}
           {fp && (

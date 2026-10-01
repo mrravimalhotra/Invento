@@ -16,6 +16,8 @@ const downloadPdfTable = async (...args: Parameters<typeof import("@/lib/pdf").d
 
 export type ReportColumn<T> = {
   header: string;
+  /** Heading used in the downloaded PDF / Excel when it should differ from the on-screen one (FB-0047: the screen says "Analytical Report No.", downloads keep "AR Number"). */
+  exportHeader?: string;
   /** Rendered cell for the on-screen DataTable. */
   cell: (row: T) => React.ReactNode;
   /** Plain value for the exported PDF table (and for text search). */
@@ -82,7 +84,7 @@ export function ReportSection<T>({
         filename,
         formats: ["excel"],
         columns: columns.map((c) => ({
-          header: c.header,
+          header: c.exportHeader ?? c.header,
           type: c.xl?.type ?? "text",
           decimals: c.xl?.decimals,
           value: c.xl ? c.xl.value : (r: T) => c.pdfValue(r),
@@ -97,7 +99,7 @@ export function ReportSection<T>({
   function handleDownload() {
     downloadPdfTable({
       title,
-      columns: columns.map((c) => c.header),
+      columns: columns.map((c) => c.exportHeader ?? c.header),
       rows: filtered.map((r) => columns.map((c) => c.pdfValue(r))),
       filename: `${filename}.pdf`,
       // What the printed rows are filtered by, so a printout can be read

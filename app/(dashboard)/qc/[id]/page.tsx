@@ -111,7 +111,7 @@ export default async function QualityCheckDetailPage({
         <Card>
           <CardHeader title="Assign record" />
           <CardBody className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            <Field label="AR number" value={record.ar_number} />
+            <Field label="Analytical Report No." value={record.ar_number} />
             <Field label="Batch" value={batchLabel} />
             <Field
               label="Sample quantity"
