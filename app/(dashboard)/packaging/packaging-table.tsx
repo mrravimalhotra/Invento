@@ -23,6 +23,7 @@ export type PackagingRow = {
   unit_count: number | string;
   department: string;
   created_at: string;
+  issue_date: string;
   finished_product_batches: { batch_number: string } | null;
   packaging_issue_items: PackagingMaterialRow[] | null;
   production_issue_batches: ProductionIssueBatchRow[] | null;
@@ -60,7 +61,7 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
       },
       searchValue: (r) => rmFpBatchesText(r.production_issue_batches),
     },
-    { header: "Date", accessor: (r) => formatDate(r.created_at) },
+    { header: "Issue date", accessor: (r) => formatDate(r.issue_date) },
   ];
 
   // Excel of the register (export decision (c), 29 Sept 2026); the PDF button stays on the page.
@@ -77,7 +78,7 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
       { header: "Packaging materials", value: (r) => (r.packaging_issue_items?.length ? materialsSummary(r.packaging_issue_items) : "") },
       { header: "RM-FP item code", value: (r) => (r.production_issue_batches?.length ? rmFpItemCodesText(r.production_issue_batches) : "") },
       { header: "RM-FP batch", value: (r) => (r.production_issue_batches?.length ? rmFpBatchesText(r.production_issue_batches) : "") },
-      { header: "Date", type: "date", value: (r) => r.created_at },
+      { header: "Issue date", type: "date", value: (r) => r.issue_date },
     ],
   };
 

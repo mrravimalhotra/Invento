@@ -15,7 +15,7 @@ export function PackagingExportButton({ rows }: { rows: (string | number)[][] })
       onClick={() =>
         downloadPdfTable({
           title: "Packing Register",
-          columns: ["Code", "FP Batch", "Pack Size", "Unit Count", "Department", "Packaging Materials", "RM-FP Item Code", "RM-FP Batch", "Date"],
+          columns: ["Code", "FP Batch", "Pack Size", "Unit Count", "Department", "Packaging Materials", "RM-FP Item Code", "RM-FP Batch", "Issue Date"],
           rows,
           filename: `packing-register-${todayIst()}.pdf`,
         })

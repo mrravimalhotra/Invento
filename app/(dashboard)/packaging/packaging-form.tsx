@@ -6,7 +6,7 @@ import { createPackagingIssue, type ActionState } from "@/lib/actions/packaging"
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { DEPARTMENTS, UNITS, compatibleUnits } from "@/lib/constants/units";
-import { isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, todayIst } from "@/lib/utils";
 import { PackagingMaterialsEditor, type PackagingItemOption } from "./packaging-materials-editor";
 
 // Task F (claude/packaged-fp-redesign.md) — department Store/R&D transform
@@ -39,6 +39,15 @@ export function PackagingForm({
   return (
     <form action={formAction} className="flex flex-col gap-4 max-w-xl">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
+
+      <Field
+        label="Issue date"
+        htmlFor="issue_date"
+        required
+        hint="The day this issue was made. Today by default; an earlier day is fine, a future day is not."
+      >
+        <Input id="issue_date" name="issue_date" type="date" defaultValue={todayIst()} max={todayIst()} required />
+      </Field>
 
       <Field
         label="Finished product batch"

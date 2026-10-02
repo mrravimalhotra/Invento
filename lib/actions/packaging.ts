@@ -8,6 +8,7 @@ import { resolveDisplayStatus } from "@/lib/finished-product-status";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
+import { todayIst } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -119,6 +120,12 @@ function parseProductionSampleQtys(formData: FormData): { qc: number; stability:
 export async function createPackagingIssue(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const fpBatchId = String(formData.get("finished_product_batch_id") || "");
   const department = String(formData.get("department") || "");
+
+  // FB-0051: Issue date — any day up to today (India time); the database
+  // (create_packaging_issue, 0092) refuses a later day as a backstop.
+  const issueDate = String(formData.get("issue_date") || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(issueDate)) return { error: "Enter the issue date." };
+  if (issueDate > todayIst()) return { error: "Issue date cannot be in the future." };
 
   if (!fpBatchId) return { error: "Select a finished product batch." };
   if (!(DEPARTMENTS as readonly string[]).includes(department)) return { error: "Select a department." };
@@ -331,6 +338,7 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
       fp_qty_consumed: fpQtyConsumed,
       unit_count: unitCount,
       department,
+      issue_date: issueDate,
       qc_qty: isProduction ? productionQcConverted : null,
       stability_qty: isProduction ? productionStabilityConverted : null,
       rnd_qty: isProduction ? productionRndConverted : null,
