@@ -1282,3 +1282,14 @@ Ravi: "Hard rule". A raw material can only be consumed into a finished-product b
 - `create_finished_product_batch` now saves the components oldest batch first, so a recipe spanning several batches always satisfies the rule in order. Consumption of one item is serialised with an advisory lock.
 - Packaging materials were already drawn oldest-first in the database (0079). **Not covered on purpose**: wastage (a specific damaged batch is chosen) and QC sample pulls (they come from the batch under test).
 - Suite `b16` (31 checks; 7 fail without the migration).
+
+## FB-0050: short batch number (PR-/OR-) shown beside the full one (2 Oct 2026)
+
+Ravi: *"In Reports, no need to show full one. Only use short ones. In app Screens, use both Full and short number."*
+
+- **App screens** show both, e.g. `FP-00001-01/26 (PR-01/26)`: Finished Product list and detail, QC list/detail/awaiting-QC, COA list/detail/new picker, Packaging list/new, item FP-batches table, inventory ledger, Dashboard retest/expiry alerts. Helper `fpBatchBoth` (`lib/utils.ts`).
+- **Printed and downloaded outputs** show the short number only: Reports (QC and FP registers, screen + PDF/Excel), the list Excel/PDF exports (QC, COA, Packaging, Finished Product, ledger), the finished-product intimation slip, the COA header "Batch no." (new COAs) and the BMR Word document. Helper `fpBatchShort`.
+- A batch with no short number keeps the full number everywhere. Raw-material and Production RM-FP batches are unchanged. Labels already used the short number.
+- The short number is per product per year (PR-01/26 can repeat across products), so documents always carry the product name / F.P. code too.
+- COAs issued before this change keep the full number in their stored header; only newly issued COAs print the short one.
+- No migration (`short_batch_no` has been stored since 0066).

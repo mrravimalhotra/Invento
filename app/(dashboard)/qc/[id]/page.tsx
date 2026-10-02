@@ -6,7 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatQty } from "@/lib/utils";
+import { formatDate, formatQty, fpBatchBoth } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 import { QcCheckerForm } from "./qc-checker-form";
 import { QcReviewerForm } from "./qc-reviewer-form";
@@ -30,7 +30,7 @@ type QcDetail = {
   reviewed_at: string | null;
   items: { item_code: string; name: string } | null;
   purchase_lines: { batch_number: string; quantity: string | number; unit: string } | null;
-  finished_product_batches: { batch_number: string } | null;
+  finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
   // FB-0043: a Production-issued RM batch's own batch number.
   production_issue_batches: { batch_number: string } | null;
 };
@@ -48,7 +48,7 @@ export default async function QualityCheckDetailPage({
   const { data } = await supabase
     .from("quality_checks")
     .select(
-      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number), production_issue_batches(batch_number)"
+      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number, short_batch_no), production_issue_batches(batch_number)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -57,7 +57,9 @@ export default async function QualityCheckDetailPage({
   const record = data as unknown as QcDetail;
   const batchLabel =
     record.purchase_lines?.batch_number ??
-    record.finished_product_batches?.batch_number ??
+    (record.finished_product_batches
+      ? fpBatchBoth(record.finished_product_batches.batch_number, record.finished_product_batches.short_batch_no)
+      : null) ??
     record.production_issue_batches?.batch_number ??
     "—";
   const canRound1 = canWrite(user.roles, "qc_review_round1");

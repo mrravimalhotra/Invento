@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { canWrite } from "@/lib/constants/roles";
-import { isLegacyCode, formatDate, formatQty } from "@/lib/utils";
+import { isLegacyCode, formatDate, formatQty, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { SubjectBatchPicker, type BatchOption } from "./subject-batch-picker";
@@ -193,7 +193,7 @@ async function fetchBatchOptions(
   const { data } = await fetchAllRows((from, to) =>
     supabase
       .from("quality_checks")
-      .select("id, ar_number, finished_product_batches(batch_number, mfr_definitions(name))")
+      .select("id, ar_number, finished_product_batches(batch_number, short_batch_no, mfr_definitions(name))")
       .eq("status", "approved")
       .not("finished_product_batch_id", "is", null)
       .order("created_at", { ascending: false })
@@ -203,13 +203,13 @@ async function fetchBatchOptions(
         {
           id: string;
           ar_number: string;
-          finished_product_batches: { batch_number: string; mfr_definitions: { name: string } | null } | null;
+          finished_product_batches: { batch_number: string; short_batch_no: string | null; mfr_definitions: { name: string } | null } | null;
         }[]
       >()
   );
   return (data ?? []).filter((qc) => current.has(qc.id)).map((qc) => ({
     qualityCheckId: qc.id,
-    label: `${qc.ar_number} · ${qc.finished_product_batches?.mfr_definitions?.name ?? "—"} · Batch ${qc.finished_product_batches?.batch_number ?? "—"}`,
+    label: `${qc.ar_number} · ${qc.finished_product_batches?.mfr_definitions?.name ?? "—"} · Batch ${qc.finished_product_batches ? fpBatchBoth(qc.finished_product_batches.batch_number, qc.finished_product_batches.short_batch_no) : "—"}`,
     legacy: isLegacyCode(qc.finished_product_batches?.batch_number),
   }));
 }
@@ -302,7 +302,7 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
-      "id, created_at, reviewed_at, sample_qty, sample_unit, finished_product_batches(batch_number, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(name, finished_product_item_id, items(item_code, item_type_id, item_types(description))))"
+      "id, created_at, reviewed_at, sample_qty, sample_unit, finished_product_batches(batch_number, short_batch_no, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(name, finished_product_item_id, items(item_code, item_type_id, item_types(description))))"
     )
     .eq("id", qualityCheckId)
     .maybeSingle<{
@@ -313,6 +313,7 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
       sample_unit: string | null;
       finished_product_batches: {
         batch_number: string;
+        short_batch_no: string | null;
         target_qty: number | string;
         unit: string;
         batch_start_date: string | null;
@@ -347,7 +348,7 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
   // so the order here IS the layout, not just a list.
   const headerFields: HeaderField[] = [
     { label: "Name of Product", value: mfr.name ?? "" },
-    { label: "Batch no.", value: fp.batch_number },
+    { label: "Batch no.", value: fpBatchShort(fp.batch_number, fp.short_batch_no) },
     { label: "Mfg. Date", value: formatDate(fp.batch_start_date) },
     {
       label: "Sampled Qty",

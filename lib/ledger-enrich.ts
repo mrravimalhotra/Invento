@@ -43,13 +43,15 @@ export type EnrichedLedgerRow = RawLedgerRow & {
   // purchase_lines.batch_number on RawLedgerRow, which is the
   // raw-material batch.
   fpBatchNumber: string | null;
+  /** The short number (PR-01/26) — used for downloads; the screen shows both. */
+  fpBatchShortNumber: string | null;
 };
 
 export async function enrichLedgerRows<T extends RawLedgerRow>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   ledgerRows: T[]
-): Promise<(T & { eventByName: string | null; fpBatchNumber: string | null })[]> {
+): Promise<(T & { eventByName: string | null; fpBatchNumber: string | null; fpBatchShortNumber: string | null })[]> {
   const userIds = Array.from(new Set(ledgerRows.map((r) => r.event_by).filter((v): v is string => !!v)));
   const nameById = new Map<string, string>();
   if (userIds.length > 0) {
@@ -83,6 +85,7 @@ export async function enrichLedgerRows<T extends RawLedgerRow>(
   // sample row always has purchase_lines === null while an RM-context one
   // always has it populated.
   const fpBatchByLedgerId = new Map<string, string>();
+  const fpShortByLedgerId = new Map<string, string>();
   const fpDirectIds = ledgerRows
     .filter(
       (r) =>
@@ -99,22 +102,31 @@ export async function enrichLedgerRows<T extends RawLedgerRow>(
 
   // ACC-08: id lookups in chunks — up to one id per ledger row shown.
   const [fpDirect, fpViaPackaging] = await Promise.all([
-    fetchByIdChunks(fpDirectIds, (chunk) => supabase.from("finished_product_batches").select("id, batch_number").in("id", chunk)),
+    fetchByIdChunks(fpDirectIds, (chunk) => supabase.from("finished_product_batches").select("id, batch_number, short_batch_no").in("id", chunk)),
     fetchByIdChunks(packagingIds, (chunk) =>
-      supabase.from("packaging_issues").select("id, finished_product_batches(batch_number)").in("id", chunk)
+      supabase.from("packaging_issues").select("id, finished_product_batches(batch_number, short_batch_no)").in("id", chunk)
     ),
   ]);
-  (fpDirect.data ?? []).forEach((b: { id: string; batch_number: string }) => {
+  (fpDirect.data ?? []).forEach((b: { id: string; batch_number: string; short_batch_no: string | null }) => {
     fpBatchByLedgerId.set(b.id, b.batch_number);
+    fpShortByLedgerId.set(b.id, b.short_batch_no || b.batch_number);
   });
   (fpViaPackaging.data ?? []).forEach((p) => {
-    const row = p as unknown as { id: string; finished_product_batches: { batch_number: string } | null };
-    if (row.finished_product_batches) fpBatchByLedgerId.set(row.id, row.finished_product_batches.batch_number);
+    const row = p as unknown as {
+      id: string;
+      finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
+    };
+    const b = row.finished_product_batches;
+    if (b) {
+      fpBatchByLedgerId.set(row.id, b.batch_number);
+      fpShortByLedgerId.set(row.id, b.short_batch_no || b.batch_number);
+    }
   });
 
   return ledgerRows.map((r) => ({
     ...r,
     eventByName: r.event_by ? nameById.get(r.event_by) ?? r.event_by.slice(0, 8) : null,
     fpBatchNumber: r.reference_id ? fpBatchByLedgerId.get(r.reference_id) ?? null : null,
+    fpBatchShortNumber: r.reference_id ? fpShortByLedgerId.get(r.reference_id) ?? null : null,
   }));
 }

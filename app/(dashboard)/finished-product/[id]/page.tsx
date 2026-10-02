@@ -6,7 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatNumber, formatQty } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 import { CompleteBatchForm } from "./complete-batch-form";
 import { SubmitToQcForm } from "./submit-to-qc-form";
@@ -39,7 +39,7 @@ export default async function FinishedProductDetailPage({
       // below, which needs the FP item's own code/name ("F.P.Code" / "Name of
       // The Product" on the slip) — same embedded-select alias pattern
       // app/(dashboard)/mfr/[id]/page.tsx already uses for the same FK.
-      "id, batch_number, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, created_at, mfr_definitions(id, code, name, items:finished_product_item_id(item_code, name))"
+      "id, batch_number, short_batch_no, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, created_at, mfr_definitions(id, code, name, items:finished_product_item_id(item_code, name))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -118,7 +118,7 @@ export default async function FinishedProductDetailPage({
   return (
     <div>
       <PageHeader
-        title={batch.batch_number}
+        title={fpBatchBoth(batch.batch_number, batch.short_batch_no)}
         description={mfr ? `Built from ${mfr.code} · ${mfr.name} (recipe v${batch.mfr_version})` : `Recipe v${batch.mfr_version}`}
         action={<Badge status={displayStatus}>{fpStatusLabel(displayStatus)}</Badge>}
       />
@@ -132,7 +132,7 @@ export default async function FinishedProductDetailPage({
                 <BmrDownloadLink
                   fpCode={fpItem?.item_code ?? "—"}
                   fpName={fpItem?.name ?? "—"}
-                  batchNo={batch.batch_number}
+                  batchNo={fpBatchShort(batch.batch_number, batch.short_batch_no)}
                   batchSize={batch.target_qty}
                   unit={batch.unit}
                   startDate={formatDate(batch.batch_start_date)}
@@ -281,7 +281,7 @@ export default async function FinishedProductDetailPage({
                   <FpIntimationLink
                     itemName={fpItem?.name ?? "—"}
                     itemCode={fpItem?.item_code ?? "—"}
-                    batchNumber={batch.batch_number}
+                    batchNumber={fpBatchShort(batch.batch_number, batch.short_batch_no)}
                     batchQty={batch.batch_yield}
                     unit={batch.unit}
                     qcSampleQty={batch.qc_sample_qty}

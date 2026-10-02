@@ -38,7 +38,7 @@ export default async function QcListPage() {
     supabase
       .from("quality_checks")
       .select(
-        "id, ar_number, status, sample_qty, sample_unit, retest_date, is_retest, items(item_code, name), purchase_lines(batch_number), finished_product_batches(batch_number, mfr_definitions(name)), production_issue_batches(batch_number)"
+        "id, ar_number, status, sample_qty, sample_unit, retest_date, is_retest, items(item_code, name), purchase_lines(batch_number), finished_product_batches(batch_number, short_batch_no, mfr_definitions(name)), production_issue_batches(batch_number)"
       )
       .order("created_at", { ascending: false })
       .limit(QC_LIMIT),
@@ -141,7 +141,7 @@ async function getAwaitingFpQcLines(
 ): Promise<AwaitingFpQcLine[]> {
   const { data: lines } = await supabase
     .from("finished_product_batches")
-    .select("id, batch_number, qc_sample_qty, unit, mfr_definitions(name)")
+    .select("id, batch_number, short_batch_no, qc_sample_qty, unit, mfr_definitions(name)")
     .eq("status", "complete_awaiting_qc")
     .eq("active", true)
     .order("created_at", { ascending: false });

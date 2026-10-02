@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { convertUnit } from "@/lib/constants/units";
+import { fpBatchBoth } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -19,7 +20,7 @@ export default async function NewPackagingIssuePage() {
     fetchAllRows((from, to) =>
       supabase
         .from("finished_product_batches")
-        .select("id, batch_number, status")
+        .select("id, batch_number, short_batch_no, status")
         .eq("active", true)
         .order("batch_number", { ascending: false })
         .order("id", { ascending: true })
@@ -133,6 +134,8 @@ export default async function NewPackagingIssuePage() {
     }
     return {
       ...b,
+      // FB-0050: the picker shows the full number with the short one beside it.
+      batch_number: fpBatchBoth(b.batch_number, b.short_batch_no),
       fp_unit: fpUnit,
       fp_name: fpItemId ? (nameByItemId.get(fpItemId) ?? null) : null,
       left_qty: leftQty,

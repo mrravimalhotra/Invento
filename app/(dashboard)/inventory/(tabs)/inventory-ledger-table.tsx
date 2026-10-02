@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { isLegacyCode, formatQty } from "@/lib/utils";
+import { isLegacyCode, formatQty, fpBatchBoth } from "@/lib/utils";
 import type { EnrichedLedgerRow } from "@/lib/ledger-enrich";
 import { ledgerReasonLabel } from "@/lib/ledger-reasons";
 import type { TableExport } from "@/lib/table-export";
@@ -56,7 +56,9 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
               Batch {r.purchase_lines?.batch_number ?? r.production_issue_batches?.batch_number}
             </div>
           )}
-          {r.fpBatchNumber && <div className="text-xs text-muted">FP batch {r.fpBatchNumber}</div>}
+          {r.fpBatchNumber && (
+            <div className="text-xs text-muted">FP batch {fpBatchBoth(r.fpBatchNumber, r.fpBatchShortNumber)}</div>
+          )}
         </div>
       ),
       searchValue: (r) =>
@@ -116,7 +118,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
       { header: "Item code", value: (r) => r.items?.item_code ?? "" },
       { header: "Item", value: (r) => r.items?.name ?? "" },
       { header: "Batch", value: (r) => r.purchase_lines?.batch_number ?? r.production_issue_batches?.batch_number ?? "" },
-      { header: "FP batch", value: (r) => r.fpBatchNumber ?? "" },
+      { header: "FP batch", value: (r) => r.fpBatchShortNumber ?? r.fpBatchNumber ?? "" },
       { header: "Quantity", type: "number", decimals: 3, value: (r) => Number(r.quantity) },
       { header: "Unit", value: (r) => r.unit ?? "" },
       {

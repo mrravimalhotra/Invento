@@ -66,7 +66,7 @@ export default async function ReportsPage() {
       supabase
         .from("quality_checks")
         .select(
-          "ar_number, status, reviewed_at, retest_date, item:items(name), purchase_line:purchase_lines(batch_number), fp_batch:finished_product_batches(batch_number)"
+          "ar_number, status, reviewed_at, retest_date, item:items(name), purchase_line:purchase_lines(batch_number), fp_batch:finished_product_batches(batch_number, short_batch_no)"
         )
         .order("created_at", { ascending: false })
         .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
@@ -76,7 +76,7 @@ export default async function ReportsPage() {
     fetchAllRows<unknown>((from, to) =>
       supabase
         .from("finished_product_batches")
-        .select("id, batch_number, target_qty, actual_yield_pct, status, finish_date, mfr:mfr_definitions(name)")
+        .select("id, batch_number, short_batch_no, target_qty, actual_yield_pct, status, finish_date, mfr:mfr_definitions(name)")
         .order("created_at", { ascending: false })
         .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)

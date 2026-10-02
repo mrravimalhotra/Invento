@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, fpBatchBoth } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
 import { CoaPdfButton } from "../coa-pdf-button";
 import type { HeaderField, ResultLine } from "@/lib/actions/coa";
@@ -18,7 +18,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
   const { data: row } = await supabase
     .from("coa_records")
     .select(
-      "id, coa_number, issued_at, file_url, coa_type, header_data, result_lines, remarks, quality_checks(ar_number, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number)"
+      "id, coa_number, issued_at, file_url, coa_type, header_data, result_lines, remarks, quality_checks(ar_number, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number, short_batch_no)"
     )
     .eq("id", id)
     .maybeSingle<{
@@ -35,12 +35,16 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
         items: { item_code: string; name: string } | null;
         purchase_lines: { batch_number: string } | null;
       } | null;
-      finished_product_batches: { batch_number: string } | null;
+      finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
     }>();
 
   if (!row) notFound();
 
-  const batchLabel = row.quality_checks?.purchase_lines?.batch_number ?? row.finished_product_batches?.batch_number ?? "—";
+  const batchLabel =
+    row.quality_checks?.purchase_lines?.batch_number ??
+    (row.finished_product_batches
+      ? fpBatchBoth(row.finished_product_batches.batch_number, row.finished_product_batches.short_batch_no)
+      : "—");
   const itemLabel = row.quality_checks?.items ? `${row.quality_checks.items.item_code} — ${row.quality_checks.items.name}` : "—";
 
   return (

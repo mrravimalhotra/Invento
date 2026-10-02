@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
+import { formatDate, isLegacyCode, formatQty, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 import type { TableExport } from "@/lib/table-export";
 
@@ -20,7 +20,11 @@ export type QcListRow = {
   // FB-0027: nested mfr_definitions gives the Finished Product's own name,
   // since FP-context QC rows never get an `items` row of their own — see
   // the query comment in page.tsx for why.
-  finished_product_batches: { batch_number: string; mfr_definitions: { name: string } | null } | null;
+  finished_product_batches: {
+    batch_number: string;
+    short_batch_no: string | null;
+    mfr_definitions: { name: string } | null;
+  } | null;
   // FB-0043: a Production-issued RM batch's own batch number — this row
   // already has a real `items` join (unlike the FP case above), so no
   // Item-column fallback is needed, only a Batch-column one.
@@ -80,12 +84,16 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
       header: "Batch",
       accessor: (r) =>
         r.purchase_lines?.batch_number ??
-        r.finished_product_batches?.batch_number ??
+        (r.finished_product_batches
+          ? fpBatchBoth(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+          : null) ??
         r.production_issue_batches?.batch_number ??
         "—",
       searchValue: (r) =>
         r.purchase_lines?.batch_number ??
-        r.finished_product_batches?.batch_number ??
+        (r.finished_product_batches
+          ? fpBatchBoth(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+          : null) ??
         r.production_issue_batches?.batch_number ??
         "",
     },
@@ -113,7 +121,9 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
         header: "Batch",
         value: (r) =>
           r.purchase_lines?.batch_number ??
-          r.finished_product_batches?.batch_number ??
+          (r.finished_product_batches
+            ? fpBatchShort(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+            : null) ??
           r.production_issue_batches?.batch_number ??
           "",
       },

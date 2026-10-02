@@ -68,6 +68,7 @@ type PurchaseLineQueryRow = {
 type FpBatchQueryRow = {
   id: string;
   batch_number: string;
+  short_batch_no: string | null;
   status: string;
   batch_yield: string | number | null;
   qc_sample_qty: string | number | null;
@@ -247,7 +248,9 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
     if (mfrDef) {
       const { data: batches } = await supabase
         .from("finished_product_batches")
-        .select("id, batch_number, status, batch_yield, qc_sample_qty, stability_qty, rnd_qty, finish_date")
+        .select(
+          "id, batch_number, short_batch_no, status, batch_yield, qc_sample_qty, stability_qty, rnd_qty, finish_date",
+        )
         .eq("mfr_definition_id", mfrDef.id)
         .eq("active", true)
         .order("created_at", { ascending: false })

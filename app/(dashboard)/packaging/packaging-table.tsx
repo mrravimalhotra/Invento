@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
 import {
   materialsSummary,
@@ -24,7 +24,7 @@ export type PackagingRow = {
   department: string;
   created_at: string;
   issue_date: string;
-  finished_product_batches: { batch_number: string } | null;
+  finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
   packaging_issue_items: PackagingMaterialRow[] | null;
   production_issue_batches: ProductionIssueBatchRow[] | null;
 };
@@ -34,8 +34,14 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
     { header: "Code", accessor: (r) => r.code, searchValue: (r) => r.code },
     {
       header: "FP Batch",
-      accessor: (r) => r.finished_product_batches?.batch_number ?? "—",
-      searchValue: (r) => r.finished_product_batches?.batch_number ?? "",
+      accessor: (r) =>
+        r.finished_product_batches
+          ? fpBatchBoth(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+          : "—",
+      searchValue: (r) =>
+        r.finished_product_batches
+          ? fpBatchBoth(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+          : "",
     },
     { header: "Pack size", accessor: (r) => r.pack_size, searchValue: (r) => r.pack_size },
     { header: "Unit count", accessor: (r) => formatNumber(r.unit_count, 0) },
@@ -71,7 +77,13 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
     formats: ["excel"],
     columns: [
       { header: "Code", value: (r) => r.code },
-      { header: "FP Batch", value: (r) => r.finished_product_batches?.batch_number ?? "" },
+      {
+        header: "FP Batch",
+        value: (r) =>
+          r.finished_product_batches
+            ? fpBatchShort(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+            : "",
+      },
       { header: "Pack size", value: (r) => r.pack_size },
       { header: "Unit count", type: "number", decimals: 0, value: (r) => Number(r.unit_count) },
       { header: "Department", value: (r) => r.department },

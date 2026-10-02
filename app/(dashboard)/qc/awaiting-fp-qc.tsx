@@ -5,12 +5,13 @@ import { useFlashActionState } from "@/lib/use-flash-action";
 import { submitFinishedProductToQc, type ActionState } from "@/lib/actions/finished-product";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
-import { isLegacyCode, formatQty } from "@/lib/utils";
+import { isLegacyCode, formatQty, fpBatchBoth } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 
 export type AwaitingFpQcLine = {
   id: string;
   batch_number: string;
+  short_batch_no: string | null;
   qc_sample_qty: string | number | null;
   unit: string | null;
   mfr_definitions: { name: string } | null;
@@ -71,7 +72,7 @@ function AwaitingFpQcRow({ line, canSubmit }: { line: AwaitingFpQcLine; canSubmi
     >
       <div>
         <p className="font-medium">
-          {line.mfr_definitions?.name ?? "—"} · {line.batch_number}
+          {line.mfr_definitions?.name ?? "—"} · {fpBatchBoth(line.batch_number, line.short_batch_no)}
         </p>
         {line.qc_sample_qty !== null && (
           <p className="text-xs text-muted">

@@ -1,6 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
-import { isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, fpBatchBoth } from "@/lib/utils";
 
 // B15 (30 Sept 2026, Ravi): the Dashboard warns about
 //  - RETEST due in the next 90 days for raw materials AND finished products,
@@ -118,6 +118,7 @@ async function getRawProductionRetests(supabase: Supabase, from: string, to: str
 
 type FpEmbed = {
   batch_number: string;
+  short_batch_no: string | null;
   active: boolean;
   mfr_definitions: { items: ItemEmbed } | null;
 };
@@ -144,7 +145,7 @@ async function getFpRetests(supabase: Supabase, from: string, to: string): Promi
   }>(ids, (chunk) =>
     supabase
       .from("quality_checks")
-      .select("id, ar_number, retest_date, finished_product_batches(batch_number, active, mfr_definitions(items(item_code, name)))")
+      .select("id, ar_number, retest_date, finished_product_batches(batch_number, short_batch_no, active, mfr_definitions(items(item_code, name)))")
       .in("id", chunk)
       .returns<{ id: string; ar_number: string; retest_date: string; finished_product_batches: FpEmbed | null }[]>()
   );
@@ -157,7 +158,7 @@ async function getFpRetests(supabase: Supabase, from: string, to: string): Promi
         key: `f-${q.id}`,
         kind: "fp" as const,
         title: label(item),
-        batch: b?.batch_number ?? "—",
+        batch: b ? fpBatchBoth(b.batch_number, b.short_batch_no) : "—",
         ar: q.ar_number,
         date: q.retest_date,
         legacy: isLegacyCode(item?.item_code) || isLegacyCode(b?.batch_number),
@@ -170,13 +171,14 @@ async function getFpExpiries(supabase: Supabase, from: string, to: string): Prom
   type ExpiryRow = {
     id: string;
     batch_number: string;
+    short_batch_no: string | null;
     expiry_date: string;
     mfr_definitions: { items: ItemEmbed } | null;
   };
   const { data } = await fetchAllRows<ExpiryRow>((f, t) =>
     supabase
       .from("finished_product_batches")
-      .select("id, batch_number, expiry_date, mfr_definitions(items(item_code, name))")
+      .select("id, batch_number, short_batch_no, expiry_date, mfr_definitions(items(item_code, name))")
       .eq("status", "approved")
       .eq("active", true)
       .gte("expiry_date", from)
@@ -192,7 +194,7 @@ async function getFpExpiries(supabase: Supabase, from: string, to: string): Prom
       key: `e-${b.id}`,
       kind: "fp" as const,
       title: label(item),
-      batch: b.batch_number,
+      batch: fpBatchBoth(b.batch_number, b.short_batch_no),
       ar: null,
       date: b.expiry_date,
       legacy: isLegacyCode(item?.item_code) || isLegacyCode(b.batch_number),

@@ -124,3 +124,16 @@ export function isLegacyCode(code: string | null | undefined) {
 export function escapeLike(raw: string): string {
   return raw.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
+
+// FB-0050 (2 Oct 2026, Ravi): a Finished Product batch has a full unique
+// number (FP-00001-01/26) and a short print form (PR-01/26 domestic, OR-01/26
+// export). App screens show both; Reports and every printed or downloaded
+// output show the short one only. Batches without a short number (older
+// ones) fall back to the full number everywhere.
+export function fpBatchBoth(batch: string | null | undefined, short?: string | null) {
+  if (!batch) return "";
+  return short && short !== batch ? `${batch} (${short})` : batch;
+}
+export function fpBatchShort(batch: string | null | undefined, short?: string | null) {
+  return short || batch || "";
+}

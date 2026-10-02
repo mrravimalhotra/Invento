@@ -5,7 +5,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, fpBatchShort } from "@/lib/utils";
 import { materialsSummary, rmFpBatchesText, rmFpItemCodesText } from "@/lib/packaging-materials";
 import { PackagingExportButton } from "./packaging-export-button";
 import { PackagingTable, type PackagingRow } from "./packaging-table";
@@ -28,7 +28,7 @@ export default async function PackagingListPage({
     supabase
       .from("packaging_issues")
       .select(
-        "id, code, pack_size, unit_count, department, created_at, issue_date, finished_product_batches(batch_number), packaging_issue_items(quantity, unit, items(name, item_code)), production_issue_batches(batch_number, quantity, unit, active, items(item_code))"
+        "id, code, pack_size, unit_count, department, created_at, issue_date, finished_product_batches(batch_number, short_batch_no), packaging_issue_items(quantity, unit, items(name, item_code)), production_issue_batches(batch_number, quantity, unit, active, items(item_code))"
       )
       .order("issue_date", { ascending: false })
       .order("created_at", { ascending: false })
@@ -41,7 +41,9 @@ export default async function PackagingListPage({
 
   const pdfRows = rows.map((r) => [
     r.code,
-    r.finished_product_batches?.batch_number ?? "—",
+    r.finished_product_batches
+      ? fpBatchShort(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+      : "—",
     r.pack_size,
     formatNumber(r.unit_count, 0),
     r.department,

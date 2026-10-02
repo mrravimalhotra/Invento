@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate } from "@/lib/utils";
+import { formatDate, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
 
 export type CoaRow = {
@@ -16,7 +16,7 @@ export type CoaRow = {
     items: { item_code: string; name: string } | null;
     purchase_lines: { batch_number: string } | null;
   } | null;
-  finished_product_batches: { batch_number: string } | null;
+  finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
 };
 
 export function CoaTable({ rows }: { rows: CoaRow[] }) {
@@ -38,7 +38,11 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
     },
     {
       header: "Batch",
-      accessor: (r) => r.quality_checks?.purchase_lines?.batch_number ?? r.finished_product_batches?.batch_number ?? "—",
+      accessor: (r) =>
+        r.quality_checks?.purchase_lines?.batch_number ??
+        (r.finished_product_batches
+          ? fpBatchBoth(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+          : "—"),
     },
     { header: "Issued", accessor: (r) => formatDate(r.issued_at) },
     {
@@ -78,7 +82,11 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
       },
       {
         header: "Batch",
-        value: (r) => r.quality_checks?.purchase_lines?.batch_number ?? r.finished_product_batches?.batch_number ?? "",
+        value: (r) =>
+          r.quality_checks?.purchase_lines?.batch_number ??
+          (r.finished_product_batches
+            ? fpBatchShort(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
+            : ""),
       },
       { header: "Issued", type: "date", value: (r) => r.issued_at },
     ],

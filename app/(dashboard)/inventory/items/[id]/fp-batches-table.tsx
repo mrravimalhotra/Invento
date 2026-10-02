@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
+import { formatDate, isLegacyCode, formatQty, fpBatchBoth } from "@/lib/utils";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
 // Option C) — every Finished Product batch that fed into this FP item's
@@ -16,6 +16,7 @@ import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 export type FpBatchRow = {
   id: string;
   batch_number: string;
+  short_batch_no: string | null;
   status: string;
   batch_yield: string | number | null;
   qc_sample_qty: string | number | null;
@@ -28,8 +29,8 @@ export function FpBatchesTable({ rows, unit }: { rows: FpBatchRow[]; unit: strin
   const columns: Column<FpBatchRow>[] = [
     {
       header: "Batch",
-      accessor: (r) => <span className="font-medium">{r.batch_number}</span>,
-      searchValue: (r) => r.batch_number,
+      accessor: (r) => <span className="font-medium">{fpBatchBoth(r.batch_number, r.short_batch_no)}</span>,
+      searchValue: (r) => fpBatchBoth(r.batch_number, r.short_batch_no),
     },
     {
       header: "Status",

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode, formatQty } from "@/lib/utils";
+import { formatDate, formatNumber, isLegacyCode, formatQty, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 import type { TableExport } from "@/lib/table-export";
 
 export type FpRow = {
   id: string;
   batch_number: string;
+  short_batch_no: string | null;
   target_qty: string | number;
   unit: string;
   actual_yield_pct: string | number | null;
@@ -25,10 +26,10 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
       header: "Batch",
       accessor: (r) => (
         <Link href={`/finished-product/${r.id}`} className="font-medium text-brand hover:underline">
-          {r.batch_number}
+          {fpBatchBoth(r.batch_number, r.short_batch_no)}
         </Link>
       ),
-      searchValue: (r) => r.batch_number,
+      searchValue: (r) => fpBatchBoth(r.batch_number, r.short_batch_no),
     },
     { header: "MFR", accessor: (r) => r.mfr_definitions?.name ?? "—", searchValue: (r) => r.mfr_definitions?.name ?? "" },
     {
@@ -48,7 +49,7 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
     filename: "finished-product-register",
     formats: ["excel", "pdf"],
     columns: [
-      { header: "Batch", value: (r) => r.batch_number },
+      { header: "Batch", value: (r) => fpBatchShort(r.batch_number, r.short_batch_no) },
       { header: "MFR", value: (r) => r.mfr_definitions?.name ?? "" },
       {
         header: "Status",

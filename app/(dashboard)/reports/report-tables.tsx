@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Field, Select } from "@/components/ui/form";
-import { formatDate, formatNumber, formatQty } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty, fpBatchShort } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 import { fpStatusLabel } from "@/lib/finished-product-status";
 import { ReportSection, type ReportColumn } from "./report-section";
@@ -78,7 +78,7 @@ export type QcRow = {
   retest_date: string | null;
   item: { name: string } | null;
   purchase_line: { batch_number: string } | null;
-  fp_batch: { batch_number: string } | null;
+  fp_batch: { batch_number: string; short_batch_no: string | null } | null;
 };
 
 export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
@@ -87,8 +87,12 @@ export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
     {
       header: "Batch",
-      cell: (r) => r.purchase_line?.batch_number ?? r.fp_batch?.batch_number ?? "—",
-      pdfValue: (r) => r.purchase_line?.batch_number ?? r.fp_batch?.batch_number ?? "—",
+      cell: (r) =>
+        r.purchase_line?.batch_number ??
+        (r.fp_batch ? fpBatchShort(r.fp_batch.batch_number, r.fp_batch.short_batch_no) : "—"),
+      pdfValue: (r) =>
+        r.purchase_line?.batch_number ??
+        (r.fp_batch ? fpBatchShort(r.fp_batch.batch_number, r.fp_batch.short_batch_no) : "—"),
     },
     { header: "Status", cell: (r) => <Badge status={r.status}>{qcRecordStatusLabel(r.status)}</Badge>, pdfValue: (r) => qcRecordStatusLabel(r.status) },
     {
@@ -121,6 +125,7 @@ export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
 // ---------- FP Register ----------
 export type FpRow = {
   batch_number: string;
+  short_batch_no: string | null;
   target_qty: number | string | null;
   actual_yield_pct: number | string | null;
   status: string;
@@ -130,7 +135,11 @@ export type FpRow = {
 
 export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
   const columns: ReportColumn<FpRow>[] = [
-    { header: "Batch Number", cell: (r) => r.batch_number, pdfValue: (r) => r.batch_number },
+    {
+      header: "Batch Number",
+      cell: (r) => fpBatchShort(r.batch_number, r.short_batch_no),
+      pdfValue: (r) => fpBatchShort(r.batch_number, r.short_batch_no),
+    },
     { header: "MFR", cell: (r) => r.mfr?.name ?? "—", pdfValue: (r) => r.mfr?.name ?? "—" },
     // ACC-34: readable status in the list and the PDF (was "submitted to_qc",
     // and the raw code in the PDF).
