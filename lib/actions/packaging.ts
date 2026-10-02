@@ -67,63 +67,61 @@ function parseStructuredPackSize(
   return { qty, unit };
 }
 
-// Production redesign (Ravi, 19 Sept 2026): "when Packaging is issued to
-// production - it would become available as Raw material for another
-// Finished Product... similar to how PKG-FP-00001 is created, we should
-// create a new Raw Material code example RM-FP-00001... There are no
-// packaging items required when a finished product is issued to
-// Production." Confirmed 19 Sept: this REPLACES Production's earlier
-// materials-only packaging behavior entirely (never fully developed —
-// no UI ever shipped a distinct treatment for it beyond the generic
-// free-text pack-size path every non-transform department fell into) —
-// there's no toggle back to the old shape.
-//
-// A Production issue is a single, direct, same-unit quantity: no pack
-// size multiplication, no unit selector (the paired Raw Material item
-// always shares the Finished Product item's own unit — see the DB
-// trigger in 0050_production_rm_from_packaging.sql), no packaging
-// materials.
-function parseProductionQty(formData: FormData): number | { error: string } {
-  const raw = String(formData.get("production_qty") || "").trim();
-  const qty = Number(raw);
-  if (!raw || !Number.isFinite(qty) || qty <= 0) {
-    return { error: "Quantity to convert must be a positive number." };
+// Production (Ravi, 19 Sept 2026 redesign; FB-0043 samples; several lines
+// since 2 Oct 2026, FB-0052): "when Packaging is issued to production - it
+// would become available as Raw material for another Finished Product".
+// A Production line is a single, direct, same-unit quantity (no pack size, no
+// packaging materials; the paired Raw Material item shares the Finished
+// Product's own unit — 0050) plus the QC / Stability / R&D samples reserved
+// from it, entered in a sample unit and converted to the product's unit.
+// Ravi 29 Sept: QC, Stability and Sample unit are mandatory (0 is a valid,
+// typed value); Ravi 2 Oct: R&D quantity is optional (empty = 0).
+type ProductionLineInput = {
+  n: number;
+  batchId: string;
+  qty: number;
+  qc: number;
+  stability: number;
+  rnd: number;
+  sampleUnit: string;
+};
+
+function parseProductionLines(formData: FormData): ProductionLineInput[] | { error: string } {
+  const count = Number(formData.get("pr_count") || 0);
+  if (!Number.isInteger(count) || count < 1) return { error: "Add at least one line." };
+  if (count > 30) return { error: "A packaging issue can have at most 30 lines." };
+  const lines: ProductionLineInput[] = [];
+  for (let i = 0; i < count; i++) {
+    const n = i + 1;
+    const label = `Line ${n}`;
+    const batchId = String(formData.get(`pr_batch_${i}`) || "");
+    if (!batchId) return { error: `${label}: select a finished product batch.` };
+
+    const qtyRaw = String(formData.get(`pr_qty_${i}`) || "").trim();
+    const qty = Number(qtyRaw);
+    if (!qtyRaw || !Number.isFinite(qty) || qty <= 0) {
+      return { error: `${label}: quantity to convert must be a positive number.` };
+    }
+
+    const qcRaw = String(formData.get(`pr_qc_${i}`) || "").trim();
+    const stabilityRaw = String(formData.get(`pr_stab_${i}`) || "").trim();
+    const rndRaw = String(formData.get(`pr_rnd_${i}`) || "").trim();
+    if (!qcRaw) return { error: `${label}: QC quantity is required (enter 0 if none).` };
+    if (!stabilityRaw) return { error: `${label}: Stability quantity is required (enter 0 if none).` };
+    const qc = Number(qcRaw);
+    const stability = Number(stabilityRaw);
+    const rnd = rndRaw ? Number(rndRaw) : 0;
+    if (!Number.isFinite(qc) || qc < 0) return { error: `${label}: QC quantity can't be negative.` };
+    if (!Number.isFinite(stability) || stability < 0)
+      return { error: `${label}: Stability quantity can't be negative.` };
+    if (!Number.isFinite(rnd) || rnd < 0) return { error: `${label}: R&D quantity can't be negative.` };
+
+    const sampleUnit = String(formData.get(`pr_unit_${i}`) || "").trim();
+    if (!sampleUnit) return { error: `${label}: sample unit is required.` };
+
+    lines.push({ n, batchId, qty, qc, stability, rnd, sampleUnit });
   }
-  return qty;
-}
-
-// FB-0043 (28 Sept 2026): "it should be treated as new Raw material
-// reserving quantity for stability, R&D and QC" — same UX Purchase's line
-// form already has (see purchase-line-form.tsx), entered in whatever
-// sample unit is convenient and converted down to the Finished Product's
-// own unit at submit, same "no separate as-entered unit column" pattern
-// purchase_lines/finished_product_batches both use (0021's comment).
-// Ravi (29 Sept 2026): "while issuing to Production - Stability, R&D, QC
-// and Sample unit should be mandatory" — the same rule as Purchase: all
-// three quantities and the sample unit must be entered (a blank field is
-// refused), but 0 stays a valid, explicitly-typed value — a Production
-// issue with no sampling is legitimate; it just has to be said, not left
-// empty.
-function parseProductionSampleQtys(
-  formData: FormData,
-): { qc: number; stability: number; rnd: number } | { error: string } {
-  const qcRaw = String(formData.get("production_qc_qty") || "").trim();
-  const stabilityRaw = String(formData.get("production_stability_qty") || "").trim();
-  const rndRaw = String(formData.get("production_rnd_qty") || "").trim();
-
-  if (!qcRaw) return { error: "QC quantity is required (enter 0 if none)." };
-  if (!stabilityRaw) return { error: "Stability quantity is required (enter 0 if none)." };
-  if (!rndRaw) return { error: "R&D quantity is required (enter 0 if none)." };
-
-  const qc = Number(qcRaw);
-  const stability = Number(stabilityRaw);
-  const rnd = Number(rndRaw);
-
-  if (!Number.isFinite(qc) || qc < 0) return { error: "QC quantity can't be negative." };
-  if (!Number.isFinite(stability) || stability < 0) return { error: "Stability quantity can't be negative." };
-  if (!Number.isFinite(rnd) || rnd < 0) return { error: "R&D quantity can't be negative." };
-
-  return { qc, stability, rnd };
+  return lines;
 }
 
 // FB-0052 (2 Oct 2026): one Store/R&D save can carry up to this many lines
@@ -198,7 +196,7 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
   // FB-0052: Store/R&D save one or more lines (each its own batch, pack
   // size, unit count and materials). Production keeps its single-entry flow.
   if (department === "store" || department === "rnd") return createStoreRndIssues(formData, department, issueDate);
-  return createProductionIssue(formData, department, issueDate);
+  return createProductionIssues(formData, issueDate);
 }
 
 // Store / R&D (FB-0052): bulk Finished Product is transformed into a
@@ -208,14 +206,17 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
 // converted to the FP's unit. All lines are saved in ONE database
 // transaction (create_packaging_issues, 0093) — one PKG-#### per line, and
 // lines drawing on the same batch are checked against it together.
-async function createStoreRndIssues(formData: FormData, department: string, issueDate: string): Promise<ActionState> {
-  const result = await saveStoreRndIssues(formData, department, issueDate);
-  // A message that starts "Line N:" belongs under that line on the form.
+// A message that starts "Line N:" belongs under that line on the form.
+function placeUnderLine(result: ActionState): ActionState {
   const m = result?.error ? /^Line (\d+): /.exec(result.error) : null;
   if (result?.error && m) {
     return { error: `Packaging issue not saved: check line ${m[1]}.`, lineErrors: { [Number(m[1])]: result.error } };
   }
   return result;
+}
+
+async function createStoreRndIssues(formData: FormData, department: string, issueDate: string): Promise<ActionState> {
+  return placeUnderLine(await saveStoreRndIssues(formData, department, issueDate));
 }
 
 async function saveStoreRndIssues(formData: FormData, department: string, issueDate: string): Promise<ActionState> {
@@ -321,97 +322,78 @@ async function saveStoreRndIssues(formData: FormData, department: string, issueD
   );
 }
 
-// Production (19 Sept 2026 redesign, unchanged by FB-0052): a single, direct,
-// same-unit "quantity to convert" — no pack size, no packaging materials;
-// QC/Stability/R&D sample quantities (FB-0043, mandatory since 29 Sept)
-// are reserved and the rest becomes new Raw Material stock (RM-FP).
-async function createProductionIssue(formData: FormData, department: string, issueDate: string): Promise<ActionState> {
-  const fpBatchId = String(formData.get("finished_product_batch_id") || "");
-  if (!fpBatchId) return { error: "Select a finished product batch." };
+async function createProductionIssues(formData: FormData, issueDate: string): Promise<ActionState> {
+  return placeUnderLine(await saveProductionIssues(formData, issueDate));
+}
 
-  const qtyOrError = parseProductionQty(formData);
-  if (typeof qtyOrError !== "number") return qtyOrError;
-  const productionQty = qtyOrError;
-
-  const sampleQtysOrError = parseProductionSampleQtys(formData);
-  if ("error" in sampleQtysOrError) return sampleQtysOrError;
-  const { qc: productionQc, stability: productionStability, rnd: productionRnd } = sampleQtysOrError;
-  const productionSampleUnit = String(formData.get("production_sample_unit") || "").trim();
-  if (!productionSampleUnit) {
-    return { error: "Sample unit is required." };
-  }
+async function saveProductionIssues(formData: FormData, issueDate: string): Promise<ActionState> {
+  const parsed = parseProductionLines(formData);
+  if ("error" in parsed) return parsed;
+  const lines = parsed;
 
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Not authorized." };
-
   const supabase = await createClient();
-  const info = await resolveFpBatch(supabase, fpBatchId);
-  if ("error" in info) return info;
-  const fpUnit = info.fpUnit;
 
-  // The quantity is already in the Finished Product's own unit (no unit
-  // selector is offered); its paired Raw Material item
-  // (production_rm_item_id) is created lazily by the DB trigger on first use.
-  const fpQtyConsumed = productionQty;
-  const packSize = fpUnit ? `${productionQty} ${fpUnit}` : String(productionQty);
+  // Check each distinct batch once. (The database refuses the same batch on
+  // two lines — Ravi, 2 Oct 2026 — with the line named.)
+  const batchIds = [...new Set(lines.map((l) => l.batchId))];
+  const resolved = await Promise.all(batchIds.map((id) => resolveFpBatch(supabase, id)));
+  const byBatch = new Map<string, ResolvedBatch | { error: string }>(batchIds.map((id, k) => [id, resolved[k]]));
 
-  // FB-0043: convert the QC/Stability/R&D sample quantities (entered in
-  // productionSampleUnit) down to the Finished Product's own unit.
-  let qcConv = 0;
-  let stabilityConv = 0;
-  let rndConv = 0;
-  if (productionQc + productionStability + productionRnd > 0) {
-    if (!fpUnit)
-      return {
-        error: "Could not determine this Finished Product's unit for sample conversion.",
-      };
-    const q = convertUnit(productionQc, productionSampleUnit, fpUnit);
-    const st = convertUnit(productionStability, productionSampleUnit, fpUnit);
-    const r = convertUnit(productionRnd, productionSampleUnit, fpUnit);
-    if (q === null || st === null || r === null) {
-      return {
-        error: `Sample unit (${productionSampleUnit}) isn't compatible with this Finished Product's unit (${fpUnit}).`,
-      };
+  const rpcLines = [];
+  for (const l of lines) {
+    const info = byBatch.get(l.batchId)!;
+    if ("error" in info) return { error: `Line ${l.n}: ${info.error}` };
+    const fpUnit = info.fpUnit;
+
+    // FB-0043: samples are entered in the sample unit; convert to the product's own unit.
+    let qc = 0;
+    let stability = 0;
+    let rnd = 0;
+    if (l.qc + l.stability + l.rnd > 0) {
+      if (!fpUnit)
+        return { error: `Line ${l.n}: could not determine this Finished Product's unit for sample conversion.` };
+      const q = convertUnit(l.qc, l.sampleUnit, fpUnit);
+      const st = convertUnit(l.stability, l.sampleUnit, fpUnit);
+      const r = convertUnit(l.rnd, l.sampleUnit, fpUnit);
+      if (q === null || st === null || r === null) {
+        return {
+          error: `Line ${l.n}: sample unit (${l.sampleUnit}) isn't compatible with this Finished Product's unit (${fpUnit}).`,
+        };
+      }
+      const total = q + st + r;
+      if (total > l.qty + 1e-9) {
+        return {
+          error: `Line ${l.n}: QC + Stability + R&D (${Math.round(total * 1e6) / 1e6} ${fpUnit}) can't exceed the quantity to convert (${l.qty} ${fpUnit}).`,
+        };
+      }
+      qc = q;
+      stability = st;
+      rnd = r;
     }
-    if (q + st + r > fpQtyConsumed) {
-      return {
-        error: "QC + Stability + R&D quantities can't exceed the quantity being converted.",
-      };
-    }
-    qcConv = q;
-    stabilityConv = st;
-    rndConv = r;
+
+    rpcLines.push({
+      finished_product_batch_id: l.batchId,
+      pack_size: fpUnit ? `${l.qty} ${fpUnit}` : String(l.qty),
+      fp_qty_consumed: l.qty,
+      unit_count: l.qty,
+      qc_qty: qc,
+      stability_qty: stability,
+      rnd_qty: rnd,
+    });
   }
 
-  // code (0067): plain sequential PKG-####, generated up front.
-  const { data: issueCode, error: codeError } = await supabase.rpc("get_next_packaging_issue_code");
-  if (codeError || !issueCode)
-    return {
-      error: friendlyDbError(codeError, "Could not generate a packaging issue code."),
-    };
-
-  const { error } = await supabase.rpc("create_packaging_issue", {
-    p_issue: {
-      code: issueCode,
-      finished_product_batch_id: fpBatchId,
-      pack_size: packSize,
-      pack_size_qty: null,
-      pack_size_unit: null,
-      fp_qty_consumed: fpQtyConsumed,
-      unit_count: productionQty,
-      department,
-      issue_date: issueDate,
-      qc_qty: qcConv,
-      stability_qty: stabilityConv,
-      rnd_qty: rndConv,
-    },
-    p_materials: [],
+  // All lines in ONE database transaction (create_production_issues, 0095).
+  const { data: codes, error } = await supabase.rpc("create_production_issues", {
+    p_header: { issue_date: issueDate },
+    p_lines: rpcLines,
   });
-  if (error)
-    return {
-      error: friendlyDbError(error, "Could not create the packaging issue."),
-    };
+  if (error) return { error: friendlyDbError(error, "Could not create the packaging issue.") };
 
   revalidatePath("/packaging");
-  redirect("/packaging?created=1");
+  const made = Array.isArray(codes) ? (codes as string[]) : [];
+  redirect(
+    `/packaging?created=${made.length || lines.length}${made.length ? `&codes=${encodeURIComponent(made.join(","))}` : ""}`,
+  );
 }

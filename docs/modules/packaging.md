@@ -548,3 +548,11 @@ Plain text only, directly under the line it belongs to. A valid line shows what 
 
 When a finished product is short, the line's **Unit count** box gets a red outline and **Bulk product used** turns red; when a packaging material is short, that material's **Quantity** box gets a red outline (Bulk product used stays green). Pack size is not marked. The material Quantity box is wider so a long number is fully visible.
 
+
+## Several lines in one save — Production (FB-0052, 2 Oct 2026, migration 0095)
+Department **Production** now uses the same lines table (up to 30 lines): **Finished product batch\*, Quantity to convert\*** (in the product's own unit, shown as text)**, QC qty\*, Stability qty\*, R&D qty, Sample unit\***, and a green "Becomes Raw Material (RM-FP)" chip. The issue date and department are chosen once for the whole save.
+
+- Every line becomes its own Production issue: its own `PKG-####` code, its own RM Intimation slip and its own Raw Material (RM-FP) batch with its own QC. Saved through `create_production_issues()` (migration `0095`), which calls `create_packaging_issue()` for each line; all lines save together or none do.
+- **A Finished Product batch can be on one line only.** A repeat is refused live ("Line 2: Batch FP-00004-01/26 · Yashtimadhu Oil is already on line 1. A batch can be issued to Production only once per issue.") with a red outline on that batch box, Add line / Save disabled, and the database refuses the same case with the same sentence. (Store and R&D still allow one batch on several lines.)
+- **R&D qty is optional** (empty = 0). QC and Stability quantity and Sample unit stay mandatory. This replaces the 29 Sept rule for R&D quantity only.
+- QC + Stability + R&D (converted to the product's unit) cannot exceed the quantity to convert; a line cannot take more than the batch has left. Both show as plain red text under the line, with the box to fix outlined in red, exactly like the Store/R&D table.

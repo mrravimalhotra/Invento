@@ -635,6 +635,8 @@ Finished Product sits downstream of MFR (needs an approved recipe) and Quality C
 
 **Packing several pack sizes at once (Store/R&D):** after choosing Store or R&D, add one line for each pack size or batch (for example 200 ml × 50 and 1 ltr × 8 from the same batch). Each line has its own packaging materials and gets its own packaging issue code. The date and department are shared. The form shows the bulk product each line uses and what is left in each batch; if any line can't be saved, none are.
 
+**Issuing several batches to Production at once:** choose Production and add one line per Finished Product batch — quantity to convert, QC, Stability and (optionally) R&D quantity, and the sample unit. Each line becomes its own Raw Material (RM-FP) batch with its own QC and its own packaging issue code. A batch can appear on one line only; if you repeat it, a red message appears under that line and Add line / Save stay greyed out until you fix it. Nothing is saved unless every line is valid.
+
 **Fields you'll be asked for**
 - **Issue type** — Store/R&D or Production; mainly affects how the issue is categorized in reporting.
 - **Item + batch** — the specific finished product or packaging batch being issued.
