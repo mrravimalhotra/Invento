@@ -143,7 +143,7 @@ export default async function NewPackagingIssuePage() {
     <div>
       <PageHeader
         title="New packaging issue"
-        description="Issue finished product out to a department. For Store and R&D, add one line per pack size or batch — all lines are saved together. Pulls packaging material from stock automatically."
+        description="Issue finished product out to a department, one line per pack size or batch — all lines are saved together. Store and R&D lines pull packaging material from stock automatically; Production lines use none."
       />
       <Card className="max-w-6xl">
         <CardBody>
