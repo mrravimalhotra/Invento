@@ -105,6 +105,8 @@ export function PackagingLinesEditor({
     const n = i + 1;
     const errors: string[] = [];
     const infos: string[] = [];
+    let fpShort = false;
+    const matShort: boolean[] = l.mats.map(() => false);
 
     const b = batchOf(l.batchId);
     const used = usedBy(l);
@@ -115,6 +117,7 @@ export function PackagingLinesEditor({
       if (b.left_qty !== null) {
         const available = b.left_qty - before.total;
         if (used > available + 1e-7) {
+          fpShort = true;
           errors.push(
             `Line ${n}: Not enough stock for batch ${label}: ${fmt(Math.max(available, 0))} ${b.fp_unit} available, ${fmt(used)} ${b.fp_unit} needed.`,
           );
@@ -129,7 +132,7 @@ export function PackagingLinesEditor({
       }
     }
 
-    for (const m of l.mats) {
+    for (const [mi, m] of l.mats.entries()) {
       const item = itemOf(m.itemId);
       const q = Number(m.quantity);
       if (!item || !(q > 0) || !m.unit) continue;
@@ -141,6 +144,7 @@ export function PackagingLinesEditor({
       if (item.on_hand === undefined) continue;
       const available = item.on_hand - before;
       if (need > available + 1e-7) {
+        matShort[mi] = true;
         errors.push(
           `Line ${n}: Not enough stock for ${item.item_code} · ${item.name}: ${fmt(Math.max(available, 0))} ${unit} available, ${fmt(need)} ${unit} needed.`,
         );
@@ -149,7 +153,7 @@ export function PackagingLinesEditor({
       }
     }
 
-    return { errors, infos };
+    return { errors, infos, fpShort, matShort };
   });
   const blocked = notes.some((x) => x.errors.length > 0);
 
@@ -182,7 +186,7 @@ export function PackagingLinesEditor({
             const b = batchOf(l.batchId);
             const used = usedBy(l);
             const sameAsAbove = i > 0 && l.batchId !== "" && lines[i - 1].batchId === l.batchId;
-            const { errors, infos } = notes[i];
+            const { errors, infos, fpShort, matShort } = notes[i];
             const savedError = errors.length === 0 ? lineErrors?.[i + 1] : undefined;
             return (
               <tbody key={l.key} className="border-b border-border last:border-0">
@@ -257,6 +261,8 @@ export function PackagingLinesEditor({
                       min="0"
                       required
                       aria-label={`Line ${i + 1} unit count`}
+                      className={fpShort ? "border-red ring-1 ring-red focus:border-red focus:ring-red" : undefined}
+                      aria-invalid={fpShort || undefined}
                       value={l.units}
                       onChange={(e) => update(l.key, { units: e.target.value })}
                     />
@@ -265,7 +271,11 @@ export function PackagingLinesEditor({
                     <div
                       aria-live="polite"
                       className={`rounded-md px-3 py-2 text-xs ${
-                        used !== null ? "bg-brand-light text-brand-dark" : "bg-black/[0.04] text-muted"
+                        fpShort
+                          ? "bg-red-bg text-red"
+                          : used !== null
+                            ? "bg-brand-light text-brand-dark"
+                            : "bg-black/[0.04] text-muted"
                       }`}
                     >
                       {used !== null && b?.fp_unit ? (
@@ -288,6 +298,7 @@ export function PackagingLinesEditor({
                       namePrefix={`ln${i}_`}
                       compact
                       onLinesChange={(mats) => update(l.key, { mats })}
+                      shortItems={matShort}
                     />
                   </td>
                   <td className="px-3 py-3">

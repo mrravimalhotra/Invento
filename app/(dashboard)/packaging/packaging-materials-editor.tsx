@@ -33,6 +33,7 @@ export function PackagingMaterialsEditor({
   namePrefix = "",
   compact = false,
   onLinesChange,
+  shortItems,
 }: {
   packagingItems: PackagingItemOption[];
   /** FB-0052: each packaging line has its own materials; its field names get a prefix such as "ln0_". */
@@ -41,6 +42,8 @@ export function PackagingMaterialsEditor({
   compact?: boolean;
   /** Called with the current material lines after every change. */
   onLinesChange?: (lines: MaterialLine[]) => void;
+  /** FB-0052: per material row, true when that material is short on stock — its Quantity box gets a red outline. */
+  shortItems?: boolean[];
 }) {
   const [lines, setLines] = useState<MaterialLine[]>([{ itemId: "", quantity: "", unit: "" }]);
 
@@ -85,13 +88,15 @@ export function PackagingMaterialsEditor({
                 ))}
               </Select>
             </div>
-            <div className="w-16 shrink-0">
+            <div className="w-24 shrink-0">
               <Input
                 name={`${namePrefix}quantity_${i}`}
                 type="number"
                 step="any"
                 min="0"
                 placeholder="Qty"
+                className={shortItems?.[i] ? "border-red ring-1 ring-red focus:border-red focus:ring-red" : undefined}
+                aria-invalid={shortItems?.[i] || undefined}
                 aria-label={`Quantity used ${i + 1}`}
                 value={line.quantity}
                 onChange={(e) => updateLine(i, { quantity: e.target.value })}
