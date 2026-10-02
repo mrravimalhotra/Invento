@@ -7,7 +7,14 @@ import { Trash2, Plus } from "lucide-react";
 import { entryUnitsFor } from "@/lib/constants/units";
 import { isLegacyCode } from "@/lib/utils";
 
-export type PackagingItemOption = { id: string; item_code: string; name: string; unit: string | null };
+export type PackagingItemOption = {
+  id: string;
+  item_code: string;
+  name: string;
+  unit: string | null;
+  /** Stock on hand in the item's own unit (FB-0052 live check). */
+  on_hand?: number;
+};
 
 export type MaterialLine = { itemId: string; quantity: string; unit: string };
 
@@ -25,23 +32,32 @@ export function PackagingMaterialsEditor({
   packagingItems,
   namePrefix = "",
   compact = false,
+  onLinesChange,
 }: {
   packagingItems: PackagingItemOption[];
   /** FB-0052: each packaging line has its own materials; its field names get a prefix such as "ln0_". */
   namePrefix?: string;
   /** FB-0052: stacked rows without a header, for use inside a table cell of the multi-line form. */
   compact?: boolean;
+  /** Called with the current material lines after every change. */
+  onLinesChange?: (lines: MaterialLine[]) => void;
 }) {
   const [lines, setLines] = useState<MaterialLine[]>([{ itemId: "", quantity: "", unit: "" }]);
 
+  // FB-0052: every change is also reported to the parent (the multi-line form
+  // checks the materials against stock while the person types).
+  function commit(next: MaterialLine[]) {
+    setLines(next);
+    onLinesChange?.(next);
+  }
   function addLine() {
-    setLines((ls) => [...ls, { itemId: "", quantity: "", unit: "" }]);
+    commit([...lines, { itemId: "", quantity: "", unit: "" }]);
   }
   function removeLine(i: number) {
-    setLines((ls) => (ls.length === 1 ? ls : ls.filter((_, idx) => idx !== i)));
+    if (lines.length > 1) commit(lines.filter((_, idx) => idx !== i));
   }
   function updateLine(i: number, patch: Partial<MaterialLine>) {
-    setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+    commit(lines.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
 
   if (compact) {

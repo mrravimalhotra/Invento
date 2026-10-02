@@ -23,7 +23,7 @@ export default async function NewPackagingIssuePage() {
         .eq("active", true)
         .order("batch_number", { ascending: false })
         .order("id", { ascending: true })
-        .range(from, to)
+        .range(from, to),
     ),
     fetchAllRows((from, to) =>
       supabase
@@ -33,7 +33,7 @@ export default async function NewPackagingIssuePage() {
         .eq("category", "packaging")
         .order("created_at", { ascending: false })
         .order("id", { ascending: true })
-        .range(from, to)
+        .range(from, to),
     ),
   ]);
 
@@ -43,6 +43,15 @@ export default async function NewPackagingIssuePage() {
   // lib/finished-product-status.ts). Resolve display status the same way the
   // Finished Product list does, rather than filtering on the raw column,
   // which would never match and always report zero eligible batches.
+  // FB-0052: packaging material on hand, so the form can say "not enough
+  // stock" while the person types (the database still checks when saving).
+  const { data: balanceRows } = await fetchByIdChunks(
+    (packagingItems ?? []).map((i) => i.id),
+    (chunk) => supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk),
+  );
+  const onHandByItem = new Map((balanceRows ?? []).map((r) => [r.item_id, Number(r.on_hand ?? 0)]));
+  const packagingOptions = (packagingItems ?? []).map((i) => ({ ...i, on_hand: onHandByItem.get(i.id) ?? 0 }));
+
   const candidates = allFpBatches ?? [];
   // ACC-08: id lookups in chunks (see fetchByIdChunks).
   const { data: qcRows } = await fetchByIdChunks(
@@ -52,9 +61,11 @@ export default async function NewPackagingIssuePage() {
         .from("quality_checks")
         .select("finished_product_batch_id, status, created_at")
         .in("finished_product_batch_id", chunk)
-        .not("finished_product_batch_id", "is", null)
+        .not("finished_product_batch_id", "is", null),
   );
-  const latestQc = latestQcByBatch((qcRows ?? []) as { finished_product_batch_id: string; status: string; created_at: string }[]);
+  const latestQc = latestQcByBatch(
+    (qcRows ?? []) as { finished_product_batch_id: string; status: string; created_at: string }[],
+  );
   const approvedBatches = candidates.filter((b) => resolveDisplayStatus(b.status, latestQc.get(b.id)) === "approved");
 
   // Task F: the Store/R&D form needs each batch's own Finished Product
@@ -75,7 +86,7 @@ export default async function NewPackagingIssuePage() {
       supabase
         .from("finished_product_batches")
         .select("id, mfr_definition_id, batch_yield, unit, qc_sample_qty, stability_qty, rnd_qty")
-        .in("id", chunk)
+        .in("id", chunk),
   );
   // FB-0052: how much of each batch is still free to pack or issue — the same
   // figure the database enforces (yield less samples less what is already
@@ -86,23 +97,23 @@ export default async function NewPackagingIssuePage() {
       .from("packaging_issues")
       .select("id, finished_product_batch_id, fp_qty_consumed")
       .order("id", { ascending: true })
-      .range(from, to)
+      .range(from, to),
   );
   const issuedByBatch = new Map<string, number>();
   for (const r of issuedRows ?? []) {
     issuedByBatch.set(
       r.finished_product_batch_id,
-      (issuedByBatch.get(r.finished_product_batch_id) ?? 0) + Number(r.fp_qty_consumed ?? 0)
+      (issuedByBatch.get(r.finished_product_batch_id) ?? 0) + Number(r.fp_qty_consumed ?? 0),
     );
   }
   const batchInfoById = new Map((fullBatchRows ?? []).map((r) => [r.id, r]));
   const mfrDefIds = [...new Set((fullBatchRows ?? []).map((r) => r.mfr_definition_id).filter(Boolean))];
   const { data: mfrDefRows } = await fetchByIdChunks(mfrDefIds as string[], (chunk) =>
-    supabase.from("mfr_definitions").select("id, finished_product_item_id").in("id", chunk)
+    supabase.from("mfr_definitions").select("id, finished_product_item_id").in("id", chunk),
   );
   const fpItemIds = [...new Set((mfrDefRows ?? []).map((r) => r.finished_product_item_id).filter(Boolean))] as string[];
   const { data: fpItemRows } = await fetchByIdChunks(fpItemIds, (chunk) =>
-    supabase.from("items").select("id, unit, name").in("id", chunk)
+    supabase.from("items").select("id, unit, name").in("id", chunk),
   );
   const unitByItemId = new Map((fpItemRows ?? []).map((r) => [r.id, r.unit]));
   const nameByItemId = new Map((fpItemRows ?? []).map((r) => [r.id, r.name]));
@@ -136,7 +147,7 @@ export default async function NewPackagingIssuePage() {
       />
       <Card className="max-w-6xl">
         <CardBody>
-          <PackagingForm fpBatches={fpBatches ?? []} packagingItems={packagingItems ?? []} />
+          <PackagingForm fpBatches={fpBatches ?? []} packagingItems={packagingOptions} />
         </CardBody>
       </Card>
     </div>

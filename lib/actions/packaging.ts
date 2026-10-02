@@ -10,7 +10,10 @@ import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
 import { todayIst } from "@/lib/utils";
 
-export type ActionState = { error?: string; success?: string } | undefined;
+// lineErrors (FB-0052): a message that belongs to one line of the Store/R&D
+// form (keyed by line number, 1-based) — shown as plain red text under that
+// line; `error` is then only the short pop-up pointing at it.
+export type ActionState = { error?: string; success?: string; lineErrors?: Record<number, string> } | undefined;
 
 type MaterialInput = { itemId: string; quantity: number; unit: string };
 
@@ -206,6 +209,16 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
 // transaction (create_packaging_issues, 0093) — one PKG-#### per line, and
 // lines drawing on the same batch are checked against it together.
 async function createStoreRndIssues(formData: FormData, department: string, issueDate: string): Promise<ActionState> {
+  const result = await saveStoreRndIssues(formData, department, issueDate);
+  // A message that starts "Line N:" belongs under that line on the form.
+  const m = result?.error ? /^Line (\d+): /.exec(result.error) : null;
+  if (result?.error && m) {
+    return { error: `Packaging issue not saved: check line ${m[1]}.`, lineErrors: { [Number(m[1])]: result.error } };
+  }
+  return result;
+}
+
+async function saveStoreRndIssues(formData: FormData, department: string, issueDate: string): Promise<ActionState> {
   const count = Number(formData.get("pl_count") || 0);
   if (!Number.isInteger(count) || count < 1) return { error: "Add at least one line." };
   if (count > MAX_LINES) return { error: `A packaging issue can have at most ${MAX_LINES} lines.` };

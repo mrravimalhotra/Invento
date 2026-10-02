@@ -39,7 +39,9 @@ export function PackagingForm({
 
   return (
     <form action={formAction} className={`flex flex-col gap-4 ${storeOrRnd ? "max-w-6xl" : "max-w-xl"}`}>
-      {state?.error && <p className="text-sm text-red">{state.error}</p>}
+      {/* A message tied to one line of the Store/R&D table is shown under that line (and as the short pop-up) —
+          never repeated here at the top. */}
+      {state?.error && !state.lineErrors && <p className="text-sm text-red">{state.error}</p>}
 
       <div className="grid grid-cols-2 gap-4">
         <Field
@@ -84,12 +86,13 @@ export function PackagingForm({
           <PackagingLinesEditor
             fpBatches={fpBatches}
             packagingItems={packagingItems}
-            footerAction={(n) => (
+            lineErrors={state?.lineErrors}
+            footerAction={(n, blocked) => (
               <div className="flex gap-2">
                 <LinkButton href="/packaging" variant="secondary">
                   Cancel
                 </LinkButton>
-                <Button type="submit" disabled={pending || fpBatches.length === 0}>
+                <Button type="submit" disabled={pending || blocked || fpBatches.length === 0}>
                   {pending ? "Saving…" : n === 1 ? "Save 1 issue" : `Save ${n} issues`}
                 </Button>
               </div>
