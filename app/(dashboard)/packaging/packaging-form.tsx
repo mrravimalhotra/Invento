@@ -38,20 +38,19 @@ export function PackagingForm({
   const [productionSampleUnit, setProductionSampleUnit] = useState("");
 
   return (
-    <form action={formAction} className={`flex flex-col gap-4 ${storeOrRnd ? "max-w-3xl" : "max-w-xl"}`}>
+    <form action={formAction} className={`flex flex-col gap-4 ${storeOrRnd ? "max-w-6xl" : "max-w-xl"}`}>
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
 
-      <Field
-        label="Issue date"
-        htmlFor="issue_date"
-        required
-        hint="The day this issue was made. Today by default; an earlier day is fine, a future day is not."
-      >
-        <Input id="issue_date" name="issue_date" type="date" defaultValue={todayIst()} max={todayIst()} required />
-      </Field>
-
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Department" htmlFor="department" required>
+        <Field
+          label={storeOrRnd ? "Issue date (all lines)" : "Issue date"}
+          htmlFor="issue_date"
+          required
+          hint="The day this issue was made. Today by default; an earlier day is fine, a future day is not."
+        >
+          <Input id="issue_date" name="issue_date" type="date" defaultValue={todayIst()} max={todayIst()} required />
+        </Field>
+        <Field label={storeOrRnd ? "Department (all lines)" : "Department"} htmlFor="department" required>
           <Select
             id="department"
             name="department"
@@ -82,7 +81,20 @@ export function PackagingForm({
         <>
           {/* FB-0052 (2 Oct 2026): several lines in one save — each with its own
               batch, pack size, unit count and materials. */}
-          <PackagingLinesEditor fpBatches={fpBatches} packagingItems={packagingItems} />
+          <PackagingLinesEditor
+            fpBatches={fpBatches}
+            packagingItems={packagingItems}
+            footerAction={(n) => (
+              <div className="flex gap-2">
+                <LinkButton href="/packaging" variant="secondary">
+                  Cancel
+                </LinkButton>
+                <Button type="submit" disabled={pending || fpBatches.length === 0}>
+                  {pending ? "Saving…" : n === 1 ? "Save 1 issue" : `Save ${n} issues`}
+                </Button>
+              </div>
+            )}
+          />
 
           <p className="text-xs text-muted">
             Each line will pull its computed Finished Product quantity and its packaging materials, create the paired
@@ -203,14 +215,16 @@ export function PackagingForm({
 
       {department === "" && <p className="text-xs text-muted">Select a department to continue.</p>}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending || fpBatches.length === 0}>
-          {pending ? "Saving…" : "Record issue"}
-        </Button>
-        <LinkButton href="/packaging" variant="secondary">
-          Cancel
-        </LinkButton>
-      </div>
+      {!storeOrRnd && (
+        <div className="flex gap-2">
+          <Button type="submit" disabled={pending || fpBatches.length === 0}>
+            {pending ? "Saving…" : "Record issue"}
+          </Button>
+          <LinkButton href="/packaging" variant="secondary">
+            Cancel
+          </LinkButton>
+        </div>
+      )}
     </form>
   );
 }

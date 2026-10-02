@@ -134,7 +134,7 @@ export default async function NewPackagingIssuePage() {
         title="New packaging issue"
         description="Issue finished product out to a department. For Store and R&D, add one line per pack size or batch — all lines are saved together. Pulls packaging material from stock automatically."
       />
-      <Card className="max-w-3xl">
+      <Card className="max-w-6xl">
         <CardBody>
           <PackagingForm fpBatches={fpBatches ?? []} packagingItems={packagingItems ?? []} />
         </CardBody>
