@@ -633,6 +633,8 @@ Finished Product sits downstream of MFR (needs an approved recipe) and Quality C
 3. Enter the quantity being issued (can't exceed what's currently available for that batch) and any reference/purpose notes.
 4. Submit — the issued quantity is deducted from that batch's available stock immediately.
 
+**Packing several pack sizes at once (Store/R&D):** after choosing Store or R&D, add one line for each pack size or batch (for example 200 ml × 50 and 1 ltr × 8 from the same batch). Each line has its own packaging materials and gets its own packaging issue code. The date and department are shared. The form shows the bulk product each line uses and what is left in each batch; if any line can't be saved, none are.
+
 **Fields you'll be asked for**
 - **Issue type** — Store/R&D or Production; mainly affects how the issue is categorized in reporting.
 - **Item + batch** — the specific finished product or packaging batch being issued.

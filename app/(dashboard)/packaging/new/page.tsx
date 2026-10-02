@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
+import { convertUnit } from "@/lib/constants/units";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -70,8 +71,31 @@ export default async function NewPackagingIssuePage() {
   // display-only — the option's submitted value is still the batch id.
   const { data: fullBatchRows } = await fetchByIdChunks(
     approvedBatches.map((b) => b.id),
-    (chunk) => supabase.from("finished_product_batches").select("id, mfr_definition_id").in("id", chunk)
+    (chunk) =>
+      supabase
+        .from("finished_product_batches")
+        .select("id, mfr_definition_id, batch_yield, unit, qc_sample_qty, stability_qty, rnd_qty")
+        .in("id", chunk)
   );
+  // FB-0052: how much of each batch is still free to pack or issue — the same
+  // figure the database enforces (yield less samples less what is already
+  // issued, in the product's unit; 0079). Shown per line so the person can
+  // see it before saving.
+  const { data: issuedRows } = await fetchAllRows((from, to) =>
+    supabase
+      .from("packaging_issues")
+      .select("id, finished_product_batch_id, fp_qty_consumed")
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
+  const issuedByBatch = new Map<string, number>();
+  for (const r of issuedRows ?? []) {
+    issuedByBatch.set(
+      r.finished_product_batch_id,
+      (issuedByBatch.get(r.finished_product_batch_id) ?? 0) + Number(r.fp_qty_consumed ?? 0)
+    );
+  }
+  const batchInfoById = new Map((fullBatchRows ?? []).map((r) => [r.id, r]));
   const mfrDefIds = [...new Set((fullBatchRows ?? []).map((r) => r.mfr_definition_id).filter(Boolean))];
   const { data: mfrDefRows } = await fetchByIdChunks(mfrDefIds as string[], (chunk) =>
     supabase.from("mfr_definitions").select("id, finished_product_item_id").in("id", chunk)
@@ -88,10 +112,19 @@ export default async function NewPackagingIssuePage() {
   const fpBatches = approvedBatches.map((b) => {
     const mfrDefId = mfrDefByBatch.get(b.id);
     const fpItemId = mfrDefId ? itemIdByMfrDef.get(mfrDefId) : null;
+    const fpUnit = fpItemId ? (unitByItemId.get(fpItemId) ?? null) : null;
+    const info = batchInfoById.get(b.id);
+    let leftQty: number | null = null;
+    if (info && info.batch_yield != null) {
+      const samples = Number(info.qc_sample_qty ?? 0) + Number(info.stability_qty ?? 0) + Number(info.rnd_qty ?? 0);
+      const factor = fpUnit && info.unit ? (convertUnit(1, info.unit, fpUnit) ?? 1) : 1;
+      leftQty = Math.max(0, (Number(info.batch_yield) - samples) * factor - (issuedByBatch.get(b.id) ?? 0));
+    }
     return {
       ...b,
-      fp_unit: fpItemId ? unitByItemId.get(fpItemId) ?? null : null,
-      fp_name: fpItemId ? nameByItemId.get(fpItemId) ?? null : null,
+      fp_unit: fpUnit,
+      fp_name: fpItemId ? (nameByItemId.get(fpItemId) ?? null) : null,
+      left_qty: leftQty,
     };
   });
 
@@ -99,9 +132,9 @@ export default async function NewPackagingIssuePage() {
     <div>
       <PageHeader
         title="New packaging issue"
-        description="Issue finished product out to a department. Pulls packaging material from stock automatically."
+        description="Issue finished product out to a department. For Store and R&D, add one line per pack size or batch — all lines are saved together. Pulls packaging material from stock automatically."
       />
-      <Card className="max-w-xl">
+      <Card className="max-w-3xl">
         <CardBody>
           <PackagingForm fpBatches={fpBatches ?? []} packagingItems={packagingItems ?? []} />
         </CardBody>

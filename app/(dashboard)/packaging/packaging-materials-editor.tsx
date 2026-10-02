@@ -21,7 +21,14 @@ export type MaterialLine = { itemId: string; quantity: string; unit: string };
  * Plain named form fields under the hood, so this still degrades to a
  * working (if static) one-row form without JS.
  */
-export function PackagingMaterialsEditor({ packagingItems }: { packagingItems: PackagingItemOption[] }) {
+export function PackagingMaterialsEditor({
+  packagingItems,
+  namePrefix = "",
+}: {
+  packagingItems: PackagingItemOption[];
+  /** FB-0052: each packaging line has its own materials; its field names get a prefix such as "ln0_". */
+  namePrefix?: string;
+}) {
   const [lines, setLines] = useState<MaterialLine[]>([{ itemId: "", quantity: "", unit: "" }]);
 
   function addLine() {
@@ -36,7 +43,7 @@ export function PackagingMaterialsEditor({ packagingItems }: { packagingItems: P
 
   return (
     <div className="flex flex-col gap-3">
-      <input type="hidden" name="lineCount" value={lines.length} />
+      <input type="hidden" name={`${namePrefix}lineCount`} value={lines.length} />
       <div className="rounded-md border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -52,7 +59,7 @@ export function PackagingMaterialsEditor({ packagingItems }: { packagingItems: P
               <tr key={i} className="border-b border-border last:border-0">
                 <td className="px-3 py-2">
                   <Select
-                    name={`item_id_${i}`}
+                    name={`${namePrefix}item_id_${i}`}
                     value={line.itemId}
                     onChange={(e) => {
                       const item = packagingItems.find((it) => it.id === e.target.value);
@@ -72,7 +79,7 @@ export function PackagingMaterialsEditor({ packagingItems }: { packagingItems: P
                 </td>
                 <td className="px-3 py-2">
                   <Input
-                    name={`quantity_${i}`}
+                    name={`${namePrefix}quantity_${i}`}
                     type="number"
                     step="any"
                     min="0"
@@ -83,7 +90,7 @@ export function PackagingMaterialsEditor({ packagingItems }: { packagingItems: P
                 </td>
                 <td className="px-3 py-2">
                   <Select
-                    name={`unit_${i}`}
+                    name={`${namePrefix}unit_${i}`}
                     value={line.unit}
                     onChange={(e) => updateLine(i, { unit: e.target.value })}
                     required={i === 0}

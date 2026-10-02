@@ -73,5 +73,38 @@ select t_check('issue date defaults to today (India time) when not given', (sele
 select t_fail('a future issue date is refused', $q$select create_packaging_issue(jsonb_build_object('code','PKG-F','finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-1'),'pack_size','1 kg','pack_size_qty',1,'pack_size_unit','kg','fp_qty_consumed',1,'unit_count',1,'department','store','issue_date',to_char((now() at time zone 'Asia/Kolkata')::date + 1,'YYYY-MM-DD')), '[]'::jsonb)$q$, 'Issue date cannot be in the future');
 select t_fail('a past issue date passes the date check (then stock refuses it)', $q$select create_packaging_issue(jsonb_build_object('code','PKG-P','finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-1'),'pack_size','1 kg','pack_size_qty',1,'pack_size_unit','kg','fp_qty_consumed',1,'unit_count',1,'department','store','issue_date','2026-01-05'), '[]'::jsonb)$q$, 'has only 0 kg left');
 select t_check('issue_date column is required (not null)', (select is_nullable = 'NO' from information_schema.columns where table_name='packaging_issues' and column_name='issue_date'));
+
+\echo '===== FB-0052 (0093): several lines in one save (Store / R&D)'
+select t_ok('FB-0052 set-up: FP-2 created', $q$select create_finished_product_batch(jsonb_build_object('batch_number','FP-2','short_batch_no','PR-2','mfr_definition_id',(select id from mfr_definitions where name='Test MFR'),'mfr_version',1,'target_qty',30,'unit','kg','batch_start_date',current_date::text), jsonb_build_array(jsonb_build_object('item_id','00000000-0000-0000-0000-0000000000c3','purchase_line_id','00000000-0000-0000-0000-0000000000e1','quantity',1)))$q$);
+reset role; select set_config('request.jwt.claim.sub','',false); select set_config('request.jwt.claim.role','',false);
+update finished_product_batches set status='approved', batch_yield=30, qc_sample_qty=0, stability_qty=0, rnd_qty=0 where batch_number='FP-2';
+insert into inventory_ledger (event_type,item_id,quantity,unit,reference_type,reason) select 'push', finished_product_item_id, 30, 'kg', 'fp_yield', 'test stock FP-2' from mfr_definitions where name='Test MFR';
+set role authenticated;
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',false);
+
+select t_ok('two lines from FP-2 in one save: 1 kg x 4 and 500 g x 10', $q$select create_packaging_issues(
+  jsonb_build_object('issue_date', to_char((now() at time zone 'Asia/Kolkata')::date - 3,'YYYY-MM-DD'), 'department', 'store'),
+  jsonb_build_array(
+    jsonb_build_object('finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-2'),'pack_size','1 kg','pack_size_qty',1,'pack_size_unit','kg','fp_qty_consumed',4,'unit_count',4,
+      'materials', jsonb_build_array(jsonb_build_object('item_id','00000000-0000-0000-0000-0000000000c5','quantity',2,'unit','nos'))),
+    jsonb_build_object('finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-2'),'pack_size','500 g','pack_size_qty',500,'pack_size_unit','g','fp_qty_consumed',5,'unit_count',10,
+      'materials', jsonb_build_array(jsonb_build_object('item_id','00000000-0000-0000-0000-0000000000c5','quantity',1,'unit','nos')))))$q$);
+select t_check('two separate issues, own codes, same past date and department', (select count(*) = 2 and count(distinct code) = 2 and count(distinct issue_date) = 1 and bool_and(department = 'store') and min(issue_date) = (now() at time zone 'Asia/Kolkata')::date - 3 from packaging_issues where finished_product_batch_id = (select id from finished_product_batches where batch_number='FP-2')));
+select t_check('each line keeps its own materials (2 jars and 1 jar)', (select string_agg(i.pack_size || ':' || (select sum(quantity) from packaging_issue_items x where x.packaging_issue_id = i.id)::text, ',' order by i.pack_size) from packaging_issues i where i.finished_product_batch_id = (select id from finished_product_batches where batch_number='FP-2')) = '1 kg:2,500 g:1');
+select t_check('jar stock 87 (90 - 3)', t_oh('00000000-0000-0000-0000-0000000000c5') = 87);
+
+select t_fail('two lines that fit alone but not together (15 + 10 kg, only 21 kg left) are refused, naming line 2', $q$select create_packaging_issues(
+  jsonb_build_object('department', 'rnd'),
+  jsonb_build_array(
+    jsonb_build_object('finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-2'),'pack_size','1 kg','pack_size_qty',1,'pack_size_unit','kg','fp_qty_consumed',15,'unit_count',15,'materials','[]'::jsonb),
+    jsonb_build_object('finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-2'),'pack_size','1 kg','pack_size_qty',1,'pack_size_unit','kg','fp_qty_consumed',10,'unit_count',10,'materials','[]'::jsonb)))$q$, 'Line 2');
+select t_check('all-or-nothing: the refused save left no issue behind (still 2 on FP-2), jars 87', (select count(*) from packaging_issues where finished_product_batch_id = (select id from finished_product_batches where batch_number='FP-2')) = 2 and t_oh('00000000-0000-0000-0000-0000000000c5') = 87);
+select t_fail('31 lines are refused', $q$select create_packaging_issues(jsonb_build_object('department','store'), (select jsonb_agg(jsonb_build_object('finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-2'),'pack_size','1 g','pack_size_qty',1,'pack_size_unit','g','fp_qty_consumed',0.001,'unit_count',1,'materials','[]'::jsonb)) from generate_series(1,31)))$q$, 'at most 30');
+select t_fail('Production cannot use the several-lines save', $q$select create_packaging_issues(jsonb_build_object('department','production'), jsonb_build_array(jsonb_build_object('finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-2'),'pack_size','1 kg','pack_size_qty',1,'pack_size_unit','kg','fp_qty_consumed',1,'unit_count',1)))$q$, 'only be saved for Store or R&D');
+select t_fail('no lines is refused', $q$select create_packaging_issues(jsonb_build_object('department','store'), '[]'::jsonb)$q$, 'Add at least one line');
+select t_fail('a future issue date is refused, naming line 1', $q$select create_packaging_issues(jsonb_build_object('department','store','issue_date',to_char((now() at time zone 'Asia/Kolkata')::date + 1,'YYYY-MM-DD')), jsonb_build_array(jsonb_build_object('finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-2'),'pack_size','1 kg','pack_size_qty',1,'pack_size_unit','kg','fp_qty_consumed',1,'unit_count',1,'materials','[]'::jsonb)))$q$, 'Line 1: Issue date cannot be in the future');
+select t_ok('a save of exactly 30 lines is accepted', $q$select create_packaging_issues(jsonb_build_object('department','store'), (select jsonb_agg(jsonb_build_object('finished_product_batch_id',(select id from finished_product_batches where batch_number='FP-2'),'pack_size','1 g','pack_size_qty',1,'pack_size_unit','g','fp_qty_consumed',0.001,'unit_count',1,'materials','[]'::jsonb)) from generate_series(1,30)))$q$);
+select t_check('30 more issues were created', (select count(*) from packaging_issues where finished_product_batch_id = (select id from finished_product_batches where batch_number='FP-2')) = 32);
 reset role;
 select t_check('coverage report still empty', not exists (select 1 from audit_coverage_report()));

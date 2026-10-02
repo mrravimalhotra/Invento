@@ -12,7 +12,6 @@ import { todayIst } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
-
 type MaterialInput = { itemId: string; quantity: number; unit: string };
 
 // "Allow selection of multiple packaging materials such as bottles, caps
@@ -23,24 +22,27 @@ type MaterialInput = { itemId: string; quantity: number; unit: string };
 //
 // Only called for Store/R&D issues (19 Sept 2026 Production redesign
 // below) — Production no longer uses packaging materials at all.
-function parseMaterials(formData: FormData): MaterialInput[] | { error: string } {
-  const count = Number(formData.get("lineCount") || 0);
+function parseMaterials(formData: FormData, prefix = "", label = ""): MaterialInput[] | { error: string } {
+  const lead = label ? `${label}: ` : "";
+  const count = Number(formData.get(`${prefix}lineCount`) || 0);
   const materials: MaterialInput[] = [];
   for (let i = 0; i < count; i++) {
-    const itemId = String(formData.get(`item_id_${i}`) || "");
+    const itemId = String(formData.get(`${prefix}item_id_${i}`) || "");
     if (!itemId) continue;
-    const rawQty = formData.get(`quantity_${i}`);
+    const rawQty = formData.get(`${prefix}quantity_${i}`);
     const quantity = Number(rawQty);
-    const unit = String(formData.get(`unit_${i}`) || "").trim();
+    const unit = String(formData.get(`${prefix}unit_${i}`) || "").trim();
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      return { error: `Material line ${i + 1}: quantity used must be a positive number.` };
+      return {
+        error: `${lead}material ${i + 1}: quantity used must be a positive number.`,
+      };
     }
     if (!unit) {
-      return { error: `Material line ${i + 1}: unit is required.` };
+      return { error: `${lead}material ${i + 1}: unit is required.` };
     }
     materials.push({ itemId, quantity, unit });
   }
-  if (materials.length === 0) return { error: "Add at least one packaging material." };
+  if (materials.length === 0) return { error: `${lead}add at least one packaging material.` };
   return materials;
 }
 
@@ -49,14 +51,16 @@ function parseMaterials(formData: FormData): MaterialInput[] | { error: string }
 // "how much bulk Finished Product this run consumed" can be computed
 // automatically (Ravi's explicit choice, overriding the safer manual-entry
 // option).
-function parseStructuredPackSize(formData: FormData): { qty: number; unit: string } | { error: string } {
-  const rawQty = String(formData.get("pack_size_qty") || "").trim();
-  const unit = String(formData.get("pack_size_unit") || "").trim();
-  const qty = Number(rawQty);
-  if (!rawQty || !Number.isFinite(qty) || qty <= 0) {
-    return { error: "Pack size quantity must be a positive number." };
+function parseStructuredPackSize(
+  rawQty: string,
+  unit: string,
+  label: string,
+): { qty: number; unit: string } | { error: string } {
+  const qty = Number(rawQty.trim());
+  if (!rawQty.trim() || !Number.isFinite(qty) || qty <= 0) {
+    return { error: `${label}: pack size quantity must be a positive number.` };
   }
-  if (!(UNITS as readonly string[]).includes(unit)) return { error: "Select a valid pack size unit." };
+  if (!(UNITS as readonly string[]).includes(unit)) return { error: `${label}: select a valid pack size unit.` };
   return { qty, unit };
 }
 
@@ -97,7 +101,9 @@ function parseProductionQty(formData: FormData): number | { error: string } {
 // refused), but 0 stays a valid, explicitly-typed value — a Production
 // issue with no sampling is legitimate; it just has to be said, not left
 // empty.
-function parseProductionSampleQtys(formData: FormData): { qc: number; stability: number; rnd: number } | { error: string } {
+function parseProductionSampleQtys(
+  formData: FormData,
+): { qc: number; stability: number; rnd: number } | { error: string } {
   const qcRaw = String(formData.get("production_qc_qty") || "").trim();
   const stabilityRaw = String(formData.get("production_stability_qty") || "").trim();
   const rndRaw = String(formData.get("production_rnd_qty") || "").trim();
@@ -117,98 +123,24 @@ function parseProductionSampleQtys(formData: FormData): { qc: number; stability:
   return { qc, stability, rnd };
 }
 
-export async function createPackagingIssue(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const fpBatchId = String(formData.get("finished_product_batch_id") || "");
-  const department = String(formData.get("department") || "");
+// FB-0052 (2 Oct 2026): one Store/R&D save can carry up to this many lines
+// (the database enforces the same cap in create_packaging_issues, 0093).
+const MAX_LINES = 30;
 
-  // FB-0051: Issue date — any day up to today (India time); the database
-  // (create_packaging_issue, 0092) refuses a later day as a backstop.
-  const issueDate = String(formData.get("issue_date") || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(issueDate)) return { error: "Enter the issue date." };
-  if (issueDate > todayIst()) return { error: "Issue date cannot be in the future." };
+type ResolvedBatch = { fpUnit: string | null; packagedItemId: string | null };
 
-  if (!fpBatchId) return { error: "Select a finished product batch." };
-  if (!(DEPARTMENTS as readonly string[]).includes(department)) return { error: "Select a department." };
-
-  const isStoreOrRnd = department === "store" || department === "rnd";
-  const isProduction = department === "production";
-
-  // Store/R&D: pack size is captured structured (qty + unit) so the bulk
-  // FP consumed can be computed, plus a separate "unit count" (how many
-  // packaged units this run produced) and packaging materials.
-  // Production: one direct "quantity to convert" field — see
-  // parseProductionQty() above — no separate unit count field, no
-  // materials.
-  let packSize: string;
-  let packSizeQty: number | null = null;
-  let packSizeUnit: string | null = null;
-  let unitCount: number;
-  let materials: MaterialInput[] = [];
-  let productionQty = 0;
-  let productionSampleUnit = "";
-  let productionQc = 0;
-  let productionStability = 0;
-  let productionRnd = 0;
-
-  if (isStoreOrRnd) {
-    const structured = parseStructuredPackSize(formData);
-    if ("error" in structured) return structured;
-    packSizeQty = structured.qty;
-    packSizeUnit = structured.unit;
-    packSize = `${structured.qty} ${structured.unit}`;
-
-    const unitCountRaw = String(formData.get("unit_count") || "").trim();
-    unitCount = Number(unitCountRaw);
-    if (!unitCountRaw || Number.isNaN(unitCount) || unitCount <= 0) {
-      return { error: "Unit count must be a positive number." };
-    }
-
-    const materialsOrError = parseMaterials(formData);
-    if ("error" in materialsOrError) return materialsOrError;
-    materials = materialsOrError;
-  } else {
-    // isProduction — DEPARTMENTS is exactly ["production", "rnd", "store"],
-    // so this is the only remaining case, but keep it as an explicit branch
-    // (rather than assuming) in case DEPARTMENTS ever grows.
-    if (!isProduction) return { error: "Select a department." };
-    const qtyOrError = parseProductionQty(formData);
-    if (typeof qtyOrError !== "number") return qtyOrError;
-    productionQty = qtyOrError;
-    unitCount = productionQty;
-    // pack_size stays a required text column for every department
-    // (0001_init.sql) — filled in below once the Finished Product's own
-    // unit is known, e.g. "20 kg".
-    packSize = "";
-
-    // FB-0043: QC/Stability/R&D sample quantities, entered in whatever
-    // sample unit is convenient — converted down to the Finished
-    // Product's own unit below, once fpUnit is known (mirrors the
-    // isStoreOrRnd pack-size conversion just below this branch).
-    const sampleQtysOrError = parseProductionSampleQtys(formData);
-    if ("error" in sampleQtysOrError) return sampleQtysOrError;
-    productionQc = sampleQtysOrError.qc;
-    productionStability = sampleQtysOrError.stability;
-    productionRnd = sampleQtysOrError.rnd;
-    productionSampleUnit = String(formData.get("production_sample_unit") || "").trim();
-    if (!productionSampleUnit) {
-      return { error: "Sample unit is required." };
-    }
-  }
-
-  const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Not authorized." };
-
-  const supabase = await createClient();
-
-  // Belt-and-suspenders: the /packaging/new form only lists approved FP
-  // batches, but re-check here since nothing in the schema stops an insert
-  // against an unapproved batch (packaging_issues has no status FK gate).
-  // The approved/rejected verdict lives on the linked quality_checks row,
-  // not on finished_product_batches.status itself (see
-  // lib/finished-product-status.ts) — resolve it the same way the list and
-  // /packaging/new pages do, rather than comparing the raw column, which
-  // would reject every batch.
-  const [{ data: fpBatch }, { data: latestQcRow }] = await Promise.all([
+// Everything a packaging issue needs to know about its Finished Product
+// batch: it must exist, be Approved (the verdict lives on the latest
+// quality_checks row, not on finished_product_batches.status — see
+// lib/finished-product-status.ts), and its MFR must link to a Finished
+// Product item (unit + paired Packaged FP item). The DB trigger
+// (trg_fn_packaging_transform_and_issue) silently skips the transform if
+// fp_qty_consumed isn't set, so every precondition is checked up front.
+async function resolveFpBatch(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fpBatchId: string,
+): Promise<ResolvedBatch | { error: string }> {
+  const [{ data: fpBatch }, { data: latestQcRow }, { data: batchRow }] = await Promise.all([
     supabase.from("finished_product_batches").select("status").eq("id", fpBatchId).maybeSingle(),
     supabase
       .from("quality_checks")
@@ -217,28 +149,14 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase.from("finished_product_batches").select("mfr_definition_id").eq("id", fpBatchId).maybeSingle(),
   ]);
   if (!fpBatch) return { error: "Finished product batch not found." };
-  const displayStatus = resolveDisplayStatus(fpBatch.status, latestQcRow);
-  if (displayStatus !== "approved") {
-    return { error: "Packaging can only be issued against an Approved finished product batch." };
+  if (resolveDisplayStatus(fpBatch.status, latestQcRow) !== "approved") {
+    return {
+      error: "Packaging can only be issued against an Approved finished product batch.",
+    };
   }
-
-  // Every department now consumes bulk Finished Product (19 Sept 2026 —
-  // previously only Store/R&D did; Production's old materials-only,
-  // FP-untouched behavior is retired). Resolve the batch's own FP item
-  // (same mfr_definitions.finished_product_item_id link Phase 3's fp_yield
-  // push uses) to get its unit and, for Store/R&D, its paired Packaged FP
-  // item (items.packaged_item_id, Task F) — the DB trigger
-  // (trg_fn_packaging_transform_and_issue) silently skips the transform if
-  // fp_qty_consumed isn't set, which would look like a no-op success from
-  // here, so every precondition it needs is checked and reported up front
-  // instead.
-  const { data: batchRow } = await supabase
-    .from("finished_product_batches")
-    .select("mfr_definition_id")
-    .eq("id", fpBatchId)
-    .maybeSingle();
   const { data: mfrDef } = batchRow
     ? await supabase
         .from("mfr_definitions")
@@ -248,104 +166,238 @@ export async function createPackagingIssue(_prev: ActionState, formData: FormDat
     : { data: null };
   const fpItemId = mfrDef?.finished_product_item_id ?? null;
   if (!fpItemId) {
-    return { error: "This batch's MFR has no linked Finished Product item — can't compute quantity consumed." };
+    return {
+      error: "This batch's MFR has no linked Finished Product item — can't compute quantity consumed.",
+    };
   }
   const { data: fpItem } = await supabase
     .from("items")
     .select("unit, packaged_item_id")
     .eq("id", fpItemId)
     .maybeSingle();
-  const fpUnit = fpItem?.unit ?? null;
+  return {
+    fpUnit: fpItem?.unit ?? null,
+    packagedItemId: fpItem?.packaged_item_id ?? null,
+  };
+}
 
-  let fpQtyConsumed: number;
-  if (isStoreOrRnd) {
-    if (!fpItem?.packaged_item_id) {
-      return {
-        error:
-          "This Finished Product has no paired Packaged Finished Product item on file yet (older MFR) — Store/R&D issue isn't available for it.",
-      };
+export async function createPackagingIssue(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const department = String(formData.get("department") || "");
+
+  // FB-0051: Issue date — any day up to today (India time); the database
+  // (create_packaging_issue, 0092) refuses a later day as a backstop.
+  const issueDate = String(formData.get("issue_date") || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(issueDate)) return { error: "Enter the issue date." };
+  if (issueDate > todayIst()) return { error: "Issue date cannot be in the future." };
+
+  if (!(DEPARTMENTS as readonly string[]).includes(department)) return { error: "Select a department." };
+
+  // FB-0052: Store/R&D save one or more lines (each its own batch, pack
+  // size, unit count and materials). Production keeps its single-entry flow.
+  if (department === "store" || department === "rnd") return createStoreRndIssues(formData, department, issueDate);
+  return createProductionIssue(formData, department, issueDate);
+}
+
+// Store / R&D (FB-0052): bulk Finished Product is transformed into a
+// Packaged Finished Product and immediately issued out. Each line = one FP
+// batch + one pack size (qty + unit, compatible with the FP's unit) + unit
+// count + packaging materials; FP consumed = pack size × unit count,
+// converted to the FP's unit. All lines are saved in ONE database
+// transaction (create_packaging_issues, 0093) — one PKG-#### per line, and
+// lines drawing on the same batch are checked against it together.
+async function createStoreRndIssues(formData: FormData, department: string, issueDate: string): Promise<ActionState> {
+  const count = Number(formData.get("pl_count") || 0);
+  if (!Number.isInteger(count) || count < 1) return { error: "Add at least one line." };
+  if (count > MAX_LINES) return { error: `A packaging issue can have at most ${MAX_LINES} lines.` };
+
+  type Line = {
+    n: number;
+    batchId: string;
+    packSizeQty: number;
+    packSizeUnit: string;
+    unitCount: number;
+    materials: MaterialInput[];
+  };
+  const lines: Line[] = [];
+  for (let i = 0; i < count; i++) {
+    const n = i + 1;
+    const label = `Line ${n}`;
+    const batchId = String(formData.get(`pl_batch_${i}`) || "");
+    if (!batchId) return { error: `${label}: select a finished product batch.` };
+
+    const structured = parseStructuredPackSize(
+      String(formData.get(`pl_size_qty_${i}`) || ""),
+      String(formData.get(`pl_size_unit_${i}`) || "").trim(),
+      label,
+    );
+    if ("error" in structured) return structured;
+
+    const unitCountRaw = String(formData.get(`pl_units_${i}`) || "").trim();
+    const unitCount = Number(unitCountRaw);
+    if (!unitCountRaw || Number.isNaN(unitCount) || unitCount <= 0) {
+      return { error: `${label}: unit count must be a positive number.` };
     }
-    const converted = fpUnit ? convertUnit(packSizeQty as number, packSizeUnit as string, fpUnit) : null;
-    if (!fpUnit || converted === null) {
-      return {
-        error: `Pack size unit (${packSizeUnit}) isn't compatible with this Finished Product's unit (${fpUnit ?? "unset"}).`,
-      };
-    }
-    fpQtyConsumed = converted * unitCount;
-  } else {
-    // Production: no unit selector was offered, so productionQty is
-    // already in the Finished Product's own unit by construction — a
-    // straight same-unit conversion (Ravi, 19 Sept 2026), never a
-    // pack-size multiplication. Its paired Raw Material item
-    // (production_rm_item_id) is lazily created by the DB trigger itself
-    // on first use, so — unlike Store/R&D's packaged_item_id — there's no
-    // "not paired yet" precondition to check here.
-    fpQtyConsumed = productionQty;
-    packSize = fpUnit ? `${productionQty} ${fpUnit}` : String(productionQty);
+
+    const materials = parseMaterials(formData, `ln${i}_`, label);
+    if ("error" in materials) return materials;
+
+    lines.push({
+      n,
+      batchId,
+      packSizeQty: structured.qty,
+      packSizeUnit: structured.unit,
+      unitCount,
+      materials,
+    });
   }
+
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Not authorized." };
+  const supabase = await createClient();
+
+  // Check each distinct batch once, and name the first line that uses a bad one.
+  const batchIds = [...new Set(lines.map((l) => l.batchId))];
+  const resolved = await Promise.all(batchIds.map((id) => resolveFpBatch(supabase, id)));
+  const byBatch = new Map<string, ResolvedBatch | { error: string }>(batchIds.map((id, k) => [id, resolved[k]]));
+
+  const rpcLines = [];
+  for (const l of lines) {
+    const info = byBatch.get(l.batchId)!;
+    if ("error" in info) return { error: `Line ${l.n}: ${info.error}` };
+    if (!info.packagedItemId) {
+      return {
+        error: `Line ${l.n}: this Finished Product has no paired Packaged Finished Product item on file yet (older MFR) — Store/R&D issue isn't available for it.`,
+      };
+    }
+    const converted = info.fpUnit ? convertUnit(l.packSizeQty, l.packSizeUnit, info.fpUnit) : null;
+    if (!info.fpUnit || converted === null) {
+      return {
+        error: `Line ${l.n}: pack size unit (${l.packSizeUnit}) isn't compatible with this Finished Product's unit (${info.fpUnit ?? "unset"}).`,
+      };
+    }
+    rpcLines.push({
+      finished_product_batch_id: l.batchId,
+      pack_size: `${l.packSizeQty} ${l.packSizeUnit}`,
+      pack_size_qty: l.packSizeQty,
+      pack_size_unit: l.packSizeUnit,
+      fp_qty_consumed: converted * l.unitCount,
+      unit_count: l.unitCount,
+      materials: l.materials.map((m) => ({
+        item_id: m.itemId,
+        quantity: m.quantity,
+        unit: m.unit,
+      })),
+    });
+  }
+
+  // ACC-12 / FB-0052: every line and its materials are saved in ONE
+  // database transaction — all or nothing. Every issue is a Pack (ACC-05).
+  const { data: codes, error } = await supabase.rpc("create_packaging_issues", {
+    p_header: { issue_date: issueDate, department },
+    p_lines: rpcLines,
+  });
+  if (error)
+    return {
+      error: friendlyDbError(error, "Could not create the packaging issue."),
+    };
+
+  revalidatePath("/packaging");
+  const made = Array.isArray(codes) ? (codes as string[]) : [];
+  redirect(
+    `/packaging?created=${made.length || lines.length}${made.length ? `&codes=${encodeURIComponent(made.join(","))}` : ""}`,
+  );
+}
+
+// Production (19 Sept 2026 redesign, unchanged by FB-0052): a single, direct,
+// same-unit "quantity to convert" — no pack size, no packaging materials;
+// QC/Stability/R&D sample quantities (FB-0043, mandatory since 29 Sept)
+// are reserved and the rest becomes new Raw Material stock (RM-FP).
+async function createProductionIssue(formData: FormData, department: string, issueDate: string): Promise<ActionState> {
+  const fpBatchId = String(formData.get("finished_product_batch_id") || "");
+  if (!fpBatchId) return { error: "Select a finished product batch." };
+
+  const qtyOrError = parseProductionQty(formData);
+  if (typeof qtyOrError !== "number") return qtyOrError;
+  const productionQty = qtyOrError;
+
+  const sampleQtysOrError = parseProductionSampleQtys(formData);
+  if ("error" in sampleQtysOrError) return sampleQtysOrError;
+  const { qc: productionQc, stability: productionStability, rnd: productionRnd } = sampleQtysOrError;
+  const productionSampleUnit = String(formData.get("production_sample_unit") || "").trim();
+  if (!productionSampleUnit) {
+    return { error: "Sample unit is required." };
+  }
+
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const info = await resolveFpBatch(supabase, fpBatchId);
+  if ("error" in info) return info;
+  const fpUnit = info.fpUnit;
+
+  // The quantity is already in the Finished Product's own unit (no unit
+  // selector is offered); its paired Raw Material item
+  // (production_rm_item_id) is created lazily by the DB trigger on first use.
+  const fpQtyConsumed = productionQty;
+  const packSize = fpUnit ? `${productionQty} ${fpUnit}` : String(productionQty);
 
   // FB-0043: convert the QC/Stability/R&D sample quantities (entered in
-  // productionSampleUnit) down to the Finished Product's own unit —
-  // exactly the conversion createPurchaseLine() does for purchase_lines.
-  // qc_qty/stability_qty/rnd_qty, same reasoning: those three columns
-  // share production_issue_batches' own `unit` with `quantity`, so they
-  // have to already be expressed in it by the time they're stored.
-  let productionQcConverted = 0;
-  let productionStabilityConverted = 0;
-  let productionRndConverted = 0;
-  if (isProduction && productionQc + productionStability + productionRnd > 0) {
-    if (!fpUnit) return { error: "Could not determine this Finished Product's unit for sample conversion." };
-    const qcConv = convertUnit(productionQc, productionSampleUnit, fpUnit);
-    const stabilityConv = convertUnit(productionStability, productionSampleUnit, fpUnit);
-    const rndConv = convertUnit(productionRnd, productionSampleUnit, fpUnit);
-    if (qcConv === null || stabilityConv === null || rndConv === null) {
-      return { error: `Sample unit (${productionSampleUnit}) isn't compatible with this Finished Product's unit (${fpUnit}).` };
+  // productionSampleUnit) down to the Finished Product's own unit.
+  let qcConv = 0;
+  let stabilityConv = 0;
+  let rndConv = 0;
+  if (productionQc + productionStability + productionRnd > 0) {
+    if (!fpUnit)
+      return {
+        error: "Could not determine this Finished Product's unit for sample conversion.",
+      };
+    const q = convertUnit(productionQc, productionSampleUnit, fpUnit);
+    const st = convertUnit(productionStability, productionSampleUnit, fpUnit);
+    const r = convertUnit(productionRnd, productionSampleUnit, fpUnit);
+    if (q === null || st === null || r === null) {
+      return {
+        error: `Sample unit (${productionSampleUnit}) isn't compatible with this Finished Product's unit (${fpUnit}).`,
+      };
     }
-    if (qcConv + stabilityConv + rndConv > fpQtyConsumed) {
-      return { error: "QC + Stability + R&D quantities can't exceed the quantity being converted." };
+    if (q + st + r > fpQtyConsumed) {
+      return {
+        error: "QC + Stability + R&D quantities can't exceed the quantity being converted.",
+      };
     }
-    productionQcConverted = qcConv;
-    productionStabilityConverted = stabilityConv;
-    productionRndConverted = rndConv;
+    qcConv = q;
+    stabilityConv = st;
+    rndConv = r;
   }
 
-  // packaging_item_id / packaging_qty_used (0027_packaging_multi_material.sql)
-  // are no longer written here — one packaging_issues row is now just the
-  // header (FP batch, pack size, unit count, department, type); the
-  // materials themselves go into packaging_issue_items below, one row per
-  // line, same header/lines split already used for MFR recipe lines and FP
-  // composition. Production issues have zero material lines.
-  //
-  // code (0067_packaging_issue_code.sql) — the plain sequential PKG-####
-  // identifier, same pattern as get_next_po_number()/get_next_equipment_code(),
-  // generated once up front so it can be included directly in the insert
-  // below rather than a separate update after.
+  // code (0067): plain sequential PKG-####, generated up front.
   const { data: issueCode, error: codeError } = await supabase.rpc("get_next_packaging_issue_code");
-  if (codeError || !issueCode) return { error: friendlyDbError(codeError, "Could not generate a packaging issue code.") };
+  if (codeError || !issueCode)
+    return {
+      error: friendlyDbError(codeError, "Could not generate a packaging issue code."),
+    };
 
-  // ACC-12 (29 Sept 2026): header and materials are saved in ONE database
-  // transaction (create_packaging_issue, 0079). Before, the header alone
-  // already moved stock; if the materials failed, the clean-up delete was
-  // silently blocked and a retry deducted the finished product twice.
-  // Every issue is a Pack (ACC-05 — Repack/Unpack removed).
   const { error } = await supabase.rpc("create_packaging_issue", {
     p_issue: {
       code: issueCode,
       finished_product_batch_id: fpBatchId,
       pack_size: packSize,
-      pack_size_qty: packSizeQty,
-      pack_size_unit: packSizeUnit,
+      pack_size_qty: null,
+      pack_size_unit: null,
       fp_qty_consumed: fpQtyConsumed,
-      unit_count: unitCount,
+      unit_count: productionQty,
       department,
       issue_date: issueDate,
-      qc_qty: isProduction ? productionQcConverted : null,
-      stability_qty: isProduction ? productionStabilityConverted : null,
-      rnd_qty: isProduction ? productionRndConverted : null,
+      qc_qty: qcConv,
+      stability_qty: stabilityConv,
+      rnd_qty: rndConv,
     },
-    p_materials: materials.map((m) => ({ item_id: m.itemId, quantity: m.quantity, unit: m.unit })),
+    p_materials: [],
   });
-  if (error) return { error: friendlyDbError(error, "Could not create the packaging issue.") };
+  if (error)
+    return {
+      error: friendlyDbError(error, "Could not create the packaging issue."),
+    };
 
   revalidatePath("/packaging");
   redirect("/packaging?created=1");

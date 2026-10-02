@@ -13,9 +13,12 @@ import { PackagingTable, type PackagingRow } from "./packaging-table";
 export default async function PackagingListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; codes?: string }>;
 }) {
-  const { created } = await searchParams;
+  const { created, codes } = await searchParams;
+  // FB-0052: a save can create several issues; show how many and their codes.
+  const createdCount = /^\d{1,3}$/.test(created ?? "") ? Number(created) : 0;
+  const createdCodes = (codes ?? "").split(",").filter((c) => /^PKG-\d+$/.test(c));
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
   // packaging_issue_items (0027_packaging_multi_material.sql, 3 Sept 2026):
   // one issue can now carry several materials (bottles, caps, labels, …),
@@ -60,9 +63,13 @@ export default async function PackagingListPage({
           </div>
         }
       />
-      {created === "1" && (
+      {createdCount > 0 && (
         <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
-          New packaging issue has been successfully added.
+          {createdCount === 1
+            ? "New packaging issue has been successfully added."
+            : `${createdCount} packaging issues have been successfully added${
+                createdCodes.length > 1 ? ` (${createdCodes[0]} to ${createdCodes[createdCodes.length - 1]})` : ""
+              }.`}
         </p>
       )}
       <Card>
