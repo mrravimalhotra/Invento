@@ -31,7 +31,7 @@ export default async function NewCoaPage({
 
   let templateLines: TemplateLine[] | null = null;
   let headerFields: HeaderField[] | null = null;
-  let noTemplateFor: string | null = null;
+  let noTemplateFor: { label: string; href: string; thing: string } | null = null;
   // Ravi (22 Sept 2026): picking Finished Product + a batch silently showed
   // nothing at all — no form, no error. Root cause was that resolveRawMaterial/
   // resolveFinishedProduct returned a bare `null` on any failure (query error,
@@ -55,14 +55,21 @@ export default async function NewCoaPage({
     if (!resolved.ok) {
       resolveError = resolved.reason;
     } else {
-      const { data: template } = await supabase
+      // 3 Oct 2026 (Ravi): the template belongs to the raw material or the MFR itself.
+      const templateQuery = supabase
         .from("coa_templates")
-        .select("id, coa_template_lines(seq, test, specification)")
-        .eq("item_type_id", resolved.itemTypeId)
-        .maybeSingle();
+        .select("id, coa_template_lines(seq, test, specification)");
+      const { data: template } = await (resolved.templateSubject.kind === "item"
+        ? templateQuery.eq("item_id", resolved.templateSubject.id)
+        : templateQuery.eq("mfr_definition_id", resolved.templateSubject.id)
+      ).maybeSingle();
 
       if (!template || template.coa_template_lines.length === 0) {
-        noTemplateFor = resolved.itemTypeDescription;
+        noTemplateFor = {
+          label: resolved.subjectLabel,
+          href: resolved.templateSubject.kind === "item" ? `/items/${resolved.templateSubject.id}` : `/mfr/${resolved.templateSubject.id}`,
+          thing: resolved.templateSubject.kind === "item" ? "raw material" : "MFR",
+        };
       } else {
         templateLines = template.coa_template_lines
           .slice()
@@ -77,10 +84,10 @@ export default async function NewCoaPage({
     <div>
       <PageHeader
         title="New Certificate of Analysis"
-        description="Pick a subject and a batch that has cleared QC — its Item Type determines which template the certificate is generated from."
+        description="Pick a subject and a batch that has cleared QC — the certificate is generated from the template of that raw material or MFR."
         action={
           <Link href="/coa/templates" className="text-sm text-brand hover:underline">
-            Manage Templates
+            COA Template Register
           </Link>
         }
       />
@@ -100,9 +107,9 @@ export default async function NewCoaPage({
       {noTemplateFor && (
         <Card>
           <CardBody className="text-sm text-muted">
-            No COA template is defined yet for Item Type &quot;{noTemplateFor}&quot; —{" "}
-            <Link href="/coa/templates" className="text-brand hover:underline">
-              add one on Manage Templates
+            No COA template is defined yet for {noTemplateFor.thing} &quot;{noTemplateFor.label}&quot; —{" "}
+            <Link href={noTemplateFor.href} className="text-brand hover:underline">
+              add one on its page
             </Link>{" "}
             before a certificate can be generated for this batch.
           </CardBody>
@@ -215,14 +222,19 @@ async function fetchBatchOptions(
 }
 
 type Resolved =
-  | { ok: true; itemTypeId: string; itemTypeDescription: string; headerFields: HeaderField[] }
+  | {
+      ok: true;
+      templateSubject: { kind: "item" | "mfr"; id: string };
+      subjectLabel: string;
+      headerFields: HeaderField[];
+    }
   | { ok: false; reason: string };
 
 async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClient>>, qualityCheckId: string): Promise<Resolved> {
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
-      "id, ar_number, created_at, reviewed_at, sample_qty, sample_unit, purchase_lines(batch_number, quantity, unit, qc_qty, items(item_code, name, item_type_id, item_types(description)), purchase_orders(invoice_number, vendors(name)))"
+      "id, ar_number, created_at, reviewed_at, sample_qty, sample_unit, purchase_lines(item_id, batch_number, quantity, unit, qc_qty, items(item_code, name), purchase_orders(invoice_number, vendors(name)))"
     )
     .eq("id", qualityCheckId)
     .maybeSingle<{
@@ -233,11 +245,12 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
       sample_qty: number | string | null;
       sample_unit: string | null;
       purchase_lines: {
+        item_id: string;
         batch_number: string;
         quantity: number | string;
         unit: string;
         qc_qty: number | string;
-        items: { item_code: string; name: string; item_type_id: string | null; item_types: { description: string } | null } | null;
+        items: { item_code: string; name: string } | null;
         purchase_orders: { invoice_number: string; vendors: { name: string } | null } | null;
       } | null;
     }>();
@@ -248,12 +261,6 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
   if (!pl) return { ok: false, reason: "This quality check has no linked purchase line." };
   const plItems = pl.items;
   if (!plItems) return { ok: false, reason: "This purchase line has no linked item." };
-  if (!plItems.item_type_id) {
-    return {
-      ok: false,
-      reason: `"${plItems.name}" (${plItems.item_code}) has no Item Type set — set one on Item Master before a COA can be generated for it.`,
-    };
-  }
 
   // Order matches the sample certificate's own left-column-then-right-
   // column layout exactly (5 left / 5 right) — coa-pdf.ts splits this
@@ -281,28 +288,19 @@ async function resolveRawMaterial(supabase: Awaited<ReturnType<typeof createClie
 
   return {
     ok: true,
-    itemTypeId: plItems.item_type_id,
-    itemTypeDescription: plItems.item_types?.description ?? "—",
+    templateSubject: { kind: "item", id: pl.item_id },
+    subjectLabel: `${plItems.item_code} · ${plItems.name}`,
     headerFields,
   };
 }
 
 async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof createClient>>, qualityCheckId: string): Promise<Resolved> {
-  // Ravi: an MFR whose detail page clearly showed "Item type: Oil" still
-  // got "no Item Type set" here. Root cause — mfr_definitions.item_type_id
-  // is a deprecated column (0010_mfr_finished_product_link.sql: "left in
-  // place, deprecated, simply unused by new code going forward... The
-  // linked Finished Product item now carries its own item_type_id, reached
-  // via finished_product_item_id"). This resolver was reading that
-  // deprecated column directly instead of going through the item, the way
-  // the MFR detail page itself does (app/(dashboard)/mfr/[id]/page.tsx) —
-  // wrong for any MFR whose deprecated column was never (or no longer)
-  // kept in sync with the real one on its Finished Product item. Now reads
-  // item_type_id from the linked item, same as that page.
+  // The COA template of a Finished Product belongs to its MFR (3 Oct 2026), so the
+  // batch's mfr_definition_id is all that is needed to find it.
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
     .select(
-      "id, created_at, reviewed_at, sample_qty, sample_unit, finished_product_batches(batch_number, short_batch_no, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(name, finished_product_item_id, items(item_code, item_type_id, item_types(description))))"
+      "id, created_at, reviewed_at, sample_qty, sample_unit, finished_product_batches(mfr_definition_id, batch_number, short_batch_no, target_qty, unit, batch_start_date, expiry_month, qc_sample_qty, mfr_definitions(code, name, finished_product_item_id, items(item_code)))"
     )
     .eq("id", qualityCheckId)
     .maybeSingle<{
@@ -312,6 +310,7 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
       sample_qty: number | string | null;
       sample_unit: string | null;
       finished_product_batches: {
+        mfr_definition_id: string;
         batch_number: string;
         short_batch_no: string | null;
         target_qty: number | string;
@@ -320,9 +319,10 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
         expiry_month: string | null;
         qc_sample_qty: number | string | null;
         mfr_definitions: {
+          code: string;
           name: string;
           finished_product_item_id: string | null;
-          items: { item_code: string; item_type_id: string | null; item_types: { description: string } | null } | null;
+          items: { item_code: string } | null;
         } | null;
       } | null;
     }>();
@@ -335,12 +335,6 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
   if (!mfr) return { ok: false, reason: "This batch's Finished Product recipe (MFR) could not be found." };
   const fpItem = mfr.items;
   if (!fpItem) return { ok: false, reason: `"${mfr.name}" has no linked Finished Product item.` };
-  if (!fpItem.item_type_id) {
-    return {
-      ok: false,
-      reason: `"${mfr.name}" has no Item Type set on its linked Finished Product item — set one on Item Master before a COA can be generated for it.`,
-    };
-  }
 
   // Order matches the sample certificate's own left-column-then-right-
   // column layout exactly (5 left / 4 right) — coa-pdf.ts splits this
@@ -368,8 +362,8 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
 
   return {
     ok: true,
-    itemTypeId: fpItem.item_type_id,
-    itemTypeDescription: fpItem.item_types?.description ?? "—",
+    templateSubject: { kind: "mfr", id: fp.mfr_definition_id },
+    subjectLabel: `${mfr.code} · ${mfr.name}`,
     headerFields,
   };
 }

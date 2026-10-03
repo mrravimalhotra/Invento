@@ -1474,87 +1474,66 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
 // ------------------------------------------------------------------
 // COA Templates
 // ------------------------------------------------------------------
-// Ravi (22 Sept 2026), via a screenshot of the COA Template edit screen:
-// "we want to automate data upload of this screen per item type. So
-// template will have 3 inputs, Item Type, Test and specification." One
-// row = one Test/Specification line; rows sharing the same Item Type are
-// grouped into that item type's template, same flat-file grouping
-// pattern bulkUploadMfr() above uses for recipe lines. Goes through the
-// bulk_create_coa_templates() RPC (0062_bulk_upload_coa_templates.sql)
-// for true all-or-nothing atomicity across every item type in the file —
-// same reason MFR/Purchase have their own bulk RPCs instead of looping
-// plain inserts.
-type CoaTemplateGroupPayload = { item_type_id: string; lines: { test: string; specification: string }[] };
+// Ravi (22 Sept 2026, reworked 3 Oct 2026): one row = one Test/Specification
+// line; rows sharing the same Code are grouped into one template. Since
+// 3 Oct a template belongs to a raw material (Code = Item Code, e.g. RM-001)
+// or to an MFR (Code = MFR Code), not to an Item Type. Goes through the
+// bulk_create_coa_templates() RPC for all-or-nothing atomicity.
+type CoaTemplateGroupPayload = {
+  item_id?: string;
+  mfr_definition_id?: string;
+  lines: { test: string; specification: string }[];
+};
 
 export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "coa")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "items")) return { error: "Not authorized." };
 
   const loaded = await loadSheetOrError(formData, COA_TEMPLATE_COLUMNS, "coa-templates");
   if ("error" in loaded) return { error: loaded.error };
   const { headers, rows, rowNumbers } = loaded.sheet;
 
   const supabase = await createClient();
-  const [{ data: itemTypes }, { data: existingTemplates }] = await Promise.all([
-    fetchAllRows((from, to) => supabase.from("item_types").select("id, description").eq("active", true).order("id", { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => supabase.from("coa_templates").select("item_type_id").order("id", { ascending: true }).range(from, to)),
+  const [{ data: rawItems }, { data: mfrs }, { data: existingTemplates }] = await Promise.all([
+    fetchAllRows((from, to) => supabase.from("items").select("id, item_code, name").eq("category", "raw").eq("active", true).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("mfr_definitions").select("id, code, name").eq("active", true).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("coa_templates").select("item_id, mfr_definition_id").order("id", { ascending: true }).range(from, to)),
   ]);
-  // Keyed by name (not id) — item_types.description has no DB-level
-  // unique constraint (same gap as items.name, vendors.name, mfr_
-  // definitions.name elsewhere in this file), so a name can in principle
-  // match more than one active item type; a row is only usable once it
-  // resolves to exactly one match, same pattern as MFR's Line Item Name
-  // and Purchase's Vendor/Item Name lookups above.
-  const itemTypeByName = new Map<string, { id: string; description: string }[]>();
-  (itemTypes ?? []).forEach((t) => {
-    const key = t.description.trim().toLowerCase();
-    const arr = itemTypeByName.get(key) ?? [];
-    arr.push({ id: t.id, description: t.description });
-    itemTypeByName.set(key, arr);
-  });
-  const templatedItemTypeIds = new Set((existingTemplates ?? []).map((t) => t.item_type_id));
+  // Item codes and MFR codes are unique in the database, so a code resolves to at most one record.
+  const itemByCode = new Map((rawItems ?? []).map((i) => [i.item_code.trim().toLowerCase(), i]));
+  const mfrByCode = new Map((mfrs ?? []).map((m) => [m.code.trim().toLowerCase(), m]));
+  const templatedItemIds = new Set((existingTemplates ?? []).map((t) => t.item_id).filter(Boolean));
+  const templatedMfrIds = new Set((existingTemplates ?? []).map((t) => t.mfr_definition_id).filter(Boolean));
 
   const rowErrors: string[] = [];
-  // Groups keyed by the resolved item_type_id (not the raw cell text) —
-  // same reasoning as Purchase's vendor/item grouping: the id is already
-  // guaranteed unique for this row by the ambiguity check below, so rows
-  // group correctly even if the same Item Type name was typed with
-  // different casing/whitespace on different rows.
-  const groups = new Map<string, { firstRow: number; itemTypeName: string; lines: { test: string; specification: string }[] }>();
+  const groups = new Map<string, { kind: "item" | "mfr"; id: string; lines: { test: string; specification: string }[] }>();
 
   rows.forEach((row, i) => {
     const r = rowNumbers[i];
-    const itemTypeRaw = cell(row, headers, COA_TEMPLATE_COLUMNS[0]);
+    const codeRaw = cell(row, headers, COA_TEMPLATE_COLUMNS[0]).trim();
     const testRaw = cell(row, headers, COA_TEMPLATE_COLUMNS[1]);
     const specRaw = cell(row, headers, COA_TEMPLATE_COLUMNS[2]);
 
-    const matches = itemTypeByName.get(itemTypeRaw.trim().toLowerCase()) ?? [];
-    if (!itemTypeRaw || matches.length === 0) {
-      rowErrors.push(`Row ${r}: Item Type "${itemTypeRaw}" doesn't match an existing active Item Type Master description.`);
+    const item = itemByCode.get(codeRaw.toLowerCase());
+    const mfr = mfrByCode.get(codeRaw.toLowerCase());
+    if (!codeRaw || (!item && !mfr)) {
+      rowErrors.push(`Row ${r}: Code "${codeRaw}" is not the Item Code of an active raw material or the Code of an active MFR.`);
       return;
     }
-    if (matches.length > 1) {
-      rowErrors.push(
-        `Row ${r}: Item Type "${itemTypeRaw}" matches ${matches.length} active item types — use a more specific/unique description, or fix the duplicate in Item Type Master first.`
-      );
-      return;
-    }
-    const itemType = matches[0];
     if (!testRaw || !specRaw) {
-      rowErrors.push(`Row ${r} ("${itemType.description}"): Test and Specification are both required.`);
+      rowErrors.push(`Row ${r} ("${codeRaw}"): Test and Specification are both required.`);
       return;
     }
 
-    const key = itemType.id;
+    const key = item ? `i:${item.id}` : `m:${mfr!.id}`;
     const existing = groups.get(key);
     if (!existing) {
-      if (templatedItemTypeIds.has(key)) {
-        rowErrors.push(
-          `Row ${r}: "${itemType.description}" already has a COA template — edit it from Manage Templates instead of uploading it again.`
-        );
+      const alreadyHas = item ? templatedItemIds.has(item.id) : templatedMfrIds.has(mfr!.id);
+      if (alreadyHas) {
+        rowErrors.push(`Row ${r}: "${codeRaw}" already has a COA template — edit it on its own page instead of uploading it again.`);
         return;
       }
-      groups.set(key, { firstRow: r, itemTypeName: itemType.description, lines: [{ test: testRaw, specification: specRaw }] });
+      groups.set(key, { kind: item ? "item" : "mfr", id: item ? item.id : mfr!.id, lines: [{ test: testRaw, specification: specRaw }] });
       return;
     }
     existing.lines.push({ test: testRaw, specification: specRaw });
@@ -1564,10 +1543,9 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
     return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
   }
 
-  const payload: CoaTemplateGroupPayload[] = Array.from(groups.entries()).map(([item_type_id, g]) => ({
-    item_type_id,
-    lines: g.lines,
-  }));
+  const payload: CoaTemplateGroupPayload[] = Array.from(groups.values()).map((g) =>
+    g.kind === "item" ? { item_id: g.id, lines: g.lines } : { mfr_definition_id: g.id, lines: g.lines }
+  );
   if (payload.length === 0) return { error: "No COA template rows found in that file." };
 
   const { data, error } = await supabase.rpc("bulk_create_coa_templates", { p_payload: payload });

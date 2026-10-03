@@ -7,6 +7,8 @@ import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { EditItemForm, DeleteItemForm } from "../item-form";
 import { Barcode } from "../barcode";
 import { formatQty } from "@/lib/utils";
+import { CoaTemplateCard } from "../../coa/coa-template-card";
+import { loadCoaTemplate } from "@/lib/coa-template-data";
 
 const CATEGORY_LABELS: Record<string, string> = {
   raw: "Raw material",
@@ -19,10 +21,10 @@ export default async function ItemDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; coa?: string }>;
 }) {
   const { id } = await params;
-  const { created } = await searchParams;
+  const { created, coa } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -41,6 +43,10 @@ export default async function ItemDetailPage({
 
   if (!item) notFound();
 
+  // COA template: raw materials only (packaging and finished-product items have none;
+  // a finished product's template belongs to its MFR).
+  const coaTemplate = item.category === "raw" ? await loadCoaTemplate(supabase, { itemId: item.id }) : null;
+
   const readOnly = !canWrite(user.roles, "items");
   const isSystemAdmin = user.roles.includes("system_admin");
   const onHand = balance?.on_hand != null ? Number(balance.on_hand) : 0;
@@ -56,6 +62,12 @@ export default async function ItemDetailPage({
       {created === "1" && (
         <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
           New item &quot;{item.name}&quot; ({item.item_code}) has been successfully added.
+        </p>
+      )}
+
+      {coa === "failed" && (
+        <p className="mb-4 rounded-md bg-red-bg px-3 py-2 text-sm text-red">
+          The item was added, but its COA template could not be saved. Add it in the Certificate of Analysis card below.
         </p>
       )}
 
@@ -86,6 +98,22 @@ export default async function ItemDetailPage({
             {item.barcode ? <Barcode value={item.barcode} /> : <p className="text-sm text-muted">No barcode on file.</p>}
           </CardBody>
         </Card>
+
+        {coaTemplate && (
+          <Card className="lg:col-span-3">
+            <CardHeader title="Certificate of Analysis template" />
+            <CardBody>
+              <CoaTemplateCard
+                kind="item"
+                subjectId={item.id}
+                lines={coaTemplate.lines}
+                canEdit={!readOnly}
+                templateId={coaTemplate.templateId}
+                lastChanged={coaTemplate.lastChanged}
+              />
+            </CardBody>
+          </Card>
+        )}
       </div>
     </div>
   );

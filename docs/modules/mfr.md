@@ -640,3 +640,7 @@ and triggers, the Supabase SQL editor and the service role pass untouched
 Every step the app performs today keeps working — verified on a local replay
 of all 70 migrations (65/65 checks; the same checks with the guards removed
 show 36 failures, proving each bypass was real).
+
+## COA template (0096)
+
+Each MFR can carry its own COA template (optional on New MFR; card on the MFR page after Manufacturing Procedure). It is not part of the MFR recipe/procedure and is tracked in the COA Template Register. See `docs/modules/coa.md`.

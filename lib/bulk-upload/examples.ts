@@ -40,7 +40,8 @@ export const EXAMPLE_ROWS: Record<ExampleKey, string[][]> = {
   equipment: [["Analytical Balance", "R-101", "QC Lab", "", "1", "Calibrated", "2026-06-01", "2027-06-01"]],
   "dead-stock": [["Old HPLC Column", "2022-03-15", "1", "12000", "25", "", "0", "0", "", "", ""]],
   "coa-templates": [
-    ["Powder", "Loss on drying", "Not More Than 10 %w/w"],
-    ["Powder", "Total Ash", "Not More Than 5 %w/w"],
+    ["RM-001", "Loss on drying", "Not More Than 10 %w/w"],
+    ["RM-001", "Total Ash", "Not More Than 5 %w/w"],
+    ["MFR-0001", "Specific gravity", "0.90 to 0.95"],
   ],
 };

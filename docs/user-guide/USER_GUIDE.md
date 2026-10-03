@@ -480,17 +480,17 @@ This screen only reads information already entered elsewhere — Purchase for ba
 1. Go to Certificate of Analysis and click **New COA**.
 2. Choose whether you're certifying a **Raw Material** or a **Finished Product** batch.
 3. Search for and select the specific batch. Only batches that have already been **Approved** in Quality Control show up in this list.
-4. If the item type doesn't have a test template set up yet, you'll see a message pointing you to Manage Templates instead of a form — a template has to exist before a certificate can be generated for that item type.
+4. If the item (or, for finished product, the MFR) doesn't have a COA template yet, you'll see a message with a link to it instead of a form — a template has to exist before a certificate can be generated.
 5. Once a template is found, review the certificate header fields (batch number, dates, quantities, etc.). These are pre-filled from the batch and QC record, but every field can be edited — some wording (like sampled quantity) is meant to be adjusted by hand.
-6. For each row in the Test Results table, enter the actual **Result**. The S.No., Test, and Specification columns come from the item type's template and can't be changed here.
+6. For each row in the Test Results table, enter the actual **Result**. The S.No., Test, and Specification columns come from the item's (or MFR's) template and can't be changed here.
 7. Check the **Remarks** line at the bottom — it defaults to "The above sample complies/Not complies as per IHS." Edit it to say what's actually true for this batch (e.g., delete whichever of "complies" / "Not complies" doesn't apply).
 8. Click **Generate certificate**.
 9. On the certificate's own page, click **Download PDF** to get the final letterhead certificate. (Analyzed-by / Approved-by lines are left blank for a physical signature.)
 
 **Setting up test templates**
-Before anyone can generate a certificate for a given item type, that item type needs a **template**: a list of Tests and Specifications to check. Go to **Manage Templates** (link next to New COA on the Certificate of Analysis list) to see which item types already have a template and how many tests are in it. Open an item type to add, edit, or remove test/specification rows — the serial number is assigned automatically based on row order. Saving replaces the whole list for that item type.
+Every raw material and every finished-product MFR has its own COA template: a list of Tests and Specifications. You can define it when you first add the item or MFR (optional), or later from the item page / MFR page (card "Certificate of Analysis template"). The serial number is assigned automatically; saving replaces the list, and each save is kept in the template's history. Who can edit follows who can edit the item (or MFR). **COA Template Register** (link on the Certificate of Analysis list) lists every item and MFR with its template status, test count and last change, and exports to Excel and PDF.
 
-If you need to set up templates for many item types at once, use **Admin → Bulk Data Upload** and pick the Certificate of Analysis Templates option — it lets you fill in Item Type / Test / Specification for several item types in one spreadsheet instead of one at a time here.
+If you need to set up templates for many items at once, use **Admin → Bulk Data Upload** and pick the Certificate of Analysis Templates option — fill in Code (raw-material item code or MFR code) / Test / Specification in one spreadsheet.
 
 **Fields you'll be asked for**
 - **Raw Material / Finished Product** — which kind of batch you're certifying; this determines which picker and which template (recipe-based vs. raw item) is used.
@@ -500,12 +500,12 @@ If you need to set up templates for many item types at once, use **Admin → Bul
 - **Remarks** — the closing statement printed at the bottom of the certificate.
 
 **How it connects to the rest of the app**
-A batch can only be certified once it has an Approved result in Quality Control, and templates are tied to Item Type, the same grouping used across Item Master and MFR recipes. Certificates generated the current way are separate from a small number of older certificates that were created before this screen existed — those still show a plain external file link instead of an on-screen preview and PDF download.
+A batch can only be certified once it has an Approved result in Quality Control, and templates belong to the individual raw-material item or MFR. Certificates generated the current way are separate from a small number of older certificates that were created before this screen existed — those still show a plain external file link instead of an on-screen preview and PDF download.
 
 **Good to know**
 - If a batch you expect to see is missing from the picker, its QC status is probably not Approved yet — check Quality Control first.
 - Editing a template later never changes a certificate that was already generated — each certificate keeps a permanent snapshot of the tests and results it was created with.
-- You can set up a template for one item type on Manage Templates, or many at once through Bulk Data Upload — both write to the same place, so pick whichever is faster for what you're doing.
+- You can set up a template on the item or MFR page, or many at once through Bulk Data Upload — both write to the same place.
 
 ### SOP / STP Documents
 
@@ -754,7 +754,7 @@ The feedback box appears at the bottom of every single page, and each submission
 **Fields you'll be asked for**
 - **Item/Vendor/Equipment/Purchase order codes** — never include these in your file; they're always assigned automatically by the app when the row is imported, exactly as they would be if you created the record by hand.
 - **MFR and Purchase files** — these have multiple rows belonging to one record (e.g. several ingredient lines for one MFR, or several purchase lines for one invoice). Repeat the same MFR Name (for MFR) or the same Vendor Name + Invoice Number (for Purchase) on every row that belongs together.
-- **COA Templates** — one row per Test/Specification line, grouped by repeating the same Item Type; an Item Type that already has a COA template is rejected — use Manage Templates on the Certificate of Analysis screen to edit an existing one instead.
+- **COA Templates** — one row per Test/Specification line, grouped by repeating the same Code (raw-material item code or MFR code); a code that already has a COA template is rejected — edit it from the item or MFR page instead.
 
 **How it connects to the rest of the app**
 Each upload writes into exactly the same tables and goes through exactly the same rules as adding one record by hand on that module's own screen — a bulk-uploaded item shows up in Item Master, a bulk-uploaded purchase order shows up in Purchase as a Draft, and so on.
@@ -862,7 +862,7 @@ You can't change the item, batch number, or unit on a saved line — delete the 
 Nothing is imported if any row has a problem — the error list tells you exactly which rows and what's wrong. Fix those rows in your file and re-upload the whole file; there's no partial import or automatic correction.
 
 **I need to update an existing COA test template but bulk upload rejected it.**
-Bulk upload (and the Manage Templates spreadsheet path) only accepts item types that don't already have a template — it's meant for setting up new templates, not editing existing ones. To change an existing template, use **Manage Templates** on the Certificate of Analysis screen directly.
+Bulk upload only accepts items/MFRs that don't already have a template. To change an existing template, open the item or MFR page and use Edit on its COA template card.
 
 **Something looks wrong on the Dashboard or a Report.**
 Both are live reads of the same data every other screen uses — there's no separate "reporting" data to fix. Go to the source module (Item Master, Purchase, QC, etc.) and correct the record there; the Dashboard and Reports will reflect the fix automatically.

@@ -6,6 +6,7 @@ import { createItem, updateItem, deleteItem, type ActionState } from "@/lib/acti
 import { Field, Input, Select, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { UNITS } from "@/lib/constants/units";
+import { CoaTemplateLineEditor } from "../coa/coa-template-line-editor";
 
 type ItemTypeOption = { id: string; description: string };
 
@@ -84,6 +85,17 @@ export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOptio
           <Input id="low_stock_threshold" name="low_stock_threshold" type="number" step="any" min="0" />
         </Field>
       </div>
+
+      {category === "raw" && (
+        <div>
+          <h3 className="mb-1 text-sm font-semibold text-foreground">Certificate of Analysis template (optional)</h3>
+          <p className="mb-2 text-xs text-muted">
+            The tests and specifications printed on this raw material&apos;s COA. You can also add or change them later
+            from the item&apos;s page, but a COA cannot be issued for a batch until the template exists.
+          </p>
+          <CoaTemplateLineEditor optional />
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>

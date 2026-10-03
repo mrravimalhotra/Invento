@@ -7,6 +7,7 @@ import { Field, Input, Select, ErrorText } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { UNITS } from "@/lib/constants/units";
 import { MfrLineEditor, type RawItemOption } from "../mfr-line-editor";
+import { CoaTemplateLineEditor } from "../../coa/coa-template-line-editor";
 
 export function NewMfrForm({
   itemTypes,
@@ -80,6 +81,16 @@ export function NewMfrForm({
         ) : (
           <MfrLineEditor rawItems={rawItems} />
         )}
+      </div>
+
+      <div>
+        <h3 className="mb-1 text-sm font-semibold text-foreground">Certificate of Analysis template (optional)</h3>
+        <p className="mb-2 text-xs text-muted">
+          The tests and specifications printed on this product&apos;s COA. It is not part of the recipe: it is tracked
+          separately on the COA Template Register and can be added or changed later, even after approval. A COA cannot
+          be issued for a batch until it exists.
+        </p>
+        <CoaTemplateLineEditor optional />
       </div>
 
       <div className="flex gap-2">

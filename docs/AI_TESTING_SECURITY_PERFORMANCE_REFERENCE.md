@@ -793,7 +793,7 @@ Reports and Items fetch every row server-side (e.g. ~93 requests for 92k purchas
 | `/finished-product`, `/new`, `/new/compose`, `/[id]` | FIFO compose, draft, complete, submit to QC, BMR DOCX | write: `finished_product` |
 | `/packaging`, `/packaging/new` | Packaging issue (Store/R&D/Production) | write: `packaging` |
 | `/inventory` (ledger), `/inventory/balance`, `/inventory/rm-report`, `/inventory/items/[id]`, `/inventory/wastage/new` | Ledger, stock position, per-item detail, wastage | wastage: `inventory` |
-| `/coa`, `/coa/new`, `/coa/[id]`, `/coa/templates`, `/coa/templates/[itemTypeId]` | Certificates and templates | write: `coa` |
+| `/coa`, `/coa/new`, `/coa/[id]`, `/coa/templates`, `/coa/templates/[id]` | Certificates and templates | write: `coa` |
 | `/labels` | Label sheets (jsPDF) | — |
 | `/reports` | RM stock, QC, FP, Purchase registers | — |
 | `/line-clearance`, `/environmental-control` (+ `/new`) | GMP registers | respective module |

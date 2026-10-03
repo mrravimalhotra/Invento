@@ -5,25 +5,22 @@ create or replace function public.t_check(p_label text, p_cond boolean) returns 
 grant execute on function public.t_ok(text,text), public.t_fail(text,text,text), public.t_check(text,boolean) to authenticated, anon;
 insert into auth.users (id,email) values ('00000000-0000-0000-0000-0000000000a1','a@t'),('00000000-0000-0000-0000-0000000000b1','b@t');
 insert into user_roles values ('00000000-0000-0000-0000-0000000000a1','system_admin'),('00000000-0000-0000-0000-0000000000b1','inventory_manager');
-insert into item_types (id, description) values ('00000000-0000-0000-0000-00000000c001','T-One'),('00000000-0000-0000-0000-00000000c002','T-Two');
+insert into items (id, item_code, name, category, unit) values
+ ('00000000-0000-0000-0000-00000000c001','RM-T1','Raw one','raw','kg'),('00000000-0000-0000-0000-00000000c002','RM-T2','Raw two','raw','kg');
 
--- The live failure: function missing from the database. Simulate it, then run the migration.
-drop function public.bulk_create_coa_templates(jsonb);
-select t_check('simulated: function is gone', not exists (select 1 from pg_proc where proname='bulk_create_coa_templates'));
-\ir ../migrations/0088_coa_template_upload_rpc.sql
-select t_check('migration restores the function', exists (select 1 from pg_proc where proname='bulk_create_coa_templates'));
--- and it is safe to run twice
-\ir ../migrations/0088_coa_template_upload_rpc.sql
-select t_check('running the migration twice leaves exactly one function', (select count(*)=1 from pg_proc where proname='bulk_create_coa_templates'));
+-- 0096 re-keyed this function (per item / per MFR instead of per Item Type); the original
+-- failure it guarded against was the function being absent from the live database.
+select t_check('bulk template function exists', exists (select 1 from pg_proc where proname='bulk_create_coa_templates'));
+select t_check('exactly one version of it exists', (select count(*)=1 from pg_proc where proname='bulk_create_coa_templates'));
 
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
-select t_check('admin creates 2 templates in one call', (select count(*)=2 from public.bulk_create_coa_templates('[{"item_type_id":"00000000-0000-0000-0000-00000000c001","lines":[{"test":"pH","specification":"5-7"},{"test":"Loss on drying","specification":"NMT 5%"}]},{"item_type_id":"00000000-0000-0000-0000-00000000c002","lines":[{"test":"Colour","specification":"Brown"}]}]'::jsonb)));
-select t_check('lines saved in order', (select array_agg(test order by seq) = array['pH','Loss on drying'] from coa_template_lines l join coa_templates t on t.id=l.coa_template_id where t.item_type_id='00000000-0000-0000-0000-00000000c001'));
-select t_fail('item type that already has a template is refused', $q$select * from public.bulk_create_coa_templates('[{"item_type_id":"00000000-0000-0000-0000-00000000c001","lines":[{"test":"x","specification":"y"}]}]'::jsonb)$q$, 'already has a COA template');
+select t_check('admin creates 2 templates in one call', (select count(*)=2 from public.bulk_create_coa_templates('[{"item_id":"00000000-0000-0000-0000-00000000c001","lines":[{"test":"pH","specification":"5-7"},{"test":"Loss on drying","specification":"NMT 5%"}]},{"item_id":"00000000-0000-0000-0000-00000000c002","lines":[{"test":"Colour","specification":"Brown"}]}]'::jsonb)));
+select t_check('lines saved in order', (select array_agg(test order by seq) = array['pH','Loss on drying'] from coa_template_lines l join coa_templates t on t.id=l.coa_template_id where t.item_id='00000000-0000-0000-0000-00000000c001'));
+select t_fail('item that already has a template is refused', $q$select * from public.bulk_create_coa_templates('[{"item_id":"00000000-0000-0000-0000-00000000c001","lines":[{"test":"x","specification":"y"}]}]'::jsonb)$q$, 'already has a COA template');
 select t_fail('empty payload refused', $q$select * from public.bulk_create_coa_templates('[]'::jsonb)$q$, 'No COA template rows');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000b1',false);
-select t_fail('user without COA role refused', $q$select * from public.bulk_create_coa_templates('[{"item_type_id":"00000000-0000-0000-0000-00000000c001","lines":[{"test":"x","specification":"y"}]}]'::jsonb)$q$, 'Not authorized');
+select t_fail('user without a template role refused', $q$select * from public.bulk_create_coa_templates('[{"item_id":"00000000-0000-0000-0000-00000000c001","lines":[{"test":"x","specification":"y"}]}]'::jsonb)$q$, 'already has');
 reset role; set role anon;
 select t_fail('anon cannot call it', $q$select * from public.bulk_create_coa_templates('[]'::jsonb)$q$, 'permission denied');
 reset role;

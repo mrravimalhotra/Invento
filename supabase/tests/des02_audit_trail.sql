@@ -101,7 +101,8 @@ select t_ok('QC assign + round 1', $q$insert into quality_checks (id,ar_number,p
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',false);
 select t_ok('QC round 2', $q$update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id='00000000-0000-0000-0000-0000000000f1'$q$);
 select t_check('QC insert + 2 decisions logged; created_by = checker', t_audits('quality_checks','insert')=1 and t_audits('quality_checks','update')=2 and (select created_by='00000000-0000-0000-0000-0000000000a4' from quality_checks where id='00000000-0000-0000-0000-0000000000f1'));
-select t_ok('COA template via RPC', $q$select public.upsert_coa_template('00000000-0000-0000-0000-0000000000c1','[{"test":"Appearance","specification":"Clear"}]'::jsonb)$q$);
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
+select t_ok('COA template via RPC', $q$select public.upsert_coa_template('00000000-0000-0000-0000-0000000000c3',null,'[{"test":"Appearance","specification":"Clear"}]'::jsonb)$q$);
 select t_check('COA template + its line logged (written by an RPC)', t_audits('coa_templates','insert')=1 and t_audits('coa_template_lines','insert')=1);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a3',false);
 select t_ok('MFR create, procedure, approve (RPCs)', $q$select public.create_mfr_definition('Test MFR', 10, 'ltr', '00000000-0000-0000-0000-0000000000c1', '[{"item_id":"00000000-0000-0000-0000-0000000000c3","quantity":2,"unit":"kg"}]'::jsonb, 'domestic'); select public.update_mfr_procedure((select id from mfr_definitions where name='Test MFR'), 'Intro', 95, 90, '[{"stage":"Mixing","operation":"Stir"}]'::jsonb); select public.approve_mfr_definition((select id from mfr_definitions where name='Test MFR'))$q$);

@@ -375,3 +375,35 @@ certificate could quote an approval the batch no longer has. Now:
   refuses a COA for any other AR (trigger on `coa_records`).
 - **Sampled Qty:** comes from the AR's own sample, so a retest COA shows the
   retest sample, not the purchase line's first QC quantity.
+
+## COA templates are per item / per MFR (migration 0096, Oct 2026)
+
+Ravi: "COA Templates should be defined at each Item Level ... at the time of
+Defining the product ... when MFR is created, there should be option to
+define its COA similar to how Manufacturing Procedure is defined. However
+COA is not part of MFR so should be tracked and reported separately."
+
+This **supersedes** the per-Item-Type template described above
+(`/coa/templates/[itemTypeId]` is gone).
+
+- `coa_templates` now has exactly one subject: `item_id` (a raw-material
+  item) **or** `mfr_definition_id` (a finished-product MFR), enforced by the
+  `coa_templates_one_subject` check and one partial unique index per subject.
+  `item_type_id` was dropped; existing Item-Type templates were discarded
+  (Ravi's call) and `coa_records.coa_template_id` is `on delete set null`
+  so issued certificates are untouched.
+- Optional at creation, required before issuing: the New Item form (raw
+  category) and the New MFR form carry an optional COA Template section; the
+  item and MFR detail pages carry a "COA template" card (Add/Edit/History).
+  `/coa/new` blocks until the subject has a template and links to it.
+- Edit rights follow the subject: items -> system_admin, inventory_manager,
+  mfr_manager; MFR -> system_admin, mfr_manager (`can_manage_coa_template()`).
+  Direct table writes are system_admin only; everyone else goes through
+  `upsert_coa_template(p_item_id, p_mfr_definition_id, p_lines)`.
+- Tracking: every save writes a snapshot to `coa_template_revisions`
+  (read-only, audit-triggered). `/coa/templates` is the **COA Template
+  Register** (view `coa_template_register`, PDF + Excel export);
+  `/coa/templates/[id]` shows current lines and revision history with a diff.
+- Bulk upload (`coa-templates`) is keyed by **Code** (RM item code or MFR code)
+  and still create-only; role check is `items`.
+- Tests: `supabase/tests/c96_coa_template_per_item.sql`.

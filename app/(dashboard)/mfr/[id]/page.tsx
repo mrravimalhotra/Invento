@@ -17,9 +17,18 @@ import { PrintMfrButton } from "./print-mfr-button";
 import type { EditableLine } from "../mfr-line-editor";
 import type { EditableStep } from "../mfr-procedure-editor";
 import { mfrDocxFilename, type MfrDocxData } from "./mfr-docx";
+import { CoaTemplateCard } from "../../coa/coa-template-card";
+import { loadCoaTemplate } from "@/lib/coa-template-data";
 
-export default async function MfrDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MfrDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ coa?: string }>;
+}) {
   const { id } = await params;
+  const { coa } = await searchParams;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
 
   const { data: def } = await supabase
@@ -31,6 +40,8 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
     .maybeSingle();
 
   if (!def) notFound();
+
+  const coaTemplate = await loadCoaTemplate(supabase, { mfrId: id });
 
   const [{ data: lines }, { data: rawItems }, approverProfile, { data: procedureSteps }] = await Promise.all([
     supabase
@@ -133,6 +144,12 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
         description={finishedProduct ? finishedProduct.item_code : `No Finished Product item — ${noItemReason}`}
         action={<PrintMfrButton data={mfrDocxData} filename={mfrDocxFilename(def.name)} />}
       />
+
+      {coa === "failed" && (
+        <p className="mb-4 rounded-md bg-red-bg px-3 py-2 text-sm text-red">
+          The MFR was created, but its COA template could not be saved. Add it in the Certificate of Analysis template card below.
+        </p>
+      )}
 
       <div className="grid gap-6">
         <Card>
@@ -318,6 +335,25 @@ export default async function MfrDetailPage({ params }: { params: Promise<{ id: 
                 />
               </div>
             )}
+          </CardBody>
+        </Card>
+
+        {/* Ravi (3 Oct 2026): the Certificate of Analysis template of this
+            product is defined here, like the manufacturing procedure, but
+            COA is not part of the MFR — it is tracked and reported
+            separately (COA → COA Template Register) and, like the
+            procedure, stays editable after approval. */}
+        <Card>
+          <CardHeader title="Certificate of Analysis template" />
+          <CardBody>
+            <CoaTemplateCard
+              kind="mfr"
+              subjectId={id}
+              lines={coaTemplate.lines}
+              canEdit={canEdit}
+              templateId={coaTemplate.templateId}
+              lastChanged={coaTemplate.lastChanged}
+            />
           </CardBody>
         </Card>
       </div>

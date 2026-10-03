@@ -399,30 +399,35 @@ const DEAD_STOCK_COLUMNS_WITH_EXAMPLE = {
   example: EXAMPLE_ROWS["dead-stock"],
 };
 
-// COA Templates (22 Sept 2026, Ravi, via a screenshot of the COA Template
-// edit screen: "we want to automate data upload of this screen per item
-// type. So template will have 3 inputs, Item Type, Test and
-// specification"). One row per Test/Specification line, grouped by
-// repeating the same Item Type — see COA_TEMPLATE_COLUMNS in schemas.ts
-// for why this is create-only (an Item Type that already has a template
-// is rejected, not overwritten).
+// COA Templates (22 Sept 2026, reworked 3 Oct 2026). One row per
+// Test/Specification line, grouped by repeating the same Code — the Item
+// Code of a raw material or the Code of an MFR (templates belong to each
+// raw material and each MFR now, not to an Item Type). Create-only: a code
+// that already has a template is rejected, not overwritten.
 async function buildCoaTemplatesWorkbook(supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
-  const [{ data: itemTypes }, { data: existingTemplates }] = await Promise.all([
-    fetchAllRows((from, to) => supabase.from("item_types").select("id, description").eq("active", true).order("description", { ascending: true }).order("id", { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => supabase.from("coa_templates").select("item_type_id").order("id", { ascending: true }).range(from, to)),
+  const [{ data: rawItems }, { data: mfrs }, { data: existingTemplates }] = await Promise.all([
+    fetchAllRows((from, to) => supabase.from("items").select("id, item_code, name").eq("category", "raw").eq("active", true).order("item_code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("mfr_definitions").select("id, code, name").eq("active", true).order("code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("coa_templates").select("item_id, mfr_definition_id").order("id", { ascending: true }).range(from, to)),
   ]);
-  // Reference sheet deliberately excludes item types that already have a
-  // template — the upload rejects those rows anyway (edit an existing
-  // template from Manage Templates instead), so the dropdown should only
-  // ever point at ones that will actually succeed.
-  const templatedItemTypeIds = new Set((existingTemplates ?? []).map((t) => t.item_type_id));
-  const availableItemTypes = (itemTypes ?? []).filter((t) => !templatedItemTypeIds.has(t.id));
-  const unavailableItemTypes = (itemTypes ?? []).filter((t) => templatedItemTypeIds.has(t.id));
+  // The dropdown only offers codes that do not have a template yet — the
+  // upload rejects the others anyway.
+  const templatedItemIds = new Set((existingTemplates ?? []).map((t) => t.item_id).filter(Boolean));
+  const templatedMfrIds = new Set((existingTemplates ?? []).map((t) => t.mfr_definition_id).filter(Boolean));
+  const available = [
+    ...(rawItems ?? []).filter((i) => !templatedItemIds.has(i.id)).map((i) => i.item_code),
+    ...(mfrs ?? []).filter((m) => !templatedMfrIds.has(m.id)).map((m) => m.code),
+  ];
+  const labels = [
+    ...(rawItems ?? []).filter((i) => !templatedItemIds.has(i.id)).map((i) => `${i.item_code} — ${i.name}`),
+    ...(mfrs ?? []).filter((m) => !templatedMfrIds.has(m.id)).map((m) => `${m.code} — ${m.name}`),
+  ];
 
   addInstructionsSheet(workbook, "COA Templates", [{ columns: COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.columns }], [
-    "Each row is one Test/Specification line. To define a template with more than one test, add one row per test and repeat the exact same Item Type on every one of those rows — the upload groups rows into one template by matching Item Type. Rows are numbered (S.N.) automatically in the order they appear in the file.",
-    "An Item Type that already has a COA template is rejected — edit it from Manage Templates (Certificate of Analysis → Manage Templates) instead of re-uploading it here.",
+    "Each row is one Test/Specification line. To define a template with more than one test, add one row per test and repeat the exact same Code on every one of those rows — the upload groups rows into one template.",
+    "Code is the Item Code of a raw material (for example RM-001) or the Code of an MFR (for example MFR-0001). The Reference sheet lists the codes that do not have a template yet, with their names.",
+    "A code that already has a COA template is rejected — edit it on the item or MFR page (or see the COA Template Register) instead of re-uploading it here.",
   ]);
 
   const sheet = workbook.addWorksheet(BULK_UPLOAD_MODULE_META["coa-templates"].sheetName);
@@ -431,21 +436,11 @@ async function buildCoaTemplatesWorkbook(supabase: SupabaseClient): Promise<Exce
 
   const dataEndRow = 1 + MAX_UPLOAD_ROWS;
   const refSheet = workbook.addWorksheet("Reference");
-  const itemTypeLastRow = addReferenceColumn(
-    refSheet,
-    1,
-    "Active Item Types without a COA template",
-    availableItemTypes.map((t) => t.description)
-  );
-  addReferenceColumn(
-    refSheet,
-    2,
-    "Item types not shown above (already have a template)",
-    unavailableItemTypes.map((t) => t.description)
-  );
+  const codeLastRow = addReferenceColumn(refSheet, 1, "Codes without a COA template", available);
+  addReferenceColumn(refSheet, 2, "Name", labels);
 
-  // Column 1 = Item Type (COA_TEMPLATE_COLUMNS' only dropdown-eligible column).
-  applyDropdownColumn(sheet, 1, 2, dataEndRow, [`Reference!$A$2:$A$${itemTypeLastRow}`]);
+  // Column 1 = Code (COA_TEMPLATE_COLUMNS' only dropdown-eligible column).
+  applyDropdownColumn(sheet, 1, 2, dataEndRow, [`Reference!$A$2:$A$${codeLastRow}`]);
 
   return workbook;
 }

@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { escapeLike } from "@/lib/utils";
 import { friendlyDbError } from "@/lib/db-errors";
+import { parseCoaTemplateLines } from "@/lib/coa-template-lines";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -55,6 +56,12 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
   if (low_stock_threshold && typeof low_stock_threshold === "object") return low_stock_threshold;
+
+  // 3 Oct 2026 (Ravi): a raw material's Certificate of Analysis template can be
+  // defined as the item is added. Optional — a COA cannot be issued until it exists.
+  const coaParsed = category === "raw" ? parseCoaTemplateLines(formData, { optional: true }) : [];
+  if ("error" in coaParsed) return coaParsed;
+  const coaLines = coaParsed;
 
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "items")) return { error: "Not authorized." };
@@ -105,12 +112,26 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
     return { error: friendlyDbError(error) };
   }
 
+  // The template is a separate record (own history and register), saved right
+  // after the item. If that second step fails the item still exists, so the
+  // detail page says so rather than asking the user to re-enter the item.
+  let coaFailed = false;
+  if (coaLines.length > 0) {
+    const { error: coaError } = await supabase.rpc("upsert_coa_template", {
+      p_item_id: inserted.id,
+      p_mfr_definition_id: null,
+      p_lines: coaLines,
+    });
+    coaFailed = !!coaError;
+  }
+
   revalidatePath("/items");
+  revalidatePath("/coa/templates");
   // FB-0005: ?created=1 flags the detail page to show a one-time success
   // banner — createItem redirects (unlike updateItem, which stays on the
   // same page and can just return {success}), so the confirmation has to
   // travel via the URL instead of component state.
-  redirect(`/items/${inserted.id}?created=1`);
+  redirect(`/items/${inserted.id}?created=1${coaFailed ? "&coa=failed" : ""}`);
 }
 
 export async function updateItem(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {

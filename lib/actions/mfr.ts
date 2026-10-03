@@ -6,6 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
+import { parseCoaTemplateLines } from "@/lib/coa-template-lines";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -85,6 +86,12 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   if ("error" in linesOrError) return linesOrError;
   const lines = linesOrError;
 
+  // 3 Oct 2026 (Ravi): the Certificate of Analysis template can be defined as the MFR is created.
+  // Optional, and not part of the MFR itself — saved as its own record right after.
+  const coaParsed = parseCoaTemplateLines(formData, { optional: true });
+  if ("error" in coaParsed) return coaParsed;
+  const coaLines = coaParsed;
+
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
 
@@ -102,8 +109,19 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   const def = (data as { id: string; code: string }[] | null)?.[0];
   if (!def) return { error: "Could not create the MFR definition." };
 
+  let coaFailed = false;
+  if (coaLines.length > 0) {
+    const { error: coaError } = await supabase.rpc("upsert_coa_template", {
+      p_item_id: null,
+      p_mfr_definition_id: def.id,
+      p_lines: coaLines,
+    });
+    coaFailed = !!coaError;
+  }
+
   revalidatePath("/mfr");
-  redirect(`/mfr/${def.id}?saved=mfr_created`);
+  revalidatePath("/coa/templates");
+  redirect(`/mfr/${def.id}?saved=mfr_created${coaFailed ? "&coa=failed" : ""}`);
 }
 
 // Ravi (14 Sept 2026): "before MFR is approved there should be option to

@@ -127,10 +127,7 @@ select t_ok('quality_checker edits a document', $q$update documents set title='S
 select t_check('title changed', (select title='SOP one v2' from documents where id='00000000-0000-0000-0000-000000000d01'));
 select t_ok('quality_checker delete attempt (no error, no row)', $q$delete from documents where id='00000000-0000-0000-0000-000000000d01'$q$);
 select t_check('document still exists after QC delete attempt', exists (select 1 from documents where id='00000000-0000-0000-0000-000000000d01'));
-select t_ok('quality_checker adds a COA template', $q$insert into coa_templates (id,item_type_id) values ('00000000-0000-0000-0000-000000000ca1','00000000-0000-0000-0000-0000000000c1')$q$);
-select t_ok('quality_checker edits a COA template', $q$update coa_templates set updated_by='00000000-0000-0000-0000-0000000000a4' where id='00000000-0000-0000-0000-000000000ca1'$q$);
-select t_ok('quality_checker delete attempt on template', $q$delete from coa_templates where id='00000000-0000-0000-0000-000000000ca1'$q$);
-select t_check('template still exists', exists (select 1 from coa_templates where id='00000000-0000-0000-0000-000000000ca1'));
+select t_fail('quality_checker cannot add a COA template row directly', $q$insert into coa_templates (id,item_id) values ('00000000-0000-0000-0000-000000000ca1','00000000-0000-0000-0000-0000000000c1')$q$, 'row-level security');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
 select t_ok('admin deletes the document', $q$delete from documents where id='00000000-0000-0000-0000-000000000d01'$q$);
 select t_check('document gone', not exists (select 1 from documents where id='00000000-0000-0000-0000-000000000d01'));

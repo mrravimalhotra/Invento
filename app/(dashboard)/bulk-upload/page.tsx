@@ -76,7 +76,7 @@ const MODULE_CARDS: ModuleCard[] = [
     key: "coa-templates",
     action: bulkUploadCoaTemplates,
     description:
-      "Create Certificate of Analysis templates — one row per Test/Specification line, grouped by repeating the same Item Type. An Item Type that already has a template is rejected; edit it from Manage Templates instead.",
+      "Create Certificate of Analysis templates for raw materials and MFRs — one row per Test/Specification line, grouped by repeating the same Code (Item Code or MFR Code). A code that already has a template is rejected; edit it on its own page instead.",
   },
 ];
 

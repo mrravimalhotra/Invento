@@ -68,32 +68,23 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   const supabase = await createClient();
 
   // Re-verify server-side: the QC is actually Approved, its subject
-  // matches what the form claims, and a template still exists for its
-  // item type — never trust that the page the form was rendered from is
-  // still the current state by the time Submit is clicked.
-  //
-  // FP's item_type_id is read via finished_product_batches -> mfr_definitions
-  // -> finished_product_item_id -> items.item_type_id, NOT
-  // mfr_definitions.item_type_id directly — that column is deprecated
-  // (0010_mfr_finished_product_link.sql) and can be null/stale even when
-  // the item's own item_type_id (what the MFR detail page shows) is set.
-  // See docs/modules/coa.md's "Post-launch fixes" note — the page resolver
-  // (app/(dashboard)/coa/new/page.tsx) had this exact same bug, fixed
-  // first; this is the same mistake in this Server Action's own
-  // independent re-check, missed in that pass.
+  // matches what the form claims, and a template still exists for the
+  // raw material (purchase line's item) or the MFR (the FP batch's recipe)
+  // — never trust that the page the form was rendered from is still the
+  // current state by the time Submit is clicked. Since 3 Oct 2026 (Ravi)
+  // templates belong to each raw material and each MFR, not to an Item Type
+  // (0096_coa_template_per_item.sql).
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
-    .select(
-      "id, status, purchase_line_id, finished_product_batch_id, purchase_lines(item_id, items(item_type_id)), finished_product_batches(mfr_definitions(items(item_type_id)))"
-    )
+    .select("id, status, purchase_line_id, finished_product_batch_id, purchase_lines(item_id), finished_product_batches(mfr_definition_id)")
     .eq("id", qualityCheckId)
     .maybeSingle<{
       id: string;
       status: string;
       purchase_line_id: string | null;
       finished_product_batch_id: string | null;
-      purchase_lines: { item_id: string; items: { item_type_id: string | null } | null } | null;
-      finished_product_batches: { mfr_definitions: { items: { item_type_id: string | null } | null } | null } | null;
+      purchase_lines: { item_id: string } | null;
+      finished_product_batches: { mfr_definition_id: string } | null;
     }>();
   if (qcError || !qc) return { error: "Selected quality check could not be found." };
   if (qc.status !== "approved") return { error: "Only an Approved quality check can be issued a COA." };
@@ -111,20 +102,17 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
     return { error: "Subject type no longer matches this quality check — reload and try again." };
   }
 
-  const itemTypeId = isRm
-    ? qc.purchase_lines?.items?.item_type_id
-    : qc.finished_product_batches?.mfr_definitions?.items?.item_type_id;
-  if (!itemTypeId) {
-    return { error: "This item has no Item Type set, so no COA template can be resolved for it." };
-  }
-
-  const { data: template } = await supabase
-    .from("coa_templates")
-    .select("id")
-    .eq("item_type_id", itemTypeId)
-    .maybeSingle();
+  const templateQuery = supabase.from("coa_templates").select("id");
+  const { data: template } = await (isRm
+    ? templateQuery.eq("item_id", qc.purchase_lines?.item_id ?? "")
+    : templateQuery.eq("mfr_definition_id", qc.finished_product_batches?.mfr_definition_id ?? "")
+  ).maybeSingle();
   if (!template) {
-    return { error: "No COA template is defined for this item type anymore — check Manage Templates." };
+    return {
+      error: isRm
+        ? "This raw material has no COA template — add one on its Item Master page first."
+        : "This product's MFR has no COA template — add one on its MFR page first.",
+    };
   }
 
   const { data: coaNumber, error: coaNumError } = await supabase.rpc("get_next_coa_number");
