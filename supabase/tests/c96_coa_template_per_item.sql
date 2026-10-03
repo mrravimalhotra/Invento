@@ -77,3 +77,10 @@ reset role;
 -- deleting the item removes its template
 select t_ok('deleting an unused item also removes its template', $q$delete from items where id='00000000-0000-0000-0000-00000000e002'$q$);
 select t_check('template of the deleted item is gone', not exists (select 1 from coa_templates where item_id='00000000-0000-0000-0000-00000000e002'));
+
+-- 0097: finished-product rows carry the Finished Product item code
+insert into items (id, item_code, name, category, unit) values ('00000000-0000-0000-0000-00000000e0f1','FP-00001','Hair oil','processed','ltr');
+update mfr_definitions set finished_product_item_id='00000000-0000-0000-0000-00000000e0f1' where id='00000000-0000-0000-0000-00000000a001';
+select t_check('register shows the FP item code for an MFR that has one', (select code='FP-00001' and mfr_code='MFR-0001' from coa_template_register where subject_id='00000000-0000-0000-0000-00000000a001'));
+select t_check('register falls back to the MFR code before approval', (select code='MFR-0002' and mfr_code='MFR-0002' from coa_template_register where subject_id='00000000-0000-0000-0000-00000000a002'));
+select t_check('raw material rows have no MFR code', (select mfr_code is null from coa_template_register where code='RM-001'));

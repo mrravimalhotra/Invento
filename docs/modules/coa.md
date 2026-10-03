@@ -407,3 +407,7 @@ This **supersedes** the per-Item-Type template described above
 - Bulk upload (`coa-templates`) is keyed by **Code** (RM item code or MFR code)
   and still create-only; role check is `items`.
 - Tests: `supabase/tests/c96_coa_template_per_item.sql`.
+
+### Finished-product code in the register (migration 0097, 3 Oct 2026)
+
+Ravi: finished-product rows must show the **Finished Product code** (FP-00001), not the MFR code. `coa_template_register.code` is now the FP item code; an MFR not yet approved has no FP item, so it shows its MFR code until then. The MFR code is kept in a new `mfr_code` column (shown as "MFR code" in the register and its exports). The register search matches either code. Bulk upload accepts the FP code (the MFR code still works). The COA screen and the template history page label the product by its FP code.

@@ -44,7 +44,7 @@ export default async function CoaTemplateHistoryPage({ params }: { params: Promi
       ? supabase.from("items").select("id, item_code, name").eq("id", template.item_id).maybeSingle()
       : Promise.resolve({ data: null }),
     template.mfr_definition_id
-      ? supabase.from("mfr_definitions").select("id, code, name").eq("id", template.mfr_definition_id).maybeSingle()
+      ? supabase.from("mfr_definitions").select("id, code, name, items:finished_product_item_id(item_code)").eq("id", template.mfr_definition_id).maybeSingle<{ id: string; code: string; name: string; items: { item_code: string } | null }>()
       : Promise.resolve({ data: null }),
     supabase
       .from("coa_template_revisions")
@@ -63,7 +63,7 @@ export default async function CoaTemplateHistoryPage({ params }: { params: Promi
   const subject = item
     ? { label: `${item.item_code} · ${item.name}`, href: `/items/${item.id}`, kind: "Raw material" }
     : mfr
-      ? { label: `${mfr.code} · ${mfr.name}`, href: `/mfr/${mfr.id}`, kind: "Finished product (MFR)" }
+      ? { label: `${mfr.items?.item_code ?? mfr.code} · ${mfr.name}`, href: `/mfr/${mfr.id}`, kind: "Finished product (MFR)" }
       : { label: "Unknown", href: "/coa/templates", kind: "" };
 
   const current = template.coa_template_lines.slice().sort((a, b) => a.seq - b.seq);

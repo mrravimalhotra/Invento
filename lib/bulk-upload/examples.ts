@@ -42,6 +42,6 @@ export const EXAMPLE_ROWS: Record<ExampleKey, string[][]> = {
   "coa-templates": [
     ["RM-001", "Loss on drying", "Not More Than 10 %w/w"],
     ["RM-001", "Total Ash", "Not More Than 5 %w/w"],
-    ["MFR-0001", "Specific gravity", "0.90 to 0.95"],
+    ["FP-00001", "Specific gravity", "0.90 to 0.95"],
   ],
 };

@@ -38,7 +38,7 @@ export default async function CoaTemplateRegisterPage({
   const { data } = await fetchAllRows((from, to) =>
     supabase
       .from("coa_template_register")
-      .select("subject_type, subject_id, code, name, item_type, active, template_id, tests, revisions, last_changed_at, last_changed_by")
+      .select("subject_type, subject_id, code, name, item_type, active, template_id, tests, revisions, last_changed_at, last_changed_by, mfr_code")
       .order("subject_id", { ascending: true })
       .range(from, to)
       .returns<RawRow[]>()

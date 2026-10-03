@@ -10,6 +10,7 @@ export type RegisterRow = {
   subject_type: "raw_material" | "finished_product";
   subject_id: string;
   code: string;
+  mfr_code: string | null;
   name: string;
   item_type: string | null;
   active: boolean;
@@ -36,9 +37,10 @@ export function RegisterTable({ rows }: { rows: RegisterRow[] }) {
           {r.code}
         </Link>
       ),
-      searchValue: (r) => r.code,
+      searchValue: (r) => `${r.code} ${r.mfr_code ?? ""}`,
     },
     { header: "Name", accessor: (r) => r.name, searchValue: (r) => r.name },
+    { header: "MFR code", accessor: (r) => r.mfr_code ?? "—" },
     { header: "Item type", accessor: (r) => r.item_type ?? "—" },
     {
       header: "Template",
@@ -84,6 +86,7 @@ export function RegisterTable({ rows }: { rows: RegisterRow[] }) {
       { header: "Type", value: (r) => TYPE_LABEL[r.subject_type] },
       { header: "Code", value: (r) => r.code },
       { header: "Name", value: (r) => r.name },
+      { header: "MFR code", value: (r) => r.mfr_code ?? "" },
       { header: "Item type", value: (r) => r.item_type ?? "" },
       { header: "Template", value: (r) => (r.template_id ? "Defined" : "Missing") },
       { header: "Tests", value: (r) => (r.template_id ? r.tests : "") },

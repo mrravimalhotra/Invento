@@ -246,7 +246,7 @@ export const COA_TEMPLATE_COLUMNS: ColumnDef[] = [
   {
     header: "Code",
     required: true,
-    hint: "the Item Code of a raw material (e.g. RM-001) or the MFR Code (e.g. MFR-0001) that doesn't have a COA template yet — pick from the dropdown; see the Reference sheet",
+    hint: "the Item Code of a raw material (e.g. RM-001) or the Finished Product code (e.g. FP-00001; the MFR Code, e.g. MFR-0001, also works) that doesn't have a COA template yet — pick from the dropdown; see the Reference sheet",
   },
   { header: "Test", required: true },
   { header: "Specification", required: true },

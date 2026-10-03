@@ -408,25 +408,26 @@ async function buildCoaTemplatesWorkbook(supabase: SupabaseClient): Promise<Exce
   const workbook = new ExcelJS.Workbook();
   const [{ data: rawItems }, { data: mfrs }, { data: existingTemplates }] = await Promise.all([
     fetchAllRows((from, to) => supabase.from("items").select("id, item_code, name").eq("category", "raw").eq("active", true).order("item_code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => supabase.from("mfr_definitions").select("id, code, name").eq("active", true).order("code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("mfr_definitions").select("id, code, name, items:finished_product_item_id(item_code)").eq("active", true).order("code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => supabase.from("coa_templates").select("item_id, mfr_definition_id").order("id", { ascending: true }).range(from, to)),
   ]);
   // The dropdown only offers codes that do not have a template yet — the
   // upload rejects the others anyway.
   const templatedItemIds = new Set((existingTemplates ?? []).map((t) => t.item_id).filter(Boolean));
   const templatedMfrIds = new Set((existingTemplates ?? []).map((t) => t.mfr_definition_id).filter(Boolean));
+  const fpCodeOf = (m: { items: unknown }) => (m.items as { item_code: string } | null)?.item_code ?? null;
   const available = [
     ...(rawItems ?? []).filter((i) => !templatedItemIds.has(i.id)).map((i) => i.item_code),
-    ...(mfrs ?? []).filter((m) => !templatedMfrIds.has(m.id)).map((m) => m.code),
+    ...(mfrs ?? []).filter((m) => !templatedMfrIds.has(m.id)).map((m) => fpCodeOf(m) ?? m.code),
   ];
   const labels = [
     ...(rawItems ?? []).filter((i) => !templatedItemIds.has(i.id)).map((i) => `${i.item_code} — ${i.name}`),
-    ...(mfrs ?? []).filter((m) => !templatedMfrIds.has(m.id)).map((m) => `${m.code} — ${m.name}`),
+    ...(mfrs ?? []).filter((m) => !templatedMfrIds.has(m.id)).map((m) => `${fpCodeOf(m) ?? m.code} — ${m.name}${fpCodeOf(m) ? ` (${m.code})` : ""}`),
   ];
 
   addInstructionsSheet(workbook, "COA Templates", [{ columns: COA_TEMPLATE_COLUMNS_WITH_EXAMPLE.columns }], [
     "Each row is one Test/Specification line. To define a template with more than one test, add one row per test and repeat the exact same Code on every one of those rows — the upload groups rows into one template.",
-    "Code is the Item Code of a raw material (for example RM-001) or the Code of an MFR (for example MFR-0001). The Reference sheet lists the codes that do not have a template yet, with their names.",
+    "Code is the Item Code of a raw material (for example RM-001) or the Finished Product code of an MFR (for example FP-00001; before the MFR is approved use its MFR code, for example MFR-0001, which is also accepted). The Reference sheet lists the codes that do not have a template yet, with their names.",
     "A code that already has a COA template is rejected — edit it on the item or MFR page (or see the COA Template Register) instead of re-uploading it here.",
   ]);
 

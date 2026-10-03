@@ -1496,12 +1496,19 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
   const supabase = await createClient();
   const [{ data: rawItems }, { data: mfrs }, { data: existingTemplates }] = await Promise.all([
     fetchAllRows((from, to) => supabase.from("items").select("id, item_code, name").eq("category", "raw").eq("active", true).order("id", { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => supabase.from("mfr_definitions").select("id, code, name").eq("active", true).order("id", { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => supabase.from("mfr_definitions").select("id, code, name, items:finished_product_item_id(item_code)").eq("active", true).order("id", { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => supabase.from("coa_templates").select("item_id, mfr_definition_id").order("id", { ascending: true }).range(from, to)),
   ]);
   // Item codes and MFR codes are unique in the database, so a code resolves to at most one record.
   const itemByCode = new Map((rawItems ?? []).map((i) => [i.item_code.trim().toLowerCase(), i]));
-  const mfrByCode = new Map((mfrs ?? []).map((m) => [m.code.trim().toLowerCase(), m]));
+  // A finished product is identified by its Finished Product item code (FP-00001); the MFR code
+  // (MFR-0001) is also accepted, and is the only code before the MFR is approved.
+  const mfrByCode = new Map<string, NonNullable<typeof mfrs>[number]>();
+  for (const m of mfrs ?? []) {
+    mfrByCode.set(m.code.trim().toLowerCase(), m);
+    const fpCode = (m.items as unknown as { item_code: string } | null)?.item_code;
+    if (fpCode) mfrByCode.set(fpCode.trim().toLowerCase(), m);
+  }
   const templatedItemIds = new Set((existingTemplates ?? []).map((t) => t.item_id).filter(Boolean));
   const templatedMfrIds = new Set((existingTemplates ?? []).map((t) => t.mfr_definition_id).filter(Boolean));
 
@@ -1517,7 +1524,7 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
     const item = itemByCode.get(codeRaw.toLowerCase());
     const mfr = mfrByCode.get(codeRaw.toLowerCase());
     if (!codeRaw || (!item && !mfr)) {
-      rowErrors.push(`Row ${r}: Code "${codeRaw}" is not the Item Code of an active raw material or the Code of an active MFR.`);
+      rowErrors.push(`Row ${r}: Code "${codeRaw}" is not the Item Code of an active raw material or the Finished Product code (or MFR code) of an active MFR.`);
       return;
     }
     if (!testRaw || !specRaw) {

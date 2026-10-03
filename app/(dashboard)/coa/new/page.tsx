@@ -363,7 +363,7 @@ async function resolveFinishedProduct(supabase: Awaited<ReturnType<typeof create
   return {
     ok: true,
     templateSubject: { kind: "mfr", id: fp.mfr_definition_id },
-    subjectLabel: `${mfr.code} · ${mfr.name}`,
+    subjectLabel: `${fpItem.item_code ?? mfr.code} · ${mfr.name}`,
     headerFields,
   };
 }
