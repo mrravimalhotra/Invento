@@ -164,8 +164,8 @@ export function QcAssignForm({ lines, initialLineId }: { lines: PendingLine[]; i
       </div>
 
       <p className="text-xs text-muted">
-        The Analytical Report No. is assigned automatically on save. Retest date is set automatically at review time (Retest
-        period + review date) — there&apos;s nothing to enter here.
+        The Analytical Report No. is assigned automatically on save. Expiry date and retest date are set by the QC Reviewer
+        at the final decision — there&apos;s nothing to enter here.
       </p>
 
       <div className="flex gap-2">

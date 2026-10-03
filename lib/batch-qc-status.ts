@@ -13,21 +13,25 @@ import { todayIst } from "@/lib/utils";
 // 'not_submitted' (no AR at all) are folded into one "pending" bucket —
 // both mean "not usable yet," and the QC list page's own "Awaiting QC" /
 // AR-status badges already distinguish them for anyone who needs that.
-export type BatchQcState = "qc_pending" | "approved" | "awaiting_retest" | "rejected";
+export type BatchQcState = "qc_pending" | "approved" | "awaiting_retest" | "rejected" | "expired";
 
 export const BATCH_QC_LABELS: Record<BatchQcState, string> = {
   qc_pending: "QC Pending",
   approved: "QC Approved",
   awaiting_retest: "Awaiting Retest",
   rejected: "QC Rejected",
+  expired: "Expired",
 };
 
 export function computeBatchQcState(
   qcStatus: string | null | undefined,
   retestDate: string | null | undefined,
-  today: string = todayIst()
+  today: string = todayIst(),
+  expiryDate?: string | null
 ): BatchQcState {
   if (qcStatus === "approved") {
+    // FB-0058 (0098): past its Expiry date a batch cannot be used, whatever its retest date.
+    if (expiryDate && expiryDate < today) return "expired";
     return retestDate && retestDate <= today ? "awaiting_retest" : "approved";
   }
   if (qcStatus === "rejected") return "rejected";

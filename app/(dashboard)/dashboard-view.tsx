@@ -134,14 +134,14 @@ export function DashboardView({ data }: { data: DashboardData }) {
           )}
           {expirySoon.length > 0 && (
             <Card className="border-amber/40">
-              <CardHeader title="Finished product expiring in the next 90 days" />
+              <CardHeader title="Expiring in the next 90 days" />
               <CardBody className="flex flex-col gap-3">
                 {expirySoon.map((q) => (
-                  <AlertLine key={q.key} row={q} verb="expires" href="/finished-product" />
+                  <AlertLine key={q.key} row={q} verb="expires" href="/qc" />
                 ))}
                 {expiryAll.length > expirySoon.length && (
-                  <Link href="/finished-product" className="text-xs font-medium text-brand hover:underline">
-                    + {expiryAll.length - expirySoon.length} more on the Finished Product page
+                  <Link href="/qc" className="text-xs font-medium text-brand hover:underline">
+                    + {expiryAll.length - expirySoon.length} more on the QC page
                   </Link>
                 )}
               </CardBody>

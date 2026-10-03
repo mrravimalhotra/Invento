@@ -4,7 +4,8 @@ import { isLegacyCode, fpBatchBoth } from "@/lib/utils";
 
 // B15 (30 Sept 2026, Ravi): the Dashboard warns about
 //  - RETEST due in the next 90 days for raw materials AND finished products,
-//  - EXPIRY in the next 90 days for finished products only.
+//  - EXPIRY in the next 90 days for raw materials AND finished products
+//    (FB-0058, 3 Oct 2026: the Expiry date is set by the QC Reviewer at each approval).
 // Each alert says what it is (item, batch, Raw material / Finished product),
 // not just an AR number.
 
@@ -20,6 +21,7 @@ export type AlertRow = {
   legacy: boolean;
 };
 
+type DateField = "retest_date" | "expiry_date";
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 type ItemEmbed = { item_code: string; name: string } | null;
 
@@ -30,66 +32,71 @@ export async function getDashboardAlerts(
   from: string,
   to: string
 ): Promise<{ retestSoon: AlertRow[]; expirySoon: AlertRow[] }> {
-  const [rawPurchase, rawProduction, fpRetest, fpExpiry] = await Promise.all([
-    getRawPurchaseRetests(supabase, from, to),
-    getRawProductionRetests(supabase, from, to),
+  const [rawPurchase, rawProduction, fpRetest, rawPurchaseExpiry, rawProductionExpiry, fpExpiry] = await Promise.all([
+    getRawPurchaseDates(supabase, from, to, "retest_date"),
+    getRawProductionDates(supabase, from, to, "retest_date"),
     getFpRetests(supabase, from, to),
+    getRawPurchaseDates(supabase, from, to, "expiry_date"),
+    getRawProductionDates(supabase, from, to, "expiry_date"),
     getFpExpiries(supabase, from, to),
   ]);
   const byDate = (a: AlertRow, b: AlertRow) => a.date.localeCompare(b.date) || a.key.localeCompare(b.key);
   return {
     retestSoon: [...rawPurchase, ...rawProduction, ...fpRetest].sort(byDate),
-    expirySoon: fpExpiry.sort(byDate),
+    expirySoon: [...rawPurchaseExpiry, ...rawProductionExpiry, ...fpExpiry].sort(byDate),
   };
 }
 
 // Purchased raw materials: the latest QC of each batch (view purchase_line_qc),
 // approved, still in stock — the same rule as the "Due for retest" list on QC.
-async function getRawPurchaseRetests(supabase: Supabase, from: string, to: string): Promise<AlertRow[]> {
-  const { data } = await fetchAllRows<{
+async function getRawPurchaseDates(supabase: Supabase, from: string, to: string, field: DateField): Promise<AlertRow[]> {
+  type PurchaseDateRow = {
     purchase_line_id: string;
     batch_number: string;
     item_code: string;
     item_name: string;
     ar_number: string | null;
-    retest_date: string;
-  }>((f, t) =>
+  } & Record<DateField, string>;
+  const { data } = await fetchAllRows<PurchaseDateRow>((f, t) =>
     supabase
       .from("purchase_line_qc")
-      .select("purchase_line_id, batch_number, item_code, item_name, ar_number, retest_date")
+      .select(`purchase_line_id, batch_number, item_code, item_name, ar_number, ${field}`)
       .eq("qc_status", "approved")
       .eq("active", true)
       .eq("item_category", "raw")
       .gt("live_remaining_qty", 0)
-      .gte("retest_date", from)
-      .lte("retest_date", to)
-      .order("retest_date", { ascending: true })
+      .gte(field, from)
+      .lte(field, to)
+      .order(field, { ascending: true })
       .order("purchase_line_id", { ascending: true })
       .range(f, t)
+      .returns<PurchaseDateRow[]>()
   );
   return (data ?? []).map((r) => ({
-    key: `p-${r.purchase_line_id}`,
+    key: `p-${field}-${r.purchase_line_id}`,
     kind: "raw" as const,
     title: `${r.item_name} (${r.item_code})`,
     batch: r.batch_number,
     ar: r.ar_number,
-    date: r.retest_date,
+    date: r[field],
     legacy: isLegacyCode(r.item_code) || isLegacyCode(r.batch_number),
   }));
 }
 
 // Raw material made from finished product issued to Production (RM-FP-…).
-async function getRawProductionRetests(supabase: Supabase, from: string, to: string): Promise<AlertRow[]> {
-  const { data: statuses } = await fetchAllRows<{ production_batch_id: string | null; ar_number: string | null; retest_date: string }>(
+async function getRawProductionDates(supabase: Supabase, from: string, to: string, field: DateField): Promise<AlertRow[]> {
+  type ProductionDateRow = { production_batch_id: string | null; ar_number: string | null } & Record<DateField, string>;
+  const { data: statuses } = await fetchAllRows<ProductionDateRow>(
     (f, t) =>
       supabase
         .from("production_batch_status")
-        .select("production_batch_id, ar_number, retest_date")
+        .select(`production_batch_id, ar_number, ${field}`)
         .eq("qc_status", "approved")
-        .gte("retest_date", from)
-        .lte("retest_date", to)
+        .gte(field, from)
+        .lte(field, to)
         .order("production_batch_id", { ascending: true })
         .range(f, t)
+        .returns<ProductionDateRow[]>()
   );
   const meta = new Map((statuses ?? []).filter((s) => s.production_batch_id).map((s) => [s.production_batch_id as string, s]));
   if (meta.size === 0) return [];
@@ -105,12 +112,12 @@ async function getRawProductionRetests(supabase: Supabase, from: string, to: str
   return (batches ?? []).map((b) => {
     const m = meta.get(b.id)!;
     return {
-      key: `x-${b.id}`,
+      key: `x-${field}-${b.id}`,
       kind: "raw" as const,
       title: label(b.items),
       batch: b.batch_number,
       ar: m.ar_number,
-      date: m.retest_date,
+      date: m[field],
       legacy: isLegacyCode(b.items?.item_code) || isLegacyCode(b.batch_number),
     };
   });
@@ -166,21 +173,21 @@ async function getFpRetests(supabase: Supabase, from: string, to: string): Promi
     });
 }
 
-// Finished-product expiry: approved, active batches whose expiry date falls in the window.
+// Finished-product expiry: the Expiry date the QC Reviewer set on the approved QC record,
+// for active batches whose date falls in the window.
 async function getFpExpiries(supabase: Supabase, from: string, to: string): Promise<AlertRow[]> {
   type ExpiryRow = {
     id: string;
-    batch_number: string;
-    short_batch_no: string | null;
+    ar_number: string;
     expiry_date: string;
-    mfr_definitions: { items: ItemEmbed } | null;
+    finished_product_batches: FpEmbed | null;
   };
   const { data } = await fetchAllRows<ExpiryRow>((f, t) =>
     supabase
-      .from("finished_product_batches")
-      .select("id, batch_number, short_batch_no, expiry_date, mfr_definitions(items(item_code, name))")
+      .from("quality_checks")
+      .select("id, ar_number, expiry_date, finished_product_batches(batch_number, short_batch_no, active, mfr_definitions(items(item_code, name)))")
       .eq("status", "approved")
-      .eq("active", true)
+      .not("finished_product_batch_id", "is", null)
       .gte("expiry_date", from)
       .lte("expiry_date", to)
       .order("expiry_date", { ascending: true })
@@ -188,16 +195,19 @@ async function getFpExpiries(supabase: Supabase, from: string, to: string): Prom
       .range(f, t)
       .returns<ExpiryRow[]>()
   );
-  return (data ?? []).map((b) => {
-    const item = b.mfr_definitions?.items ?? null;
-    return {
-      key: `e-${b.id}`,
-      kind: "fp" as const,
-      title: label(item),
-      batch: fpBatchBoth(b.batch_number, b.short_batch_no),
-      ar: null,
-      date: b.expiry_date,
-      legacy: isLegacyCode(item?.item_code) || isLegacyCode(b.batch_number),
-    };
-  });
+  return (data ?? [])
+    .filter((q) => q.finished_product_batches?.active !== false)
+    .map((q) => {
+      const b = q.finished_product_batches;
+      const item = b?.mfr_definitions?.items ?? null;
+      return {
+        key: `e-${q.id}`,
+        kind: "fp" as const,
+        title: label(item),
+        batch: b ? fpBatchBoth(b.batch_number, b.short_batch_no) : "—",
+        ar: q.ar_number,
+        date: q.expiry_date,
+        legacy: isLegacyCode(item?.item_code) || isLegacyCode(b?.batch_number),
+      };
+    });
 }

@@ -8,6 +8,7 @@ export type RmQcState = "approved" | "under_test" | "rejected" | "on_hold";
 export type RmLabelInput = {
   qcStatus: string;
   retestDate: string | null;
+  expiryDate?: string | null;
   poSubmitted: boolean;
 };
 
@@ -18,6 +19,8 @@ export function rmQcState(r: RmLabelInput, today: string): RmQcState {
     // Due for retest: no longer usable until re-approved — it is back
     // under test.
     if (r.retestDate !== null && r.retestDate <= today) return "under_test";
+    // Past its Expiry date (FB-0058): neither an Approved nor an Under Test label applies.
+    if (r.expiryDate && r.expiryDate < today) return "on_hold";
     // Approved, but its purchase order was reopened for editing: not in
     // stock, so neither label applies until it is submitted again.
     if (!r.poSubmitted) return "on_hold";

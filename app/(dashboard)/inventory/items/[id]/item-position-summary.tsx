@@ -44,6 +44,7 @@ export function notYetUsableText(split: RmStockSplit, unit: string | null): stri
   const parts: string[] = [];
   if (split.awaitingQc > 0) parts.push(`${formatQty(split.awaitingQc)}${u} awaiting QC`);
   if (split.dueForRetest > 0) parts.push(`${formatQty(split.dueForRetest)}${u} due for retest`);
+  if (split.expired > 0) parts.push(`${formatQty(split.expired)}${u} expired`);
   if (split.rejected > 0) parts.push(`${formatQty(split.rejected)}${u} rejected`);
   return `Not yet usable: ${formatQty(split.notYetUsable)}${u} (${parts.join(", ")})`;
 }

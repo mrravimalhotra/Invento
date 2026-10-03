@@ -148,9 +148,9 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
     const lineRows = lines;
     const lineIds = lineRows.map((r) => r.id);
     // ACC-08: looked up in chunks (see fetchByIdChunks).
-    const { data: statusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null }>(
+    const { data: statusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }>(
       item.category === "raw" ? lineIds : [],
-      (chunk) => supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date").in("purchase_line_id", chunk)
+      (chunk) => supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date, expiry_date").in("purchase_line_id", chunk)
     );
     const statusByLine = new Map((statusRows ?? []).map((s) => [s.purchase_line_id, s]));
 
@@ -170,6 +170,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
         purchase_order_status: r.purchase_orders?.status ?? "submitted",
         qc_status: status?.qc_status ?? null,
         retest_date: status?.retest_date ?? null,
+        qc_expiry_date: status?.expiry_date ?? null,
       };
     });
 
@@ -201,16 +202,17 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
       );
       // ACC-08: status only for this item's batches — the whole view was read
       // in one request before, capped at 1,000 rows.
-      const { data: prodStatuses } = await fetchByIdChunks<{ production_batch_id: string; qc_status: string; retest_date: string | null }>(
+      const { data: prodStatuses } = await fetchByIdChunks<{ production_batch_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }>(
         prodBatches.map((b) => b.id),
         (chunk) =>
-          supabase.from("production_batch_status").select("production_batch_id, qc_status, retest_date").in("production_batch_id", chunk)
+          supabase.from("production_batch_status").select("production_batch_id, qc_status, retest_date, expiry_date").in("production_batch_id", chunk)
       );
       const statusByBatch = new Map((prodStatuses ?? []).map((s) => [s.production_batch_id, s]));
       productionBatches = prodBatches.map((b) => ({
         ...b,
         qc_status: statusByBatch.get(b.id)?.qc_status ?? null,
         retest_date: statusByBatch.get(b.id)?.retest_date ?? null,
+        qc_expiry_date: statusByBatch.get(b.id)?.expiry_date ?? null,
       }));
     }
 
@@ -226,6 +228,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
             liveRemaining: Number(r.live_remaining_qty),
             qcStatus: st?.qc_status ?? null,
             retestDate: st?.retest_date ?? null,
+            expiryDate: st?.expiry_date ?? null,
             inStock: r.pushed_at !== null,
           };
         }),
@@ -233,6 +236,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
           liveRemaining: Number(b.live_remaining_qty),
           qcStatus: b.qc_status ?? null,
           retestDate: b.retest_date ?? null,
+          expiryDate: b.qc_expiry_date ?? null,
           inStock: true,
         })),
       ];

@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
 import { MAX_RM_RETEST_DAYS, MAX_RM_RETESTS } from "@/lib/constants/qc-rules";
+import { beforeDateError } from "@/lib/date-rules";
+import { todayIst } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -171,14 +173,18 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   if (retestPeriodRaw && (retestPeriodDays === null || !Number.isFinite(retestPeriodDays) || retestPeriodDays <= 0)) {
     return { error: "Retest period must be a positive whole number of days." };
   }
-  if (status === "approved" && !retestPeriodRaw) {
-    return { error: "Retest period (days) is required to approve a batch." };
+  // FB-0058: Expiry date is required to approve, raw material and finished product.
+  const expiryRaw = String(formData.get("expiry_date") || "").trim();
+  if (status === "approved") {
+    if (!expiryRaw) return { error: "Expiry date is required to approve a batch." };
+    const expiryError = beforeDateError(expiryRaw, todayIst(), "Expiry date", "today");
+    if (expiryError) return { error: expiryError };
   }
 
   const supabase = await createClient();
   const { data: existing, error: existingError } = await supabase
     .from("quality_checks")
-    .select("status, checker_by, purchase_line_id, production_batch_id")
+    .select("status, checker_by, purchase_line_id, production_batch_id, is_retest")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) return { error: "Record not found." };
@@ -189,6 +195,26 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   const isRawMaterial = !!(existing.purchase_line_id || existing.production_batch_id);
   if (isRawMaterial && retestPeriodDays !== null && retestPeriodDays > MAX_RM_RETEST_DAYS) {
     return { error: `Retest period for a raw material can be at most ${MAX_RM_RETEST_DAYS} days (6 months).` };
+  }
+  // FB-0061: the last allowed retest of a raw material has no further retest
+  // period (the material is used until its Expiry date); every other approval needs one.
+  let finalRetest = false;
+  if (isRawMaterial && existing.is_retest) {
+    const col = existing.purchase_line_id ? "purchase_line_id" : "production_batch_id";
+    const { count: retestsDone } = await supabase
+      .from("quality_checks")
+      .select("id", { count: "exact", head: true })
+      .eq(col, (existing.purchase_line_id ?? existing.production_batch_id) as string)
+      .eq("is_retest", true);
+    finalRetest = (retestsDone ?? 0) >= MAX_RM_RETESTS;
+  }
+  if (status === "approved") {
+    if (finalRetest && retestPeriodRaw) {
+      return { error: `This was the last retest allowed (${MAX_RM_RETESTS}); no further retest period can be set.` };
+    }
+    if (!finalRetest && !retestPeriodRaw) {
+      return { error: "Retest period (days) is required to approve a batch." };
+    }
   }
   // Two-round distinctness (20 Sept 2026, retiring the old maker/checker
   // created_by check): the QC Reviewer must differ from whoever made the
@@ -208,6 +234,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
       status,
       review_comments: reviewComments || null,
       retest_period_days: status === "approved" ? retestPeriodDays : null,
+      expiry_date: status === "approved" ? expiryRaw : null,
       reviewed_by: user!.id,
       reviewed_at: new Date().toISOString(),
     })

@@ -25,6 +25,7 @@ const STATUS_STYLES: Record<string, string> = {
   // card) rather than a routine next step.
   qc_pending: "bg-black/5 text-muted",
   awaiting_retest: "bg-amber-bg text-amber",
+  expired: "bg-red-bg text-red",
   // Finished Product draft/cancel workflow (0046_fp_batch_draft_cancel.sql,
   // 15 Sept 2026) — "draft" gets the same amber as the other genuine-
   // attention statuses above (it needs a Create Batch or Cancel click, or

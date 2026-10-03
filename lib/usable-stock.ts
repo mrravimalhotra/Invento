@@ -7,7 +7,8 @@ import { computeBatchQcState } from "@/lib/batch-qc-status";
 // Compose (finished-product/new/compose) and the database QC gate
 // (check_batch_qc_approved, 0078) apply:
 //
-//   usable = the batch is QC-approved, is not due for retest, and (for a
+//   usable = the batch is QC-approved, is not due for retest, is not past its
+  //            expiry date (FB-0058), and (for a
 //            purchased batch) its purchase order is submitted.
 //
 // Everything else that is still in stock is "not yet usable", split by why.
@@ -19,6 +20,7 @@ export type RmBatchStock = {
   liveRemaining: number;
   qcStatus: string | null;
   retestDate: string | null;
+  expiryDate?: string | null;
   // False only for a purchased batch whose purchase order was reopened.
   inStock: boolean;
 };
@@ -28,21 +30,23 @@ export type RmStockSplit = {
   awaitingQc: number;
   rejected: number;
   dueForRetest: number;
+  expired: number;
   notYetUsable: number;
 };
 
 // today: the IST calendar day, yyyy-mm-dd.
 export function splitRmStock(batches: RmBatchStock[], today: string): RmStockSplit {
-  const out: RmStockSplit = { usable: 0, awaitingQc: 0, rejected: 0, dueForRetest: 0, notYetUsable: 0 };
+  const out: RmStockSplit = { usable: 0, awaitingQc: 0, rejected: 0, dueForRetest: 0, expired: 0, notYetUsable: 0 };
   for (const b of batches) {
     if (!b.inStock) continue;
     if (!(b.liveRemaining > 0)) continue;
-    const state = computeBatchQcState(b.qcStatus, b.retestDate, today);
+    const state = computeBatchQcState(b.qcStatus, b.retestDate, today, b.expiryDate);
     if (state === "approved") out.usable += b.liveRemaining;
     else if (state === "rejected") out.rejected += b.liveRemaining;
     else if (state === "awaiting_retest") out.dueForRetest += b.liveRemaining;
+    else if (state === "expired") out.expired += b.liveRemaining;
     else out.awaitingQc += b.liveRemaining;
   }
-  out.notYetUsable = out.awaitingQc + out.rejected + out.dueForRetest;
+  out.notYetUsable = out.awaitingQc + out.rejected + out.dueForRetest + out.expired;
   return out;
 }

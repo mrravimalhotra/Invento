@@ -674,3 +674,19 @@ The Dashboard has two alert cards next to Low stock. **Retest due in the next 90
 ## "Analytical Report No." on screen (FB-0047, 1 Oct 2026)
 The tester asked for the full form of "AR No". On-screen text now says **Analytical Report No.** (QC list column and search, QC record, Assign form and its messages, COA list column and search, COA page subtitle, Finished Product page, Reports screen column, Label Printing status line, the "Decision saved" message). Ravi: app screens only, nothing printable or downloadable changes, so these keep the short wording: Excel/PDF exports of the QC and COA lists and of Reports (Reports columns have an optional `exportHeader` for this), the BMR Word document, and the COA header field "AR No" (it is saved into the printed Certificate of Analysis). The AR numbers (AR-017-28092026) and their format are unchanged.
 
+
+## Expiry date and last retest (0098, 3 Oct 2026, FB-0058 / FB-0061)
+
+- The QC Reviewer enters an **Expiry date** with every approval (required; not before today),
+  for raw material and finished product. It is stored on `quality_checks.expiry_date`; a retest
+  starts from the previous expiry date and the Reviewer can change it.
+- Raw material **Retest period** is pre-filled with 180 days (the longest allowed) and can be edited;
+  the screen shows the resulting next retest date. At most 3 retests (so up to 18 months).
+- On the **3rd retest** the Reviewer sets only the Expiry date. No retest date is stored, so the batch
+  is not due again and stays usable until its Expiry date; no 4th retest can be started.
+- After its Expiry date a batch is refused by the database (`check_batch_qc_approved`), no longer
+  counts as older stock in the FIFO check, is not offered in Compose, shows "Expired" on the item
+  page and RM Report, and is not offered on the Approved RM label.
+- Shown on: QC page, QC list and Reports QC register (Excel/PDF), Approved RM label ("Expiry Date"),
+  FP label ("Best Before"), and the Dashboard "Expiring in the next 90 days" card (raw and finished).
+- Not enforced: expiry before the retest date; finished product has no retest limit.

@@ -90,7 +90,7 @@ async function getCandidateBatches(
   const productionIds = (productionBatches ?? []).map((b) => b.id);
   const [{ data: statuses }, { data: productionStatuses }, { data: balance }] = await Promise.all([
     lineIds.length
-      ? supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date").in("purchase_line_id", lineIds)
+      ? supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date, expiry_date").in("purchase_line_id", lineIds)
       : Promise.resolve({ data: [] }),
     // ACC-18 (29 Sept 2026): production-issued RM batches need QC approval
     // too since 0068 — the database refuses an unapproved one, but it used
@@ -98,7 +98,7 @@ async function getCandidateBatches(
     productionIds.length
       ? supabase
           .from("production_batch_status")
-          .select("production_batch_id, qc_status, retest_date")
+          .select("production_batch_id, qc_status, retest_date, expiry_date")
           .in("production_batch_id", productionIds)
       : Promise.resolve({ data: [] }),
     supabase.from("stock_balance").select("on_hand").eq("item_id", itemId).maybeSingle(),
@@ -133,6 +133,8 @@ async function getCandidateBatches(
       const status = statusByLine.get(l.id);
       if (status?.qc_status !== "approved") return false;
       if (status.retest_date && status.retest_date <= today) return false;
+      // FB-0058: a batch past its Expiry date is never offered.
+      if (status.expiry_date && status.expiry_date < today) return false;
       // Phase 2: a batch already fully consumed (by earlier FP composition
       // and/or wastage) shouldn't be offered at all — the item still has
       // stock overall (the onHand <= 0 check above is item-level), just not
@@ -150,7 +152,7 @@ async function getCandidateBatches(
     }));
 
   const statusByProductionBatch = new Map(
-    ((productionStatuses ?? []) as { production_batch_id: string; qc_status: string; retest_date: string | null }[]).map(
+    ((productionStatuses ?? []) as { production_batch_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }[]).map(
       (s) => [s.production_batch_id, s]
     )
   );
@@ -159,6 +161,7 @@ async function getCandidateBatches(
       const status = statusByProductionBatch.get(b.id);
       if (status?.qc_status !== "approved") return false;
       if (status.retest_date && status.retest_date <= today) return false;
+      if (status.expiry_date && status.expiry_date < today) return false;
       return Number(b.live_remaining_qty) > 0;
     })
     .map((b) => ({

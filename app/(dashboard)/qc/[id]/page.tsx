@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatQty, fpBatchBoth } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
-import { MAX_RM_RETEST_DAYS } from "@/lib/constants/qc-rules";
+import { MAX_RM_RETESTS, MAX_RM_RETEST_DAYS } from "@/lib/constants/qc-rules";
 import { QcCheckerForm } from "./qc-checker-form";
 import { QcReviewerForm } from "./qc-reviewer-form";
 
@@ -26,6 +26,8 @@ type QcDetail = {
   retest_period_days: number | null;
   retest_date: string | null;
   is_retest: boolean;
+  purchase_line_id: string | null;
+  production_batch_id: string | null;
   created_by: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
@@ -49,7 +51,7 @@ export default async function QualityCheckDetailPage({
   const { data } = await supabase
     .from("quality_checks")
     .select(
-      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number, short_batch_no), production_issue_batches(batch_number)"
+      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, purchase_line_id, production_batch_id, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number, short_batch_no), production_issue_batches(batch_number)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -63,6 +65,31 @@ export default async function QualityCheckDetailPage({
       : null) ??
     record.production_issue_batches?.batch_number ??
     "—";
+  // FB-0058 / FB-0061 (3 Oct 2026): a raw-material batch is retested at most 3
+  // times. On the 3rd retest the Reviewer sets only the Expiry date; the batch is
+  // then usable until that date. A retest also starts from the previous expiry.
+  const isRawMaterialQc = !!(record.purchase_line_id || record.production_batch_id);
+  let isFinalRetest = false;
+  let suggestedExpiry = record.expiry_date;
+  if (record.status === "checker_approved" && isRawMaterialQc && record.is_retest) {
+    const col = record.purchase_line_id ? "purchase_line_id" : "production_batch_id";
+    const batchId = (record.purchase_line_id ?? record.production_batch_id) as string;
+    const { count } = await supabase
+      .from("quality_checks")
+      .select("id", { count: "exact", head: true })
+      .eq(col, batchId)
+      .eq("is_retest", true);
+    isFinalRetest = (count ?? 0) >= MAX_RM_RETESTS;
+    const { data: prev } = await supabase
+      .from("quality_checks")
+      .select("expiry_date")
+      .eq(col, batchId)
+      .neq("id", record.id)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    suggestedExpiry = prev?.[0]?.expiry_date ?? null;
+  }
   const canRound1 = canWrite(user.roles, "qc_review_round1");
   const canRound2 = canWrite(user.roles, "qc_review_round2");
 
@@ -120,7 +147,6 @@ export default async function QualityCheckDetailPage({
               label="Sample quantity"
               value={record.sample_qty !== null ? `${formatQty(record.sample_qty)} ${record.sample_unit ?? ""}` : "—"}
             />
-            <Field label="Expiry date" value={formatDate(record.expiry_date)} />
             <Field label="Assigned by" value={assignerName} />
           </CardBody>
         </Card>
@@ -174,7 +200,13 @@ export default async function QualityCheckDetailPage({
           <Card>
             <CardHeader title="Round 2 decision — QC Reviewer" />
             <CardBody>
-              <QcReviewerForm id={record.id} maxRetestDays={record.purchase_lines || record.production_issue_batches ? MAX_RM_RETEST_DAYS : undefined} />
+              <QcReviewerForm
+                id={record.id}
+                maxRetestDays={isRawMaterialQc ? MAX_RM_RETEST_DAYS : undefined}
+                defaultRetestDays={isRawMaterialQc ? MAX_RM_RETEST_DAYS : undefined}
+                isFinalRetest={isFinalRetest}
+                defaultExpiry={suggestedExpiry ?? ""}
+              />
             </CardBody>
           </Card>
         )}
@@ -213,8 +245,9 @@ export default async function QualityCheckDetailPage({
               <Field label="Decision" value={<Badge status={record.status}>{record.status}</Badge>} />
               <Field label="Decided by" value={reviewerName} />
               <Field label="Decided at" value={formatDate(record.reviewed_at)} />
+              <Field label="Expiry date" value={formatDate(record.expiry_date)} />
               <Field label="Retest period (days)" value={record.retest_period_days ?? "—"} />
-              <Field label="Retest date" value={formatDate(record.retest_date)} />
+              <Field label="Retest date" value={record.retest_date ? formatDate(record.retest_date) : record.status === "approved" ? "None (last retest done)" : "—"} />
               <div className="col-span-2">
                 <p className="text-xs font-medium text-muted uppercase tracking-wide">Comments</p>
                 <p className="mt-1 whitespace-pre-wrap">{record.review_comments || "—"}</p>

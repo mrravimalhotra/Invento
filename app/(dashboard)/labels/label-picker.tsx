@@ -48,6 +48,7 @@ export type RmRecord = {
   qcStatus: string;
   arNumber: string | null;
   retestDate: string | null;
+  expiryDate: string | null;
   poSubmitted: boolean;
   retestPeriodDays: number | null;
 };
@@ -66,6 +67,7 @@ export type FpRecord = {
   unit: string;
   finishDate: string | null;
   expiryMonth: string | null;
+  qcExpiryDate: string | null;
   status: string;
 };
 
@@ -134,6 +136,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
         { label: "Invoice/Ch. No.", value: rm.invoiceNumber },
         { label: "Date of Receipt", value: dateOrNull(rm.receiptDate) },
         { label: "Retest Period", value: rm.retestPeriodDays != null ? `${rm.retestPeriodDays} days` : null },
+        { label: "Expiry Date", value: dateOrNull(rm.expiryDate) },
         { label: "Sign", value: null },
       ];
     }
@@ -168,7 +171,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
         { label: "Batch No.", value: fp.shortBatchNumber ?? fp.batchNumber },
         { label: "Batch Quantity", value: fp.quantity != null ? `${formatQty(fp.quantity)} ${fp.unit}` : null },
         { label: "Month of Manufacture", value: monthYear(fp.finishDate) },
-        { label: "Best Before", value: monthYear(fp.expiryMonth) },
+        { label: "Best Before", value: monthYear(fp.qcExpiryDate ?? fp.expiryMonth) },
         { label: "Sign", value: null },
       ];
     }

@@ -27,6 +27,7 @@ export type PurchaseBatchRow = {
   purchase_order_status: string;
   qc_status?: string | null;
   retest_date?: string | null;
+  qc_expiry_date?: string | null;
 };
 
 export function PurchaseBatchesTable({ rows, showQcStatus }: { rows: PurchaseBatchRow[]; showQcStatus: boolean }) {
@@ -71,7 +72,7 @@ export function PurchaseBatchesTable({ rows, showQcStatus }: { rows: PurchaseBat
           {
             header: "QC status",
             accessor: (r: PurchaseBatchRow) => {
-              const state: BatchQcState = computeBatchQcState(r.qc_status, r.retest_date);
+              const state: BatchQcState = computeBatchQcState(r.qc_status, r.retest_date, undefined, r.qc_expiry_date);
               return <Badge status={state}>{BATCH_QC_LABELS[state]}</Badge>;
             },
           } as Column<PurchaseBatchRow>,

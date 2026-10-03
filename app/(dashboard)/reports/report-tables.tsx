@@ -76,6 +76,7 @@ export type QcRow = {
   status: string;
   reviewed_at: string | null;
   retest_date: string | null;
+  expiry_date: string | null;
   item: { name: string } | null;
   purchase_line: { batch_number: string } | null;
   fp_batch: { batch_number: string; short_batch_no: string | null } | null;
@@ -106,6 +107,12 @@ export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
       cell: (r) => formatDate(r.retest_date),
       pdfValue: (r) => formatDate(r.retest_date),
       xl: { type: "date", value: (r) => r.retest_date },
+    },
+    {
+      header: "Expiry Date",
+      cell: (r) => formatDate(r.expiry_date),
+      pdfValue: (r) => formatDate(r.expiry_date),
+      xl: { type: "date", value: (r) => r.expiry_date },
     },
   ];
 

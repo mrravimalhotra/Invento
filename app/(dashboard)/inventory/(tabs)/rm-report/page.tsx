@@ -86,9 +86,9 @@ export default async function RmReportPage({
   const lineIds = (data ?? []).map((r) => r.id);
   // ACC-08: fetched in chunks — thousands of ids in one request is too long
   // a URL, and a failed lookup showed every batch as "QC Pending".
-  const { data: statusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null }>(
+  const { data: statusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }>(
     lineIds,
-    (chunk) => supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date").in("purchase_line_id", chunk)
+    (chunk) => supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date, expiry_date").in("purchase_line_id", chunk)
   );
   const statusByLine = new Map((statusRows ?? []).map((s) => [s.purchase_line_id, s]));
 
@@ -107,7 +107,7 @@ export default async function RmReportPage({
       unit: r.unit,
       unitPrice,
       total: qty * unitPrice,
-      qcState: computeBatchQcState(status?.qc_status, status?.retest_date),
+      qcState: computeBatchQcState(status?.qc_status, status?.retest_date, undefined, status?.expiry_date),
     };
   });
 

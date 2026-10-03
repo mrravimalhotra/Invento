@@ -32,6 +32,7 @@ export type ProductionBatchRow = {
   created_at: string;
   qc_status?: string | null;
   retest_date?: string | null;
+  qc_expiry_date?: string | null;
   packaging_issues: { code: string; created_at: string } | null;
 };
 
@@ -74,7 +75,7 @@ export function ProductionBatchesTable({
     {
       header: "QC status",
       accessor: (r) => {
-        const state = computeBatchQcState(r.qc_status ?? null, r.retest_date ?? null);
+        const state = computeBatchQcState(r.qc_status ?? null, r.retest_date ?? null, undefined, r.qc_expiry_date ?? null);
         return <Badge status={state}>{BATCH_QC_LABELS[state]}</Badge>;
       },
     },

@@ -33,6 +33,7 @@ type BatchStatusFetch = {
   qc_status: string;
   ar_number: string | null;
   retest_date: string | null;
+  expiry_date: string | null;
   quality_check_id: string | null;
 };
 
@@ -108,7 +109,7 @@ export default async function LabelsPage() {
     (chunk) =>
       supabase
         .from("purchase_batch_status")
-        .select("purchase_line_id, qc_status, ar_number, retest_date, quality_check_id")
+        .select("purchase_line_id, qc_status, ar_number, retest_date, expiry_date, quality_check_id")
         .in("purchase_line_id", chunk)
   );
   const statuses: BatchStatusFetch[] = statusData;
@@ -136,10 +137,24 @@ export default async function LabelsPage() {
       qcStatus: status?.qc_status ?? "not_submitted",
       arNumber: status?.ar_number ?? null,
       retestDate: status?.retest_date ?? null,
+      expiryDate: status?.expiry_date ?? null,
       poSubmitted: l.pushed_at !== null,
       retestPeriodDays: status?.quality_check_id ? retestByQcId.get(status.quality_check_id) ?? null : null,
     };
   });
+
+  // FB-0058: the Best Before date is the Expiry date the QC Reviewer set when approving the batch.
+  const { data: fpQcExpiry } = await fetchByIdChunks<{ finished_product_batch_id: string; expiry_date: string | null }>(
+    fpBatches.map((b) => b.id),
+    (chunk) =>
+      supabase
+        .from("quality_checks")
+        .select("finished_product_batch_id, expiry_date")
+        .eq("status", "approved")
+        .not("expiry_date", "is", null)
+        .in("finished_product_batch_id", chunk)
+  );
+  const fpExpiryById = new Map(fpQcExpiry.map((q) => [q.finished_product_batch_id, q.expiry_date]));
 
   const fpRecords: FpRecord[] = fpBatches.map((b) => ({
     id: b.id,
@@ -150,6 +165,7 @@ export default async function LabelsPage() {
     unit: b.unit,
     finishDate: b.finish_date,
     expiryMonth: b.expiry_month,
+    qcExpiryDate: fpExpiryById.get(b.id) ?? null,
     status: b.status,
   }));
 

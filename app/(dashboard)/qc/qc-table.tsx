@@ -14,6 +14,7 @@ export type QcListRow = {
   sample_qty: string | number | null;
   sample_unit: string | null;
   retest_date: string | null;
+  expiry_date: string | null;
   is_retest: boolean;
   items: { item_code: string; name: string } | null;
   purchase_lines: { batch_number: string } | null;
@@ -102,6 +103,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
       accessor: (r) => (r.sample_qty !== null ? `${formatQty(r.sample_qty)} ${r.sample_unit ?? ""}` : "—"),
     },
     { header: "Retest date", accessor: (r) => formatDate(r.retest_date) },
+    { header: "Expiry date", accessor: (r) => formatDate(r.expiry_date) },
   ];
 
   const exportConfig: TableExport<QcListRow> = {
@@ -130,6 +132,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
       { header: "Sample qty", type: "number", decimals: 3, value: (r) => (r.sample_qty !== null ? Number(r.sample_qty) : null) },
       { header: "Sample unit", value: (r) => r.sample_unit ?? "" },
       { header: "Retest date", type: "date", value: (r) => r.retest_date },
+      { header: "Expiry date", type: "date", value: (r) => r.expiry_date },
     ],
   };
 
