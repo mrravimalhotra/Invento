@@ -810,7 +810,7 @@ These modules were part of Invento at one point but are no longer expected to be
 
 ## Glossary
 
-**AR (Assign Record)** — a Quality Control record, one per batch assigned for testing. Numbered like `AR-001-22092026` (a sequence number plus the date it was created).
+**AR (Assign Record)** — a Quality Control record, one per batch assigned for testing. Numbered `ARRM-0001/26` for raw material and `ARFP-0001/26` for finished product (a 4-digit running number per type, then the year; each type starts again at 0001 every year, and after 9999 it simply continues as 10000). Numbers issued before 3 Oct 2026 keep the old form, for example `AR-001-22092026`.
 
 **Batch** — a specific received lot of a raw material or packaging item (from one Purchase line), or a specific production run of a finished product. Every batch has its own batch number and its own QC/stock history, even if it's the same item as another batch.
 

@@ -690,3 +690,11 @@ The tester asked for the full form of "AR No". On-screen text now says **Analyti
 - Shown on: QC page, QC list and Reports QC register (Excel/PDF), Approved RM label ("Expiry Date"),
   FP label ("Best Before"), and the Dashboard "Expiring in the next 90 days" card (raw and finished).
 - Not enforced: expiry before the retest date; finished product has no retest limit.
+
+## Analytical Report No. format (0099, 3 Oct 2026, FB-0059)
+
+- Raw material: `ARRM-0001/26`. Finished product: `ARFP-0001/26`. Prefix, 4-digit running number, `/`, 2-digit year (India time).
+- Each type has its own counter, and each counter starts again at 0001 every year.
+- After 9999 the number keeps counting as `ARRM-10000/26` (never cut short or repeated).
+- Numbers already issued (`AR-001-DDMMYYYY`) are not changed.
+- `get_next_ar_number()` (raw material, used by purchase QC, production QC and retest) and `get_next_fp_ar_number()` (finished product, used by `submit_fp_batch_to_qc`). Counters are sequences named `ar_rm_26_seq` and `ar_fp_26_seq`, created when first needed.
