@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
 import { MAX_RM_RETEST_DAYS, MAX_RM_RETESTS } from "@/lib/constants/qc-rules";
+import { countRetestsDone } from "@/lib/qc-retests";
 import { beforeDateError } from "@/lib/date-rules";
 import { todayIst } from "@/lib/utils";
 
@@ -200,13 +201,11 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   // period (the material is used until its Expiry date); every other approval needs one.
   let finalRetest = false;
   if (isRawMaterial && existing.is_retest) {
-    const col = existing.purchase_line_id ? "purchase_line_id" : "production_batch_id";
-    const { count: retestsDone } = await supabase
-      .from("quality_checks")
-      .select("id", { count: "exact", head: true })
-      .eq(col, (existing.purchase_line_id ?? existing.production_batch_id) as string)
-      .eq("is_retest", true);
-    finalRetest = (retestsDone ?? 0) >= MAX_RM_RETESTS;
+    const retestsDone = await countRetestsDone(supabase, {
+      purchaseLineId: existing.purchase_line_id,
+      productionBatchId: existing.production_batch_id,
+    });
+    finalRetest = retestsDone >= MAX_RM_RETESTS;
   }
   if (status === "approved") {
     if (finalRetest && retestPeriodRaw) {
@@ -280,14 +279,8 @@ async function startRetest(
 
   const supabase = await createClient();
   // FB-0061 (Ravi, 3 Oct 2026): a raw-material batch is retested at most 3 times.
-  const retestCountQuery = supabase
-    .from("quality_checks")
-    .select("id", { count: "exact", head: true })
-    .eq("is_retest", true);
-  const { count: retestsDone } = await (batch.purchaseLineId
-    ? retestCountQuery.eq("purchase_line_id", batch.purchaseLineId)
-    : retestCountQuery.eq("production_batch_id", batch.productionBatchId as string));
-  if ((retestsDone ?? 0) >= MAX_RM_RETESTS) {
+  const retestsDone = await countRetestsDone(supabase, batch);
+  if (retestsDone >= MAX_RM_RETESTS) {
     return { error: `This batch has already been retested ${MAX_RM_RETESTS} times, which is the maximum.` };
   }
   const { data: qcId, error } = await supabase.rpc("start_retest", {

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
+import { toIstDateString } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { LabelPicker, type RmRecord, type FpRecord } from "./label-picker";
 
@@ -17,6 +18,8 @@ import { LabelPicker, type RmRecord, type FpRecord } from "./label-picker";
 type PurchaseLineFetch = {
   id: string;
   batch_number: string;
+  is_legacy: boolean;
+  created_at: string;
   pushed_at: string | null;
   quantity: string | number;
   unit: string;
@@ -75,7 +78,7 @@ export default async function LabelsPage() {
       supabase
         .from("purchase_lines")
         .select(
-          "id, batch_number, pushed_at, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
+          "id, batch_number, is_legacy, created_at, pushed_at, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
         )
         .eq("active", true)
         .eq("items.category", "raw")
@@ -133,7 +136,9 @@ export default async function LabelsPage() {
       unit: l.unit,
       vendorName: po?.vendor?.name ?? "—",
       invoiceNumber: po?.invoice_number ?? "—",
-      receiptDate: po?.invoice_date ?? null,
+      // Opening stock: the real receipt date is the line's date, not the load day.
+      receiptDate: l.is_legacy ? toIstDateString(l.created_at) : po?.invoice_date ?? null,
+      isLegacy: l.is_legacy,
       qcStatus: status?.qc_status ?? "not_submitted",
       arNumber: status?.ar_number ?? null,
       retestDate: status?.retest_date ?? null,

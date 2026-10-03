@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
   Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
-  UploadCloud, Trash2, History, BookOpen,
+  UploadCloud, Trash2, History, BookOpen, PackagePlus,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -93,6 +93,9 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // Master (17) / Dead Stock Register (18)'s precedent for
       // post-baseline additions.
       { href: "/bulk-upload", label: "Bulk Data Upload", icon: UploadCloud, module: 19 },
+      // Ravi (3 Oct 2026): opening stock for go-live, every role may load until
+      // the System Administrator closes loading. Module 23 follows User Guide (22).
+      { href: "/opening-stock", label: "Opening Stock", icon: PackagePlus, module: 23 },
       // Not part of the original 15-module baseline — added per Ravi's
       // 13 Sept 2026 request for an admin-controlled button to purge all
       // inventory/purchase data for from-scratch end-to-end testing;

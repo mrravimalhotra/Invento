@@ -3,6 +3,7 @@
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatNumber, formatQty } from "@/lib/utils";
 import { lineFinancials } from "./line-financials";
@@ -16,6 +17,7 @@ const downloadRmIntimationPdf = async (...args: Parameters<typeof import("./rm-i
 export type LineRow = {
   id: string;
   batch_number: string;
+  is_legacy?: boolean;
   quantity: string;
   unit: string;
   qc_qty: string;
@@ -145,7 +147,7 @@ export function PurchaseLinesTable({
       ),
       searchValue: (r) => `${r.item?.item_code ?? ""} ${r.item?.name ?? ""}`,
     },
-    { header: "Batch", accessor: (r) => <span className="font-mono text-xs">{r.batch_number}</span>, searchValue: (r) => r.batch_number },
+    { header: "Batch", accessor: (r) => <span className="font-mono text-xs">{r.batch_number}<LegacyTag show={r.is_legacy} /></span>, searchValue: (r) => r.batch_number },
     {
       header: "Quantity",
       accessor: (r) => {

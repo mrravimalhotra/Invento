@@ -40,6 +40,7 @@ export type RmRecord = {
   id: string;
   itemName: string;
   batchNumber: string;
+  isLegacy?: boolean;
   quantity: number;
   unit: string;
   vendorName: string;
@@ -239,7 +240,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
                 <option value="">Select a batch…</option>
                 {filteredRmRecords.map((r) => (
                   <option key={r.id} value={r.id} data-legacy={isLegacyCode(r.batchNumber) ? "1" : undefined}>
-                    {r.batchNumber} · {r.itemName}
+                    {r.batchNumber}{r.isLegacy ? " (Legacy)" : ""} · {r.itemName}
                   </option>
                 ))}
               </Select>

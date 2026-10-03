@@ -53,6 +53,7 @@ type PositionQueryRow = {
 type PurchaseLineQueryRow = {
   id: string;
   batch_number: string;
+  is_legacy: boolean;
   quantity: string | number;
   qc_qty: string | number;
   stability_qty: string | number;
@@ -135,7 +136,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
       supabase
         .from("purchase_lines")
         .select(
-          "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, live_remaining_qty, unit, expiry_date, created_at, pushed_at, purchase_orders!inner(status)"
+          "id, batch_number, is_legacy, quantity, qc_qty, stability_qty, rnd_qty, live_remaining_qty, unit, expiry_date, created_at, pushed_at, purchase_orders!inner(status)"
         )
         .eq("item_id", id)
         .eq("active", true)
@@ -159,6 +160,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
       return {
         id: r.id,
         batch_number: r.batch_number,
+        is_legacy: r.is_legacy,
         quantity: r.quantity,
         qc_qty: r.qc_qty,
         stability_qty: r.stability_qty,

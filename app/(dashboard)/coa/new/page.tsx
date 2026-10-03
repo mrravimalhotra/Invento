@@ -176,7 +176,7 @@ async function fetchBatchOptions(
     const { data } = await fetchAllRows((from, to) =>
       supabase
         .from("quality_checks")
-        .select("id, ar_number, purchase_lines(batch_number, items(item_code, name))")
+        .select("id, ar_number, is_legacy, purchase_lines(batch_number, is_legacy, items(item_code, name))")
         .eq("status", "approved")
         .not("purchase_line_id", "is", null)
         .order("created_at", { ascending: false })
@@ -186,13 +186,14 @@ async function fetchBatchOptions(
           {
             id: string;
             ar_number: string;
-            purchase_lines: { batch_number: string; items: { item_code: string; name: string } | null } | null;
+            is_legacy: boolean;
+            purchase_lines: { batch_number: string; is_legacy: boolean; items: { item_code: string; name: string } | null } | null;
           }[]
         >()
     );
     return (data ?? []).filter((qc) => current.has(qc.id)).map((qc) => ({
       qualityCheckId: qc.id,
-      label: `${qc.ar_number} · ${qc.purchase_lines?.items?.item_code ?? "—"} ${qc.purchase_lines?.items?.name ?? ""} · Batch ${qc.purchase_lines?.batch_number ?? "—"}`,
+      label: `${qc.ar_number} · ${qc.purchase_lines?.items?.item_code ?? "—"} ${qc.purchase_lines?.items?.name ?? ""} · Batch ${qc.purchase_lines?.batch_number ?? "—"}${qc.is_legacy || qc.purchase_lines?.is_legacy ? " (Legacy)" : ""}`,
       legacy: isLegacyCode(qc.purchase_lines?.items?.item_code) || isLegacyCode(qc.purchase_lines?.batch_number),
     }));
   }

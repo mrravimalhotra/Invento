@@ -38,6 +38,7 @@
     - [Reports](#reports)
     - [Tester Feedback](#tester-feedback)
     - [Bulk Data Upload](#bulk-data-upload)
+    - [Opening Stock](#opening-stock)
     - [Purge Test Data](#purge-test-data)
     - [Legacy / deprecated modules](#legacy--deprecated-modules)
 11. [Glossary](#glossary)
@@ -764,6 +765,25 @@ Each upload writes into exactly the same tables and goes through exactly the sam
 - A bulk-uploaded purchase order always lands as a Draft, exactly like one entered by hand — someone still needs to open it and click Final Submit before it affects stock.
 - A bulk-uploaded MFR still needs a manual Approve click before it produces a usable Finished Product item — uploading the recipe alone doesn't approve it.
 - If a file is rejected, fix the listed rows and re-upload the whole file from scratch — there's no partial import and no pre-filling of a corrected file with what was already valid.
+
+### Opening Stock
+
+**Where to find it:** Admin → Opening Stock
+
+**Who can use it:** Anyone with a role can load opening stock while loading is **open**. Only the System Administrator can close loading, re-open it, or undo a load.
+
+**What it's for:** Before go-live, the stock already on the shelves is loaded from the physical stock count sheet, so the app starts with the right quantities. Raw material and packaging are loaded here; finished product opening stock comes in a later release. The System Administrator closes loading by hand after the agreed cut-off date. The app keeps no cut-off date of its own.
+
+**How to load**
+1. Open the card for Raw Material or Packaging and click "Download template". Fill one row per batch (or lot) from the stock count sheet.
+2. Choose the file and click "Check file". Every problem is listed with its Excel row number. Nothing is loaded while any problem remains.
+3. When the check says the file is fine, click "Load N rows". All rows are loaded together or not at all, and the load gets a number (OPN-0001, OPN-0002, …).
+
+**Raw material rows** are Approved, Pending QC or Rejected. Approved and Rejected rows carry the old Analytical Report (AR) number exactly as written in the old records, plus the QC approval date. Approved rows also carry the retest date and the manufacturer expiry date. Pending QC rows only need the expiry date and join the normal QC queue. "Retests already done" (0 to 3) counts toward the limit of 3 retests.
+
+**Legacy tag:** A batch or AR number loaded here shows a grey "Legacy" tag beside it on the QC, Purchase, Inventory and RM Report screens, and a "Source" column in Excel exports. QC and the RM Report also have a Source filter (All / New / Legacy). Batch numbers and AR numbers that look like ones made by the app are refused, so an old number can never be mistaken for a new one.
+
+**Undo:** While loading is open, the System Administrator can undo a load if none of its stock has been used and no new QC record has been started on its batches.
 
 ### Purge Test Data
 

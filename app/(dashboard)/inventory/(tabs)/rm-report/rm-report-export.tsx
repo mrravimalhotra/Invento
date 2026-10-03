@@ -12,6 +12,8 @@ const downloadPdfTable = async (...args: Parameters<typeof import("@/lib/pdf").d
 export type RmReportExportRow = {
   item: string;
   batchNumber: string;
+  // Opening stock loaded from the old records (0100).
+  isLegacy: boolean;
   pqty: number;
   sqty: number;
   qty: number;
@@ -25,10 +27,11 @@ export function RmReportExport({ asOf, rows }: { asOf: string; rows: RmReportExp
   function handleExport() {
     downloadPdfTable({
       title: `RM Report As On Date — ${asOf}`,
-      columns: ["Item", "Batch No.", "PQTY", "SQTY", "QTY", "Unit", "Unit Price", "Total", "QC Status"],
+      columns: ["Item", "Batch No.", "Source", "PQTY", "SQTY", "QTY", "Unit", "Unit Price", "Total", "QC Status"],
       rows: rows.map((r) => [
         r.item,
         r.batchNumber,
+        r.isLegacy ? "Legacy" : "New",
         r.pqty.toFixed(3),
         r.sqty.toFixed(3),
         r.qty.toFixed(3),

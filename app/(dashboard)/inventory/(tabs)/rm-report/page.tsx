@@ -26,6 +26,7 @@ type PurchaseLineRow = {
   unit_price: string | number | null;
   expiry_date: string | null;
   created_at: string;
+  is_legacy: boolean;
   items: { name: string; item_code: string; category: string } | null;
   purchase_orders: { status: string } | null;
 };
@@ -65,7 +66,7 @@ export default async function RmReportPage({
     supabase
       .from("purchase_lines")
       .select(
-        "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, remaining_qty, live_remaining_qty, unit, unit_price, expiry_date, created_at, items!inner(name, item_code, category), purchase_orders!inner(status)"
+        "id, batch_number, quantity, qc_qty, stability_qty, rnd_qty, remaining_qty, live_remaining_qty, unit, unit_price, expiry_date, created_at, is_legacy, items!inner(name, item_code, category), purchase_orders!inner(status)"
       )
       .eq("active", true)
       .eq("purchase_orders.status", "submitted")
@@ -101,6 +102,7 @@ export default async function RmReportPage({
     return {
       item: `${r.items?.name ?? "—"} (${r.items?.item_code ?? "—"}) — Batch ${r.batch_number}`,
       batchNumber: r.batch_number,
+      isLegacy: r.is_legacy,
       pqty,
       sqty,
       qty,

@@ -20,7 +20,7 @@ const HEADER_FILL: ExcelJS.Fill = {
   fgColor: { argb: "FFE8F0EA" }, // light brand-green tint, no dependency on the app's CSS variables
 };
 
-function addHeaderRow(sheet: ExcelJS.Worksheet, columns: ColumnDef[]) {
+export function addHeaderRow(sheet: ExcelJS.Worksheet, columns: ColumnDef[]) {
   const row = sheet.addRow(columns.map((c) => c.header + (c.required ? " *" : "")));
   row.eachCell((cell) => {
     cell.font = { bold: true };
@@ -43,7 +43,7 @@ function exampleRowValues(columns: ColumnDef[], values: string[]): (string | num
 
 // ACC-23: example rows are written in grey italics and the upload skips a
 // row that still matches its example exactly, so leaving them in is harmless.
-function addExampleRows(sheet: ExcelJS.Worksheet, columns: ColumnDef[], rows: string[][]) {
+export function addExampleRows(sheet: ExcelJS.Worksheet, columns: ColumnDef[], rows: string[][]) {
   rows.forEach((values) => {
     const row = sheet.addRow(exampleRowValues(columns, values));
     row.font = { italic: true, color: { argb: "FF808080" } };
@@ -53,7 +53,7 @@ function addExampleRows(sheet: ExcelJS.Worksheet, columns: ColumnDef[], rows: st
 export const EXAMPLE_ROW_NOTE =
   "The grey italic example row(s) in the data sheet show the expected format. They are ignored on upload as long as they are left unchanged, so you can keep or delete them.";
 
-const DATE_NOTE =
+export const DATE_NOTE =
   "Dates: type them as real Excel dates, or as text in dd-mm-yyyy (e.g. 05-09-2026) or yyyy-mm-dd form. Any other date format is rejected rather than guessed. Percentage columns take a plain number (18 for 18%); \"18%\" is also accepted.";
 
 // `columnSections` is normally one section (every module except MFR has
@@ -104,7 +104,7 @@ function addReferenceSheet(sheet: ExcelJS.Worksheet, title: string, rows: string
 // `Reference!$<col>$2:$<col>$<n>` range of its own, not mixed in with
 // other sections. Returns the 1-indexed last row written (>= 2 always,
 // even for zero rows, so a caller's range formula is never empty/invalid).
-function addReferenceColumn(sheet: ExcelJS.Worksheet, colNumber: number, title: string, rows: string[]): number {
+export function addReferenceColumn(sheet: ExcelJS.Worksheet, colNumber: number, title: string, rows: string[]): number {
   const headerCell = sheet.getCell(1, colNumber);
   headerCell.value = title;
   headerCell.font = { bold: true };
@@ -146,7 +146,7 @@ function colLetter(n: number): string {
 // Handing exceljs an address that's already a full range sidesteps that
 // optimizer entirely — decodeEx() recognizes it as already-a-rectangle and
 // emits it as-is.
-function applyDropdownColumn(
+export function applyDropdownColumn(
   sheet: ExcelJS.Worksheet,
   colNumber: number,
   startRow: number,

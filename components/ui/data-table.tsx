@@ -22,6 +22,7 @@ export function DataTable<T>({
   searchPlaceholder = "Search…",
   pageSize = 15,
   isLegacy,
+  isOpeningStock,
   exportConfig,
 }: {
   columns: Column<T>[];
@@ -32,6 +33,9 @@ export function DataTable<T>({
   // When provided, rows this returns true for are treated as legacy data
   // migrated from the old app, and a "Hide legacy data" toggle appears.
   isLegacy?: (row: T) => boolean;
+  // Opening stock (0100): rows this returns true for came from the old records.
+  // A Source filter (All / New / Legacy) appears when there is at least one.
+  isOpeningStock?: (row: T) => boolean;
   // When provided, Excel / PDF buttons appear and export every row that
   // matches the search box and the "Hide legacy data" switch (not just the
   // page on screen). See lib/table-export.ts.
@@ -50,10 +54,17 @@ export function DataTable<T>({
     setPage(0);
   }
 
+  const [source, setSource] = useState<"all" | "new" | "legacy">("all");
+  const sourceFiltered = useMemo(() => {
+    if (!isOpeningStock || source === "all") return rows;
+    return rows.filter((row) => (source === "legacy") === isOpeningStock(row));
+  }, [rows, isOpeningStock, source]);
+  const openingCount = isOpeningStock ? rows.filter(isOpeningStock).length : 0;
+
   const legacyFiltered = useMemo(() => {
-    if (!isLegacy || !hideLegacy) return rows;
-    return rows.filter((row) => !isLegacy(row));
-  }, [rows, isLegacy, hideLegacy]);
+    if (!isLegacy || !hideLegacy) return sourceFiltered;
+    return sourceFiltered.filter((row) => !isLegacy(row));
+  }, [sourceFiltered, isLegacy, hideLegacy]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return legacyFiltered;
@@ -96,6 +107,23 @@ export function DataTable<T>({
             }}
           />
         </div>
+        {isOpeningStock && openingCount > 0 && (
+          <label className="flex items-center gap-2 text-sm text-muted">
+            Source
+            <select
+              className="rounded-md border border-border bg-white px-2 py-1 text-sm text-foreground"
+              value={source}
+              onChange={(e) => {
+                setSource(e.target.value as "all" | "new" | "legacy");
+                setPage(0);
+              }}
+            >
+              <option value="all">All</option>
+              <option value="new">New</option>
+              <option value="legacy">Legacy</option>
+            </select>
+          </label>
+        )}
         {isLegacy && legacyCount > 0 && (
           <label className="flex items-center gap-2 text-sm text-muted">
             <input

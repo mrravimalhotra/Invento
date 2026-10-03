@@ -698,3 +698,8 @@ The tester asked for the full form of "AR No". On-screen text now says **Analyti
 - After 9999 the number keeps counting as `ARRM-10000/26` (never cut short or repeated).
 - Numbers already issued (`AR-001-DDMMYYYY`) are not changed.
 - `get_next_ar_number()` (raw material, used by purchase QC, production QC and retest) and `get_next_fp_ar_number()` (finished product, used by `submit_fp_batch_to_qc`). Counters are sequences named `ar_rm_26_seq` and `ar_fp_26_seq`, created when first needed.
+
+## Opening stock (0100, 3 Oct 2026)
+Batches loaded as opening stock carry a Legacy tag; their old AR number is kept as typed. A legacy Approved
+batch can be retested; `legacy_retests_done` counts toward the 3-retest limit. A Pending QC legacy batch
+starts the Reviewer's Expiry date from the manufacturer expiry date it was loaded with. See opening-stock.md.

@@ -1,5 +1,6 @@
 "use client";
 
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
@@ -16,6 +17,7 @@ import { BATCH_QC_LABELS, computeBatchQcState, type BatchQcState } from "@/lib/b
 export type PurchaseBatchRow = {
   id: string;
   batch_number: string;
+  is_legacy?: boolean;
   quantity: string | number;
   qc_qty: string | number;
   stability_qty: string | number;
@@ -36,7 +38,10 @@ export function PurchaseBatchesTable({ rows, showQcStatus }: { rows: PurchaseBat
       header: "Batch",
       accessor: (r) => (
         <div>
-          <div className="font-medium">{r.batch_number}</div>
+          <div className="font-medium">
+            {r.batch_number}
+            <LegacyTag show={r.is_legacy} />
+          </div>
           {r.purchase_order_status === "draft" && <div className="text-xs text-muted">Draft PO — not yet in stock</div>}
         </div>
       ),

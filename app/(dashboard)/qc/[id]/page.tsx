@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatQty, fpBatchBoth } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 import { MAX_RM_RETESTS, MAX_RM_RETEST_DAYS } from "@/lib/constants/qc-rules";
+import { countRetestsDone } from "@/lib/qc-retests";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { QcCheckerForm } from "./qc-checker-form";
 import { QcReviewerForm } from "./qc-reviewer-form";
 
@@ -26,13 +28,14 @@ type QcDetail = {
   retest_period_days: number | null;
   retest_date: string | null;
   is_retest: boolean;
+  is_legacy: boolean;
   purchase_line_id: string | null;
   production_batch_id: string | null;
   created_by: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
   items: { item_code: string; name: string } | null;
-  purchase_lines: { batch_number: string; quantity: string | number; unit: string } | null;
+  purchase_lines: { batch_number: string; quantity: string | number; unit: string; expiry_date: string | null; is_legacy: boolean } | null;
   finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
   // FB-0043: a Production-issued RM batch's own batch number.
   production_issue_batches: { batch_number: string } | null;
@@ -51,7 +54,7 @@ export default async function QualityCheckDetailPage({
   const { data } = await supabase
     .from("quality_checks")
     .select(
-      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, purchase_line_id, production_batch_id, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit), finished_product_batches(batch_number, short_batch_no), production_issue_batches(batch_number)"
+      "id, ar_number, status, sample_qty, sample_unit, expiry_date, checker_comments, checker_by, checker_at, review_comments, retest_period_days, retest_date, is_retest, is_legacy, purchase_line_id, production_batch_id, created_by, reviewed_by, reviewed_at, items(item_code, name), purchase_lines(batch_number, quantity, unit, expiry_date, is_legacy), finished_product_batches(batch_number, short_batch_no), production_issue_batches(batch_number)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -74,12 +77,11 @@ export default async function QualityCheckDetailPage({
   if (record.status === "checker_approved" && isRawMaterialQc && record.is_retest) {
     const col = record.purchase_line_id ? "purchase_line_id" : "production_batch_id";
     const batchId = (record.purchase_line_id ?? record.production_batch_id) as string;
-    const { count } = await supabase
-      .from("quality_checks")
-      .select("id", { count: "exact", head: true })
-      .eq(col, batchId)
-      .eq("is_retest", true);
-    isFinalRetest = (count ?? 0) >= MAX_RM_RETESTS;
+    const retestsDone = await countRetestsDone(supabase, {
+      purchaseLineId: record.purchase_line_id,
+      productionBatchId: record.production_batch_id,
+    });
+    isFinalRetest = retestsDone >= MAX_RM_RETESTS;
     const { data: prev } = await supabase
       .from("quality_checks")
       .select("expiry_date")
@@ -90,6 +92,8 @@ export default async function QualityCheckDetailPage({
       .limit(1);
     suggestedExpiry = prev?.[0]?.expiry_date ?? null;
   }
+  // Opening stock: a Pending QC batch loaded with its manufacturer expiry date starts from it.
+  if (!suggestedExpiry && record.purchase_lines?.expiry_date) suggestedExpiry = record.purchase_lines.expiry_date;
   const canRound1 = canWrite(user.roles, "qc_review_round1");
   const canRound2 = canWrite(user.roles, "qc_review_round2");
 
@@ -131,6 +135,7 @@ export default async function QualityCheckDetailPage({
         description={record.items ? `${record.items.item_code} — ${record.items.name}` : undefined}
         action={
           <div className="flex items-center gap-2">
+            {record.is_legacy && <LegacyTag />}
             {record.is_retest && <Badge status="pending">Retest</Badge>}
             <Badge status={record.status}>{qcRecordStatusLabel(record.status)}</Badge>
           </div>
@@ -142,7 +147,7 @@ export default async function QualityCheckDetailPage({
           <CardHeader title="Assign record" />
           <CardBody className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <Field label="Analytical Report No." value={record.ar_number} />
-            <Field label="Batch" value={batchLabel} />
+            <Field label="Batch" value={<>{batchLabel}<LegacyTag show={record.purchase_lines?.is_legacy} /></>} />
             <Field
               label="Sample quantity"
               value={record.sample_qty !== null ? `${formatQty(record.sample_qty)} ${record.sample_unit ?? ""}` : "—"}
