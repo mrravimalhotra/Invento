@@ -6,6 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
+import { MAX_RM_RETEST_DAYS, MAX_RM_RETESTS } from "@/lib/constants/qc-rules";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -177,12 +178,17 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   const supabase = await createClient();
   const { data: existing, error: existingError } = await supabase
     .from("quality_checks")
-    .select("status, checker_by")
+    .select("status, checker_by, purchase_line_id, production_batch_id")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) return { error: "Record not found." };
   if (existing.status !== "checker_approved") {
     return { error: "This record isn't awaiting a final QC Reviewer decision." };
+  }
+  // FB-0061 (Ravi, 3 Oct 2026): a raw-material retest period is at most 180 days.
+  const isRawMaterial = !!(existing.purchase_line_id || existing.production_batch_id);
+  if (isRawMaterial && retestPeriodDays !== null && retestPeriodDays > MAX_RM_RETEST_DAYS) {
+    return { error: `Retest period for a raw material can be at most ${MAX_RM_RETEST_DAYS} days (6 months).` };
   }
   // Two-round distinctness (20 Sept 2026, retiring the old maker/checker
   // created_by check): the QC Reviewer must differ from whoever made the
@@ -246,6 +252,17 @@ async function startRetest(
   if (!sampleUnit) return { error: "Select the sample unit." };
 
   const supabase = await createClient();
+  // FB-0061 (Ravi, 3 Oct 2026): a raw-material batch is retested at most 3 times.
+  const retestCountQuery = supabase
+    .from("quality_checks")
+    .select("id", { count: "exact", head: true })
+    .eq("is_retest", true);
+  const { count: retestsDone } = await (batch.purchaseLineId
+    ? retestCountQuery.eq("purchase_line_id", batch.purchaseLineId)
+    : retestCountQuery.eq("production_batch_id", batch.productionBatchId as string));
+  if ((retestsDone ?? 0) >= MAX_RM_RETESTS) {
+    return { error: `This batch has already been retested ${MAX_RM_RETESTS} times, which is the maximum.` };
+  }
   const { data: qcId, error } = await supabase.rpc("start_retest", {
     p_purchase_line_id: batch.purchaseLineId,
     p_production_batch_id: batch.productionBatchId,

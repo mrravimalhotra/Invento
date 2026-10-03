@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createEquipment, updateEquipment, deleteEquipment, type ActionState } from "@/lib/actions/equipment";
 import { Field, Input, Select, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
+import { todayIst } from "@/lib/utils";
 
 type Equipment = {
   id: string;
@@ -61,7 +62,7 @@ export function NewEquipmentForm({ nextEquipmentCode }: { nextEquipmentCode: str
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Last calibration date" htmlFor="last_calibration_date">
-          <Input id="last_calibration_date" name="last_calibration_date" type="date" />
+          <Input id="last_calibration_date" name="last_calibration_date" type="date" max={todayIst()} />
         </Field>
         <Field label="Next calibration due" htmlFor="next_calibration_due">
           <Input id="next_calibration_due" name="next_calibration_due" type="date" />
@@ -123,6 +124,7 @@ export function EditEquipmentForm({ equipment }: { equipment: Equipment }) {
             id="last_calibration_date"
             name="last_calibration_date"
             type="date"
+            max={todayIst()}
             defaultValue={equipment.last_calibration_date ?? ""}
           />
         </Field>

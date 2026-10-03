@@ -20,7 +20,7 @@ export default async function NewFinishedProductPage() {
   const { data: mfrDefinitions } = await fetchAllRows((from, to) =>
     supabase
       .from("mfr_definitions")
-      .select("id, code, name, version, batch_size_qty, batch_size_unit")
+      .select("id, code, name, version, batch_size_qty, batch_size_unit, approved_at")
       .eq("active", true)
       .not("approved_by", "is", null)
       .order("code")

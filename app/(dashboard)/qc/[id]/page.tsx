@@ -8,6 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatQty, fpBatchBoth } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
+import { MAX_RM_RETEST_DAYS } from "@/lib/constants/qc-rules";
 import { QcCheckerForm } from "./qc-checker-form";
 import { QcReviewerForm } from "./qc-reviewer-form";
 
@@ -173,7 +174,7 @@ export default async function QualityCheckDetailPage({
           <Card>
             <CardHeader title="Round 2 decision — QC Reviewer" />
             <CardBody>
-              <QcReviewerForm id={record.id} />
+              <QcReviewerForm id={record.id} maxRetestDays={record.purchase_lines || record.production_issue_batches ? MAX_RM_RETEST_DAYS : undefined} />
             </CardBody>
           </Card>
         )}

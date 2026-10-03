@@ -43,7 +43,7 @@ export function PackagingForm({
           label={multiLine ? "Issue date (all lines)" : "Issue date"}
           htmlFor="issue_date"
           required
-          hint="The day this issue was made. Today by default; an earlier day is fine, a future day is not."
+          hint="The day this issue was made. Today by default; an earlier day is fine, a future day is not, and not before the batch was approved by QC."
         >
           <Input id="issue_date" name="issue_date" type="date" defaultValue={todayIst()} max={todayIst()} required />
         </Field>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Field, Input, Select } from "@/components/ui/form";
+import { todayIst } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AUDIT_TABLE_OPTIONS } from "./audit-diff";
 
@@ -43,11 +44,12 @@ export function AuditFilters({
         </Select>
       </Field>
       <Field label="From" htmlFor="from">
-        <Input id="from" name="from" type="date" defaultValue={from} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
+        <Input id="from" name="from" type="date" defaultValue={from} max={to || todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
       </Field>
       <Field label="To" htmlFor="to">
-        <Input id="to" name="to" type="date" defaultValue={to} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
+        <Input id="to" name="to" type="date" defaultValue={to} min={from || undefined} max={todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
       </Field>
+      {from && to && from > to && <p className="basis-full text-sm text-red">From date cannot be after To date.</p>}
       <Button type="submit" variant="secondary" size="sm">
         Apply
       </Button>

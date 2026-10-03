@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
 import { formatDate } from "@/lib/utils";
+import { beforeDateError, firstDateError, futureDateError, istDay, notAfterDateError } from "@/lib/date-rules";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -80,6 +81,20 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Not authorized." };
 
   const supabase = await createClient();
+
+  // Date rule (Ravi, 3 Oct 2026): the start date cannot be in the future and
+  // cannot be before the day the MFR was approved.
+  const { data: mfrApproval } = await supabase
+    .from("mfr_definitions")
+    .select("approved_at")
+    .eq("id", mfrDefinitionId)
+    .maybeSingle<{ approved_at: string | null }>();
+  const startDateError = firstDateError(
+    futureDateError(batchStartDate, "Batch start date"),
+    beforeDateError(batchStartDate, istDay(mfrApproval?.approved_at), "Batch start date", "the MFR approval date")
+  );
+  if (startDateError) return { error: startDateError };
+
   // get_next_fp_batch_number() now takes the MFR definition (20 Sept 2026 ->
   // 21 Sept 2026, Ravi: "Finished product batch number should be in same
   // format as of Raw material Batch Number") — it embeds the linked
@@ -313,6 +328,13 @@ export async function completeFinishedProductBatch(
   if (current.batch_start_date && finishDate < current.batch_start_date) {
     return { error: `Finish date can't be earlier than the batch start date (${formatDate(current.batch_start_date)}).` };
   }
+  // Date rules (Ravi, 3 Oct 2026): the batch cannot finish in the future,
+  // and the expiry date has to be after the finish date.
+  const completionDateError = firstDateError(
+    futureDateError(finishDate, "Finish date"),
+    notAfterDateError(expiryMonth, finishDate, "Expiry date", "the finish date")
+  );
+  if (completionDateError) return { error: completionDateError };
   if (current.status !== "in_process") {
     return {
       error: "This batch is no longer in progress — it may already be completed or submitted to QC. Refresh to see its current status.",

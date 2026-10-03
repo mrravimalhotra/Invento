@@ -9,6 +9,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { convertUnit } from "@/lib/constants/units";
 import { escapeLike } from "@/lib/utils";
 import { friendlyDbError } from "@/lib/db-errors";
+import { futureDateError } from "@/lib/date-rules";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -61,6 +62,8 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
     invoice_date: String(formData.get("invoice_date") || ""),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const invoiceDateError = futureDateError(parsed.data.invoice_date, "Invoice date");
+  if (invoiceDateError) return { error: invoiceDateError };
 
   const supabase = await createClient();
 

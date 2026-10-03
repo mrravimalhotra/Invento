@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDate, toIstDateString } from "@/lib/utils";
+import { formatDate, toIstDateString, todayIst } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -137,6 +137,7 @@ export function ReportSection<T>({
                 id={`${inputId}-from`}
                 type="date"
                 value={from}
+                max={to || todayIst()}
                 onChange={(e) => setFrom(e.target.value)}
                 className="w-auto"
               />
@@ -146,10 +147,13 @@ export function ReportSection<T>({
                 id={`${inputId}-to`}
                 type="date"
                 value={to}
+                min={from || undefined}
+                max={todayIst()}
                 onChange={(e) => setTo(e.target.value)}
                 className="w-auto"
               />
             </Field>
+            {from && to && from > to && <p className="basis-full text-sm text-red">From date cannot be after To date.</p>}
             {(from || to) && (
               <Button
                 type="button"

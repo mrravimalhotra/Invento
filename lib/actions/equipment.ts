@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { firstDateError, futureDateError, notAfterDateError } from "@/lib/date-rules";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -30,6 +31,15 @@ const equipmentSchema = z.object({
   next_calibration_due: z.string().trim().optional(),
 });
 
+// Date rules (Ravi, 3 Oct 2026): a calibration cannot be dated in the future, and the
+// next due date has to come after the last calibration. A past due date is fine (overdue).
+function equipmentDateError(d: { last_calibration_date?: string; next_calibration_due?: string }): string | null {
+  return firstDateError(
+    futureDateError(d.last_calibration_date, "Last calibration date"),
+    notAfterDateError(d.next_calibration_due, d.last_calibration_date, "Next calibration due", "the last calibration date")
+  );
+}
+
 function parseEquipmentForm(formData: FormData) {
   return equipmentSchema.safeParse({
     name: String(formData.get("name") || ""),
@@ -49,6 +59,8 @@ export async function createEquipment(_prev: ActionState, formData: FormData): P
 
   const parsed = parseEquipmentForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const dateError = equipmentDateError(parsed.data);
+  if (dateError) return { error: dateError };
 
   const supabase = await createClient();
 
@@ -109,6 +121,8 @@ export async function updateEquipment(
 
   const parsed = parseEquipmentForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const dateError = equipmentDateError(parsed.data);
+  if (dateError) return { error: dateError };
 
   const active = formData.get("active") === "on";
 

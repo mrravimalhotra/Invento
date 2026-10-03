@@ -6,7 +6,8 @@ import { completeFinishedProductBatch, type ActionState } from "@/lib/actions/fi
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { compatibleUnits, convertUnit } from "@/lib/constants/units";
-import { formatDate, formatQty } from "@/lib/utils";
+import { formatDate, formatQty, todayIst } from "@/lib/utils";
+import { futureDateError, notAfterDateError } from "@/lib/date-rules";
 
 type Defaults = {
   batch_yield: string | number | null;
@@ -100,8 +101,18 @@ export function CompleteBatchForm({
       setClientError(`Finish date can't be earlier than the batch start date (${formatDate(startDate)}).`);
       return;
     }
+    const futureFinish = futureDateError(finishDate, "Finish date");
+    if (futureFinish) {
+      setClientError(futureFinish);
+      return;
+    }
     if (!expiryMonth) {
       setClientError("Expiry date is required.");
+      return;
+    }
+    const expiryError = notAfterDateError(expiryMonth, finishDate, "Expiry date", "the finish date");
+    if (expiryError) {
+      setClientError(expiryError);
       return;
     }
     if (!sampleUnit) {
@@ -164,6 +175,7 @@ export function CompleteBatchForm({
             type="date"
             required
             min={startDate ?? undefined}
+            max={todayIst()}
             value={finishDate}
             onChange={(e) => setFinishDate(e.target.value)}
           />
@@ -181,6 +193,7 @@ export function CompleteBatchForm({
             id="expiry_month"
             name="expiry_month"
             type="date"
+            min={finishDate || undefined}
             required
             value={expiryMonth}
             onChange={(e) => setExpiryMonth(e.target.value)}

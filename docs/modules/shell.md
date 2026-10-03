@@ -198,3 +198,23 @@ Each screen has its own tab title ("Purchase · Invento"): the root layout sets 
 React 19 clears a `<form action={…}>` after every attempt, which wiped every field when a save was refused ("Item type is required"). `lib/use-flash-action.ts` (used by 44 forms) now cancels that one clearing when the action returns an error: it remembers which form was submitted and cancels its `reset` event. On a success the form clears as before. The mark expires after 5 seconds and is cleared by the next submit, so it cannot affect another form or a later success. Sign-in, forgot/reset/change password (plain `useActionState`) still clear on purpose.
 Check: leave a required field empty on any form, save, and see the refusal message with everything else still filled in; fix the field, save, and the form clears (or redirects) as usual.
 
+
+## Date entry rules (3 Oct 2026, FB-0055 widened)
+
+Ravi asked for date entry to be blocked by function ("Date validation review", project doc `claude/date-validation-review.md`). App-level only: the date box limits the choice and the server action repeats the rule on save; no database check. Helpers are in `lib/date-rules.ts` (India date, plain text comparison of `YYYY-MM-DD`). New saves only; existing records are not changed.
+
+| Screen | Field | Rule |
+|---|---|---|
+| New purchase order, Bulk upload | Invoice date | Not later than today |
+| New finished product batch | Batch start date | Not later than today; not before the MFR approval date |
+| Complete batch | Finish date | Not before the start date; not later than today |
+| Complete batch | Expiry date | After the finish date |
+| New packaging issue | Issue date | Not later than today; not before the QC approval date of the batch |
+| QC Reviewer decision, Start retest | Retest period | Raw material: at most 180 days; at most 3 retests per batch (`lib/constants/qc-rules.ts`) |
+| New COA | Analysis, Reporting, Mfg. date, Best before | Read-only on the form (they come from the QC record and batch) |
+| Equipment, Bulk upload | Last calibration date; Next calibration due | Last: not later than today. Next: after Last (a past due date is allowed, it means overdue) |
+| Dead stock, Bulk upload | Date of purchase; Resolution date | Neither later than today; resolution not before purchase |
+| Audit Log, Inventory Ledger, Reports | From, To | From not after To; To not later than today |
+| RM Report | As on date | Not later than today |
+
+Left as before: SOP/STP effective date (a future date is allowed) and every system-set time stamp. Not built: the raw-material expiry date on Purchase (B42, waiting for a decision).

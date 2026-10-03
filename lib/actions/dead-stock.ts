@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { beforeDateError, firstDateError, futureDateError } from "@/lib/date-rules";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -28,6 +29,16 @@ const deadStockSchema = z.object({
   remark: z.string().trim().optional(),
 });
 
+// Date rules (Ravi, 3 Oct 2026): neither date can be in the future, and the
+// resolution cannot come before the purchase.
+function deadStockDateError(d: { date_of_purchase?: string; resolution_date?: string }): string | null {
+  return firstDateError(
+    futureDateError(d.date_of_purchase, "Date of purchase"),
+    futureDateError(d.resolution_date, "Resolution date"),
+    beforeDateError(d.resolution_date, d.date_of_purchase, "Resolution date", "the date of purchase")
+  );
+}
+
 function parseDeadStockForm(formData: FormData) {
   return deadStockSchema.safeParse({
     article_name: String(formData.get("article_name") || ""),
@@ -50,6 +61,8 @@ export async function createDeadStockItem(_prev: ActionState, formData: FormData
 
   const parsed = parseDeadStockForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const dateError = deadStockDateError(parsed.data);
+  if (dateError) return { error: dateError };
 
   const supabase = await createClient();
 
@@ -99,6 +112,8 @@ export async function updateDeadStockItem(
 
   const parsed = parseDeadStockForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const dateError = deadStockDateError(parsed.data);
+  if (dateError) return { error: dateError };
 
   const active = formData.get("active") === "on";
 

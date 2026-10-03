@@ -40,7 +40,7 @@ export default async function RmReportPage({
   searchParams: Promise<{ asOf?: string }>;
 }) {
   const { asOf: asOfParam } = await searchParams;
-  const asOf = asOfParam && /^\d{4}-\d{2}-\d{2}$/.test(asOfParam) ? asOfParam : todayIso();
+  const asOf = asOfParam && /^\d{4}-\d{2}-\d{2}$/.test(asOfParam) && asOfParam <= todayIso() ? asOfParam : todayIso();
 
   const supabase = await createClient();
   // FB-0018: a draft (not yet Final Submitted) line's remaining_qty has

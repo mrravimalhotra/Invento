@@ -5,6 +5,7 @@ import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { entryUnitsFor } from "@/lib/constants/units";
 import { isLegacyCode, todayIst } from "@/lib/utils";
+import { istDay } from "@/lib/date-rules";
 
 type MfrOption = {
   id: string;
@@ -13,6 +14,7 @@ type MfrOption = {
   version: number;
   batch_size_qty: string | number;
   batch_size_unit: string;
+  approved_at: string | null;
 };
 
 // This step never writes to the database — it's a plain GET form that hands the
@@ -95,8 +97,21 @@ export function Step1Form({ mfrDefinitions }: { mfrDefinitions: MfrOption[] }) {
           before a single day of processing had happened. Expiry date now
           lives solely on the Complete Batch screen (mandatory there); this
           screen instead records when the production run itself started. */}
-      <Field label="Batch start date" htmlFor="batch_start_date" required hint="When this batch's production run started.">
-        <Input id="batch_start_date" name="batch_start_date" type="date" defaultValue={today} required />
+      <Field
+        label="Batch start date"
+        htmlFor="batch_start_date"
+        required
+        hint="When this batch's production run started. Not in the future, and not before the MFR was approved."
+      >
+        <Input
+          id="batch_start_date"
+          name="batch_start_date"
+          type="date"
+          defaultValue={today}
+          min={istDay(selected?.approved_at) ?? undefined}
+          max={today}
+          required
+        />
       </Field>
 
       <div className="flex gap-2">

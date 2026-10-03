@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
 import { todayIst } from "@/lib/utils";
+import { beforeDateError, istDay } from "@/lib/date-rules";
 
 // lineErrors (FB-0052): a message that belongs to one line of the Store/R&D
 // form (keyed by line number, 1-based) — shown as plain red text under that
@@ -140,12 +141,13 @@ type ResolvedBatch = { fpUnit: string | null; packagedItemId: string | null };
 async function resolveFpBatch(
   supabase: Awaited<ReturnType<typeof createClient>>,
   fpBatchId: string,
+  issueDate: string,
 ): Promise<ResolvedBatch | { error: string }> {
   const [{ data: fpBatch }, { data: latestQcRow }, { data: batchRow }] = await Promise.all([
     supabase.from("finished_product_batches").select("status").eq("id", fpBatchId).maybeSingle(),
     supabase
       .from("quality_checks")
-      .select("status, created_at")
+      .select("status, created_at, reviewed_at")
       .eq("finished_product_batch_id", fpBatchId)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -158,6 +160,10 @@ async function resolveFpBatch(
       error: "Packaging can only be issued against an Approved finished product batch.",
     };
   }
+  // Date rule (Ravi, 3 Oct 2026): nothing is issued from a batch before the
+  // day QC approved it.
+  const approvalDateError = beforeDateError(issueDate, istDay(latestQcRow?.reviewed_at), "Issue date", "the QC approval date of this batch");
+  if (approvalDateError) return { error: approvalDateError };
   const { data: mfrDef } = batchRow
     ? await supabase
         .from("mfr_definitions")
@@ -271,7 +277,7 @@ async function saveStoreRndIssues(formData: FormData, department: string, issueD
 
   // Check each distinct batch once, and name the first line that uses a bad one.
   const batchIds = [...new Set(lines.map((l) => l.batchId))];
-  const resolved = await Promise.all(batchIds.map((id) => resolveFpBatch(supabase, id)));
+  const resolved = await Promise.all(batchIds.map((id) => resolveFpBatch(supabase, id, issueDate)));
   const byBatch = new Map<string, ResolvedBatch | { error: string }>(batchIds.map((id, k) => [id, resolved[k]]));
 
   const rpcLines = [];
@@ -338,7 +344,7 @@ async function saveProductionIssues(formData: FormData, issueDate: string): Prom
   // Check each distinct batch once. (The database refuses the same batch on
   // two lines — Ravi, 2 Oct 2026 — with the line named.)
   const batchIds = [...new Set(lines.map((l) => l.batchId))];
-  const resolved = await Promise.all(batchIds.map((id) => resolveFpBatch(supabase, id)));
+  const resolved = await Promise.all(batchIds.map((id) => resolveFpBatch(supabase, id, issueDate)));
   const byBatch = new Map<string, ResolvedBatch | { error: string }>(batchIds.map((id, k) => [id, resolved[k]]));
 
   const rpcLines = [];

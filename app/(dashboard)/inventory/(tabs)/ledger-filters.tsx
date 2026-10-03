@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, todayIst } from "@/lib/utils";
 import { LEDGER_FILTER_OPTIONS } from "@/lib/ledger-reasons";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
@@ -66,11 +66,12 @@ export function LedgerFilters({
         </Select>
       </Field>
       <Field label="From" htmlFor="from">
-        <Input id="from" name="from" type="date" defaultValue={from} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
+        <Input id="from" name="from" type="date" defaultValue={from} max={to || todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
       </Field>
       <Field label="To" htmlFor="to">
-        <Input id="to" name="to" type="date" defaultValue={to} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
+        <Input id="to" name="to" type="date" defaultValue={to} min={from || undefined} max={todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
       </Field>
+      {from && to && from > to && <p className="basis-full text-sm text-red">From date cannot be after To date.</p>}
       <Button type="submit" variant="secondary" size="sm">
         Apply
       </Button>

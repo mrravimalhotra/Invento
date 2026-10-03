@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/dead-stock";
 import { Field, Input, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
+import { todayIst } from "@/lib/utils";
 
 type DeadStockItem = {
   id: string;
@@ -47,7 +48,7 @@ export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Date of purchase" htmlFor="date_of_purchase">
-          <Input id="date_of_purchase" name="date_of_purchase" type="date" />
+          <Input id="date_of_purchase" name="date_of_purchase" type="date" max={todayIst()} />
         </Field>
         <Field label="Quantity" htmlFor="quantity">
           <Input id="quantity" name="quantity" type="number" step="1" min="1" defaultValue={1} />
@@ -62,7 +63,7 @@ export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
         </Field>
       </div>
       <Field label="Resolution date" htmlFor="resolution_date">
-        <Input id="resolution_date" name="resolution_date" type="date" />
+        <Input id="resolution_date" name="resolution_date" type="date" max={todayIst()} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Rejected qty" htmlFor="rejected_qty">
@@ -106,7 +107,7 @@ export function EditDeadStockForm({ item }: { item: DeadStockItem }) {
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Date of purchase" htmlFor="date_of_purchase">
-          <Input id="date_of_purchase" name="date_of_purchase" type="date" defaultValue={item.date_of_purchase ?? ""} />
+          <Input id="date_of_purchase" name="date_of_purchase" type="date" max={todayIst()} defaultValue={item.date_of_purchase ?? ""} />
         </Field>
         <Field label="Quantity" htmlFor="quantity">
           <Input id="quantity" name="quantity" type="number" step="1" min="1" defaultValue={item.quantity} />
@@ -139,7 +140,7 @@ export function EditDeadStockForm({ item }: { item: DeadStockItem }) {
         <Input value={item.depreciated_unit_value ?? "—"} readOnly disabled />
       </Field>
       <Field label="Resolution date" htmlFor="resolution_date">
-        <Input id="resolution_date" name="resolution_date" type="date" defaultValue={item.resolution_date ?? ""} />
+        <Input id="resolution_date" name="resolution_date" type="date" max={todayIst()} defaultValue={item.resolution_date ?? ""} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Rejected qty" htmlFor="rejected_qty">

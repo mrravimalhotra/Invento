@@ -1,6 +1,7 @@
 "use client";
 
 import { Field, Input } from "@/components/ui/form";
+import { todayIst } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export function RmReportFilter({ asOf }: { asOf: string }) {
@@ -12,6 +13,7 @@ export function RmReportFilter({ asOf }: { asOf: string }) {
           name="asOf"
           type="date"
           defaultValue={asOf}
+          max={todayIst()}
           onChange={(e) => e.currentTarget.form?.requestSubmit()}
         />
       </Field>

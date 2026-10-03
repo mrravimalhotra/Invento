@@ -9,7 +9,7 @@ import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
-import { isLegacyCode } from "@/lib/utils";
+import { isLegacyCode, todayIst } from "@/lib/utils";
 import { PurchaseOrderView } from "./purchase-order-view";
 import type { RawItemOption } from "./purchase-line-form";
 
@@ -86,7 +86,7 @@ export function PurchaseOrderForm({
                 <Input id="invoice_number" name="invoice_number" required />
               </Field>
               <Field label="Invoice date" htmlFor="invoice_date" required>
-                <Input id="invoice_date" name="invoice_date" type="date" required />
+                <Input id="invoice_date" name="invoice_date" type="date" max={todayIst()} required />
               </Field>
             </div>
             <div className="flex gap-3">

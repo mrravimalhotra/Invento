@@ -194,7 +194,7 @@ export const MFR_PROCEDURE_SHEET_NAME = "Manufacturing Procedure";
 export const PURCHASE_COLUMNS: ColumnDef[] = [
   { header: "Vendor Name", required: true, hint: "an existing, active Vendor Master name — pick from the dropdown, or type a new/different one; see the Reference sheet" },
   { header: "Invoice Number", required: true, hint: "repeat the exact same text (and the same Invoice Date) on every line row belonging to this purchase order" },
-  { header: "Invoice Date", required: true, hint: "same value on every line row for one purchase order" },
+  { header: "Invoice Date", required: true, hint: "same value on every line row for one purchase order; not later than today" },
   { header: "Purchase Type", required: true, hint: "Raw Material or Packaging Item — pick from the dropdown" },
   { header: "Item Name", required: true, hint: "an existing, active item name matching Purchase Type — pick from the dropdown, or type a new/different one; see the Reference sheet" },
   { header: "Quantity", required: true, hint: "a number greater than 0", numeric: true },
@@ -214,17 +214,17 @@ export const EQUIPMENT_COLUMNS: ColumnDef[] = [
   { header: "Asset ID", required: false, hint: "the existing printed/engraved ID tag, if any — holds both legacy and newly assigned IDs" },
   { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank", numeric: true },
   { header: "Calibration Status", required: false, hint: "Calibrated, Due, or Not Applicable — leave blank if unknown" },
-  { header: "Last Calibration Date", required: false },
-  { header: "Next Calibration Due", required: false },
+  { header: "Last Calibration Date", required: false, hint: "not later than today" },
+  { header: "Next Calibration Due", required: false, hint: "after the Last Calibration Date" },
 ];
 
 export const DEAD_STOCK_COLUMNS: ColumnDef[] = [
   { header: "Name of Article", required: true },
-  { header: "Date of Purchase", required: false },
+  { header: "Date of Purchase", required: false, hint: "not later than today" },
   { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank", numeric: true },
   { header: "Purchase Price (₹)", required: false, numeric: true },
   { header: "Depreciation %", required: false, hint: "a number from 0 to 100 — defaults to 25 if left blank", numeric: true, percent: true },
-  { header: "Resolution Date", required: false },
+  { header: "Resolution Date", required: false, hint: "not before the Date of Purchase; not later than today" },
   { header: "Rejected Qty", required: false, hint: "a number ≥ 0 — defaults to 0 if left blank", numeric: true },
   { header: "Rejected Value (₹)", required: false, hint: "a number ≥ 0 — defaults to 0 if left blank", numeric: true },
   { header: "Balance Qty", required: false, numeric: true },

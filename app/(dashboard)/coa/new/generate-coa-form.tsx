@@ -19,6 +19,10 @@ export type TemplateLine = { seq: number; test: string; specification: string };
 // redirects to the certificate's own page, where the pixel-matched PDF
 // download lives (coa-pdf.ts) — this form itself has no PDF button,
 // generating and printing are deliberately two different moments.
+// Ravi (3 Oct 2026, date review row 8): the four date lines come straight from the
+// QC record and the batch, so they are shown but cannot be typed over.
+const LOCKED_DATE_LABELS = new Set(["analysis date", "reporting date", "mfg. date", "best before dt"]);
+
 export function GenerateCoaForm({
   subjectType,
   qualityCheckId,
@@ -62,7 +66,14 @@ export function GenerateCoaForm({
         <div className="grid gap-3 sm:grid-cols-2">
           {headerFields.map((f, i) => (
             <Field key={f.label} label={f.label} htmlFor={`header_${i}`}>
-              <Input id={`header_${i}`} value={f.value} onChange={(e) => updateHeader(i, e.target.value)} required />
+              <Input
+                id={`header_${i}`}
+                value={f.value}
+                onChange={(e) => updateHeader(i, e.target.value)}
+                readOnly={LOCKED_DATE_LABELS.has(f.label.trim().toLowerCase())}
+                className={LOCKED_DATE_LABELS.has(f.label.trim().toLowerCase()) ? "bg-black/[0.04] text-muted" : undefined}
+                required
+              />
             </Field>
           ))}
         </div>

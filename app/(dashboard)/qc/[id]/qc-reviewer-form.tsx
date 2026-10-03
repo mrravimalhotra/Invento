@@ -11,7 +11,7 @@ import { Field, Textarea, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { DecisionChoice } from "@/components/ui/decision-choice";
 
-export function QcReviewerForm({ id }: { id: string }) {
+export function QcReviewerForm({ id, maxRetestDays }: { id: string; maxRetestDays?: number }) {
   const boundAction = reviewQcRound2.bind(null, id);
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
   const [status, setStatus] = useState<"approved" | "rejected" | "">("");
@@ -41,13 +41,14 @@ export function QcReviewerForm({ id }: { id: string }) {
         label="Retest period (days)"
         htmlFor="retest_period_days"
         required={status === "approved"}
-        hint="Entered manually per batch — retest interval varies by material and test result, so it is not auto-computed (see DESIGN.md Open Question 1). Retest date is derived from this plus today's date once saved. Required to approve a batch; not required to reject one, since a rejected batch is never retested."
+        hint="Entered manually per batch — retest interval varies by material and test result, so it is not auto-computed (see DESIGN.md Open Question 1). Retest date is derived from this plus today's date once saved. Required to approve a batch; not required to reject one, since a rejected batch is never retested. Raw material: at most 180 days."
       >
         <Input
           id="retest_period_days"
           name="retest_period_days"
           type="number"
           min={1}
+          max={maxRetestDays}
           step={1}
           required={status === "approved"}
           value={retestPeriodDays}

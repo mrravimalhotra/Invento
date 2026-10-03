@@ -68,6 +68,7 @@ import {
   type ColumnDef,
 } from "@/lib/bulk-upload/schemas";
 import { friendlyDbError } from "@/lib/db-errors";
+import { beforeDateError, firstDateError, futureDateError, notAfterDateError } from "@/lib/date-rules";
 
 // One round trip for all the codes a bulk import needs (0087; PERF-04),
 // instead of one RPC per row. Returns the codes in order, or an error text
@@ -959,6 +960,12 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
       );
       return;
     }
+    // Date rule (Ravi, 3 Oct 2026), same as New purchase order: not in the future.
+    const invoiceFuture = futureDateError(invoiceDate, "Invoice Date");
+    if (invoiceFuture) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): ${invoiceFuture}`);
+      return;
+    }
 
     const typeNorm = purchaseTypeRaw.trim().toLowerCase();
     let category: "raw" | "packaging" | null = null;
@@ -1280,6 +1287,15 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     if (last_calibration_date === undefined) return;
     const next_calibration_due = parseOptionalDate(nextCalibRaw, "Next Calibration Due", r, rowErrors);
     if (next_calibration_due === undefined) return;
+    // Date rules (Ravi, 3 Oct 2026), same as the Equipment screen.
+    const calibDateError = firstDateError(
+      futureDateError(last_calibration_date, "Last Calibration Date"),
+      notAfterDateError(next_calibration_due, last_calibration_date, "Next Calibration Due", "the Last Calibration Date")
+    );
+    if (calibDateError) {
+      rowErrors.push(`Row ${r} ("${name}"): ${calibDateError}`);
+      return;
+    }
 
     parsed.push({ name, room_no, section, asset_id, quantity, calibration_status, last_calibration_date, next_calibration_due });
   });
@@ -1382,6 +1398,16 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
     if (date_of_purchase === undefined) return;
     const resolution_date = parseOptionalDate(resolutionDateRaw, "Resolution Date", r, rowErrors);
     if (resolution_date === undefined) return;
+    // Date rules (Ravi, 3 Oct 2026), same as the Dead Stock screen.
+    const deadDateError = firstDateError(
+      futureDateError(date_of_purchase, "Date of Purchase"),
+      futureDateError(resolution_date, "Resolution Date"),
+      beforeDateError(resolution_date, date_of_purchase, "Resolution Date", "the Date of Purchase")
+    );
+    if (deadDateError) {
+      rowErrors.push(`Row ${r} ("${article_name}"): ${deadDateError}`);
+      return;
+    }
 
     let quantity = 1;
     if (quantityRaw) {
