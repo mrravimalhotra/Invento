@@ -39,6 +39,7 @@
     - [Tester Feedback](#tester-feedback)
     - [Bulk Data Upload](#bulk-data-upload)
     - [Opening Stock](#opening-stock)
+    - [Company Details](#company-details)
     - [Purge Test Data](#purge-test-data)
     - [Legacy / deprecated modules](#legacy--deprecated-modules)
 11. [Glossary](#glossary)
@@ -786,6 +787,16 @@ Each upload writes into exactly the same tables and goes through exactly the sam
 **Legacy tag:** A batch or AR number loaded here shows a grey "Legacy" tag beside it on the QC (including Awaiting QC and Due for retest), Purchase, Inventory (item page and ledger), Finished Product, Packaging, Labels, COA, Reports and Dashboard alert screens, and a "Source" column in Excel exports. The QC list, RM Report, Finished Product, Packaging, Purchase, Inventory ledger, COA and the three Reports registers also have a Source filter (All / New / Legacy). In the batch pickers on the Wastage, Packaging and new-batch screens the old batches are marked "(Legacy)". Batch numbers and AR numbers that look like ones made by the app are refused, so an old number can never be mistaken for a new one.
 
 **Undo:** While loading is open, the System Administrator can undo a load if none of its stock has been used and no new QC record has been started on its batches. For finished product, a load can no longer be undone once any of its packs have been issued, new packaging has been done against its batches, or a COA has been made.
+
+### Company Details
+
+**Where to find it:** Admin → Company Details
+
+**Who can use it:** Everyone can see the details. Only the System Administrator can change them.
+
+**What it's for:** The company name, address and licence number printed on reports, intimation slips, Certificates of Analysis, labels and the Word documents (MFR and BMR). On every printout the logo is on top with the company name directly below it, then the address and licence number.
+
+**To change the licence number (or the name or address):** open the screen, edit the box, and click Save. The next report or document you download shows the new value. Files you downloaded earlier are not changed. The fields are company name, address, licence label (for example "Mfg. Lic. No.") and licence number (for example PD/AYU/111). Each change is recorded in the Audit Log.
 
 ### Purge Test Data
 

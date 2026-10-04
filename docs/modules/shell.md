@@ -119,10 +119,26 @@ now counts the same rows as the list each card opens, and follows the
 
 ## One company identity on every printed output (29 Sept 2026, export group decision b)
 
-Ravi's decision: the company is always printed as **"Atharva Nature Healthcare Pvt. Ltd."** and the licence as **"PD/AYU-111"**. Both live in `lib/company.ts`
-(`COMPANY_NAME`, `COMPANY_ADDRESS`, `MFG_LIC_NO`, plus ready-made
-`COMPANY_NAME_AND_ADDRESS` and `MFG_LIC_LINE`); every PDF and Word output
-reads them.
+**Changed 4 Oct 2026 (FB-0046 / B32, migration 0102).** The name, address and licence are now
+saved settings, not fixed text. The default licence is **"PD/AYU/111"** (slash form; it replaces the
+29 Sept "PD/AYU-111"). The System Administrator edits them at **Admin -> Company Details**
+(`/company`, table `company_settings`, one row; everyone can read, `set_company_settings()` is
+System Administrator only and is in the Audit Log). Fields: company name, address, licence label
+(default "Mfg. Lic. No.") and licence number.
+
+How outputs read them: `lib/company.ts` holds a small runtime store (`getCompany()`, plus
+`licenceLine()`, `addressAndLicenceLine()`, `companyNameAndAddress()`). The dashboard layout reads the
+saved row and `CompanySetter` hands it to the store, so generators that run on a button click (slips,
+Word, labels, register PDFs, Excel "About" sheet) read the current values. Server pages (the MFR print
+preview, Company Details) call `fetchCompany()` (`lib/company-server.ts`). A change applies to the next
+document; files already downloaded are not changed.
+
+Layout: **logo on top, the company name directly below it, then address and licence number, centred**
+(`drawCompanyHeading()` in `lib/pdf-company-heading.ts` for register PDFs and both intimation slips; same
+stack in the COA, the MFR and BMR Word documents and the MFR print preview). Labels keep their own fixed
+label layout and read the same values.
+
+Earlier text of this section (29 Sept 2026):
 
 - **Register PDFs** (Reports x4, RM Report, Packing Register, MFR report):
   `lib/pdf.ts` letterhead now carries the logo. Every page has a footer with

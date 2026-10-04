@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
   Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
-  UploadCloud, Trash2, History, BookOpen, PackagePlus,
+  UploadCloud, Trash2, History, BookOpen, PackagePlus, Building2,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -96,6 +96,8 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // Ravi (3 Oct 2026): opening stock for go-live, every role may load until
       // the System Administrator closes loading. Module 23 follows User Guide (22).
       { href: "/opening-stock", label: "Opening Stock", icon: PackagePlus, module: 23 },
+      // Ravi (4 Oct 2026, FB-0046): company name, address and licence number printed on documents.
+      { href: "/company", label: "Company Details", icon: Building2, module: 24 },
       // Not part of the original 15-module baseline — added per Ravi's
       // 13 Sept 2026 request for an admin-controlled button to purge all
       // inventory/purchase data for from-scratch end-to-end testing;

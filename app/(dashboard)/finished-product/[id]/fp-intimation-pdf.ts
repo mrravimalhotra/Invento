@@ -1,7 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
-import { COMPANY_NAME_AND_ADDRESS, MFG_LIC_LINE } from "@/lib/company";
+import { drawCompanyHeading } from "@/lib/pdf-company-heading";
 
 // Ravi (15 Sept 2026): "when a Finished Product batch is submitted to QC, a
 // Finish Product Intimation Slip should be generated and link should be
@@ -35,15 +34,6 @@ export type FpIntimationData = {
   qcSampleQty: string | number;
 };
 
-// Sample text, transcribed verbatim: "Atharva Nature Health Care Pvt. Ltd.
-// Wagholi,Pune" / "Mfg. Lic.  No.- PD/AYU-111" — the company name happens
-// to read identically to rm-intimation-pdf.ts's own SLIP_COMPANY_NAME (both
-// are real exports of the same company's letterhead), but the Mfg Lic text
-// differs slightly from that file's own transcription ("PD/AYU/111", a
-// slash) — each slip's constants are kept local and transcribed from its
-// own attached sample rather than shared, same precedent that file set.
-const SLIP_COMPANY_NAME = COMPANY_NAME_AND_ADDRESS;
-const SLIP_MFG_LIC = MFG_LIC_LINE;
 
 const LEFT_X = 10;
 const RIGHT_X = 200;
@@ -63,43 +53,37 @@ function qty3(n: string | number): string {
 // drawSlip(), minus the Bill No row and with a 6-column, single-quantity
 // table in place of RM's 8-column one.
 function drawSlip(doc: jsPDF, data: FpIntimationData, top: number) {
-  const logoWidth = 44;
-  const logoHeight = logoWidth / ATHARVA_LOGO_ASPECT;
-  doc.addImage(ATHARVA_LOGO_PNG_BASE64, "PNG", LEFT_X + 2, top, logoWidth, logoHeight);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12.5);
+  // FB-0046 (4 Oct 2026): logo on top with the company name directly below
+  // it, then the address and licence number (from Admin -> Company Details),
+  // centred. The rest of the slip sits lower by the height this adds.
+  drawCompanyHeading(doc, { centerX: CENTER_X, top, logoWidth: 34, nameSizePt: 12.5, lineSizePt: 9.5 });
   doc.setTextColor(0, 0, 0);
-  doc.text(SLIP_COMPANY_NAME, RIGHT_X, top + 6, { align: "right" });
-
-  doc.setFontSize(9.5);
-  doc.text(SLIP_MFG_LIC, RIGHT_X, top + 11.5, { align: "right" });
 
   doc.setFontSize(11);
-  doc.text("Finish Product Intimation Slip", CENTER_X, top + 22.5, { align: "center" });
+  doc.text("Finish Product Intimation Slip", CENTER_X, top + 33, { align: "center" });
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
-  doc.line(LEFT_X, top + 26.5, RIGHT_X, top + 26.5);
+  doc.line(LEFT_X, top + 37, RIGHT_X, top + 37);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
-  doc.text("To,", LEFT_X + 3, top + 33.5);
-  doc.text("QC Department,", LEFT_X + 3, top + 39.5);
-  doc.text("Respected Sir/Madam,", LEFT_X + 3, top + 45.5);
+  doc.text("To,", LEFT_X + 3, top + 44);
+  doc.text("QC Department,", LEFT_X + 3, top + 50);
+  doc.text("Respected Sir/Madam,", LEFT_X + 3, top + 56);
   doc.text(
     "Please do the sampling of following Finish Product and give the Certificate of Analysis ASAP.",
     LEFT_X + 3,
-    top + 52.5
+    top + 63
   );
 
   doc.setFont("helvetica", "bold");
-  doc.text("Date :", 158, top + 33.5);
+  doc.text("Date :", 158, top + 44);
   doc.setFont("helvetica", "normal");
-  doc.text(data.date, 175, top + 33.5);
+  doc.text(data.date, 175, top + 44);
 
   autoTable(doc, {
-    startY: top + 58,
+    startY: top + 68.5,
     margin: { left: LEFT_X, right: 210 - RIGHT_X },
     head: [["Sr.No.", "Name of The Product", "F.P.Code", "Batch No", "Batch Qty", "QCSample Qty"]],
     body: [
@@ -127,7 +111,7 @@ function drawSlip(doc: jsPDF, data: FpIntimationData, top: number) {
     columnStyles: { 1: { halign: "left" } },
   });
 
-  const finalY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? top + 75;
+  const finalY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? top + 85.5;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(0, 0, 0);

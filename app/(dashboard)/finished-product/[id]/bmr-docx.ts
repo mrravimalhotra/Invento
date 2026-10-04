@@ -14,7 +14,7 @@ import {
 } from "docx";
 import { convertUnit, unitFamily } from "@/lib/constants/units";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
-import { COMPANY_NAME_AND_ADDRESS, MFG_LIC_LINE } from "@/lib/company";
+import { getCompany, licenceLine } from "@/lib/company";
 
 // Ravi (15 Sept 2026): "Once Batch is in Completed - Awaiting QC, start
 // showing link to 'BATCH MANUFACTURING RECORD' as attached in the .docx
@@ -76,14 +76,8 @@ export type BmrData = {
   components: BmrComponentRow[];
 };
 
-// Sample text, transcribed verbatim from this document's own text boxes
-// ("Mfg.Lic.No.- PD/AYU/111" — no spaces around "Lic.No.", a slash not a
-// dash) — kept local rather than shared with the other two slips'
-// slightly different transcriptions of the same real letterhead, same
-// established precedent (each legacy document reproduces its own sample
-// exactly).
-const SLIP_COMPANY_NAME = COMPANY_NAME_AND_ADDRESS;
-const SLIP_MFG_LIC = MFG_LIC_LINE;
+// The company name, address and licence number printed in the header are the
+// saved company details (Admin -> Company Details), since FB-0046 (4 Oct 2026).
 
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -165,39 +159,26 @@ function rmDataCell(text: string, align: (typeof AlignmentType)[keyof typeof Ali
 
 export async function downloadBmrDocx(data: BmrData, filename: string) {
   const logoBytes = base64ToUint8Array(ATHARVA_LOGO_PNG_BASE64);
-  const logoWidth = 130;
+  const logoWidth = 110;
   const logoHeight = Math.round(logoWidth / ATHARVA_LOGO_ASPECT);
 
-  const letterheadTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: NO_CELL_BORDERS,
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 30, type: WidthType.PERCENTAGE },
-            borders: NO_CELL_BORDERS,
-            children: [
-              new Paragraph({
-                children: [new ImageRun({ type: "png", data: logoBytes, transformation: { width: logoWidth, height: logoHeight } })],
-              }),
-            ],
-          }),
-          new TableCell({
-            width: { size: 70, type: WidthType.PERCENTAGE },
-            borders: NO_CELL_BORDERS,
-            verticalAlign: VerticalAlign.CENTER,
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [new TextRun({ text: SLIP_COMPANY_NAME, bold: true, size: 24 })],
-              }),
-            ],
-          }),
-        ],
-      }),
-    ],
-  });
+  // FB-0046 (4 Oct 2026): logo on top, company name directly below it, centred.
+  // Name, address and licence come from Admin -> Company Details.
+  const company = getCompany();
+  const letterhead = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new ImageRun({ type: "png", data: logoBytes, transformation: { width: logoWidth, height: logoHeight } })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 60 },
+      children: [new TextRun({ text: company.name, bold: true, size: 24 })],
+    }),
+    ...(company.address
+      ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: company.address, size: 20 })] })]
+      : []),
+  ];
 
   const totalMfrQty = totalByUnit(data.components);
 
@@ -239,7 +220,7 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
       {
         properties: {},
         children: [
-          letterheadTable,
+          ...letterhead,
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { before: 200, after: 60 },
@@ -249,7 +230,7 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
             alignment: AlignmentType.CENTER,
             border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" } },
             spacing: { after: 200 },
-            children: [new TextRun({ text: SLIP_MFG_LIC, size: 18 })],
+            children: [new TextRun({ text: licenceLine(company), size: 18 })],
           }),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },

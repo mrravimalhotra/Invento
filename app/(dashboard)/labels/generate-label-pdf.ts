@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/company";
+import { getCompany, addressAndLicenceLine } from "@/lib/company";
 import { CARLITO_BOLD_TTF_BASE64 } from "@/lib/fonts/carlito-bold";
 import { LIBERATION_SERIF_BOLD_TTF_BASE64 } from "@/lib/fonts/liberation-serif-bold";
 import { LIBERATION_SERIF_REGULAR_TTF_BASE64 } from "@/lib/fonts/liberation-serif-regular";
@@ -182,15 +182,16 @@ const RM_TOP_MARGIN_EXTRA_MM = 2.0;
 // centering the mixed-size Mfg. Lic. line) and must already have Carlito
 // Bold selected as its current font.
 export function buildRmLines(fields: LabelField[], doc: jsPDF): RmLine[] {
+  const company = getCompany();
   const lines: RmLine[] = [
-    { yMm: 4.5, align: "center", runs: [{ text: COMPANY_NAME, sizePt: 13 }] },
-    { yMm: 10.12, align: "center", runs: [{ text: COMPANY_ADDRESS, sizePt: 13 }] },
+    { yMm: 4.5, align: "center", runs: [{ text: company.name, sizePt: 13 }] },
+    { yMm: 10.12, align: "center", runs: [{ text: company.address, sizePt: 13 }] },
     {
       yMm: 15.65,
       align: "center",
       runs: [
-        { text: "Mfg. Lic. No. :", sizePt: 13 },
-        { text: ` ${MFG_LIC_NO}`, sizePt: 11 },
+        { text: `${company.licenceLabel} :`, sizePt: 13 },
+        { text: ` ${company.licenceNo}`, sizePt: 11 },
       ],
     },
     { yMm: 20.62, align: "center", runs: [{ text: "APPROVED  RAW MATERIAL", sizePt: 11 }] },
@@ -299,15 +300,9 @@ function downloadApprovedRmLabel(fields: LabelField[], filename: string) {
 // the references for measurement (fc-match confirms it in this
 // environment) — see lib/fonts/liberation-serif-bold.ts.
 //
-// Company header text: same deliberate deviation as RM. The references
-// run the company name and address on one line as literal text
-// "Atharva Nature Healthcare Pvt. Ltd.,Wagholi, Pune." (comma with no
-// following space, before "Wagholi") and give the Mfg. Lic. No. with a
-// slash ("PD/AYU/111") rather than the app's canonical dash
-// ("PD/AYU-111"). This uses the canonical COMPANY_NAME / COMPANY_ADDRESS
-// / MFG_LIC_NO constants (composed onto the same one-line / one-line
-// layout and position) instead of reproducing those literal quirks —
-// flagged here as with RM, not an oversight.
+// Company header text: name, address and licence come from the saved company
+// details (Admin -> Company Details), composed onto the reference's one-line
+// layout and position.
 export const FPIP_PAGE_WIDTH_MM = 215.9; // US Letter
 export const FPIP_PAGE_HEIGHT_MM = 279.4;
 export const FPIP_GRID_COLS = 2;
@@ -409,17 +404,18 @@ export function buildFpIpLines(
   doc: jsPDF,
   opts: { title: string; fieldPrefix: Record<string, string> }
 ): (FpIpLine | FpIpValueLine)[] {
+  const company = getCompany();
   const lines: (FpIpLine | FpIpValueLine)[] = [
     {
       yMm: FPIP_LINE0_Y_MM,
       x: "left",
-      text: `${COMPANY_NAME},${COMPANY_ADDRESS}.`,
+      text: `${company.name},${company.address}.`,
       sizePt: FPIP_FONT_SIZE_PT,
     },
     {
       yMm: FPIP_LINE0_Y_MM + FPIP_LINE_PITCH_MM,
       x: "left-indent",
-      text: `Mfg. Lic. No. : ${MFG_LIC_NO}`,
+      text: `${company.licenceLabel} : ${company.licenceNo}`,
       sizePt: FPIP_FONT_SIZE_PT,
     },
     {
@@ -617,9 +613,10 @@ export type UtLine = { yMm: number; x: "left" | "mfglic-indent" | "center"; text
 export type UtValueLine = { yMm: number; runs: RmLineRun[] };
 
 export function buildUtLines(fields: LabelField[], doc: jsPDF): (UtLine | UtValueLine)[] {
+  const company = getCompany();
   const lines: (UtLine | UtValueLine)[] = [
-    { yMm: UT_LINE0_Y_MM, x: "center", text: `${COMPANY_NAME},${COMPANY_ADDRESS}.`, bold: true },
-    { yMm: UT_LINE0_Y_MM + UT_LINE_PITCH_MM, x: "mfglic-indent", text: `Mfg. Lic. No. : ${MFG_LIC_NO}`, bold: false },
+    { yMm: UT_LINE0_Y_MM, x: "center", text: `${company.name},${company.address}.`, bold: true },
+    { yMm: UT_LINE0_Y_MM + UT_LINE_PITCH_MM, x: "mfglic-indent", text: `${company.licenceLabel} : ${company.licenceNo}`, bold: false },
     { yMm: UT_LINE0_Y_MM + 2 * UT_LINE_PITCH_MM, x: "center", text: HEADER_TEXT.under_test, bold: true },
   ];
 
@@ -731,12 +728,12 @@ export function downloadLabelPdf(type: LabelType, fields: LabelField[], filename
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(BRAND_R, BRAND_G, BRAND_B);
-  doc.text(COMPANY_NAME, WIDTH_MM / 2, 6, { align: "center" });
+  doc.text(getCompany().name, WIDTH_MM / 2, 6, { align: "center" });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(5.5);
   doc.setTextColor(90, 90, 90);
-  doc.text(`${COMPANY_ADDRESS} · Mfg. Lic. No.: ${MFG_LIC_NO}`, WIDTH_MM / 2, 9, { align: "center" });
+  doc.text(addressAndLicenceLine(), WIDTH_MM / 2, 9, { align: "center" });
 
   doc.setDrawColor(BRAND_R, BRAND_G, BRAND_B);
   doc.setLineWidth(0.2);

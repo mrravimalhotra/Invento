@@ -1,13 +1,50 @@
-// The one place the company's printed identity is defined (29 Sept 2026,
-// ACC group 9 decision (b), Ravi). Every PDF and Word output reads these, so
-// the name and licence number are spelled one way everywhere.
+// The company's printed identity: name, address, and the licence label and
+// number that every report, slip, certificate, label and Word document prints.
 //
-// Kept free of any PDF/Word library so any file can import it.
-export const COMPANY_NAME = "Atharva Nature Healthcare Pvt. Ltd.";
-export const COMPANY_ADDRESS = "Wagholi, Pune";
-export const MFG_LIC_NO = "PD/AYU-111";
+// 4 Oct 2026 (FB-0046, Ravi): these are no longer fixed in code. The System
+// Administrator edits them in the app (Admin -> Company Details, table
+// company_settings, migration 0102). The values below are only what is used
+// until the saved ones have been loaded, or if they cannot be read.
+//
+// Browser side: the dashboard layout reads the saved values and hands them to
+// <CompanyProvider>, which calls setCompany(), so a generator that runs on a
+// button click (slips, Word files, labels, register PDFs) reads them with
+// getCompany(). Server side: read them with fetchCompany() (lib/company-server.ts)
+// and pass them in. Kept free of any PDF/Word library so any file can import it.
+export type Company = {
+  name: string;
+  address: string;
+  licenceLabel: string;
+  licenceNo: string;
+};
+
+export const DEFAULT_COMPANY: Company = {
+  name: "Atharva Nature Healthcare Pvt. Ltd.",
+  address: "Wagholi, Pune",
+  licenceLabel: "Mfg. Lic. No.",
+  licenceNo: "PD/AYU/111",
+};
+
+let current: Company = DEFAULT_COMPANY;
+
+export function setCompany(c: Company) {
+  current = c;
+}
+
+export function getCompany(): Company {
+  return current;
+}
 
 // "Atharva Nature Healthcare Pvt. Ltd., Wagholi, Pune"
-export const COMPANY_NAME_AND_ADDRESS = `${COMPANY_NAME}, ${COMPANY_ADDRESS}`;
-// "Mfg. Lic. No. - PD/AYU-111"
-export const MFG_LIC_LINE = `Mfg. Lic. No. - ${MFG_LIC_NO}`;
+export function companyNameAndAddress(c: Company = current): string {
+  return c.address ? `${c.name}, ${c.address}` : c.name;
+}
+// "Mfg. Lic. No. - PD/AYU/111"
+export function licenceLine(c: Company = current): string {
+  return `${c.licenceLabel} - ${c.licenceNo}`;
+}
+// "Wagholi, Pune · Mfg. Lic. No.: PD/AYU/111"
+export function addressAndLicenceLine(c: Company = current): string {
+  const lic = `${c.licenceLabel}: ${c.licenceNo}`;
+  return c.address ? `${c.address} · ${lic}` : lic;
+}

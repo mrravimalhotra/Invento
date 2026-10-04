@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "./coa-logo";
-import { COMPANY_NAME, MFG_LIC_LINE } from "./company";
+import { getCompany, licenceLine } from "./company";
 
 export type CoaPdfData = {
   coaNumber: string;
@@ -38,13 +38,13 @@ export function downloadCoaPdf(data: CoaPdfData) {
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(20, 20, 20);
-  doc.text(COMPANY_NAME, pageWidth / 2, y, { align: "center" });
+  doc.text(getCompany().name, pageWidth / 2, y, { align: "center" });
 
   y += 5;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(90, 90, 90);
-  doc.text(MFG_LIC_LINE, pageWidth / 2, y, { align: "center" });
+  doc.text(licenceLine(), pageWidth / 2, y, { align: "center" });
 
   y += 5;
   doc.setDrawColor(31, 111, 78);

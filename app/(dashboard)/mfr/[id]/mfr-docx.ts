@@ -16,7 +16,7 @@ import {
   PageNumber,
 } from "docx";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
-import { COMPANY_NAME, MFG_LIC_LINE } from "@/lib/company";
+import { getCompany, licenceLine } from "@/lib/company";
 
 // Ravi (16 Sept 2026): "Print MFR option should give me .docx document in
 // attached format. It should pick up data already entered as part of MFR
@@ -97,13 +97,9 @@ export type MfrDocxData = {
   permissibleYieldPct: string | number | null;
 };
 
-// Transcribed verbatim from the sample's own header/footer (its exact
-// casing, spacing, and "Mfg. Lic. No. - PD/AYU -111" wording differ
-// slightly from lib/pdf.ts's differently-cased versions used elsewhere)
-// — same "each legacy document reproduces its own sample exactly, kept
-// local rather than shared" precedent bmr-docx.ts established.
-const DOC_COMPANY_NAME = COMPANY_NAME;
-const DOC_MFG_LIC = MFG_LIC_LINE;
+// The company name and licence number in the header are the saved company
+// details (Admin -> Company Details), since FB-0046 (4 Oct 2026). The contact
+// line below is fixed text.
 const DOC_EMAIL_WEB = "E mail : aapwagholi@gmail.com  www.atharva-ayurved.com";
 // Header-only font (the rest of the document defaults to Times New Roman
 // — see the styles.default.document.run below and the CORRECTION comment
@@ -113,8 +109,6 @@ const HEADER_FONT = "Arial";
 // sample's own `w:shd w:fill="EEECE1"`.
 const FOOTER_HEADER_SHADING = { fill: "EEECE1" };
 
-const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } as const;
-const NO_CELL_BORDERS = { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER };
 const CELL_BORDER = { style: BorderStyle.SINGLE, size: 4, color: "000000" } as const;
 const CELL_BORDERS = { top: CELL_BORDER, bottom: CELL_BORDER, left: CELL_BORDER, right: CELL_BORDER };
 
@@ -175,37 +169,28 @@ export async function downloadMfrDocx(data: MfrDocxData, filename: string) {
   // bmr-docx.ts's letterheadTable uses, just with three stacked lines
   // instead of one, and living in a real Header (repeats on every page)
   // rather than inlined once per body.
+  // FB-0046 (4 Oct 2026): logo on top, company name directly below it, then the
+  // licence number and contact line, centred, repeated on every page. Name and
+  // licence come from Admin -> Company Details.
+  const company = getCompany();
   const header = new Header({
     children: [
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders: NO_CELL_BORDERS,
-        rows: [
-          new TableRow({
-            children: [
-              new TableCell({
-                width: { size: 20, type: WidthType.PERCENTAGE },
-                borders: NO_CELL_BORDERS,
-                verticalAlign: VerticalAlign.CENTER,
-                children: [
-                  new Paragraph({
-                    children: [new ImageRun({ type: "png", data: logoBytes, transformation: { width: logoWidth, height: logoHeight } })],
-                  }),
-                ],
-              }),
-              new TableCell({
-                width: { size: 80, type: WidthType.PERCENTAGE },
-                borders: NO_CELL_BORDERS,
-                verticalAlign: VerticalAlign.CENTER,
-                children: [
-                  new Paragraph({ children: [new TextRun({ text: DOC_COMPANY_NAME, bold: true, size: 26, font: HEADER_FONT })] }),
-                  new Paragraph({ children: [new TextRun({ text: DOC_MFG_LIC, bold: true, size: 20, font: HEADER_FONT })] }),
-                  new Paragraph({ children: [new TextRun({ text: DOC_EMAIL_WEB, size: 20, font: HEADER_FONT })] }),
-                ],
-              }),
-            ],
-          }),
-        ],
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new ImageRun({ type: "png", data: logoBytes, transformation: { width: logoWidth, height: logoHeight } })],
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 60 },
+        children: [new TextRun({ text: company.name, bold: true, size: 26, font: HEADER_FONT })],
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: licenceLine(company), bold: true, size: 20, font: HEADER_FONT })],
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: DOC_EMAIL_WEB, size: 20, font: HEADER_FONT })],
       }),
       new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000" } }, children: [] }),
     ],

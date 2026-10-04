@@ -4,6 +4,9 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { PageFeedback } from "@/components/feedback/page-feedback";
 import { PdfUserSetter } from "@/components/shell/pdf-user-setter";
+import { CompanySetter } from "@/components/shell/company-setter";
+import { createClient } from "@/lib/supabase/server";
+import { fetchCompany } from "@/lib/company-server";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { FlashHost } from "@/components/ui/flash-host";
 import { Suspense } from "react";
@@ -36,6 +39,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     );
   }
 
+  const company = await fetchCompany(await createClient());
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -48,6 +53,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
           <PageFeedback currentUserId={user.id} />
           <PdfUserSetter name={user.fullName} />
+          <CompanySetter company={company} />
         </main>
       </div>
     </div>

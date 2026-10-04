@@ -1,44 +1,41 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
-import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/company";
+import { drawCompanyHeading } from "@/lib/pdf-company-heading";
 import { getPdfUser } from "@/lib/pdf-user";
 import { formatDateTime } from "@/lib/utils";
 
 export const PDF_BRAND = "#1F6F4E";
-// Re-exported so existing imports from "@/lib/pdf" keep working; the values
-// live in lib/company.ts.
-export { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO };
-
 // The shared letterhead for register-style PDFs (29 Sept 2026, ACC group 9
 // decision (b)): logo, company name, address and licence number, a rule, then
 // the document title (and an optional line describing the filter used).
 // Returns the y position where content should start.
 export function letterhead(doc: jsPDF, title: string, subtitle?: string | null) {
-  const logoWidth = 26;
-  const logoHeight = logoWidth / ATHARVA_LOGO_ASPECT;
-  doc.addImage(ATHARVA_LOGO_PNG_BASE64, "PNG", 14, 8, logoWidth, logoHeight);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(31, 111, 78);
-  doc.text(COMPANY_NAME, 44, 15);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(90, 90, 90);
-  doc.text(`${COMPANY_ADDRESS} · Mfg. Lic. No.: ${MFG_LIC_NO}`, 44, 20.5);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  // FB-0046 (4 Oct 2026): logo on top, company name directly below it, then the
+  // address and licence number, all centred; the title follows the rule.
+  const bottom = drawCompanyHeading(doc, {
+    centerX: pageWidth / 2,
+    top: 8,
+    logoWidth: 30,
+    nameSizePt: 14,
+    nameColor: [31, 111, 78],
+    lineColor: [90, 90, 90],
+  });
+  const ruleY = bottom + 3.5;
   doc.setDrawColor(31, 111, 78);
-  doc.line(14, 24, 196, 24);
+  doc.line(14, ruleY, pageWidth - 14, ruleY);
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(title, 14, 32);
+  doc.text(title, 14, ruleY + 8);
   if (subtitle) {
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(90, 90, 90);
-    doc.text(subtitle, 14, 37.5);
-    return 42;
+    doc.text(subtitle, 14, ruleY + 13.5);
+    return ruleY + 18;
   }
-  return 38; // y-offset for content start
+  return ruleY + 14; // y-offset for content start
 }
 
 // Stamps every page with "Generated dd-mm-yyyy HH:mm by <name>" on the left

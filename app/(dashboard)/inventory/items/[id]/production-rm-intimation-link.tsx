@@ -1,6 +1,6 @@
 "use client";
 
-import { COMPANY_NAME } from "@/lib/company";
+import { getCompany } from "@/lib/company";
 import { formatDate } from "@/lib/utils";
 
 // Loaded on click, not with the page (PERF-06): the PDF / Word library only
@@ -27,7 +27,6 @@ const downloadRmIntimationPdf = async (...args: Parameters<typeof import("@/app/
 //     was packaged), reached via production_issue_batches.packaging_issue_id
 //     — not the batch's own created_at (same moment in practice today, but
 //     the Packaging Issue is Ravi's stated authoritative source).
-const PRODUCTION_VENDOR_NAME = COMPANY_NAME;
 
 export function ProductionRmIntimationLink({
   itemName,
@@ -63,7 +62,7 @@ export function ProductionRmIntimationLink({
             itemCode,
             quantity,
             unit,
-            vendorName: PRODUCTION_VENDOR_NAME,
+            vendorName: getCompany().name,
             batchNumber,
             qcQty: qcQty ?? 0,
             rndQty: rndQty ?? 0,

@@ -5,12 +5,15 @@ import { Card, CardBody } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { SignatureBlock } from "@/components/ui/signature-block";
 import { formatDate, formatNumber, formatQty } from "@/lib/utils";
-import { COMPANY_NAME, COMPANY_ADDRESS, MFG_LIC_NO } from "@/lib/company";
+import { fetchCompany } from "@/lib/company-server";
+import { addressAndLicenceLine } from "@/lib/company";
+import { ATHARVA_LOGO_PNG_BASE64 } from "@/lib/atharva-logo";
 import { MfrPdfButton, type MfrPdfData } from "./mfr-pdf-button";
 
 export default async function MfrReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+  const company = await fetchCompany(supabase);
 
   const { data: def } = await supabase
     .from("mfr_definitions")
@@ -94,11 +97,11 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
 
       <Card>
         <CardBody>
-          <div className="border-b border-brand pb-2">
-            <p className="text-lg font-semibold text-brand-dark">{COMPANY_NAME}</p>
-            <p className="text-xs text-muted">
-              {COMPANY_ADDRESS} · Mfg. Lic. No.: {MFG_LIC_NO}
-            </p>
+          <div className="flex flex-col items-center border-b border-brand pb-2 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`data:image/png;base64,${ATHARVA_LOGO_PNG_BASE64}`} alt="" className="h-12 w-auto" />
+            <p className="mt-1 text-lg font-semibold text-brand-dark">{company.name}</p>
+            <p className="text-xs text-muted">{addressAndLicenceLine(company)}</p>
           </div>
           <h2 className="mt-3 text-base font-semibold">
             Master Formula Record — {def.code} (v{def.version})
