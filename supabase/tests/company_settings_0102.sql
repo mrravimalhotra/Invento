@@ -35,3 +35,5 @@ select t_fail('too long refused', $q$select set_company_settings(repeat('x',121)
 select t_check('still one row, stamped', (select count(*) = 1 and bool_and(updated_by is not null) from company_settings));
 reset role;
 select t_check('the change is in the audit log', (select count(*) >= 1 from audit_log where table_name = 'company_settings'));
+-- 0103: the hosted database rejects an UPDATE without WHERE (error 21000); the local one does not, so check the text.
+select t_check('set_company_settings updates with a WHERE clause (0103)', (select prosrc ilike '%where singleton%' from pg_proc where proname = 'set_company_settings'));
