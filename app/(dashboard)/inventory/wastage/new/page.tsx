@@ -35,7 +35,7 @@ export default async function NewWastagePage() {
     fetchAllRows((from, to) =>
       supabase
         .from("purchase_lines")
-        .select("id, item_id, batch_number, live_remaining_qty, unit, purchase_orders!inner(status)")
+        .select("id, item_id, batch_number, is_legacy, live_remaining_qty, unit, purchase_orders!inner(status)")
         .eq("active", true)
         .eq("purchase_orders.status", "submitted")
         // Only batches with something left — wastage can't be recorded

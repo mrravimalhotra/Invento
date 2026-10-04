@@ -50,5 +50,13 @@ product, packed and bulk.
   non-legacy QC rows or COA records exist on the batch; otherwise removes ledger, issues, QC, batches and the load.
 - Tests: `supabase/tests/opening_stock_0101_fp.sql` (suite `os101`).
 
+## Legacy tag coverage (5 Oct 2026)
+Also on: Reports (QC Register, FP Register, Purchase Register: tag, Source filter, Source column in Excel/PDF),
+COA list and detail, Inventory Ledger (raw and finished product batch, Source column), Purchase order list
+(opening POs, Source filter), item page FP batches, QC Awaiting QC and Due for retest cards, Dashboard
+retest/expiry alerts, the Finished Product composition (raw material batches) and the Wastage and Packaging
+batch pickers (text "(Legacy)"). Lists built on the `purchase_line_qc` view find opening lines through
+`lib/opening-stock/legacy-lines.ts`.
+
 ## Not yet
-- Legacy tag on Reports and a few secondary lists.
+- A reopened opening-stock purchase order can still be edited like any other.

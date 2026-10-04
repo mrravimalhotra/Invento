@@ -13,6 +13,7 @@ type PurchaseLineOption = {
   id: string;
   item_id: string;
   batch_number: string;
+  is_legacy?: boolean | null;
   // Phase 2 (claude/inventory-ledger-redesign.md) — live, not the static
   // generated remaining_qty: already net of FP consumption and any prior
   // wastage against this batch, which is exactly what someone about to
@@ -96,7 +97,7 @@ export function WastageForm({
           <option value="">Select a batch…</option>
           {batchesForItem.map((pl) => (
             <option key={pl.id} value={pl.id} data-legacy={isLegacyCode(pl.batch_number) ? "1" : undefined}>
-              {pl.batch_number} (remaining {formatQty(pl.live_remaining_qty)} {pl.unit})
+              {pl.batch_number}{pl.is_legacy ? " (Legacy)" : ""} (remaining {formatQty(pl.live_remaining_qty)} {pl.unit})
             </option>
           ))}
         </Select>

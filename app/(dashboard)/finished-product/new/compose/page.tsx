@@ -22,6 +22,7 @@ type Candidate = {
   id: string;
   batchNumber: string;
   remainingQty: string | number;
+  isLegacy?: boolean;
 };
 
 // FIFO suggestion — DESIGN.md §7.3, implemented directly against the same views the
@@ -61,7 +62,7 @@ async function getCandidateBatches(
       // (0029_purchase_line_live_remaining_qty.sql's live_remaining_not_negative
       // check) is the real enforcement; this keeps the picker's own "X
       // avail." hint from suggesting more than a batch actually has left.
-      .select("id, batch_number, created_at, live_remaining_qty, unit")
+      .select("id, batch_number, is_legacy, created_at, live_remaining_qty, unit")
       .eq("item_id", itemId)
       .eq("active", true)
       // ACC-06 (29 Sept 2026): only batches whose purchase order is submitted
@@ -148,6 +149,7 @@ async function getCandidateBatches(
       id: l.id,
       batchNumber: l.batch_number,
       remainingQty: l.live_remaining_qty,
+      isLegacy: !!l.is_legacy,
       createdAt: l.created_at ?? "",
     }));
 
@@ -176,7 +178,7 @@ async function getCandidateBatches(
   // before, just drawing from two tables instead of one.
   return [...purchaseCandidates, ...productionCandidates]
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-    .map(({ source, id, batchNumber, remainingQty }) => ({ source, id, batchNumber, remainingQty }));
+    .map(({ source, id, batchNumber, remainingQty, isLegacy }) => ({ source, id, batchNumber, remainingQty, isLegacy }));
 }
 
 // Ravi (14 Sept 2026): "while creating a finished product batch, it should
@@ -213,7 +215,7 @@ function allocateFifo(
     const avail = Number(c.remainingQty) - (alreadyTaken.get(c.id) ?? 0);
     if (avail <= 0) continue;
     const take = Math.min(avail, remaining);
-    allocations.push({ source: c.source, id: c.id, batchNumber: c.batchNumber, qty: take });
+    allocations.push({ source: c.source, id: c.id, batchNumber: c.batchNumber, qty: take, isLegacy: c.isLegacy });
     alreadyTaken.set(c.id, (alreadyTaken.get(c.id) ?? 0) + take);
     remaining -= take;
   }

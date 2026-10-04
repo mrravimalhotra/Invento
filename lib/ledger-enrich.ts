@@ -24,7 +24,7 @@ export type RawLedgerRow = {
   reference_id: string | null;
   event_by: string | null;
   items: { name: string; item_code: string } | null;
-  purchase_lines: { batch_number: string } | null;
+  purchase_lines: { batch_number: string; is_legacy?: boolean | null } | null;
   // Production-sourced Raw Material batch context (19 Sept 2026 —
   // "Packaging issued to Production", supabase/migrations/
   // 0050_production_rm_from_packaging.sql) — the production_batch_id
@@ -45,13 +45,15 @@ export type EnrichedLedgerRow = RawLedgerRow & {
   fpBatchNumber: string | null;
   /** The short number (PR-01/26) — used for downloads; the screen shows both. */
   fpBatchShortNumber: string | null;
+  /** Opening stock (0101): the FP batch came from the old records. */
+  fpBatchIsLegacy: boolean;
 };
 
 export async function enrichLedgerRows<T extends RawLedgerRow>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   ledgerRows: T[]
-): Promise<(T & { eventByName: string | null; fpBatchNumber: string | null; fpBatchShortNumber: string | null })[]> {
+): Promise<(T & { eventByName: string | null; fpBatchNumber: string | null; fpBatchShortNumber: string | null; fpBatchIsLegacy: boolean })[]> {
   const userIds = Array.from(new Set(ledgerRows.map((r) => r.event_by).filter((v): v is string => !!v)));
   const nameById = new Map<string, string>();
   if (userIds.length > 0) {
@@ -86,6 +88,7 @@ export async function enrichLedgerRows<T extends RawLedgerRow>(
   // always has it populated.
   const fpBatchByLedgerId = new Map<string, string>();
   const fpShortByLedgerId = new Map<string, string>();
+  const fpLegacyByLedgerId = new Set<string>();
   const fpDirectIds = ledgerRows
     .filter(
       (r) =>
@@ -102,24 +105,26 @@ export async function enrichLedgerRows<T extends RawLedgerRow>(
 
   // ACC-08: id lookups in chunks — up to one id per ledger row shown.
   const [fpDirect, fpViaPackaging] = await Promise.all([
-    fetchByIdChunks(fpDirectIds, (chunk) => supabase.from("finished_product_batches").select("id, batch_number, short_batch_no").in("id", chunk)),
+    fetchByIdChunks(fpDirectIds, (chunk) => supabase.from("finished_product_batches").select("id, batch_number, short_batch_no, is_legacy").in("id", chunk)),
     fetchByIdChunks(packagingIds, (chunk) =>
-      supabase.from("packaging_issues").select("id, finished_product_batches(batch_number, short_batch_no)").in("id", chunk)
+      supabase.from("packaging_issues").select("id, finished_product_batches(batch_number, short_batch_no, is_legacy)").in("id", chunk)
     ),
   ]);
-  (fpDirect.data ?? []).forEach((b: { id: string; batch_number: string; short_batch_no: string | null }) => {
+  (fpDirect.data ?? []).forEach((b: { id: string; batch_number: string; short_batch_no: string | null; is_legacy?: boolean | null }) => {
     fpBatchByLedgerId.set(b.id, b.batch_number);
+    if (b.is_legacy) fpLegacyByLedgerId.add(b.id);
     fpShortByLedgerId.set(b.id, b.short_batch_no || b.batch_number);
   });
   (fpViaPackaging.data ?? []).forEach((p) => {
     const row = p as unknown as {
       id: string;
-      finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
+      finished_product_batches: { batch_number: string; short_batch_no: string | null; is_legacy?: boolean | null } | null;
     };
     const b = row.finished_product_batches;
     if (b) {
       fpBatchByLedgerId.set(row.id, b.batch_number);
       fpShortByLedgerId.set(row.id, b.short_batch_no || b.batch_number);
+      if (b.is_legacy) fpLegacyByLedgerId.add(row.id);
     }
   });
 
@@ -128,5 +133,6 @@ export async function enrichLedgerRows<T extends RawLedgerRow>(
     eventByName: r.event_by ? nameById.get(r.event_by) ?? r.event_by.slice(0, 8) : null,
     fpBatchNumber: r.reference_id ? fpBatchByLedgerId.get(r.reference_id) ?? null : null,
     fpBatchShortNumber: r.reference_id ? fpShortByLedgerId.get(r.reference_id) ?? null : null,
+    fpBatchIsLegacy: r.reference_id ? fpLegacyByLedgerId.has(r.reference_id) : false,
   }));
 }

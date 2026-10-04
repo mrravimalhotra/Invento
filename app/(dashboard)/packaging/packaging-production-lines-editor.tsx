@@ -40,7 +40,7 @@ export function ProductionLinesEditor({
   const [lines, setLines] = useState<Line[]>([blankLine(0)]);
 
   const batchOf = (id: string) => fpBatches.find((b) => b.id === id);
-  const batchLabel = (b: PackagingBatchOption) => `${b.batch_number}${b.fp_name ? ` · ${b.fp_name}` : ""}`;
+  const batchLabel = (b: PackagingBatchOption) => `${b.batch_number}${b.is_legacy ? " (Legacy)" : ""}${b.fp_name ? ` · ${b.fp_name}` : ""}`;
 
   function addLine() {
     setLines((ls) => (ls.length >= MAX_PACKAGING_LINES ? ls : [...ls, blankLine(nextKey.current++)]));
@@ -168,7 +168,7 @@ export function ProductionLinesEditor({
                       </option>
                       {fpBatches.map((fb) => (
                         <option key={fb.id} value={fb.id} data-legacy={isLegacyCode(fb.batch_number) ? "1" : undefined}>
-                          {fb.fp_name ? `${fb.batch_number} · ${fb.fp_name}` : fb.batch_number}
+                          {`${fb.batch_number}${fb.is_legacy ? " (Legacy)" : ""}${fb.fp_name ? ` · ${fb.fp_name}` : ""}`}
                           {fb.fp_unit ? ` (${fb.fp_unit})` : ""}
                         </option>
                       ))}

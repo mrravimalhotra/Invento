@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Field, Select } from "@/components/ui/form";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { formatDate, formatNumber, formatQty, fpBatchShort } from "@/lib/utils";
 import { qcRecordStatusLabel } from "@/lib/batch-qc-status";
 import { fpStatusLabel } from "@/lib/finished-product-status";
@@ -77,6 +78,7 @@ export type QcRow = {
   reviewed_at: string | null;
   retest_date: string | null;
   expiry_date: string | null;
+  is_legacy?: boolean | null;
   item: { name: string } | null;
   purchase_line: { batch_number: string } | null;
   fp_batch: { batch_number: string; short_batch_no: string | null } | null;
@@ -84,7 +86,17 @@ export type QcRow = {
 
 export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
   const columns: ReportColumn<QcRow>[] = [
-    { header: "Analytical Report No.", exportHeader: "AR Number", cell: (r) => r.ar_number, pdfValue: (r) => r.ar_number },
+    {
+      header: "Analytical Report No.",
+      exportHeader: "AR Number",
+      cell: (r) => (
+        <>
+          {r.ar_number}
+          <LegacyTag show={r.is_legacy} />
+        </>
+      ),
+      pdfValue: (r) => r.ar_number,
+    },
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
     {
       header: "Batch",
@@ -125,6 +137,7 @@ export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
       dateOf={(r) => r.reviewed_at}
       dateLabel="Reviewed"
       filename="qc-register"
+      isOpeningStock={(r) => !!r.is_legacy}
     />
   );
 }
@@ -137,6 +150,7 @@ export type FpRow = {
   actual_yield_pct: number | string | null;
   status: string;
   finish_date: string | null;
+  is_legacy?: boolean | null;
   mfr: { name: string } | null;
 };
 
@@ -144,7 +158,12 @@ export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
   const columns: ReportColumn<FpRow>[] = [
     {
       header: "Batch Number",
-      cell: (r) => fpBatchShort(r.batch_number, r.short_batch_no),
+      cell: (r) => (
+        <>
+          {fpBatchShort(r.batch_number, r.short_batch_no)}
+          <LegacyTag show={r.is_legacy} />
+        </>
+      ),
       pdfValue: (r) => fpBatchShort(r.batch_number, r.short_batch_no),
     },
     { header: "MFR", cell: (r) => r.mfr?.name ?? "—", pdfValue: (r) => r.mfr?.name ?? "—" },
@@ -180,6 +199,7 @@ export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
       dateOf={(r) => r.finish_date}
       dateLabel="Finish date"
       filename="fp-register"
+      isOpeningStock={(r) => !!r.is_legacy}
     />
   );
 }
@@ -196,6 +216,7 @@ export type PurchaseRow = {
   // batch-tied wastage against it.
   live_remaining_qty: number | string;
   created_at: string;
+  is_legacy?: boolean | null;
   item: { name: string; category: string | null } | null;
   purchase_order: { po_number: string; vendor: { name: string } | null } | null;
 };
@@ -223,7 +244,16 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
       pdfValue: (r) => r.purchase_order?.vendor?.name ?? "—",
     },
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
-    { header: "Batch", cell: (r) => r.batch_number, pdfValue: (r) => r.batch_number },
+    {
+      header: "Batch",
+      cell: (r) => (
+        <>
+          {r.batch_number}
+          <LegacyTag show={r.is_legacy} />
+        </>
+      ),
+      pdfValue: (r) => r.batch_number,
+    },
     {
       header: "Quantity",
       cell: (r) => formatQty(r.quantity),
@@ -262,6 +292,7 @@ export function PurchaseRegisterReport({ rows }: { rows: PurchaseRow[] }) {
         dateOf={(r) => r.created_at}
         dateLabel="Received"
         filename="purchase-register"
+        isOpeningStock={(r) => !!r.is_legacy}
       />
     </div>
   );

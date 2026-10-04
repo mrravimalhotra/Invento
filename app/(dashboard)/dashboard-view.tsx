@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { StatCard, Card, CardHeader, CardBody } from "@/components/ui/card";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { HideLegacyToggle } from "@/components/ui/hide-legacy-toggle";
 import { PageHeader } from "@/components/ui/page-header";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
@@ -50,6 +51,7 @@ function AlertLine({ row, verb, href }: { row: AlertRow; verb: "retest" | "expir
       <TriangleAlert className="mt-0.5 h-3.5 w-3.5 text-amber shrink-0" />
       <span>
         <span className="font-medium">{row.title}</span> · {row.batch}
+        <LegacyTag show={row.opening} />
         <span
           className={`ml-2 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold no-underline ${
             row.kind === "fp" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700"

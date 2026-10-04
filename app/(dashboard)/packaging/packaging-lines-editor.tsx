@@ -23,6 +23,8 @@ export const MAX_PACKAGING_LINES = 30;
 export type PackagingBatchOption = {
   id: string;
   batch_number: string;
+  /** Opening stock (0101): batch came from the old records. */
+  is_legacy?: boolean | null;
   fp_unit: string | null;
   fp_name: string | null;
   /** Bulk quantity still free to pack or issue, in the product's unit. null = no yield recorded (database check does not apply). */
@@ -113,7 +115,7 @@ export function PackagingLinesEditor({
     if (b && used !== null) {
       const before = batchUsedBefore.get(b.id) ?? { total: 0, lines: [] };
       batchUsedBefore.set(b.id, { total: before.total + used, lines: [...before.lines, n] });
-      const label = `${b.batch_number}${b.fp_name ? ` · ${b.fp_name}` : ""}`;
+      const label = `${b.batch_number}${b.is_legacy ? " (Legacy)" : ""}${b.fp_name ? ` · ${b.fp_name}` : ""}`;
       if (b.left_qty !== null) {
         const available = b.left_qty - before.total;
         if (used > available + 1e-7) {
@@ -210,7 +212,7 @@ export function PackagingLinesEditor({
                       </option>
                       {fpBatches.map((fb) => (
                         <option key={fb.id} value={fb.id} data-legacy={isLegacyCode(fb.batch_number) ? "1" : undefined}>
-                          {fb.fp_name ? `${fb.batch_number} · ${fb.fp_name}` : fb.batch_number}
+                          {`${fb.batch_number}${fb.is_legacy ? " (Legacy)" : ""}${fb.fp_name ? ` · ${fb.fp_name}` : ""}`}
                           {fb.fp_unit ? ` (${fb.fp_unit})` : ""}
                         </option>
                       ))}

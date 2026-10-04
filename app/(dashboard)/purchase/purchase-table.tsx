@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, isLegacyCode } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
@@ -14,6 +15,8 @@ export type PurchaseRow = {
   lineCount: number;
   totalValue: number;
   status: "draft" | "submitted";
+  /** Opening stock (0100): loaded from the old records. */
+  isOpening?: boolean;
 };
 
 export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
@@ -23,6 +26,7 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
       accessor: (r) => (
         <Link href={`/purchase/${r.id}`} className="font-mono text-xs font-medium text-brand-dark hover:underline">
           {r.po_number}
+          <LegacyTag show={r.isOpening} />
         </Link>
       ),
       searchValue: (r) => r.po_number,
@@ -60,6 +64,7 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
       { header: "Lines", type: "number", decimals: 0, value: (r) => r.lineCount },
       { header: "Total value (₹)", type: "number", value: (r) => r.totalValue },
       { header: "Status", value: (r) => (r.status === "draft" ? "Draft" : "Submitted") },
+      { header: "Source", value: (r) => (r.isOpening ? "Legacy" : "New") },
     ],
   };
 
@@ -70,6 +75,7 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
       emptyLabel="No purchase orders yet."
       searchPlaceholder="Search purchase orders…"
       isLegacy={(r) => isLegacyCode(r.po_number)}
+      isOpeningStock={(r) => !!r.isOpening}
       exportConfig={exportConfig}
     />
   );

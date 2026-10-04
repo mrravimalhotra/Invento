@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { isLegacyCode, fpBatchBoth } from "@/lib/utils";
+import { getOpeningLineIds } from "@/lib/opening-stock/legacy-lines";
 
 // B15 (30 Sept 2026, Ravi): the Dashboard warns about
 //  - RETEST due in the next 90 days for raw materials AND finished products,
@@ -19,6 +20,8 @@ export type AlertRow = {
   ar: string | null;
   date: string; // retest or expiry date (YYYY-MM-DD)
   legacy: boolean;
+  /** Opening stock (0100/0101): batch came from the old records. */
+  opening?: boolean;
 };
 
 type DateField = "retest_date" | "expiry_date";
@@ -72,6 +75,7 @@ async function getRawPurchaseDates(supabase: Supabase, from: string, to: string,
       .range(f, t)
       .returns<PurchaseDateRow[]>()
   );
+  const openingIds = await getOpeningLineIds(supabase);
   return (data ?? []).map((r) => ({
     key: `p-${field}-${r.purchase_line_id}`,
     kind: "raw" as const,
@@ -80,6 +84,7 @@ async function getRawPurchaseDates(supabase: Supabase, from: string, to: string,
     ar: r.ar_number,
     date: r[field],
     legacy: isLegacyCode(r.item_code) || isLegacyCode(r.batch_number),
+    opening: openingIds.has(r.purchase_line_id),
   }));
 }
 
@@ -127,6 +132,7 @@ type FpEmbed = {
   batch_number: string;
   short_batch_no: string | null;
   active: boolean;
+  is_legacy: boolean | null;
   mfr_definitions: { items: ItemEmbed } | null;
 };
 
@@ -152,7 +158,7 @@ async function getFpRetests(supabase: Supabase, from: string, to: string): Promi
   }>(ids, (chunk) =>
     supabase
       .from("quality_checks")
-      .select("id, ar_number, retest_date, finished_product_batches(batch_number, short_batch_no, active, mfr_definitions(items(item_code, name)))")
+      .select("id, ar_number, retest_date, finished_product_batches(batch_number, short_batch_no, active, is_legacy, mfr_definitions(items(item_code, name)))")
       .in("id", chunk)
       .returns<{ id: string; ar_number: string; retest_date: string; finished_product_batches: FpEmbed | null }[]>()
   );
@@ -169,6 +175,7 @@ async function getFpRetests(supabase: Supabase, from: string, to: string): Promi
         ar: q.ar_number,
         date: q.retest_date,
         legacy: isLegacyCode(item?.item_code) || isLegacyCode(b?.batch_number),
+        opening: !!b?.is_legacy,
       };
     });
 }
@@ -185,7 +192,7 @@ async function getFpExpiries(supabase: Supabase, from: string, to: string): Prom
   const { data } = await fetchAllRows<ExpiryRow>((f, t) =>
     supabase
       .from("quality_checks")
-      .select("id, ar_number, expiry_date, finished_product_batches(batch_number, short_batch_no, active, mfr_definitions(items(item_code, name)))")
+      .select("id, ar_number, expiry_date, finished_product_batches(batch_number, short_batch_no, active, is_legacy, mfr_definitions(items(item_code, name)))")
       .eq("status", "approved")
       .not("finished_product_batch_id", "is", null)
       .gte("expiry_date", from)
@@ -208,6 +215,7 @@ async function getFpExpiries(supabase: Supabase, from: string, to: string): Prom
         ar: q.ar_number,
         date: q.expiry_date,
         legacy: isLegacyCode(item?.item_code) || isLegacyCode(b?.batch_number),
+        opening: !!b?.is_legacy,
       };
     });
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
@@ -13,6 +14,7 @@ export type CoaRow = {
   coa_type: string | null;
   quality_checks: {
     ar_number: string;
+    is_legacy?: boolean | null;
     items: { item_code: string; name: string } | null;
     purchase_lines: { batch_number: string } | null;
   } | null;
@@ -28,7 +30,12 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
     },
     {
       header: "Analytical Report No.",
-      accessor: (r) => r.quality_checks?.ar_number ?? "—",
+      accessor: (r) => (
+        <>
+          {r.quality_checks?.ar_number ?? "—"}
+          <LegacyTag show={r.quality_checks?.is_legacy} />
+        </>
+      ),
       searchValue: (r) => r.quality_checks?.ar_number ?? "",
     },
     {
@@ -89,6 +96,7 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
             : ""),
       },
       { header: "Issued", type: "date", value: (r) => r.issued_at },
+      { header: "Source", value: (r) => (r.quality_checks?.is_legacy ? "Legacy" : "New") },
     ],
   };
 
@@ -98,6 +106,7 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
       rows={rows}
       emptyLabel="No certificates issued yet."
       searchPlaceholder="Search COA or Analytical Report No.…"
+      isOpeningStock={(r) => !!r.quality_checks?.is_legacy}
       exportConfig={exportConfig}
     />
   );

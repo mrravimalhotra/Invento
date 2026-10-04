@@ -5,6 +5,7 @@ import { useFlashActionState } from "@/lib/use-flash-action";
 import { createFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
 import { Button, LinkButton } from "@/components/ui/button";
 import { formatQty } from "@/lib/utils";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 
 // One batch actually drawn from as part of an ingredient's automatic FIFO
 // allocation (see allocateFifo() in page.tsx) — `qty` is how much of THIS
@@ -36,6 +37,7 @@ export type Allocation = {
   id: string;
   batchNumber: string;
   qty: number;
+  isLegacy?: boolean;
 };
 
 export type ComposeLine = {
@@ -135,7 +137,8 @@ export function ComposeForm({
                     <div className="flex flex-col gap-0.5">
                       {line.allocations.map((a) => (
                         <div key={`${a.source}-${a.id}`}>
-                          {a.batchNumber} · {formatQty(a.qty)} {line.unit}
+                          {a.batchNumber}
+                          <LegacyTag show={a.isLegacy} /> · {formatQty(a.qty)} {line.unit}
                           {a.source === "production" && <span className="text-muted"> (from Production)</span>}
                         </div>
                       ))}

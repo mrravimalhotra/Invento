@@ -20,7 +20,7 @@ export default async function NewPackagingIssuePage() {
     fetchAllRows((from, to) =>
       supabase
         .from("finished_product_batches")
-        .select("id, batch_number, short_batch_no, status")
+        .select("id, batch_number, short_batch_no, status, is_legacy")
         .eq("active", true)
         .order("batch_number", { ascending: false })
         .order("id", { ascending: true })

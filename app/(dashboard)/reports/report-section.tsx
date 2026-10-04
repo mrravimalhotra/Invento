@@ -38,6 +38,7 @@ export function ReportSection<T>({
   dateOf,
   dateLabel = "Date",
   filename,
+  isOpeningStock,
 }: {
   title: string;
   description?: string;
@@ -47,6 +48,8 @@ export function ReportSection<T>({
   dateOf?: (row: T) => string | null | undefined;
   dateLabel?: string;
   filename: string;
+  /** Opening stock (0100/0101): rows this returns true for came from the old records. Adds a Source filter on screen and a Source column in the downloads. */
+  isOpeningStock?: (row: T) => boolean;
 }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -83,12 +86,17 @@ export function ReportSection<T>({
         title,
         filename,
         formats: ["excel"],
-        columns: columns.map((c) => ({
-          header: c.exportHeader ?? c.header,
-          type: c.xl?.type ?? "text",
-          decimals: c.xl?.decimals,
-          value: c.xl ? c.xl.value : (r: T) => c.pdfValue(r),
-        })),
+        columns: [
+          ...columns.map((c) => ({
+            header: c.exportHeader ?? c.header,
+            type: c.xl?.type ?? ("text" as ExportColumnType),
+            decimals: c.xl?.decimals,
+            value: c.xl ? c.xl.value : (r: T) => c.pdfValue(r),
+          })),
+          ...(isOpeningStock
+            ? [{ header: "Source", type: "text" as ExportColumnType, value: (r: T) => (isOpeningStock(r) ? "Legacy" : "New") }]
+            : []),
+        ],
       },
       "excel",
       filtered,
@@ -99,8 +107,8 @@ export function ReportSection<T>({
   function handleDownload() {
     downloadPdfTable({
       title,
-      columns: columns.map((c) => c.exportHeader ?? c.header),
-      rows: filtered.map((r) => columns.map((c) => c.pdfValue(r))),
+      columns: [...columns.map((c) => c.exportHeader ?? c.header), ...(isOpeningStock ? ["Source"] : [])],
+      rows: filtered.map((r) => [...columns.map((c) => c.pdfValue(r)), ...(isOpeningStock ? [isOpeningStock(r) ? "Legacy" : "New"] : [])]),
       filename: `${filename}.pdf`,
       // What the printed rows are filtered by, so a printout can be read
       // without the screen it came from.
@@ -170,7 +178,7 @@ export function ReportSection<T>({
           </div>
         )}
       </div>
-      <DataTable columns={tableColumns} rows={filtered} emptyLabel="No rows in range." />
+      <DataTable columns={tableColumns} rows={filtered} emptyLabel="No rows in range." isOpeningStock={isOpeningStock} />
     </Card>
   );
 }

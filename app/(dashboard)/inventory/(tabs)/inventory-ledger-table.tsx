@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { isLegacyCode, formatQty, fpBatchBoth } from "@/lib/utils";
 import type { EnrichedLedgerRow } from "@/lib/ledger-enrich";
@@ -54,10 +55,13 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
           {(r.purchase_lines?.batch_number || r.production_issue_batches?.batch_number) && (
             <div className="text-xs text-muted">
               Batch {r.purchase_lines?.batch_number ?? r.production_issue_batches?.batch_number}
+              <LegacyTag show={r.purchase_lines?.is_legacy} />
             </div>
           )}
           {r.fpBatchNumber && (
-            <div className="text-xs text-muted">FP batch {fpBatchBoth(r.fpBatchNumber, r.fpBatchShortNumber)}</div>
+            <div className="text-xs text-muted">FP batch {fpBatchBoth(r.fpBatchNumber, r.fpBatchShortNumber)}
+              <LegacyTag show={r.fpBatchIsLegacy} />
+            </div>
           )}
         </div>
       ),
@@ -130,6 +134,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
       { header: "Department", value: (r) => r.department ?? "" },
       { header: "Reference", value: (r) => (r.reference_type ? ledgerReasonLabel(r.reference_type) : "") },
       { header: "By", value: (r) => r.eventByName ?? "" },
+      { header: "Source", value: (r) => (r.purchase_lines?.is_legacy || r.fpBatchIsLegacy ? "Legacy" : "New") },
     ],
   };
 
@@ -141,6 +146,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
         searchPlaceholder="Search item, batch, event type, reference…"
         emptyLabel="No ledger events yet."
         pageSize={20}
+        isOpeningStock={(r) => !!r.purchase_lines?.is_legacy || r.fpBatchIsLegacy}
         exportConfig={exportConfig}
         // FB-0019 ("when legacy rows are hidden, legacy stock should not be
         // visibile in the ledger") — a ledger event is legacy if the item

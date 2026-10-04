@@ -6,6 +6,7 @@ import { startRetestQualityCheck, type ActionState } from "@/lib/actions/qc";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/form";
 import { compatibleUnits } from "@/lib/constants/units";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { isLegacyCode, formatQty } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
@@ -17,6 +18,7 @@ export type DueForRetestLine = {
   live_remaining_qty: string | number;
   stability_reserve_left: string | number;
   unit: string;
+  is_legacy?: boolean;
   items: { item_code: string; name: string } | null;
 };
 
@@ -74,6 +76,7 @@ function DueForRetestRow({ line, canStart }: { line: DueForRetestLine; canStart:
       <div>
         <p className="font-medium">
           {line.items ? `${line.items.item_code} — ${line.items.name}` : "—"} · {line.batch_number}
+          <LegacyTag show={line.is_legacy} />
         </p>
         <p className="text-xs text-muted">
           Stability reserve left: {formatQty(reserveLeft)} {line.unit} · Stock left: {formatQty(stockLeft)} {line.unit}

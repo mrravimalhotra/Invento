@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, isLegacyCode, formatQty, fpBatchBoth } from "@/lib/utils";
 
@@ -23,13 +24,19 @@ export type FpBatchRow = {
   stability_qty: string | number | null;
   rnd_qty: string | number | null;
   finish_date: string | null;
+  is_legacy?: boolean | null;
 };
 
 export function FpBatchesTable({ rows, unit }: { rows: FpBatchRow[]; unit: string | null }) {
   const columns: Column<FpBatchRow>[] = [
     {
       header: "Batch",
-      accessor: (r) => <span className="font-medium">{fpBatchBoth(r.batch_number, r.short_batch_no)}</span>,
+      accessor: (r) => (
+        <span className="font-medium">
+          {fpBatchBoth(r.batch_number, r.short_batch_no)}
+          <LegacyTag show={r.is_legacy} />
+        </span>
+      ),
       searchValue: (r) => fpBatchBoth(r.batch_number, r.short_batch_no),
     },
     {
@@ -67,6 +74,7 @@ export function FpBatchesTable({ rows, unit }: { rows: FpBatchRow[]; unit: strin
       emptyLabel="No Finished Product batches for this item yet."
       pageSize={10}
       isLegacy={(r) => isLegacyCode(r.batch_number)}
+      isOpeningStock={(r) => !!r.is_legacy}
     />
   );
 }

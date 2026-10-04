@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { LinkButton } from "@/components/ui/button";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { isLegacyCode, formatQty } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
@@ -11,6 +12,7 @@ export type AwaitingQcLine = {
   batch_number: string;
   qc_qty: string | number | null;
   unit: string | null;
+  is_legacy?: boolean;
   items: { item_code: string; name: string } | null;
 };
 
@@ -59,6 +61,7 @@ export function AwaitingQc({ lines, canStart }: { lines: AwaitingQcLine[]; canSt
               <div>
                 <p className="font-medium">
                   {line.items ? `${line.items.item_code} — ${line.items.name}` : "—"} · {line.batch_number}
+                  <LegacyTag show={line.is_legacy} />
                 </p>
                 {line.qc_qty !== null && (
                   <p className="text-xs text-muted">

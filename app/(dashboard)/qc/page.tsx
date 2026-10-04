@@ -7,6 +7,7 @@ import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QcTable, type QcListRow } from "./qc-table";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
+import { getOpeningLineIds } from "@/lib/opening-stock/legacy-lines";
 import { DueForRetest, type DueForRetestLine } from "./due-for-retest";
 import { AwaitingQc, type AwaitingQcLine } from "./awaiting-qc";
 import { AwaitingFpQc, type AwaitingFpQcLine } from "./awaiting-fp-qc";
@@ -117,12 +118,14 @@ async function getAwaitingQcLines(
       .order("purchase_line_id", { ascending: true })
       .range(from, to)
   );
+  const openingIds = await getOpeningLineIds(supabase);
   return data.map((r) => ({
     id: r.purchase_line_id,
     batch_number: r.batch_number,
     qc_qty: r.qc_qty,
     unit: r.unit,
     items: { item_code: r.item_code, name: r.item_name },
+    is_legacy: openingIds.has(r.purchase_line_id),
   }));
 }
 
@@ -179,6 +182,7 @@ async function getDueForRetestLines(
       .order("purchase_line_id", { ascending: true })
       .range(from, to)
   );
+  const openingIds = await getOpeningLineIds(supabase);
   return data.map((r) => ({
     id: r.purchase_line_id,
     batch_number: r.batch_number,
@@ -187,6 +191,7 @@ async function getDueForRetestLines(
     stability_reserve_left: r.stability_reserve_left ?? 0,
     unit: r.unit,
     items: { item_code: r.item_code, name: r.item_name },
+    is_legacy: openingIds.has(r.purchase_line_id),
   }));
 }
 
