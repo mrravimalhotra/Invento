@@ -47,6 +47,8 @@ export function splitRmStock(batches: RmBatchStock[], today: string): RmStockSpl
     else if (state === "expired") out.expired += b.liveRemaining;
     else out.awaitingQc += b.liveRemaining;
   }
-  out.notYetUsable = out.awaitingQc + out.rejected + out.dueForRetest + out.expired;
+  // 0104: a rejected batch is no longer in stock (it is listed under Rejected
+  // Materials), so it is reported separately and is not "not yet usable".
+  out.notYetUsable = out.awaitingQc + out.dueForRetest + out.expired;
   return out;
 }

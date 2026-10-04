@@ -58,6 +58,7 @@ export type PositionRow = {
   issuedRnd: number;
   wastage: number;
   productionRmYield: number;
+  rejected: number;
 };
 
 function Breakdown({ r }: { r: PositionRow }) {
@@ -93,6 +94,8 @@ function Breakdown({ r }: { r: PositionRow }) {
     if (r.heldRnd > 0) parts.push(`R&D ${formatQty(r.heldRnd)}`);
     if (r.consumedByFp > 0) parts.push(`FP use ${formatQty(r.consumedByFp)}`);
     if (r.wastage > 0) parts.push(`Wastage ${formatQty(r.wastage)}`);
+    // 0104: rejected batches are taken out of On hand and listed under Rejected Materials.
+    if (r.rejected > 0) parts.push(`Rejected ${formatQty(r.rejected)}`);
   }
   return <span className="text-xs text-muted">{parts.join(" · ")}</span>;
 }

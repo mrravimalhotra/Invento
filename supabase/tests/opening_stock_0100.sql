@@ -39,7 +39,8 @@ select t_ok('IM loads raw: approved + pending + rejected', $q$
    {"item_id":"00000000-0000-0000-0000-0000000000c3","batch_number":"OLD-78","quantity":20,"receipt_date":"2026-02-01","expiry_date":"2028-02-01","qc_status":"pending"},
    {"item_id":"00000000-0000-0000-0000-0000000000c4","batch_number":"BAD-1","quantity":5,"receipt_date":"2026-02-02","qc_status":"rejected","old_ar":"AR/2025/020","approval_date":"2026-02-05"}]')$q$);
 select t_check('load number is OPN-0001', (select v from t_out where k='raw1') = 'OPN-0001');
-select t_check('stock on hand: Raw A 70, Raw B 5', t_oh('00000000-0000-0000-0000-0000000000c3') = 70 and t_oh('00000000-0000-0000-0000-0000000000c4') = 5);
+select t_check('stock on hand: Raw A 70, Raw B 0 (the rejected 5 sit in Rejected Materials, 0104)', t_oh('00000000-0000-0000-0000-0000000000c3') = 70 and t_oh('00000000-0000-0000-0000-0000000000c4') = 0
+  and (select rejected_qty from rejected_batches where batch_number = 'BAD-1') = 5);
 select t_check('all three lines are legacy, receipt-dated, with ledger pushes',
   (select count(*) from purchase_lines where is_legacy and created_at::date <= '2026-02-02' and pushed_at is not null) = 3);
 select t_check('two QC records (approved + rejected), both legacy, old AR kept as typed',

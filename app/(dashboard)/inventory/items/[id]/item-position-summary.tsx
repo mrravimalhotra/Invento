@@ -22,6 +22,7 @@ export type Position = {
   issuedRnd: number;
   wastage: number;
   productionRmYield: number;
+  rejected: number;
   onHand: number;
 };
 
@@ -37,7 +38,8 @@ function Stat({ label, value, unit, emphasize }: { label: string; value: number;
 }
 
 // ACC-22: the "Not yet usable" line under the raw-material card, e.g.
-// "Not yet usable: 40 kg (30 kg awaiting QC, 10 kg rejected)".
+// "Not yet usable: 40 kg (30 kg awaiting QC, 10 kg due for retest)".
+// Rejected batches are no longer in stock (0104) and are not part of this line.
 export function notYetUsableText(split: RmStockSplit, unit: string | null): string | null {
   if (!(split.notYetUsable > 0)) return null;
   const u = unit ? ` ${unit}` : "";
@@ -45,7 +47,6 @@ export function notYetUsableText(split: RmStockSplit, unit: string | null): stri
   if (split.awaitingQc > 0) parts.push(`${formatQty(split.awaitingQc)}${u} awaiting QC`);
   if (split.dueForRetest > 0) parts.push(`${formatQty(split.dueForRetest)}${u} due for retest`);
   if (split.expired > 0) parts.push(`${formatQty(split.expired)}${u} expired`);
-  if (split.rejected > 0) parts.push(`${formatQty(split.rejected)}${u} rejected`);
   return `Not yet usable: ${formatQty(split.notYetUsable)}${u} (${parts.join(", ")})`;
 }
 
@@ -128,6 +129,11 @@ export function ItemPositionSummary({
         <Stat label="Available for FP production" value={available} unit={unit} emphasize />
       </div>
       {notUsable && <p className="mt-3 text-sm text-muted lg:text-right">{notUsable}</p>}
+      {p.rejected > 0 && (
+        <p className="mt-1 text-sm text-muted lg:text-right">
+          Rejected, not counted in stock: {formatQty(p.rejected)} {unit} (see Rejected Materials)
+        </p>
+      )}
     </div>
   );
 }

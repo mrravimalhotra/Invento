@@ -375,7 +375,7 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 
 **Where to find it:** Procurement → Inventory Ledger
 
-**Who can use it:** Everyone signed in can view all three tabs (Ledger, Stock Position, RM Report As On Date). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
+**Who can use it:** Everyone signed in can view all four tabs (Ledger, Stock Position, RM Report As On Date, Rejected Materials). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
 
 **What it's for:** This is the record of every stock movement in Invento — material coming in from Purchase, samples pulled out for QC, material consumed making finished product, packaging issued, and wastage — plus two ways to see where things stand: a current on-hand view (Stock Position) and a report of stock as of any past date (RM Report As On Date). Everything on these screens is generated automatically from other modules except wastage, which is the one thing you record here directly.
 
@@ -395,7 +395,13 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 - **Running balance** (Ledger tab column) — the item's stock level after that specific row's movement, so you can see the balance change line by line.
 
 **How it connects to the rest of the app**
-This module is downstream of everything else: a Purchase Final Submit creates the "push" rows here, starting a QC check creates the sample "pull" rows automatically, and Finished Product/Packaging create their own rows when batches are made or issued. Wastage is the only entry you create directly on this screen. The RM Report As On Date and the Ledger/Stock Position views only ever reflect batches from **submitted** purchase orders — a Draft order's stock won't appear here at all.
+This module is downstream of everything else: a Purchase Final Submit creates the "Stock In" rows here, starting a QC check creates the sample "Stock Out" rows automatically, and Finished Product/Packaging create their own rows when batches are made or issued. Wastage is the only entry you create directly on this screen. The RM Report As On Date and the Ledger/Stock Position views only ever reflect batches from **submitted** purchase orders — a Draft order's stock won't appear here at all.
+
+**Rejected Materials**
+Open the **Rejected Materials** tab to see every batch QC has rejected — raw material and finished product — with the QC, Stability and R&D samples taken from each shown on the same row. You can search it and export it to Excel or PDF. When QC rejects a raw material batch, what is left of it is taken out of stock on hand automatically (the ledger shows it as "QC Rejected"), so Stock Position only counts material you can actually use. Recording wastage against a rejected batch writes it off from the rejected quantity. A purchase order that contains a rejected batch can't be reopened.
+
+**Stock In / Stock Out**
+The ledger's Event column shows **Stock In** when stock is added (receipts, batch yields), **Stock Out** when stock is taken (samples, production use, issues), and **Wastage** when it is written off.
 
 **Good to know**
 - The main Ledger tab shows only the 1,000 most recent events — use the item, reason, and date filters if you're looking for something older rather than scrolling.

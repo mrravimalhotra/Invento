@@ -8,6 +8,7 @@ const TABS = [
   { href: "/inventory", label: "Ledger" },
   { href: "/inventory/balance", label: "Stock Position" },
   { href: "/inventory/rm-report", label: "RM Report As On Date" },
+  { href: "/inventory/rejected", label: "Rejected Materials" },
 ];
 
 export function InventoryTabs() {

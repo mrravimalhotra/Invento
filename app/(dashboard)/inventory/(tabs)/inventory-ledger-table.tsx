@@ -6,6 +6,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { isLegacyCode, formatQty, fpBatchBoth } from "@/lib/utils";
 import type { EnrichedLedgerRow } from "@/lib/ledger-enrich";
 import { ledgerReasonLabel } from "@/lib/ledger-reasons";
+import { ledgerEventLabel } from "@/lib/ledger-events";
 import type { TableExport } from "@/lib/table-export";
 
 export type LedgerRow = EnrichedLedgerRow;
@@ -41,8 +42,8 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
     },
     {
       header: "Event",
-      accessor: (r) => <Badge status={r.event_type}>{r.event_type}</Badge>,
-      searchValue: (r) => r.event_type,
+      accessor: (r) => <Badge status={r.event_type}>{ledgerEventLabel(r.event_type)}</Badge>,
+      searchValue: (r) => `${r.event_type} ${ledgerEventLabel(r.event_type)}`,
     },
     {
       header: "Item",
@@ -118,7 +119,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
     note: rows.length === ledgerLimit ? `Most recent ${ledgerLimit.toLocaleString("en-IN")} events only — narrow the filters to see others` : undefined,
     columns: [
       { header: "Date / time", type: "datetime", value: (r) => r.event_at },
-      { header: "Event", value: (r) => r.event_type },
+      { header: "Event", value: (r) => ledgerEventLabel(r.event_type) },
       { header: "Item code", value: (r) => r.items?.item_code ?? "" },
       { header: "Item", value: (r) => r.items?.name ?? "" },
       { header: "Batch", value: (r) => r.purchase_lines?.batch_number ?? r.production_issue_batches?.batch_number ?? "" },

@@ -22,6 +22,7 @@ export const LEDGER_REASONS: { value: string; label: string; inFilter: boolean }
   { value: "packaged_fp_yield", label: "Packaged FP Yield", inFilter: true },
   { value: "packaged_fp_issue", label: "Packaged FP Issued", inFilter: true },
   { value: "production_rm_yield", label: "Production RM Yield", inFilter: true },
+  { value: "qc_rejected", label: "QC Rejected (moved to Rejected Materials)", inFilter: true },
 ];
 
 export const LEDGER_REASON_LABELS: Record<string, string> = Object.fromEntries(

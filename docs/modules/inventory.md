@@ -890,11 +890,13 @@ offer. Found in `claude/app-accuracy-audit-2026-09-28.md`.
 due for retest, and (for purchased batches) on a submitted purchase order** —
 the same rule Compose and the database QC gate (`check_batch_qc_approved`,
 0078) apply. Stock in every other batch is listed underneath, split by reason,
-e.g. *Not yet usable: 40 kg (30 kg awaiting QC, 10 kg rejected)*:
+e.g. *Not yet usable: 40 kg (30 kg awaiting QC, 10 kg due for retest)*:
 
 - **awaiting QC** — no decision yet, or only the QC Checker has approved (Round 2 pending);
-- **due for retest** — approved, but the retest date has arrived;
-- **rejected**.
+- **due for retest** — approved, but the retest date has arrived.
+
+(Rejected batches were part of this list until migration 0104; they now leave
+On hand altogether — see "Rejected Materials" below.)
 
 A batch whose purchase order was reopened for editing is not in stock (the
 reopen reverses it), so it appears in neither figure.
@@ -971,3 +973,47 @@ PDF (PQTY / SQTY / QTY), matching the slips.
 **Unchanged.** Money (rates, GST amounts, totals), percentages (GST %, yield %,
 depreciation %), Environmental Control readings and pack counts keep their own
 formats. Stored quantities are not rounded; this changes display only.
+
+
+## Rejected Materials tab, and Stock In / Stock Out (4 Oct 2026 — migration 0104; closes B41 / FB-0057)
+
+**Rejected Materials tab** — `/inventory/rejected`. Every batch QC has rejected:
+raw material (bought, or made from a production issue) and finished product,
+with the samples already taken from each (QC, Stability, R&D shown on the same
+row). List only for now — disposal or return tracking is not part of it. Search,
+Excel and PDF export, and the Legacy tag / "Hide legacy data" work as on the
+other lists. Rejected quantity: raw material = what the ledger moved out
+(`rejected_batches` view); finished product = batch yield less samples
+(finished product never enters the ledger, so nothing to move).
+
+**Rejected raw material leaves On hand.** When QC rejects a raw material batch
+(first insert of a closed rejected record — e.g. rejected opening stock — or the
+Round 2 decision), a trigger on `quality_checks` (`trg_qc_rejected_stock`) pulls
+the batch's remaining quantity out of the ledger with the new reason
+**QC Rejected** (`qc_rejected`). The batch's own remaining quantity is untouched
+(it still counts the rejected stock), the samples already taken stay held, and
+Stock Position shows a **Rejected** figure in the breakdown (new `rejected`
+column on `item_position`, so On hand still equals the breakdown). If the same
+batch is later approved, the quantity goes back.
+
+- **Wastage on a rejected batch** first returns the written-off quantity to
+  stock and then writes it off, so On hand does not change and the Rejected
+  quantity goes down.
+- **Reopening a purchase order** is refused while one of its batches is
+  rejected (message names the batch).
+- **Undoing an opening stock load** works with rejected batches in it (the
+  rejected move is part of the load).
+- The migration moves batches that were already rejected out of On hand.
+- The item page no longer lists rejected stock under "Not yet usable"; it shows
+  one line "Rejected, not counted in stock: X (see Rejected Materials)".
+
+**Known edge.** If stock of a batch is sitting in a draft finished product
+batch when a retest rejects it, and the draft is cancelled, the returned
+quantity comes back to On hand (the draft's return is not rerouted to Rejected).
+Not seen in normal use (a batch due for retest is blocked from use).
+
+**Stock In / Stock Out.** On the Ledger tab, its Excel export and the dashboard
+movement chart, the event types are now shown as **Stock In** (was push),
+**Stock Out** (was pull) and **Wastage** (unchanged). Display only: stored
+values stay push / pull / wastage (`lib/ledger-events.ts`). The Reason filter has
+a new "QC Rejected" entry.

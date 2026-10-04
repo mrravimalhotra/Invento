@@ -58,8 +58,8 @@ export function DashboardCharts({ qcCounts, ledger30, purchase30, fp30, days }: 
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="push" name="Push" stroke={BRAND} strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="pull" name="Pull" stroke={AMBER} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="push" name="Stock In" stroke={BRAND} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="pull" name="Stock Out" stroke={AMBER} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </CardBody>

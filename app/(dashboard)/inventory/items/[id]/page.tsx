@@ -47,6 +47,7 @@ type PositionQueryRow = {
   issued_rnd: string | number;
   wastage: string | number;
   production_rm_yield: string | number;
+  rejected: string | number;
   on_hand: string | number;
 };
 
@@ -91,7 +92,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
     supabase
       .from("item_position")
       .select(
-        "received, yielded, held_qc, held_stability, held_rnd, consumed_by_fp, issued_packaging, consumed_by_packaging, packaged_yield, issued_store, issued_rnd, wastage, production_rm_yield, on_hand"
+        "received, yielded, held_qc, held_stability, held_rnd, consumed_by_fp, issued_packaging, consumed_by_packaging, packaged_yield, issued_store, issued_rnd, wastage, production_rm_yield, rejected, on_hand"
       )
       .eq("item_id", id)
       .maybeSingle<PositionQueryRow>(),
@@ -114,6 +115,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
     issuedRnd: p ? Number(p.issued_rnd) : 0,
     wastage: p ? Number(p.wastage) : 0,
     productionRmYield: p ? Number(p.production_rm_yield) : 0,
+    rejected: p ? Number(p.rejected) : 0,
     onHand: p ? Number(p.on_hand) : 0,
   };
 
