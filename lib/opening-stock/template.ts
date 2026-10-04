@@ -7,6 +7,12 @@ import {
 import { MAX_OPENING_ROWS, OPENING_COLUMNS, OPENING_EXAMPLES, OPENING_KINDS, type OpeningKind } from "./columns";
 
 const INTRO: Record<OpeningKind, string[]> = {
+  finished: [
+    "Opening stock: Finished Product — one row per batch in stock on the day the old records stop. Fill it from the physical stock count sheet. Every batch loaded here is already QC Approved.",
+    "Enter the bulk still unpacked in Bulk quantity unpacked, and the packs already packed in Packs in stock with their Pack size (for example 100 ml). Either or both may be filled; a batch needs at least one. The batch's total yield is the bulk plus the bulk that went into the packs.",
+    "Old AR No is the Analytical Report number from the old records, written exactly as there. Numbers that look like ones this app makes (ARFP-0001/26, ARRM-0001/26) are refused, and so are batch numbers like FP-00001-01/26 or PR-01/26.",
+    "The packs are recorded as one Store packaging issue per batch, so they appear in the Packaging list. The finished product must have a packaged item, which is created when its MFR is approved.",
+  ],
   raw: [
     "Opening stock: Raw Material — one row per batch in stock on the day the old records stop. Fill it from the physical stock count sheet.",
     "QC status is Approved, Pending QC or Rejected. Approved and Rejected batches need the old Analytical Report (AR) number, written exactly as in the old records, and the QC approval date. Approved batches also need the retest date and the manufacturer expiry date. Pending QC batches only need the expiry date; they join the normal QC queue.",
@@ -24,7 +30,7 @@ const INTRO: Record<OpeningKind, string[]> = {
 export async function buildOpeningWorkbook(kind: OpeningKind, supabase: SupabaseClient): Promise<ExcelJS.Workbook> {
   const meta = OPENING_KINDS.find((k) => k.key === kind)!;
   const columns = OPENING_COLUMNS[kind];
-  const category = kind === "raw" ? "raw" : "packaging";
+  const category = kind === "raw" ? "raw" : kind === "packaging" ? "packaging" : "processed";
 
   const [{ data: items }, { data: vendors }] = await Promise.all([
     fetchAllRows((from, to) =>
@@ -34,7 +40,18 @@ export async function buildOpeningWorkbook(kind: OpeningKind, supabase: Supabase
       supabase.from("vendors").select("vendor_code").eq("active", true)
         .order("vendor_code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
   ]);
-  const itemCodes = (items ?? []).map((i) => i.item_code);
+  let itemCodes = (items ?? []).map((i) => i.item_code);
+  if (kind === "finished") {
+    // only items that are the finished product of an MFR (not the packaged or production-RM items)
+    const { data: mfrs } = await fetchAllRows((from, to) =>
+      supabase.from("mfr_definitions").select("finished_product_item_id")
+        .not("finished_product_item_id", "is", null).order("id", { ascending: true }).range(from, to));
+    const fpIds = new Set((mfrs ?? []).map((m) => m.finished_product_item_id as string));
+    const { data: fpItems } = await fetchAllRows((from, to) =>
+      supabase.from("items").select("id, item_code").eq("category", "processed").eq("active", true)
+        .order("item_code", { ascending: true }).order("id", { ascending: true }).range(from, to));
+    itemCodes = (fpItems ?? []).filter((i) => fpIds.has(i.id as string)).map((i) => i.item_code as string);
+  }
   const vendorCodes = (vendors ?? []).map((v) => v.vendor_code).filter((c) => c !== "V-OPENING");
 
   const workbook = new ExcelJS.Workbook();
@@ -66,8 +83,12 @@ export async function buildOpeningWorkbook(kind: OpeningKind, supabase: Supabase
   const vendorLast = addReferenceColumn(ref, 2, "Active vendor codes", vendorCodes);
   const end = 1 + MAX_OPENING_ROWS;
   const col = (h: string) => columns.findIndex((c) => c.header === h) + 1;
-  applyDropdownColumn(sheet, col("Item Code"), 2, end, [`Reference!$A$2:$A$${itemLast}`]);
-  applyDropdownColumn(sheet, col("Vendor Code"), 2, end, [`Reference!$B$2:$B$${vendorLast}`]);
+  if (kind === "finished") {
+    applyDropdownColumn(sheet, col("Product Code"), 2, end, [`Reference!$A$2:$A$${itemLast}`]);
+  } else {
+    applyDropdownColumn(sheet, col("Item Code"), 2, end, [`Reference!$A$2:$A$${itemLast}`]);
+    applyDropdownColumn(sheet, col("Vendor Code"), 2, end, [`Reference!$B$2:$B$${vendorLast}`]);
+  }
   if (kind === "raw") applyDropdownColumn(sheet, col("QC status"), 2, end, ['"Approved,Pending QC,Rejected"']);
   return workbook;
 }

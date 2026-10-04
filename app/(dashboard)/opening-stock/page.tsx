@@ -9,7 +9,7 @@ import { OpenCloseButton, UndoButton } from "./admin-controls";
 
 // Opening stock (Ravi, 3 Oct 2026, FB-0054 / B4). Every role may load while
 // loading is open; the System Administrator closes it by hand after the agreed
-// cut-off. Finished product opening stock follows in a later release.
+// cut-off. 
 export default async function OpeningStockPage() {
   const user = await getCurrentUser();
   const roles = user?.roles ?? [];
@@ -54,7 +54,9 @@ export default async function OpeningStockPage() {
               <p className="text-sm text-muted">
                 {k.key === "raw"
                   ? "One row per batch. Each batch is Approved, Pending QC or Rejected; Approved and Rejected batches carry the old AR number and dates. Pending QC batches join the normal QC queue."
-                  : "One row per lot. No QC needed. A blank Lot No is numbered by the app."}
+                  : k.key === "packaging"
+                    ? "One row per lot. No QC needed. A blank Lot No is numbered by the app."
+                    : "One row per batch, already QC Approved with its old AR number. Enter the bulk still unpacked and the packs already packed (with pack size); the packs appear as one Store packaging issue per batch."}
               </p>
               {canLoad && isOpen ? (
                 <OpeningUploadForm kind={k.key} templateHref={`/api/opening-stock/template/${k.key}`} />
@@ -64,11 +66,6 @@ export default async function OpeningStockPage() {
             </CardBody>
           </Card>
         ))}
-
-        <Card>
-          <CardHeader title="Finished Product" />
-          <CardBody className="text-sm text-muted">Finished product opening stock (packed and bulk) is coming in the next release.</CardBody>
-        </Card>
 
         <Card>
           <CardHeader title="Loads" />
@@ -91,13 +88,18 @@ export default async function OpeningStockPage() {
                   <tbody>
                     {(loads ?? []).map((l) => {
                       const s = (l.summary ?? {}) as { approved?: number; pending?: number; rejected?: number };
+                      const t = (l.summary ?? {}) as { with_bulk?: number; with_packs?: number };
                       return (
                         <tr key={l.id} className="border-t border-border">
                           <td className="py-2 pr-4 font-mono">{l.load_no}</td>
                           <td className="py-2 pr-4">{OPENING_KINDS.find((k) => k.key === l.kind)?.title ?? l.kind}</td>
                           <td className="py-2 pr-4">{l.row_count}</td>
                           <td className="py-2 pr-4 text-muted">
-                            {l.kind === "raw" ? `${s.approved ?? 0} approved, ${s.pending ?? 0} pending, ${s.rejected ?? 0} rejected` : "—"}
+                            {l.kind === "raw"
+                              ? `${s.approved ?? 0} approved, ${s.pending ?? 0} pending, ${s.rejected ?? 0} rejected`
+                              : l.kind === "finished"
+                                ? `${t.with_bulk ?? 0} with bulk, ${t.with_packs ?? 0} with packs`
+                                : "—"}
                           </td>
                           <td className="py-2 pr-4">{formatDateTime(l.created_at)}</td>
                           {isAdmin && <td className="py-2">{isOpen && <UndoButton loadId={l.id} loadNo={l.load_no} />}</td>}

@@ -12,6 +12,7 @@ type FpQueryRow = {
   id: string;
   batch_number: string;
   short_batch_no: string | null;
+  is_legacy: boolean;
   target_qty: string | number;
   unit: string;
   actual_yield_pct: string | number | null;
@@ -40,7 +41,7 @@ export default async function FinishedProductListPage() {
       supabase
         .from("finished_product_batches")
         .select(
-          "id, batch_number, short_batch_no, target_qty, unit, actual_yield_pct, finish_date, status, mfr_definitions(name)",
+          "id, batch_number, short_batch_no, is_legacy, target_qty, unit, actual_yield_pct, finish_date, status, mfr_definitions(name)",
         )
         .eq("active", true)
         .order("created_at", { ascending: false })

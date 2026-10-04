@@ -4,11 +4,12 @@ import type { ColumnDef } from "@/lib/bulk-upload/schemas";
 // in stock on the day the old records stop. Header text is the single source
 // of truth for both the downloadable template and the upload check.
 
-export type OpeningKind = "raw" | "packaging";
+export type OpeningKind = "raw" | "packaging" | "finished";
 
 export const OPENING_KINDS: { key: OpeningKind; title: string; sheetName: string; fileBaseName: string }[] = [
   { key: "raw", title: "Raw Material", sheetName: "Raw Material Opening", fileBaseName: "opening-stock-raw-material" },
   { key: "packaging", title: "Packaging", sheetName: "Packaging Opening", fileBaseName: "opening-stock-packaging" },
+  { key: "finished", title: "Finished Product", sheetName: "Finished Product Opening", fileBaseName: "opening-stock-finished-product" },
 ];
 
 export const MAX_OPENING_ROWS = 500;
@@ -39,7 +40,19 @@ export const PKG_COLUMNS: ColumnDef[] = [
   { header: "GST %", required: false, numeric: true, percent: true, hint: "Optional. 18 means 18%" },
 ];
 
-export const OPENING_COLUMNS: Record<OpeningKind, ColumnDef[]> = { raw: RM_COLUMNS, packaging: PKG_COLUMNS };
+export const FP_COLUMNS: ColumnDef[] = [
+  { header: "Product Code", required: true, hint: "The finished product code from the MFR, e.g. FP-00001" },
+  { header: "Batch No", required: true, hint: "Exactly as in the old records. Not a number made by this app (FP-00001-01/26 or PR-01/26 style)" },
+  { header: "Manufacture date", required: true, hint: "Not in the future" },
+  { header: "Expiry date", required: true, hint: "Must be after the manufacture date" },
+  { header: "Bulk quantity unpacked", required: false, numeric: true, hint: "Bulk still unpacked, in the product's own unit. Blank means 0" },
+  { header: "Packs in stock", required: false, numeric: true, hint: "Number of packs already packed and in stock (whole number). Blank means 0" },
+  { header: "Pack size", required: false, hint: "Required when packs are in stock, e.g. 100 ml or 0.5 kg. A bare number uses the product's unit" },
+  { header: "Old AR No", required: true, hint: "The Analytical Report number from the old records, as written there" },
+  { header: "QC approval date", required: true, hint: "Not in the future and not before the manufacture date. Every batch loaded here is Approved" },
+];
+
+export const OPENING_COLUMNS: Record<OpeningKind, ColumnDef[]> = { raw: RM_COLUMNS, packaging: PKG_COLUMNS, finished: FP_COLUMNS };
 
 export const OPENING_EXAMPLES: Record<OpeningKind, string[][]> = {
   raw: [
@@ -47,6 +60,7 @@ export const OPENING_EXAMPLES: Record<OpeningKind, string[][]> = {
     ["RM-001", "AB-2305", "40", "02-05-2026", "30-04-2029", "Pending QC", "", "", "", "", "", "", ""],
   ],
   packaging: [["PKG-001", "5000", "10-04-2026", "L-77", "V-0001", "3.5", "18"]],
+  finished: [["FP-00001", "B-1042", "05-02-2026", "04-02-2028", "12.5", "300", "100 ml", "AR/24-25/310", "12-02-2026"]],
 };
 
 export const QC_STATUS_WORDS: Record<string, "approved" | "pending" | "rejected"> = {

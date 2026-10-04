@@ -26,6 +26,7 @@ export type QcListRow = {
   finished_product_batches: {
     batch_number: string;
     short_batch_no: string | null;
+    is_legacy: boolean;
     mfr_definitions: { name: string } | null;
   } | null;
   // FB-0043: a Production-issued RM batch's own batch number — this row
@@ -94,7 +95,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
               : null) ??
             r.production_issue_batches?.batch_number ??
             "—"}
-          <LegacyTag show={r.purchase_lines?.is_legacy} />
+          <LegacyTag show={r.purchase_lines?.is_legacy || r.finished_product_batches?.is_legacy} />
         </>
       ),
       searchValue: (r) =>
@@ -119,7 +120,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
     formats: ["excel", "pdf"],
     columns: [
       { header: "AR Number", value: (r) => r.ar_number },
-      { header: "Source", value: (r) => (r.is_legacy || r.purchase_lines?.is_legacy ? "Legacy" : "New") },
+      { header: "Source", value: (r) => (r.is_legacy || r.purchase_lines?.is_legacy || r.finished_product_batches?.is_legacy ? "Legacy" : "New") },
       { header: "Retest", value: (r) => (r.is_retest ? "Yes" : "No") },
       { header: "Status", value: (r) => qcRecordStatusLabel(r.status) },
       {
@@ -151,7 +152,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
       emptyLabel="No quality checks yet."
       searchPlaceholder="Search Analytical Report No., item, or batch…"
       isLegacy={isLegacyQcRow}
-      isOpeningStock={(r) => r.is_legacy || !!r.purchase_lines?.is_legacy}
+      isOpeningStock={(r) => r.is_legacy || !!r.purchase_lines?.is_legacy || !!r.finished_product_batches?.is_legacy}
       exportConfig={exportConfig}
     />
   );

@@ -64,6 +64,7 @@ export type FpRecord = {
   // that predate this (see page.tsx) — the label falls back to the full
   // batchNumber for those.
   shortBatchNumber: string | null;
+  isLegacy?: boolean;
   quantity: number | null;
   unit: string;
   finishDate: string | null;
@@ -251,7 +252,7 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
                 <option value="">Select a batch…</option>
                 {filteredFpRecords.map((r) => (
                   <option key={r.id} value={r.id} data-legacy={isLegacyCode(r.batchNumber) ? "1" : undefined}>
-                    {r.batchNumber} · {r.productName}
+                    {r.batchNumber}{r.isLegacy ? " (Legacy)" : ""} · {r.productName}
                   </option>
                 ))}
               </Select>

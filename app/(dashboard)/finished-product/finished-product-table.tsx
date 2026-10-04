@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, isLegacyCode, formatQty, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
@@ -11,6 +12,7 @@ export type FpRow = {
   id: string;
   batch_number: string;
   short_batch_no: string | null;
+  is_legacy: boolean;
   target_qty: string | number;
   unit: string;
   actual_yield_pct: string | number | null;
@@ -25,9 +27,12 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
     {
       header: "Batch",
       accessor: (r) => (
-        <Link href={`/finished-product/${r.id}`} className="font-medium text-brand hover:underline">
-          {fpBatchBoth(r.batch_number, r.short_batch_no)}
-        </Link>
+        <>
+          <Link href={`/finished-product/${r.id}`} className="font-medium text-brand hover:underline">
+            {fpBatchBoth(r.batch_number, r.short_batch_no)}
+          </Link>
+          <LegacyTag show={r.is_legacy} />
+        </>
       ),
       searchValue: (r) => fpBatchBoth(r.batch_number, r.short_batch_no),
     },
@@ -50,6 +55,7 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
     formats: ["excel", "pdf"],
     columns: [
       { header: "Batch", value: (r) => fpBatchShort(r.batch_number, r.short_batch_no) },
+      { header: "Source", value: (r) => (r.is_legacy ? "Legacy" : "New") },
       { header: "MFR", value: (r) => r.mfr_definitions?.name ?? "" },
       {
         header: "Status",
@@ -70,6 +76,7 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
       searchPlaceholder="Search batch number or MFR…"
       emptyLabel="No finished product batches yet."
       isLegacy={(r) => isLegacyCode(r.batch_number)}
+      isOpeningStock={(r) => r.is_legacy}
       exportConfig={exportConfig}
     />
   );

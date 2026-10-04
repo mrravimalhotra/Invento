@@ -38,7 +38,7 @@ export default async function QcListPage() {
     supabase
       .from("quality_checks")
       .select(
-        "id, ar_number, status, sample_qty, sample_unit, retest_date, expiry_date, is_retest, is_legacy, items(item_code, name), purchase_lines(batch_number, is_legacy), finished_product_batches(batch_number, short_batch_no, mfr_definitions(name)), production_issue_batches(batch_number)"
+        "id, ar_number, status, sample_qty, sample_unit, retest_date, expiry_date, is_retest, is_legacy, items(item_code, name), purchase_lines(batch_number, is_legacy), finished_product_batches(batch_number, short_batch_no, is_legacy, mfr_definitions(name)), production_issue_batches(batch_number)"
       )
       .order("created_at", { ascending: false })
       .limit(QC_LIMIT),

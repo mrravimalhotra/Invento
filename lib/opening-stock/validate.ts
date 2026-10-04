@@ -8,7 +8,7 @@ import { MAX_RM_RETESTS } from "@/lib/constants/qc-rules";
 // function load_opening_stock() takes. The database repeats the important
 // checks; these ones exist to list every problem at once, with Excel row numbers.
 
-export type OpeningItem = { id: string; item_code: string; category: string; unit: string };
+export type OpeningItem = { id: string; item_code: string; category: string; unit: string; packaged_item_id?: string | null };
 
 export type OpeningContext = {
   today: string; // yyyy-mm-dd, India
@@ -16,6 +16,9 @@ export type OpeningContext = {
   vendorIdByCode: Map<string, string>; // key: lower-case vendor code
   existingBatches: Set<string>; // `${itemId}|${batch}`
   existingArs: Set<string>;
+  // finished product only: items that are the finished product of an MFR, and every batch number in use
+  fpItemIds?: Set<string>;
+  existingFpBatches?: Set<string>;
 };
 
 export type OpeningRowPayload = Record<string, string | number | null>;
@@ -29,6 +32,7 @@ export type OpeningCheck = {
 const APP_AR = /^AR(RM|FP)-\d+\/\d{2}$/i;
 
 export function validateOpeningSheet(kind: OpeningKind, sheet: ParsedSheet, ctx: OpeningContext): OpeningCheck {
+  if (kind === "finished") return validateFinishedSheet(sheet, ctx);
   const columns = OPENING_COLUMNS[kind];
   const idx = new Map<string, number>(columns.map((c: ColumnDef) => [c.header, findColumnIndex(sheet.headers, c)]));
   const errors: string[] = [];
@@ -175,4 +179,132 @@ export function validateOpeningSheet(kind: OpeningKind, sheet: ParsedSheet, ctx:
   });
 
   return { errors, rows, counts };
+}
+
+// ---- finished product ------------------------------------------------------
+
+const UNIT_ALIASES: Record<string, string> = {
+  kg: "kg", kgs: "kg", g: "g", gm: "g", gms: "g", gram: "g", grams: "g", mg: "mg",
+  ml: "ml", l: "ltr", lt: "ltr", ltr: "ltr", litre: "ltr", liter: "ltr", litres: "ltr", liters: "ltr", nos: "nos",
+};
+const FAMILY: Record<string, string> = { mg: "w", g: "w", kg: "w", ml: "v", ltr: "v" };
+
+/** "100 ml" -> { qty: 100, unit: "ml" }; a bare number uses the product's unit. */
+export function parsePackSize(text: string, itemUnit: string): { qty: number; unit: string } | null {
+  const m = /^(\d+(?:\.\d+)?)\s*([A-Za-z]+)?$/.exec(text.trim());
+  if (!m) return null;
+  const qty = Number(m[1]);
+  const unit = m[2] ? UNIT_ALIASES[m[2].toLowerCase()] : itemUnit;
+  if (!unit || !(qty > 0)) return null;
+  if (unit !== itemUnit && (FAMILY[unit] === undefined || FAMILY[unit] !== FAMILY[itemUnit])) return null;
+  return { qty, unit };
+}
+
+function validateFinishedSheet(sheet: ParsedSheet, ctx: OpeningContext): OpeningCheck {
+  const columns = OPENING_COLUMNS.finished;
+  const idx = new Map<string, number>(columns.map((c: ColumnDef) => [c.header, findColumnIndex(sheet.headers, c)]));
+  const errors: string[] = [];
+  const rows: OpeningRowPayload[] = [];
+  const seenBatches = new Set<string>();
+  const seenArs = new Set<string>();
+
+  sheet.rows.forEach((raw, n) => {
+    const xr = sheet.rowNumbers[n];
+    const get = (h: string) => {
+      const i = idx.get(h) ?? -1;
+      return i === -1 ? "" : (raw[i] ?? "").trim();
+    };
+    const bad = (msg: string) => errors.push(`Row ${xr}: ${msg}`);
+    const start = errors.length;
+
+    const date = (h: string): string | null => {
+      const t = get(h);
+      if (!t) {
+        bad(`${h} is required.`);
+        return null;
+      }
+      const d = parseUploadDate(t);
+      if (!d) {
+        bad(`${h} "${t}" is not a date — ${DATE_FORMAT_HINT}.`);
+        return null;
+      }
+      return d;
+    };
+    const num = (h: string): number => {
+      const t = get(h);
+      if (!t) return 0;
+      const v = Number(t.replace(/,/g, ""));
+      if (!Number.isFinite(v)) {
+        bad(`${h} "${t}" is not a number.`);
+        return 0;
+      }
+      return v;
+    };
+
+    const code = get("Product Code");
+    const item = code ? ctx.itemsByCode.get(code.toLowerCase()) : undefined;
+    if (!code) bad("Product Code is required.");
+    else if (!item || !ctx.fpItemIds?.has(item.id)) bad(`Product Code "${code}" is not a finished product with an MFR.`);
+
+    const batch = get("Batch No");
+    if (!batch) bad("Batch No is required.");
+    else if (
+      (item && batch.toLowerCase().startsWith(item.item_code.toLowerCase() + "-") && /\/\d{2}$/.test(batch)) ||
+      /^(PR|OR)-\d+\/\d{2}$/i.test(batch)
+    ) {
+      bad(`Batch No "${batch}" looks like a number made by this app. Use the number from the old records.`);
+    } else if (ctx.existingFpBatches?.has(batch)) bad(`Batch No "${batch}" is already used.`);
+    else if (seenBatches.has(batch)) bad(`Batch No "${batch}" appears twice in this file.`);
+    if (batch) seenBatches.add(batch);
+
+    const mfg = date("Manufacture date");
+    if (mfg && mfg > ctx.today) bad("Manufacture date cannot be in the future.");
+    const exp = date("Expiry date");
+    if (mfg && exp && exp <= mfg) bad("Expiry date must be after the manufacture date.");
+    const appr = date("QC approval date");
+    if (appr && appr > ctx.today) bad("QC approval date cannot be in the future.");
+    if (appr && mfg && appr < mfg) bad("QC approval date cannot be before the manufacture date.");
+
+    const ar = get("Old AR No");
+    if (!ar) bad("Old AR No is required.");
+    else if (APP_AR.test(ar)) bad(`Old AR No "${ar}" looks like a number made by this app. Use the number from the old records.`);
+    else if (ctx.existingArs.has(ar)) bad(`Old AR No "${ar}" is already used.`);
+    else if (seenArs.has(ar)) bad(`Old AR No "${ar}" appears twice in this file.`);
+    if (ar) seenArs.add(ar);
+
+    const bulk = num("Bulk quantity unpacked");
+    const packs = num("Packs in stock");
+    if (bulk < 0) bad("Bulk quantity unpacked cannot be negative.");
+    if (packs < 0 || !Number.isInteger(packs)) bad("Packs in stock must be a whole number, 0 or more.");
+    if (bulk === 0 && packs === 0 && errors.length === start) bad("Enter Bulk quantity unpacked, Packs in stock, or both.");
+
+    let size: { qty: number; unit: string } | null = null;
+    if (packs > 0) {
+      const t = get("Pack size");
+      if (!t) bad("Pack size is required when packs are in stock.");
+      else if (!item) size = null;
+      else {
+        size = parsePackSize(t, item.unit);
+        if (!size) bad(`Pack size "${t}" is not valid for a product kept in ${item.unit}. Use a number with a unit of the same kind, e.g. 100 ml.`);
+      }
+      if (item && !item.packaged_item_id) bad(`${item.item_code} has no packaged item yet, so packs cannot be recorded for it.`);
+    }
+
+    if (errors.length === start && item) {
+      rows.push({
+        item_id: item.id,
+        batch_number: batch,
+        manufacture_date: mfg,
+        expiry_date: exp,
+        bulk_qty: bulk,
+        packs,
+        pack_size_qty: size?.qty ?? null,
+        pack_size_unit: size?.unit ?? null,
+        old_ar: ar,
+        approval_date: appr,
+      });
+    }
+  });
+
+  return { errors, rows, counts: { approved: rows.length, pending: 0, rejected: 0 } };
 }

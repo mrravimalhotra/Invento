@@ -772,18 +772,20 @@ Each upload writes into exactly the same tables and goes through exactly the sam
 
 **Who can use it:** Anyone with a role can load opening stock while loading is **open**. Only the System Administrator can close loading, re-open it, or undo a load.
 
-**What it's for:** Before go-live, the stock already on the shelves is loaded from the physical stock count sheet, so the app starts with the right quantities. Raw material and packaging are loaded here; finished product opening stock comes in a later release. The System Administrator closes loading by hand after the agreed cut-off date. The app keeps no cut-off date of its own.
+**What it's for:** Before go-live, the stock already on the shelves is loaded from the physical stock count sheet, so the app starts with the right quantities. Raw material, packaging and finished product (packed and bulk) are loaded here. The System Administrator closes loading by hand after the agreed cut-off date. The app keeps no cut-off date of its own.
 
 **How to load**
-1. Open the card for Raw Material or Packaging and click "Download template". Fill one row per batch (or lot) from the stock count sheet.
+1. Open the card for Raw Material, Packaging or Finished Product and click "Download template". Fill one row per batch (or lot) from the stock count sheet.
 2. Choose the file and click "Check file". Every problem is listed with its Excel row number. Nothing is loaded while any problem remains.
 3. When the check says the file is fine, click "Load N rows". All rows are loaded together or not at all, and the load gets a number (OPN-0001, OPN-0002, …).
 
 **Raw material rows** are Approved, Pending QC or Rejected. Approved and Rejected rows carry the old Analytical Report (AR) number exactly as written in the old records, plus the QC approval date. Approved rows also carry the retest date and the manufacturer expiry date. Pending QC rows only need the expiry date and join the normal QC queue. "Retests already done" (0 to 3) counts toward the limit of 3 retests.
 
-**Legacy tag:** A batch or AR number loaded here shows a grey "Legacy" tag beside it on the QC, Purchase, Inventory and RM Report screens, and a "Source" column in Excel exports. QC and the RM Report also have a Source filter (All / New / Legacy). Batch numbers and AR numbers that look like ones made by the app are refused, so an old number can never be mistaken for a new one.
+**Finished product rows** carry one row per batch: Product Code, Batch No, manufacture date, expiry date, the old AR number and the QC approval date (finished product loaded here is always Approved). Fill "Bulk quantity unpacked" (in the product's own unit), or "Packs in stock" with "Pack size" (for example `100 ml`), or both. The pack size must be in the same family as the product's unit (ml with ltr, g with kg). The batch's total yield is the bulk plus packs × pack size. Packs are recorded as one Store packaging entry dated at the approval date, so they appear in Packaging and can be labelled or issued like any other packs. The bulk stays on the batch and can still be packed later. A product must have an approved MFR before its stock can be loaded.
 
-**Undo:** While loading is open, the System Administrator can undo a load if none of its stock has been used and no new QC record has been started on its batches.
+**Legacy tag:** A batch or AR number loaded here shows a grey "Legacy" tag beside it on the QC, Purchase, Inventory, Finished Product, Packaging, Labels, COA and RM Report screens, and a "Source" column in Excel exports. QC and the RM Report also have a Source filter (All / New / Legacy). Batch numbers and AR numbers that look like ones made by the app are refused, so an old number can never be mistaken for a new one.
+
+**Undo:** While loading is open, the System Administrator can undo a load if none of its stock has been used and no new QC record has been started on its batches. For finished product, a load can no longer be undone once any of its packs have been issued, new packaging has been done against its batches, or a COA has been made.
 
 ### Purge Test Data
 

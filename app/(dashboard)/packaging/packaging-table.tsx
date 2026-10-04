@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, isLegacyCode, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
@@ -24,7 +25,7 @@ export type PackagingRow = {
   department: string;
   created_at: string;
   issue_date: string;
-  finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
+  finished_product_batches: { batch_number: string; short_batch_no: string | null; is_legacy: boolean } | null;
   packaging_issue_items: PackagingMaterialRow[] | null;
   production_issue_batches: ProductionIssueBatchRow[] | null;
 };
@@ -35,9 +36,14 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
     {
       header: "FP Batch",
       accessor: (r) =>
-        r.finished_product_batches
-          ? fpBatchBoth(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
-          : "—",
+        r.finished_product_batches ? (
+          <>
+            {fpBatchBoth(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)}
+            <LegacyTag show={r.finished_product_batches.is_legacy} />
+          </>
+        ) : (
+          "—"
+        ),
       searchValue: (r) =>
         r.finished_product_batches
           ? fpBatchBoth(r.finished_product_batches.batch_number, r.finished_product_batches.short_batch_no)
@@ -101,6 +107,7 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
       searchPlaceholder="Search by code, FP batch, RM-FP item or batch, or packaging item…"
       emptyLabel="No packaging issues yet."
       isLegacy={(r) => isLegacyCode(r.finished_product_batches?.batch_number)}
+      isOpeningStock={(r) => !!r.finished_product_batches?.is_legacy}
       exportConfig={exportConfig}
     />
   );

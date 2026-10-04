@@ -6,6 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LegacyTag } from "@/components/ui/legacy-tag";
 import { formatDate, formatNumber, formatQty, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 import { CompleteBatchForm } from "./complete-batch-form";
@@ -39,7 +40,7 @@ export default async function FinishedProductDetailPage({
       // below, which needs the FP item's own code/name ("F.P.Code" / "Name of
       // The Product" on the slip) — same embedded-select alias pattern
       // app/(dashboard)/mfr/[id]/page.tsx already uses for the same FK.
-      "id, batch_number, short_batch_no, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, created_at, mfr_definitions(id, code, name, items:finished_product_item_id(item_code, name))"
+      "id, batch_number, short_batch_no, is_legacy, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, created_at, mfr_definitions(id, code, name, items:finished_product_item_id(item_code, name))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -120,7 +121,12 @@ export default async function FinishedProductDetailPage({
       <PageHeader
         title={fpBatchBoth(batch.batch_number, batch.short_batch_no)}
         description={mfr ? `Built from ${mfr.code} · ${mfr.name} (recipe v${batch.mfr_version})` : `Recipe v${batch.mfr_version}`}
-        action={<Badge status={displayStatus}>{fpStatusLabel(displayStatus)}</Badge>}
+        action={
+          <div className="flex items-center gap-2">
+            {batch.is_legacy && <LegacyTag />}
+            <Badge status={displayStatus}>{fpStatusLabel(displayStatus)}</Badge>
+          </div>
+        }
       />
 
       <div className="grid gap-6">

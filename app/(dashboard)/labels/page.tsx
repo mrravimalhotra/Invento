@@ -53,6 +53,7 @@ type FpBatchFetch = {
   // 'FP-0001'-style batch numbers have no seq/year to derive one from).
   // See 0066_fp_market_short_batch_no.sql.
   short_batch_no: string | null;
+  is_legacy: boolean;
   batch_yield: string | number | null;
   unit: string;
   finish_date: string | null;
@@ -91,7 +92,7 @@ export default async function LabelsPage() {
       supabase
         .from("finished_product_batches")
         .select(
-          "id, batch_number, short_batch_no, batch_yield, unit, finish_date, expiry_month, status, mfr_definition:mfr_definitions(name)"
+          "id, batch_number, short_batch_no, is_legacy, batch_yield, unit, finish_date, expiry_month, status, mfr_definition:mfr_definitions(name)"
         )
         .eq("active", true)
         .order("created_at", { ascending: false })
@@ -166,6 +167,7 @@ export default async function LabelsPage() {
     productName: b.mfr_definition?.name ?? "—",
     batchNumber: b.batch_number,
     shortBatchNumber: b.short_batch_no,
+    isLegacy: b.is_legacy,
     quantity: b.batch_yield !== null ? Number(b.batch_yield) : null,
     unit: b.unit,
     finishDate: b.finish_date,

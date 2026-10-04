@@ -28,7 +28,7 @@ export default async function PackagingListPage({
     supabase
       .from("packaging_issues")
       .select(
-        "id, code, pack_size, unit_count, department, created_at, issue_date, finished_product_batches(batch_number, short_batch_no), packaging_issue_items(quantity, unit, items(name, item_code)), production_issue_batches(batch_number, quantity, unit, active, items(item_code))"
+        "id, code, pack_size, unit_count, department, created_at, issue_date, finished_product_batches(batch_number, short_batch_no, is_legacy), packaging_issue_items(quantity, unit, items(name, item_code)), production_issue_batches(batch_number, quantity, unit, active, items(item_code))"
       )
       .order("issue_date", { ascending: false })
       .order("created_at", { ascending: false })

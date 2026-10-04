@@ -60,10 +60,10 @@ export async function submitOpeningStock(_prev: OpeningUploadState, formData: Fo
     return { error: `That file has ${sheet.rows.length} rows — the limit per file is ${MAX_OPENING_ROWS}. Split it into smaller files.` };
   }
 
-  const category = kind === "raw" ? "raw" : "packaging";
+  const category = kind === "raw" ? "raw" : kind === "packaging" ? "packaging" : "processed";
   const [itemsRes, vendorsRes] = await Promise.all([
     fetchAllRows((from, to) =>
-      supabase.from("items").select("id, item_code, category, unit").eq("active", true)
+      supabase.from("items").select("id, item_code, category, unit, packaged_item_id").eq("active", true)
         .order("id", { ascending: true }).range(from, to)),
     fetchAllRows((from, to) =>
       supabase.from("vendors").select("id, vendor_code").eq("active", true)
@@ -74,20 +74,37 @@ export async function submitOpeningStock(_prev: OpeningUploadState, formData: Fo
   const itemsByCode = new Map(items.map((i) => [i.item_code.toLowerCase(), i]));
   const vendorIdByCode = new Map((vendorsRes.data ?? []).map((v) => [v.vendor_code.toLowerCase(), v.id as string]));
 
-  // Existing batches of the items in the file, and every used AR number.
-  const fileItemIds = items.filter((i) => i.category === category).map((i) => i.id);
-  const [batchRes, arRes] = await Promise.all([
-    fetchByIdChunks(fileItemIds, (chunk) =>
-      supabase.from("purchase_lines").select("item_id, batch_number").in("item_id", chunk).limit(5000)),
-    fetchAllRows((from, to) =>
-      supabase.from("quality_checks").select("ar_number").order("id", { ascending: true }).range(from, to)),
-  ]);
-  if (batchRes.error || arRes.error) return { error: "Could not read existing batches. Please try again." };
-  const existingBatches = new Set(batchRes.data.map((b) => `${b.item_id}|${b.batch_number}`));
+  // Existing batches (raw material and packaging: per item; finished product: batch numbers are unique overall)
+  // and every used AR number.
+  let existingBatches = new Set<string>();
+  let existingFpBatches: Set<string> | undefined;
+  let fpItemIds: Set<string> | undefined;
+  let batchError = false;
+  if (kind === "finished") {
+    const [mfrRes, fpBatchRes] = await Promise.all([
+      fetchAllRows((from, to) =>
+        supabase.from("mfr_definitions").select("finished_product_item_id")
+          .not("finished_product_item_id", "is", null).order("id", { ascending: true }).range(from, to)),
+      fetchAllRows((from, to) =>
+        supabase.from("finished_product_batches").select("batch_number").order("id", { ascending: true }).range(from, to)),
+    ]);
+    batchError = !!(mfrRes.error || fpBatchRes.error);
+    fpItemIds = new Set((mfrRes.data ?? []).map((m) => m.finished_product_item_id as string));
+    existingFpBatches = new Set((fpBatchRes.data ?? []).map((b) => b.batch_number as string));
+  } else {
+    const fileItemIds = items.filter((i) => i.category === category).map((i) => i.id);
+    const batchRes = await fetchByIdChunks(fileItemIds, (chunk) =>
+      supabase.from("purchase_lines").select("item_id, batch_number").in("item_id", chunk).limit(5000));
+    batchError = !!batchRes.error;
+    existingBatches = new Set(batchRes.data.map((b) => `${b.item_id}|${b.batch_number}`));
+  }
+  const arRes = await fetchAllRows((from, to) =>
+    supabase.from("quality_checks").select("ar_number").order("id", { ascending: true }).range(from, to));
+  if (batchError || arRes.error) return { error: "Could not read existing batches. Please try again." };
   const existingArs = new Set((arRes.data ?? []).map((q) => q.ar_number as string));
 
   const result = validateOpeningSheet(kind, sheet, {
-    today: todayIst(), itemsByCode, vendorIdByCode, existingBatches, existingArs,
+    today: todayIst(), itemsByCode, vendorIdByCode, existingBatches, existingArs, fpItemIds, existingFpBatches,
   });
   if (result.errors.length > 0) {
     return {
@@ -100,7 +117,10 @@ export async function submitOpeningStock(_prev: OpeningUploadState, formData: Fo
     return { checked: { kind, rows: result.rows.length, ...result.counts } };
   }
 
-  const { data, error } = await supabase.rpc("load_opening_stock", { p_kind: kind, p_rows: result.rows });
+  const { data, error } =
+    kind === "finished"
+      ? await supabase.rpc("load_opening_finished_product", { p_rows: result.rows })
+      : await supabase.rpc("load_opening_stock", { p_kind: kind, p_rows: result.rows });
   if (error) return { error: friendlyDbError(error, "Could not load the opening stock.") };
   const loadNo = (data as { load_no: string }[] | null)?.[0]?.load_no ?? "";
   revalidatePath("/opening-stock");

@@ -201,7 +201,7 @@ async function fetchBatchOptions(
   const { data } = await fetchAllRows((from, to) =>
     supabase
       .from("quality_checks")
-      .select("id, ar_number, finished_product_batches(batch_number, short_batch_no, mfr_definitions(name))")
+      .select("id, ar_number, finished_product_batches(batch_number, short_batch_no, is_legacy, mfr_definitions(name))")
       .eq("status", "approved")
       .not("finished_product_batch_id", "is", null)
       .order("created_at", { ascending: false })
@@ -211,13 +211,13 @@ async function fetchBatchOptions(
         {
           id: string;
           ar_number: string;
-          finished_product_batches: { batch_number: string; short_batch_no: string | null; mfr_definitions: { name: string } | null } | null;
+          finished_product_batches: { batch_number: string; short_batch_no: string | null; is_legacy: boolean; mfr_definitions: { name: string } | null } | null;
         }[]
       >()
   );
   return (data ?? []).filter((qc) => current.has(qc.id)).map((qc) => ({
     qualityCheckId: qc.id,
-    label: `${qc.ar_number} · ${qc.finished_product_batches?.mfr_definitions?.name ?? "—"} · Batch ${qc.finished_product_batches ? fpBatchBoth(qc.finished_product_batches.batch_number, qc.finished_product_batches.short_batch_no) : "—"}`,
+    label: `${qc.ar_number} · ${qc.finished_product_batches?.mfr_definitions?.name ?? "—"} · Batch ${qc.finished_product_batches ? fpBatchBoth(qc.finished_product_batches.batch_number, qc.finished_product_batches.short_batch_no) : "—"}${qc.finished_product_batches?.is_legacy ? " (Legacy)" : ""}`,
     legacy: isLegacyCode(qc.finished_product_batches?.batch_number),
   }));
 }
