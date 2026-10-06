@@ -37,6 +37,15 @@ type PositionQueryRow = {
   on_hand: string | number;
 };
 
+// item_stock_status (0105): raw material split by QC status.
+type StatusQueryRow = {
+  item_id: string;
+  usable: string | number;
+  awaiting_qc: string | number;
+  retest_due: string | number;
+  expired: string | number;
+};
+
 export default async function StockPositionPage() {
   const supabase = await createClient();
 
@@ -56,7 +65,7 @@ export default async function StockPositionPage() {
   // `.range()` until each is exhausted, so neither ever truncates
   // regardless of how large the table grows. Both queries need a
   // deterministic `.order()` for `.range()` pagination to be valid.
-  const [{ data: items, error: itemsError }, { data: positions, error: positionError }] = await Promise.all([
+  const [{ data: items, error: itemsError }, { data: positions, error: positionError }, { data: statuses, error: statusError }] = await Promise.all([
     fetchAllRows<ItemRow>((from, to) =>
       supabase
         .from("items")
@@ -77,14 +86,30 @@ export default async function StockPositionPage() {
         .range(from, to)
         .returns<PositionQueryRow[]>()
     ),
+    fetchAllRows<StatusQueryRow>((from, to) =>
+      supabase
+        .from("item_stock_status")
+        .select("item_id, usable, awaiting_qc, retest_due, expired")
+        .order("item_id", { ascending: true })
+        .range(from, to)
+        .returns<StatusQueryRow[]>()
+    ),
   ]);
 
   const positionMap = new Map((positions ?? []).map((p) => [p.item_id, p]));
+  const statusMap = new Map((statuses ?? []).map((x) => [x.item_id, x]));
 
   const rows: PositionRow[] = (items ?? []).map((it) => {
     const p = positionMap.get(it.id);
     const onHand = p ? Number(p.on_hand) : 0;
     const threshold = it.low_stock_threshold === null ? null : Number(it.low_stock_threshold);
+    // QC status split exists for raw material only (0105).
+    const st = statusMap.get(it.id);
+    const hasStatus = it.category === "raw";
+    const usable = st ? Number(st.usable) : 0;
+    const awaitingQc = st ? Number(st.awaiting_qc) : 0;
+    const retestDue = st ? Number(st.retest_due) : 0;
+    const expired = st ? Number(st.expired) : 0;
     return {
       ...it,
       onHand,
@@ -103,13 +128,21 @@ export default async function StockPositionPage() {
       wastage: p ? Number(p.wastage) : 0,
       productionRmYield: p ? Number(p.production_rm_yield) : 0,
       rejected: p ? Number(p.rejected) : 0,
+      hasStatus,
+      usable,
+      awaitingQc,
+      retestDue,
+      expired,
+      // On hand that is not in any batch (old imported ledger rows); anything
+      // beyond rounding shows up here instead of being lost.
+      notInBatch: hasStatus ? Math.max(Math.round((onHand - usable - awaitingQc - retestDue - expired) * 1000) / 1000, 0) : 0,
     };
   });
 
   return (
     <Card>
-      {(itemsError || positionError) && (
-        <p className="p-4 text-sm text-red">{itemsError?.message ?? positionError?.message}</p>
+      {(itemsError || positionError || statusError) && (
+        <p className="p-4 text-sm text-red">{itemsError?.message ?? positionError?.message ?? statusError?.message}</p>
       )}
       <StockPositionTable rows={rows} />
     </Card>

@@ -1017,3 +1017,21 @@ movement chart, the event types are now shown as **Stock In** (was push),
 **Stock Out** (was pull) and **Wastage** (unchanged). Display only: stored
 values stay push / pull / wastage (`lib/ledger-events.ts`). The Reason filter has
 a new "QC Rejected" entry.
+
+
+## Stock Position by QC status (6 Oct 2026 — migration 0105)
+
+Stock Position gets two columns for raw material items: **Usable** (QC-approved,
+retest date not reached, not past expiry, purchase order submitted — the same
+rule as Compose and the QC gate) and **Not usable**, which lists what is on
+hand but cannot be used: *awaiting QC* (no decision yet, or only Round 1),
+*retest due*, *expired*, and *not in a batch* (On hand from old imported ledger
+rows with no batch behind it). Other categories show "—". Rejected batches are
+not part of this (they are out of On hand since 0104; the existing Rejected
+figure stays in the Breakdown). The Excel export has one column each for
+Usable, Awaiting QC, Retest due, Expired, Not in a batch and Rejected.
+
+Source: view `item_stock_status` (security invoker), built from each batch's
+`live_remaining_qty` and its latest QC record, with today in India time. The
+item page's "Available for FP production" uses the same rule, so the two agree.
+Test suite `ss105`.

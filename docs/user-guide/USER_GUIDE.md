@@ -381,7 +381,7 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 
 **How to check current stock on hand**
 1. Go to Procurement → Inventory Ledger and open the **Stock Position** tab.
-2. Each item shows its current on-hand quantity, with a red "Low stock" badge if it's fallen below that item's threshold, and a short breakdown line (e.g. Received / QC / Stability / R&D / FP use / Wastage) showing where the quantity came from or went.
+2. Each item shows its current on-hand quantity, with a red "Low stock" badge if it's fallen below that item's threshold, and a short breakdown line (e.g. Received / QC / Stability / R&D / FP use / Wastage) showing where the quantity came from or went. For raw materials, **Usable** shows how much production can actually use today, and **Not usable** shows the rest of what is on hand and why (awaiting QC, retest due, expired).
 3. Click an item's name to open its detail page — the full breakdown, its list of batches, and a ledger of just that item's movements.
 
 **How to record wastage**

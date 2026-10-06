@@ -59,7 +59,25 @@ export type PositionRow = {
   wastage: number;
   productionRmYield: number;
   rejected: number;
+  // Raw material only (0105): On hand split by QC status.
+  hasStatus: boolean;
+  usable: number;
+  awaitingQc: number;
+  retestDue: number;
+  expired: number;
+  notInBatch: number;
 };
+
+function NotUsable({ r }: { r: PositionRow }) {
+  if (!r.hasStatus) return <span className="text-muted">—</span>;
+  const parts: string[] = [];
+  if (r.awaitingQc > 0) parts.push(`${formatQty(r.awaitingQc)} awaiting QC`);
+  if (r.retestDue > 0) parts.push(`${formatQty(r.retestDue)} retest due`);
+  if (r.expired > 0) parts.push(`${formatQty(r.expired)} expired`);
+  if (r.notInBatch > 0) parts.push(`${formatQty(r.notInBatch)} not in a batch`);
+  if (parts.length === 0) return <span className="text-muted">None</span>;
+  return <span className="text-xs text-amber">{parts.join(" · ")}</span>;
+}
 
 function Breakdown({ r }: { r: PositionRow }) {
   const parts: string[] = [];
@@ -127,6 +145,23 @@ export function StockPositionTable({ rows }: { rows: PositionRow[] }) {
       sortValue: (r) => r.onHand,
     },
     {
+      header: "Usable",
+      accessor: (r) =>
+        r.hasStatus ? (
+          <span className="whitespace-nowrap font-medium">
+            {formatQty(r.usable)} {r.unit}
+          </span>
+        ) : (
+          <span className="text-muted">—</span>
+        ),
+      sortValue: (r) => (r.hasStatus ? r.usable : -1),
+    },
+    {
+      header: "Not usable",
+      accessor: (r) => <NotUsable r={r} />,
+      sortValue: (r) => (r.hasStatus ? r.awaitingQc + r.retestDue + r.expired + r.notInBatch : -1),
+    },
+    {
       header: "Breakdown",
       accessor: (r) => <Breakdown r={r} />,
     },
@@ -160,6 +195,12 @@ export function StockPositionTable({ rows }: { rows: PositionRow[] }) {
       { header: "Category", value: (r) => EXPORT_CATEGORY_LABELS[r.category] ?? r.category },
       { header: "Unit", value: (r) => r.unit ?? "" },
       { header: "On hand", type: "number", decimals: 3, value: (r) => r.onHand },
+      { header: "Usable", type: "number", decimals: 3, value: (r) => (r.hasStatus ? r.usable : null) },
+      { header: "Awaiting QC", type: "number", decimals: 3, value: (r) => (r.hasStatus ? r.awaitingQc : null) },
+      { header: "Retest due", type: "number", decimals: 3, value: (r) => (r.hasStatus ? r.retestDue : null) },
+      { header: "Expired", type: "number", decimals: 3, value: (r) => (r.hasStatus ? r.expired : null) },
+      { header: "Not in a batch", type: "number", decimals: 3, value: (r) => (r.hasStatus ? r.notInBatch : null) },
+      { header: "Rejected (not in On hand)", type: "number", decimals: 3, value: (r) => r.rejected },
       { header: "Received", type: "number", decimals: 3, value: (r) => r.received },
       { header: "Produced (RM)", type: "number", decimals: 3, value: (r) => r.productionRmYield },
       { header: "Yielded (FP)", type: "number", decimals: 3, value: (r) => r.yielded },
