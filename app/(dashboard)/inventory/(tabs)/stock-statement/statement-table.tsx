@@ -74,6 +74,18 @@ export function StatementTable({ rows, from, to }: { rows: StatementRow[]; from:
     num("Rejected", (r) => r.rejected),
     num("Other out", (r) => r.otherOut),
     num("Closing", (r) => r.closing, true),
+    {
+      // Drill-down: the ledger entries behind the figures, for this item and period.
+      header: "Entries",
+      accessor: (r) => (
+        <Link
+          href={`/inventory?item=${r.itemId}&from=${from}&to=${to}`}
+          className="whitespace-nowrap text-sm font-medium text-brand-dark hover:underline"
+        >
+          View ledger
+        </Link>
+      ),
+    },
   ];
 
   const exportConfig: TableExport<StatementRow> = {
