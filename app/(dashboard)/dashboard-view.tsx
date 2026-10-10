@@ -7,8 +7,9 @@ import { LegacyTag } from "@/components/ui/legacy-tag";
 import { HideLegacyToggle } from "@/components/ui/hide-legacy-toggle";
 import { PageHeader } from "@/components/ui/page-header";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
-import { formatDate, isLegacyCode, todayIst } from "@/lib/utils";
+import { formatDate, fpBatchBoth, isLegacyCode, todayIst } from "@/lib/utils";
 import type { AlertRow } from "./dashboard-alerts";
+import type { FpInProgressRow } from "@/lib/fp-in-progress";
 import { DashboardCharts } from "./charts";
 
 // ACC-26 (29 Sept 2026): the "Hide legacy data" switch lives in the browser,
@@ -30,6 +31,8 @@ export type DashboardData = {
   lowStock: { id: string; name: string; item_code: string; threshold: string | number; onHand: number }[];
   retestSoon: AlertRow[];
   expirySoon: AlertRow[];
+  fpInProgress: FpInProgressRow[];
+  fpInProgressTotal: number;
   ledger30: { event_type: string; event_at: string; quantity: number; legacy: boolean }[];
   purchase30: { created_at: string; value: number; legacy: boolean }[];
   fp30: { created_at: string; legacy: boolean }[];
@@ -86,6 +89,8 @@ export function DashboardView({ data }: { data: DashboardData }) {
   const expiryAll = keep(data.expirySoon);
   const retestSoon = retestAll.slice(0, MAX_ALERTS);
   const expirySoon = expiryAll.slice(0, MAX_ALERTS);
+  const inProgressAll = hideLegacy ? data.fpInProgress.filter((r) => !r.is_legacy) : data.fpInProgress;
+  const inProgress = inProgressAll.slice(0, MAX_ALERTS);
 
   return (
     <div>
@@ -104,7 +109,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <StatCard label="Pending QC" value={pendingQc} href="/qc" />
       </div>
 
-      {(lowStock.length > 0 || retestSoon.length > 0 || expirySoon.length > 0) && (
+      {(lowStock.length > 0 || retestSoon.length > 0 || expirySoon.length > 0 || inProgress.length > 0) && (
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lowStock.length > 0 && (
             <Card className="border-amber/40">
@@ -116,6 +121,28 @@ export function DashboardView({ data }: { data: DashboardData }) {
                     {it.name} ({it.item_code}) — {it.onHand.toLocaleString("en-IN")} on hand, threshold {it.threshold}
                   </Link>
                 ))}
+              </CardBody>
+            </Card>
+          )}
+          {inProgress.length > 0 && (
+            <Card className="border-amber/40">
+              <CardHeader title="Finished product batches in progress" />
+              <CardBody className="flex flex-col gap-3">
+                {inProgress.map((r) => (
+                  <Link key={r.id} href="/qc" className="flex items-start gap-2 text-sm hover:underline">
+                    <TriangleAlert className="mt-0.5 h-3.5 w-3.5 text-amber shrink-0" />
+                    <span>
+                      <span className="font-medium">{r.mfr_definitions?.name ?? "—"}</span> · {fpBatchBoth(r.batch_number, r.short_batch_no)}
+                      <LegacyTag show={r.is_legacy} />
+                      <span className="block text-xs text-muted">Started {formatDate(r.batch_start_date ?? r.created_at)}</span>
+                    </span>
+                  </Link>
+                ))}
+                {(inProgressAll.length > inProgress.length || (!hideLegacy && data.fpInProgressTotal > data.fpInProgress.length)) && (
+                  <Link href="/qc" className="text-xs font-medium text-brand hover:underline">
+                    + more on the QC page
+                  </Link>
+                )}
               </CardBody>
             </Card>
           )}

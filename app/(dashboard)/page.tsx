@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { istDayStart, isLegacyCode, todayIst } from "@/lib/utils";
 import { addDaysToDate, lastIstDays, lineValueInclGst } from "@/lib/dashboard-series";
 import { ALERT_WINDOW_DAYS, getDashboardAlerts } from "./dashboard-alerts";
+import { getFpInProgress } from "@/lib/fp-in-progress";
 import { DashboardView, type CountPair, type DashboardData, type QcStatusCounts } from "./dashboard-view";
 
 // ACC-26 (29 Sept 2026, Ravi): the Dashboard now agrees with the lists its
@@ -123,6 +124,8 @@ export default async function DashboardPage() {
 
   // B15: retest / expiry alerts, next 90 days (see dashboard-alerts.ts).
   const alerts = await getDashboardAlerts(supabase, retestFrom, retestTo);
+  // B34: finished product batches that have started and are not complete.
+  const inProgress = await getFpInProgress(supabase);
 
   const pair = (all: { count: number | null }, non: { count: number | null }): CountPair => ({
     all: all.count ?? 0,
@@ -170,6 +173,8 @@ export default async function DashboardPage() {
     lowStock,
     retestSoon: alerts.retestSoon,
     expirySoon: alerts.expirySoon,
+    fpInProgress: inProgress.rows,
+    fpInProgressTotal: inProgress.total,
     ledger30: ((ledger30 ?? []) as unknown as LedgerRow[]).map((l) => ({
       event_type: l.event_type,
       event_at: l.event_at,

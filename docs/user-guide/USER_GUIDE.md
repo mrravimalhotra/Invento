@@ -427,6 +427,8 @@ The ledger's Event column shows **Stock In** when stock is added (receipts, batc
 
 **What it's for:** This is the single most important checkpoint in Invento: raw material that hasn't cleared Quality Control cannot be used to make anything. Every batch received through Purchase must be assigned a QC check, then pass **two separate rounds of review** by two different people before its stock is allowed into production. A batch that's rejected, still awaiting review, or overdue for a scheduled retest is blocked from use — the app enforces this, not just the screen.
 
+**Finished product batches in progress.** As soon as a finished product batch is started (Create Batch), it shows in the amber **"Finished Product Batches In Progress"** card at the top of the Quality Control page and on the Dashboard, so QC can plan in-process testing. Click a row to open the batch. It leaves the card when the batch is completed and then shows under "Finished Product Awaiting QC".
+
 **How to start QC on a newly received batch**
 1. Go to Quality Control & Documents → Quality Control. Batches that just came in and haven't been assigned for QC yet show in the green **"Awaiting QC"** card at the top of the page.
 2. Click **Start QC** on a row (or use **New AR** and pick the item, then the batch, yourself). The sample quantity, sample unit, and expiry date are pre-filled from what was set on the purchase line — check them and adjust if needed.

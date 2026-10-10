@@ -703,3 +703,24 @@ The tester asked for the full form of "AR No". On-screen text now says **Analyti
 Batches loaded as opening stock carry a Legacy tag; their old AR number is kept as typed. A legacy Approved
 batch can be retested; `legacy_retests_done` counts toward the 3-retest limit. A Pending QC legacy batch
 starts the Reviewer's Expiry date from the manufacturer expiry date it was loaded with. See opening-stock.md.
+
+
+## Finished product batches in progress (10 Oct 2026 — B34 / FB-0049 / FB-0056)
+
+QC is now told when a finished product batch **starts**, not only when it is
+complete (Ravi: "after the batch is submitted, i.e. In Process, intimation
+should be sent to QC that the process has started").
+
+- **`/qc` card "Finished Product Batches In Progress"**, above "Awaiting QC":
+  every active batch with status `in_process` (Create Batch has been clicked,
+  Complete Batch has not), newest first, with the product, full and short batch
+  number, start date and planned quantity. Each row opens the batch page.
+- **Dashboard card "Finished product batches in progress"** with the same rows
+  (first eight, then "+ more on the QC page").
+- A batch leaves the list when it is completed (it then appears under "Finished
+  Product Awaiting QC"), cancelled, or deleted. Both cards respect "Hide legacy
+  data".
+- Nothing is stored: the list reads `finished_product_batches.status` through
+  `getFpInProgress()` (`lib/fp-in-progress.ts`, 50 rows, with a "+ N more"
+  line). No migration. Email or WhatsApp alerts are not built (they would need
+  an outside service).

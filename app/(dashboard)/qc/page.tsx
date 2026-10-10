@@ -12,6 +12,8 @@ import { DueForRetest, type DueForRetestLine } from "./due-for-retest";
 import { AwaitingQc, type AwaitingQcLine } from "./awaiting-qc";
 import { AwaitingFpQc, type AwaitingFpQcLine } from "./awaiting-fp-qc";
 import { AwaitingProductionQc, type AwaitingProductionQcLine } from "./awaiting-production-qc";
+import { BatchesInProgress } from "./batches-in-progress";
+import { getFpInProgress } from "@/lib/fp-in-progress";
 import { ProductionDueForRetest, type ProductionDueForRetestLine } from "./production-due-for-retest";
 
 // Unbounded before this — as AR records accumulate over years this page's
@@ -24,7 +26,7 @@ export default async function QcListPage() {
   const user = await getCurrentUser();
   const supabase = await createClient();
 
-  const [{ data }, awaitingLines, awaitingFpLines, dueLines, awaitingProductionLines, productionDueLines] = await Promise.all([
+  const [{ data }, awaitingLines, awaitingFpLines, dueLines, awaitingProductionLines, productionDueLines, inProgress] = await Promise.all([
     // FB-0027 (12 Sept 2026): a Finished Product's QC record never gets an
     // `item_id` (submitFinishedProductToQc() only sets
     // finished_product_batch_id — see lib/actions/finished-product.ts), so
@@ -48,6 +50,7 @@ export default async function QcListPage() {
     getDueForRetestLines(supabase),
     getAwaitingProductionQcLines(supabase),
     getProductionDueForRetestLines(supabase),
+    getFpInProgress(supabase),
   ]);
 
   const rows = (data ?? []) as unknown as QcListRow[];
@@ -59,6 +62,8 @@ export default async function QcListPage() {
         description="Assign Records (AR) for incoming batches and the review decision that gates production — DESIGN.md §4.5 / §7.2."
         action={canWrite(user?.roles ?? [], "qc_assign") ? <LinkButton href="/qc/new">New AR</LinkButton> : null}
       />
+
+      <BatchesInProgress rows={inProgress.rows} total={inProgress.total} />
 
       <AwaitingQc lines={awaitingLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
 
