@@ -375,7 +375,7 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 
 **Where to find it:** Procurement → Inventory Ledger
 
-**Who can use it:** Everyone signed in can view all four tabs (Ledger, Stock Position, RM Report As On Date, Rejected Materials). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
+**Who can use it:** Everyone signed in can view all five tabs (Ledger, Stock Position, RM Report As On Date, Rejected Materials, Batch Trace). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
 
 **What it's for:** This is the record of every stock movement in Invento — material coming in from Purchase, samples pulled out for QC, material consumed making finished product, packaging issued, and wastage — plus two ways to see where things stand: a current on-hand view (Stock Position) and a report of stock as of any past date (RM Report As On Date). Everything on these screens is generated automatically from other modules except wastage, which is the one thing you record here directly.
 
@@ -399,6 +399,13 @@ This module is downstream of everything else: a Purchase Final Submit creates th
 
 **Rejected Materials**
 Open the **Rejected Materials** tab to see every batch QC has rejected — raw material and finished product — with the QC, Stability and R&D samples taken from each shown on the same row. You can search it and export it to Excel or PDF. When QC rejects a raw material batch, what is left of it is taken out of stock on hand automatically (the ledger shows it as "QC Rejected"), so Stock Position only counts material you can actually use. Recording wastage against a rejected batch writes it off from the rejected quantity. A purchase order that contains a rejected batch can't be reopened.
+
+**Batch Trace**
+Open the **Batch Trace** tab to follow one batch for a recall or an inspection. Type a batch number (or part of it) and press **Find batch**, then click **Trace** on the batch you mean. You can search raw and packing material batches, raw material made through production, and finished product batches (full or short number).
+
+- **Made from** lists what the batch was made from, back to the raw material, with the vendor and invoice.
+- **Went to** lists where it went: the finished product batches that used it, their QC records and COA, each packaging issue (Store, R&D or Production) and the packing material used, and any samples held, wastage or quantity QC rejected.
+- The strip at the top shows how many finished product batches were reached, the packs issued per department, and what is still in stock. Click **Trace this** on any batch to follow that one instead. **Excel** and **PDF** export the whole trace.
 
 **Stock In / Stock Out**
 The ledger's Event column shows **Stock In** when stock is added (receipts, batch yields), **Stock Out** when stock is taken (samples, production use, issues), and **Wastage** when it is written off.

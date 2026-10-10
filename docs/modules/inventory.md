@@ -1035,3 +1035,29 @@ Source: view `item_stock_status` (security invoker), built from each batch's
 `live_remaining_qty` and its latest QC record, with today in India time. The
 item page's "Available for FP production" uses the same rule, so the two agree.
 Test suite `ss105`.
+
+
+## Batch Trace (10 Oct 2026 — migration 0106)
+
+New Inventory tab **Batch Trace** (`/inventory/batch-trace`). Find a batch by its
+number (raw or packing material batch, raw material made through production, or
+finished product batch — full or short number), then **Trace** shows:
+
+- **Made from (backward):** a finished product batch → its raw material batches
+  (with vendor and invoice) and, where it used production raw material, the
+  packaging issue that made it and the finished product batch behind that, down
+  to the raw material.
+- **Went to (forward):** a raw material batch → the finished product batches that
+  used it, their QC records and COA, every packaging issue (Store, R&D,
+  Production) with the packing material batches used, production raw material
+  made from them and the finished product batches that used that in turn;
+  plus samples held, wastage and quantity rejected by QC. A packing material
+  batch shows the packaging issues and finished product batches it went into.
+- A summary strip for a recall: finished product batches reached, packs issued
+  per department, quantity still in stock, wastage and rejected. Excel and PDF
+  export; **Trace this** on any batch row re-centres the trace on it.
+
+Source: function `trace_batch(kind, id)` (kind `purchase`, `fp` or `production`;
+security invoker, so the caller's own read rights apply) returns a flat,
+ordered list with a depth. Depth is capped at 6 and a batch is never visited
+twice on one path, so a loop in the data cannot hang it. Test suite `bt106`.
