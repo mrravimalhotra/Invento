@@ -375,7 +375,7 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 
 **Where to find it:** Procurement → Inventory Ledger
 
-**Who can use it:** Everyone signed in can view all six tabs (Ledger, Stock Position, Stock Statement, RM Report As On Date, Rejected Materials, Batch Trace). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
+**Who can use it:** Everyone signed in can view all eight tabs (Ledger, Stock Position, Stock Statement, RM Report As On Date, Rejected Materials, Batch Trace, Expiry & Retest Ageing, Retained Samples). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
 
 **What it's for:** This is the record of every stock movement in Invento — material coming in from Purchase, samples pulled out for QC, material consumed making finished product, packaging issued, and wastage — plus two ways to see where things stand: a current on-hand view (Stock Position) and a report of stock as of any past date (RM Report As On Date). Everything on these screens is generated automatically from other modules except wastage, which is the one thing you record here directly.
 
@@ -401,7 +401,13 @@ This module is downstream of everything else: a Purchase Final Submit creates th
 Open the **Rejected Materials** tab to see every batch QC has rejected — raw material and finished product — with the QC, Stability and R&D samples taken from each shown on the same row. You can search it and export it to Excel or PDF. When QC rejects a raw material batch, what is left of it is taken out of stock on hand automatically (the ledger shows it as "QC Rejected"), so Stock Position only counts material you can actually use. Recording wastage against a rejected batch writes it off from the rejected quantity. A purchase order that contains a rejected batch can't be reopened.
 
 **Stock Statement**
-Open the **Stock Statement** tab to see, for any period, how stock moved. Choose a **From** and a **To** date (and a category if you like) and press **Apply**. Each item shows its **Opening** stock at the start of the From day, what came in (Purchased, Produced, Other in), what went out (Used in production, Packaging, Samples, Wastage, Rejected, Other out) and its **Closing** stock at the end of the To day. To see one day, use the same date in both boxes. With the To date set to today, Closing matches On hand on Stock Position. **Excel** and **PDF** export the rows on screen, with the period printed.
+Open the **Stock Statement** tab to see, for any period, how stock moved. Choose a **From** and a **To** date (and a category if you like) and press **Apply**. Each item shows its **Opening** stock at the start of the From day, what came in (Purchased, Produced, Other in), what went out (Used in production, Packaging, Samples, Wastage, Rejected, Other out) and its **Closing** stock at the end of the To day. To see one day, use the same date in both boxes. With the To date set to today, Closing matches On hand on Stock Position. **Excel** and **PDF** export the rows on screen, with the period printed. **View ledger** on a row opens the Ledger for that item and period.
+
+**Expiry & Retest Ageing**
+Open the **Expiry & Retest Ageing** tab to see every approved batch that is expired, overdue for retest, or coming up: raw material with stock left, raw material made through production, and finished product. The boxes at the top group them (Expired, Retest overdue, Within 30 days, 31 to 60, 61 to 90, Over 90 days); click one to see only that group. Each row shows the retest date, the expiry date and which comes first. **Excel** and **PDF** export what is on screen.
+
+**Retained Samples**
+Open the **Retained Samples** tab to see the QC, Stability and R&D samples set aside from each batch, with the batch's QC status and expiry date. For raw material, **Stability left** is the stability sample not yet used by a retest. Search, **Excel** and **PDF** work as on the other tabs.
 
 **Batch Trace**
 Open the **Batch Trace** tab to follow one batch for a recall or an inspection. Type a batch number (or part of it) and press **Find batch**, then click **Trace** on the batch you mean. You can search raw and packing material batches, raw material made through production, and finished product batches (full or short number).

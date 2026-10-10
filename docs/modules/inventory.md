@@ -1092,3 +1092,31 @@ Date (ACC-11) still shows today's quantities per batch.
 
 Source: function `stock_statement(from, to, category)` (security invoker; the To
 date cannot be in the future). Test suite `st107`.
+
+
+## Expiry & Retest Ageing and Retained Samples (10 Oct 2026 — migration 0108)
+
+Two new Inventory tabs, both read-only with search, Excel and PDF export.
+
+**Expiry & Retest Ageing** (`/inventory/ageing`): every QC-approved batch that
+still has something to age — raw material with stock left, raw material made
+through production with stock left, and finished product (any approved batch;
+"In stock" is the bulk not yet packed or sampled). Each row shows retest date,
+expiry date and which falls first. Rows are grouped as **Expired** (expiry date
+passed), **Retest overdue**, **Within 30 days**, **31 to 60**, **61 to 90** and
+**Over 90 days**, by the earlier of the two dates; the group boxes at the top
+filter the list. The Dashboard keeps showing only the next 90 days (eight
+rows); this is the whole list including what is already past. Rule in
+`lib/ageing.ts`.
+
+**Retained Samples** (`/inventory/samples`): the QC, Stability and R&D samples
+set aside from each raw material batch, production raw material batch and
+finished product batch (batches with a sample of more than zero), with the QC
+status, AR number, expiry date and, for raw material, **Stability left** (the
+stability sample not yet used by a retest).
+
+Source: views `batch_ageing` and `retained_samples` (security invoker; nothing
+stored). Test suite `ag108`.
+
+**Stock Statement drill-down:** each row has a **View ledger** link that opens
+the Ledger for that item and the same From and To dates.

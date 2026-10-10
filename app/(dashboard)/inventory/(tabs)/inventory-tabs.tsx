@@ -11,13 +11,15 @@ const TABS = [
   { href: "/inventory/rm-report", label: "RM Report As On Date" },
   { href: "/inventory/rejected", label: "Rejected Materials" },
   { href: "/inventory/batch-trace", label: "Batch Trace" },
+  { href: "/inventory/ageing", label: "Expiry & Retest Ageing" },
+  { href: "/inventory/samples", label: "Retained Samples" },
 ];
 
 export function InventoryTabs() {
   const pathname = usePathname();
 
   return (
-    <div className="mb-4 flex gap-1 border-b border-border">
+    <div className="mb-4 flex gap-1 overflow-x-auto border-b border-border">
       {TABS.map((tab) => {
         const active = pathname === tab.href;
         return (
@@ -25,7 +27,7 @@ export function InventoryTabs() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+              "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "border-brand text-brand-dark"
                 : "border-transparent text-muted hover:text-foreground"
