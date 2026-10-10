@@ -1061,3 +1061,34 @@ Source: function `trace_batch(kind, id)` (kind `purchase`, `fp` or `production`;
 security invoker, so the caller's own read rights apply) returns a flat,
 ordered list with a depth. Depth is capped at 6 and a batch is never visited
 twice on one path, so a loop in the data cannot hang it. Test suite `bt106`.
+
+
+## Stock Statement (10 Oct 2026 — migration 0107)
+
+New Inventory tab **Stock Statement** (`/inventory/stock-statement`). Pick a From
+date, a To date (default: first of this month to today) and, optionally, a
+category. Each item that had stock at the start or any movement in the period
+gets one row:
+
+| Column | Meaning |
+|---|---|
+| Opening | stock at the start of the From day (India time) |
+| Purchased | received through purchase orders |
+| Produced | batch yields: finished product, packaged finished product, production raw material |
+| Other in | everything else that adds stock (draft cancelled, QC rejection reversed) |
+| Used in production | taken into finished product batches |
+| Packaging | used or issued by packaging |
+| Samples | QC, stability and R&D samples |
+| Wastage | written off |
+| Rejected | moved out by a QC rejection |
+| Other out | any other reduction (for example a PO reopened) |
+| Closing | stock at the end of the To day = Opening + in − out |
+
+Excel and PDF export the rows on screen; the period is printed on the export.
+The ledger is append-only, so the same dates always give the same figures, and
+**Closing for a To date of today equals On hand on Stock Position** (tested).
+This gives item-level stock as on any past date. The batch-level RM Report As On
+Date (ACC-11) still shows today's quantities per batch.
+
+Source: function `stock_statement(from, to, category)` (security invoker; the To
+date cannot be in the future). Test suite `st107`.

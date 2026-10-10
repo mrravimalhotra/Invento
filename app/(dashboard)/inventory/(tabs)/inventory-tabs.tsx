@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/inventory", label: "Ledger" },
   { href: "/inventory/balance", label: "Stock Position" },
+  { href: "/inventory/stock-statement", label: "Stock Statement" },
   { href: "/inventory/rm-report", label: "RM Report As On Date" },
   { href: "/inventory/rejected", label: "Rejected Materials" },
   { href: "/inventory/batch-trace", label: "Batch Trace" },
