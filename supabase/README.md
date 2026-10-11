@@ -2,7 +2,7 @@
 
 ## What is here
 
-- `migrations/` — one numbered SQL file per change (`0001` … `0087`). This is the
+- `migrations/` — one numbered SQL file per change (see the folder for the newest number). This is the
   history. Existing databases only ever need the newest file(s) they have not run yet.
 - `fresh-install.sql` — **all migrations in one file**, for building a brand-new,
   empty Supabase project with a single paste. Generated; never edit it by hand.

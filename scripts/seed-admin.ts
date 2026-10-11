@@ -33,7 +33,7 @@ async function main() {
   if (error) throw error;
   const user = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (!user) {
-    console.error(`No auth user found for ${email} — register the account first, then re-run this script.`);
+    console.error(`No auth user found for ${email} — create the account in the Supabase dashboard first (Authentication → Users → Add user), then re-run this script.`);
     process.exit(1);
   }
 

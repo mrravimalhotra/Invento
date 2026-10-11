@@ -16,25 +16,28 @@ Security) · Tailwind CSS v4 · Recharts · jsPDF.
 
 ## Local setup
 
-Full walkthrough: [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md)
-(project creation, applying the three migrations, Auth configuration,
-bootstrapping the first admin, deploying). Short version:
+Full walkthrough: [`supabase/README.md`](supabase/README.md) (building the
+database from `fresh-install.sql`, the dashboard settings that live outside
+SQL, the Vercel variables) and [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md)
+(project creation, Auth configuration, first admin, deploying). Short version:
 
-1. Create a Supabase project, apply `supabase/migrations/*.sql` in order
-   (0001 → 0002 → 0003) via the SQL Editor or `supabase db push`.
-2. Copy `.env.example` to `.env.local` and fill in your project's URL and
-   anon key (Project Settings → API).
+1. Create a Supabase project and run `supabase/fresh-install.sql` in the SQL
+   Editor (a brand-new, empty project only). An existing database only needs
+   the newest files in `supabase/migrations/` that it has not run yet.
+2. Copy `.env.example` to `.env.local` and fill in your project's URL, anon
+   key and service role key (Project Settings → API).
 3. `npm install`
 4. `npm run dev` — [http://localhost:3000](http://localhost:3000)
-5. Register an account at `/register`, then grant it `system_admin` (the
-   User Roles screen is itself admin-only, so the first admin has to be
-   bootstrapped outside the app — see the comment at the top of
-   `scripts/seed-admin.ts`):
+5. Self-registration is closed. Create the first account in the Supabase
+   dashboard (Authentication → Users → Add user, tick *Auto Confirm User*),
+   then grant it `system_admin` (the User Roles screen is itself admin-only,
+   so the first admin has to be bootstrapped outside the app — see the
+   comment at the top of `scripts/seed-admin.ts`):
    ```bash
    SUPABASE_SERVICE_ROLE_KEY=... NEXT_PUBLIC_SUPABASE_URL=... \
      npx tsx scripts/seed-admin.ts you@example.com
    ```
-6. Sign in and assign roles to other accounts from **User Roles & Access**.
+6. Sign in and create or assign roles for other accounts from **User Roles & Access**.
 
 ## What's here
 

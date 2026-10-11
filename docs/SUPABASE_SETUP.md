@@ -19,18 +19,20 @@ Budget about 15 minutes for the Dashboard path.
 
 ## 2. Apply the schema
 
-The three migration files under `supabase/migrations/` must run **in
-order** — `0001_init.sql` first, then `0002_transactions.sql`, then
-`0003_fixes.sql`. Each one depends on tables/functions the previous one
-created.
+For a brand-new, empty project the quickest route is the single file
+`supabase/fresh-install.sql` (all migrations joined in a working order; see
+`supabase/README.md`). Paste it into the SQL Editor and **Run**. It should end
+with "Success". Never run it on a database that already holds data.
+
+An existing database only needs the newest files in `supabase/migrations/`
+that it has not run yet, in number order. The options below show the two ways
+to apply migration files one by one.
 
 ### Option A — SQL Editor (no install required)
 
 1. In the Supabase dashboard, open **SQL Editor** (left sidebar).
-2. **New query**, paste the entire contents of `supabase/migrations/0001_init.sql`, click **Run**. It should finish with no errors — this creates every table, the RLS policies, and the auto-numbering functions.
-3. New query again, paste `supabase/migrations/0002_transactions.sql`, **Run** — this adds the triggers that write to the inventory ledger automatically and enforce the QC gate.
-4. New query again, paste `supabase/migrations/0003_fixes.sql`, **Run** — three small fixes found while building the modules (see the comments at the top of that file for what and why).
-5. Open **Table Editor** and confirm you see tables like `items`, `purchase_lines`, `quality_checks`, `finished_product_batches`, etc. — if they're there, the schema applied cleanly.
+2. **New query**, paste the entire contents of `supabase/fresh-install.sql` (new project) or of the next migration file you have not run yet (existing database), and click **Run**. It should finish with no errors.
+3. Open **Table Editor** and confirm you see tables like `items`, `purchase_lines`, `quality_checks`, `finished_product_batches`, etc. — if they're there, the schema applied cleanly.
 
 ### Option B — Supabase CLI (recommended if you'll keep editing the schema)
 
@@ -165,16 +167,19 @@ Next.js app). Whichever you use:
 ## Troubleshooting
 
 - **"relation does not exist" errors in the app** — a migration didn't
-  apply, or applied out of order. Re-check step 2; `0002` and `0003` both
-  depend on objects `0001` creates.
-- **Can't sign in after registering** — check whether "Confirm email" is on
-  (step 5) and whether the confirmation email actually arrived (Supabase's
+  apply, or applied out of order. Re-check step 2; later migrations depend
+  on objects the earlier ones create.
+- **Can't sign in after the account was created** — check that the account
+  was created confirmed (Auto Confirm, or created by a System Admin in the app),
+  that "Confirm email" is not holding it back (step 5) and whether any email
+  actually arrived (Supabase's
   built-in email sending has low rate limits on the free tier — fine for a
   handful of test accounts, not for real onboarding, at which point look at
   **Authentication → Providers → Email → SMTP Settings** to plug in a real
   mail provider).
 - **`seed-admin.ts` says "No auth user found"** — the account has to exist
-  first; register it at `/register` before running the script.
+  first; create it in the Supabase dashboard (Authentication → Users → Add
+  user) before running the script.
 - **A screen shows no error but silently does nothing on submit** — almost
   always an RLS policy rejecting the write because the signed-in user
   lacks the role that screen requires; check **User Roles & Access**.
