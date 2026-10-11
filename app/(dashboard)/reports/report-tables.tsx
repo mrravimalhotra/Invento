@@ -81,8 +81,19 @@ export type QcRow = {
   is_legacy?: boolean | null;
   item: { name: string } | null;
   purchase_line: { batch_number: string } | null;
+  // SCAN-P7-01: raw material made by Production (migration 0068) has its own batch number.
+  production_batch?: { batch_number: string } | null;
   fp_batch: { batch_number: string; short_batch_no: string | null } | null;
 };
+
+// The batch a QC record is about, whichever of the three kinds it is.
+const qcBatchLabel = (r: QcRow) =>
+  r.purchase_line?.batch_number ??
+  r.production_batch?.batch_number ??
+  (r.fp_batch ? fpBatchShort(r.fp_batch.batch_number, r.fp_batch.short_batch_no) : "—");
+
+const qcKindLabel = (r: QcRow) =>
+  r.purchase_line ? "Purchased RM" : r.production_batch ? "Production RM" : r.fp_batch ? "Finished product" : "—";
 
 export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
   const columns: ReportColumn<QcRow>[] = [
@@ -98,15 +109,8 @@ export function QcRegisterReport({ rows }: { rows: QcRow[] }) {
       pdfValue: (r) => r.ar_number,
     },
     { header: "Item", cell: (r) => r.item?.name ?? "—", pdfValue: (r) => r.item?.name ?? "—" },
-    {
-      header: "Batch",
-      cell: (r) =>
-        r.purchase_line?.batch_number ??
-        (r.fp_batch ? fpBatchShort(r.fp_batch.batch_number, r.fp_batch.short_batch_no) : "—"),
-      pdfValue: (r) =>
-        r.purchase_line?.batch_number ??
-        (r.fp_batch ? fpBatchShort(r.fp_batch.batch_number, r.fp_batch.short_batch_no) : "—"),
-    },
+    { header: "Type", cell: qcKindLabel, pdfValue: qcKindLabel },
+    { header: "Batch", cell: qcBatchLabel, pdfValue: qcBatchLabel },
     { header: "Status", cell: (r) => <Badge status={r.status}>{qcRecordStatusLabel(r.status)}</Badge>, pdfValue: (r) => qcRecordStatusLabel(r.status) },
     {
       header: "Reviewed At",
