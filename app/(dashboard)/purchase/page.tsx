@@ -1,3 +1,4 @@
+import { lineMoney, sumMoney } from "@/lib/money";
 import { Plus } from "lucide-react";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -23,10 +24,7 @@ type PORow = {
 };
 
 function lineTotal(l: LineForTotal) {
-  const qty = Number(l.quantity) || 0;
-  const price = Number(l.unit_price) || 0;
-  const gst = Number(l.gst_pct) || 0;
-  return qty * price * (1 + gst / 100);
+  return lineMoney(l).lineTotal; // SCAN-P10-06: each line to the paisa
 }
 
 export default async function PurchasePage() {
@@ -53,7 +51,7 @@ export default async function PurchasePage() {
     isOpening: !!po.opening_load_id,
     vendor: po.vendor,
     lineCount: po.purchase_lines.length,
-    totalValue: po.purchase_lines.reduce((sum, l) => sum + lineTotal(l), 0),
+    totalValue: sumMoney(po.purchase_lines.map(lineTotal)),
   }));
 
   const canCreate = canWrite(user?.roles ?? [], "purchase");

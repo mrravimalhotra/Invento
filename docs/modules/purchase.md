@@ -1001,3 +1001,5 @@ Choosing a vendor on New Purchase Order shows that vendor's address and mobile u
 - Submit is refused for an order with no lines, and (in the app) for an order that still has a line without a Unit Price or GST % (0 is allowed). Opening-stock orders and lines saved before the 15 Sept rule are left alone.
 - Excel upload: Unit Price (₹) and GST % are required on every line; enter 0 if there is none. The database function repeats the check.
 - A line saved at the same instant as a submit now waits for the submit and is refused as "submitted" instead of being left out of stock (SCAN-P10-01).
+
+- **Rounding rule** (SCAN-P10-06): one helper (`lib/money.ts`) rounds every line amount to the paisa, half a paisa up, on whole paise. A line's Total Cost = Item Total (quantity x price) + GST amount, each to the paisa; an order's total is the sum of its line totals. The order page states the rule. The Purchase list, order page, Dashboard chart, RM Report and Excel / PDF use the same figures.

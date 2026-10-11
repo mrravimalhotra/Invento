@@ -1,5 +1,6 @@
 "use client";
 
+import { lineMoney } from "@/lib/money";
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPurchaseLine, updatePurchaseLine, previewBatchNumber, type ActionState } from "@/lib/actions/purchase";
@@ -166,10 +167,12 @@ export function PurchaseLineForm({
   const qty = Number(quantity) || 0;
   const price = Number(unitPrice) || 0;
   const gst = Number(gstPct) || 0;
-  const baseAmount = qty * price;
-  const gstAmount = baseAmount * (gst / 100);
-  const priceInclGst = price * (1 + gst / 100);
-  const lineTotal = baseAmount + gstAmount;
+  // SCAN-P10-06: the same paisa rounding as the order page and the downloads.
+  const money = lineMoney({ quantity: qty, unit_price: price, gst_pct: gst });
+  const baseAmount = money.itemTotalExclGst;
+  const gstAmount = money.gstAmount;
+  const priceInclGst = money.priceInclGst;
+  const lineTotal = money.lineTotal;
   const sampleUnitDiffers = !!sampleUnit && !!unit && sampleUnit !== unit;
   const qcConverted = convertUnit(Number(qcQty) || 0, sampleUnit || unit, unit) ?? (Number(qcQty) || 0);
   const stabilityConverted = convertUnit(Number(stabilityQty) || 0, sampleUnit || unit, unit) ?? (Number(stabilityQty) || 0);
@@ -437,10 +440,12 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
   const qty = Number(quantity) || 0;
   const price = Number(unitPrice) || 0;
   const gst = Number(gstPct) || 0;
-  const baseAmount = qty * price;
-  const gstAmount = baseAmount * (gst / 100);
-  const priceInclGst = price * (1 + gst / 100);
-  const lineTotal = baseAmount + gstAmount;
+  // SCAN-P10-06: the same paisa rounding as the order page and the downloads.
+  const money = lineMoney({ quantity: qty, unit_price: price, gst_pct: gst });
+  const baseAmount = money.itemTotalExclGst;
+  const gstAmount = money.gstAmount;
+  const priceInclGst = money.priceInclGst;
+  const lineTotal = money.lineTotal;
   const sampleUnitDiffers = sampleUnit !== unit;
   const qcConverted = convertUnit(Number(qcQty) || 0, sampleUnit, unit) ?? (Number(qcQty) || 0);
   const stabilityConverted = convertUnit(Number(stabilityQty) || 0, sampleUnit, unit) ?? (Number(stabilityQty) || 0);

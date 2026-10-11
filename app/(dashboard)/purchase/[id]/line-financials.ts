@@ -5,29 +5,19 @@
 // calling it server-side throws "Attempted to call X() from the server but
 // X is on the client" — keep pure helpers like this one in a plain module.
 
+import { lineMoney } from "@/lib/money";
+
 export type LineFinancialsInput = {
   quantity: string;
   unit_price: string | null;
   gst_pct: string | null;
 };
 
+// SCAN-P10-06: the sums live in lib/money.ts (every amount to the paisa).
 export function lineFinancials(l: LineFinancialsInput) {
-  const qty = Number(l.quantity) || 0;
-  const price = Number(l.unit_price) || 0;
-  const gst = Number(l.gst_pct) || 0;
-  const base = qty * price;
-  const gstAmount = base * (gst / 100);
-  return {
-    // "Item Total Excl GST" (2 Sept 2026) — same number as `base` above,
-    // just exposed under the name the rest of the app now shows it as:
-    // Total Cost (₹) − GST amount(₹), which is definitionally qty × price.
-    itemTotalExclGst: base,
-    gstAmount,
-    priceInclGst: price * (1 + gst / 100),
-    lineTotal: base + gstAmount,
-  };
+  return lineMoney(l);
 }
 
 export function purchaseLineTotal(l: LineFinancialsInput) {
-  return lineFinancials(l).lineTotal;
+  return lineMoney(l).lineTotal;
 }

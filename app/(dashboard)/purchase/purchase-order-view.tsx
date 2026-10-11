@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDate, formatNumber } from "@/lib/utils";
+import { MONEY_RULE_TEXT, sumMoney } from "@/lib/money";
 import type { RawItemOption } from "./purchase-line-form";
 import { DeletePurchaseOrderForm, SubmitPurchaseOrderForm, ReopenPurchaseOrderForm } from "./purchase-order-form";
 import { PurchaseLinesSection } from "./[id]/purchase-lines-section";
@@ -50,7 +51,7 @@ export function PurchaseOrderView({
   // still draft — once Final Submitted, System Admin has to Reopen it
   // first (which reverses the inventory it pushed).
   const canEditLines = canEdit && isDraft;
-  const totalValue = lineRows.reduce((sum, l) => sum + purchaseLineTotal(l), 0);
+  const totalValue = sumMoney(lineRows.map(purchaseLineTotal));
 
   return (
     <div>
@@ -79,6 +80,7 @@ export function PurchaseOrderView({
         <Card className="p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted">Total value (₹)</p>
           <p className="mt-1.5 text-2xl font-semibold text-foreground">{formatNumber(totalValue)}</p>
+          <p className="mt-1 text-[11px] leading-snug text-muted">{MONEY_RULE_TEXT}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted">Created</p>
