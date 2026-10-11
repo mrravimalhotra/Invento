@@ -195,7 +195,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
         supabase
           .from("production_issue_batches")
           .select(
-            "id, batch_number, quantity, live_remaining_qty, unit, qc_qty, stability_qty, rnd_qty, created_at, packaging_issues(code, created_at)"
+            "id, batch_number, quantity, live_remaining_qty, unit, qc_qty, stability_qty, rnd_qty, created_at, packaging_issues(code, created_at, issue_date)"
           )
           .eq("item_id", id)
           .eq("active", true)

@@ -33,7 +33,7 @@ export type ProductionBatchRow = {
   qc_status?: string | null;
   retest_date?: string | null;
   qc_expiry_date?: string | null;
-  packaging_issues: { code: string; created_at: string } | null;
+  packaging_issues: { code: string; created_at: string; issue_date: string | null } | null;
 };
 
 export function ProductionBatchesTable({
@@ -81,7 +81,8 @@ export function ProductionBatchesTable({
     },
     {
       header: "Issued to Production on",
-      accessor: (r) => formatDate(r.created_at),
+      // SCAN-P6-05: the issue date typed on the packaging issue (0092), not the day it was saved.
+      accessor: (r) => formatDate(r.packaging_issues?.issue_date ?? r.created_at),
     },
     {
       header: "RM Intimation",
@@ -95,7 +96,7 @@ export function ProductionBatchesTable({
           qcQty={r.qc_qty}
           rndQty={r.rnd_qty}
           packagingCode={r.packaging_issues?.code ?? null}
-          packagingCreatedAt={r.packaging_issues?.created_at ?? null}
+          packagingIssueDate={r.packaging_issues?.issue_date ?? r.packaging_issues?.created_at ?? null}
         />
       ),
     },

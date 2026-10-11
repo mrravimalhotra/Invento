@@ -23,8 +23,8 @@ const downloadRmIntimationPdf = async (...args: Parameters<typeof import("@/app/
 //     explicit instruction and exact casing — there is no real vendor for
 //     an internal FP -> RM conversion).
 //   - Bill No / Date -> the source Packaging Issue's own code
-//     (packaging_issues.code, e.g. "PKG-0004") and created_at (the date it
-//     was packaged), reached via production_issue_batches.packaging_issue_id
+//     (packaging_issues.code, e.g. "PKG-0004") and issue_date (the date typed on
+//     the packaging issue, SCAN-P6-05; not the day it was saved), reached via production_issue_batches.packaging_issue_id
 //     — not the batch's own created_at (same moment in practice today, but
 //     the Packaging Issue is Ravi's stated authoritative source).
 
@@ -37,7 +37,7 @@ export function ProductionRmIntimationLink({
   qcQty,
   rndQty,
   packagingCode,
-  packagingCreatedAt,
+  packagingIssueDate,
 }: {
   itemName: string;
   itemCode: string;
@@ -47,7 +47,7 @@ export function ProductionRmIntimationLink({
   qcQty: string | number | null;
   rndQty: string | number | null;
   packagingCode: string | null;
-  packagingCreatedAt: string | null;
+  packagingIssueDate: string | null;
 }) {
   return (
     <button
@@ -57,7 +57,7 @@ export function ProductionRmIntimationLink({
         downloadRmIntimationPdf(
           {
             billNo: packagingCode ?? "—",
-            billDate: packagingCreatedAt ? formatDate(packagingCreatedAt) : "—",
+            billDate: packagingIssueDate ? formatDate(packagingIssueDate) : "—",
             itemName,
             itemCode,
             quantity,
