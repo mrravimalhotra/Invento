@@ -109,6 +109,19 @@ export default async function FinishedProductDetailPage({
     : { data: [] };
   const arByPurchaseLine = new Map((rmQcRows ?? []).map((r) => [r.purchase_line_id as string, r.ar_number as string]));
 
+  // SCAN-P5-11: raw material made by Production (migration 0068) goes through
+  // QC too, against its production batch, and has its own AR number. Later
+  // records win, so a retest shows the AR number of the latest check.
+  const productionBatchIds = [...new Set(componentRows.map((c) => c.production_batch_id).filter((v): v is string => !!v))];
+  const { data: prodQcRows } = productionBatchIds.length
+    ? await supabase
+        .from("quality_checks")
+        .select("production_batch_id, ar_number")
+        .in("production_batch_id", productionBatchIds)
+        .order("created_at", { ascending: true })
+    : { data: [] };
+  const arByProductionBatch = new Map((prodQcRows ?? []).map((r) => [r.production_batch_id as string, r.ar_number as string]));
+
   // "Once Batch is in Completed - Awaiting QC, start showing link" — and,
   // per the same precedent set for the Finish Product Intimation Slip
   // above, this stays available in every status reached from there
@@ -154,10 +167,11 @@ export default async function FinishedProductDetailPage({
                     rmCode: c.items?.item_code ?? "—",
                     rmName: c.items?.name ?? "—",
                     batchNo: c.purchase_lines?.batch_number ?? c.production_issue_batches?.batch_number ?? "—",
-                    // A Production-sourced component has no AR number — it was
-                    // never QC-checked on its own; the original Finished
-                    // Product batch's QC approval already cleared it.
-                    arNumber: c.purchase_line_id ? arByPurchaseLine.get(c.purchase_line_id) ?? "" : "",
+                    arNumber: c.purchase_line_id
+                      ? arByPurchaseLine.get(c.purchase_line_id) ?? ""
+                      : c.production_batch_id
+                        ? arByProductionBatch.get(c.production_batch_id) ?? ""
+                        : "",
                     qtyAsPerMfr: c.quantity,
                     // FB-0041: already fetched by this same query
                     // (items(item_code, name, unit) above) — just wasn't

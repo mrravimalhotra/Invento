@@ -192,7 +192,7 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
           rmHeaderCell("RM Name"),
           rmHeaderCell("Batch No"),
           rmHeaderCell("AR No."),
-          rmHeaderCell("Qty. as per MFR"),
+          rmHeaderCell("Qty. drawn from batch"),
           rmHeaderCell("Dispensed quantity"),
           rmHeaderCell("Checked By"),
         ],
