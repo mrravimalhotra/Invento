@@ -11,6 +11,7 @@ surfaced once the real physical templates were reviewed). Cross-reference:
 > - RM labels print the order's **Received on** date as Date of Receipt (the day the order was submitted if there is none); the Approved RM label prints the QC Expiry Date.
 > - The Finished Product label prints the **exact** expiry date QC approved as Best Before (dd-mm-yyyy), the short batch number, and Month of Manufacture as month and year.
 > - Value text shrinks to 6 pt before it is cut with "…". The Raw Material picker offers raw material only.
+> - The batch list is **searched on the server** (12 Oct 2026, SCAN-P4-16): type part of an item name or batch number and the page lists the newest matching batches that fit the chosen label, at most 50 (it says when there are more). The page no longer loads every batch into the browser. Code: `lib/actions/labels.ts` (`searchLabelBatches`), `label-picker.tsx`.
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 

@@ -49,6 +49,9 @@ type StatusQueryRow = {
 
 export default async function StockPositionPage() {
   const supabase = await createClient();
+  // SCAN-P5-07: give back the raw material of a draft that has sat for more than
+  // 30 minutes (the cancel is lazy), so the figures below do not hide it.
+  await supabase.rpc("expire_stale_fp_drafts");
 
   // known-issues.md ("Row-cap truncation") — Supabase/PostgREST enforces
   // its max-rows cap (this project's is 1,000) server-side; a client

@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Field, Select } from "@/components/ui/form";
+import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, isLegacyCode, todayIst, formatQty } from "@/lib/utils";
-import { rmEligibleFor, fpEligibleForLabel, ELIGIBILITY_HINT } from "./label-eligibility";
+import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
+import { ELIGIBILITY_HINT } from "./label-eligibility";
+import { searchLabelBatches } from "@/lib/actions/labels";
+import { LABEL_RESULT_LIMIT, type RmRecord, type FpRecord } from "./label-types";
 import {
   downloadLabelPdf,
   HEADER_TEXT,
@@ -36,43 +38,6 @@ const FPIP_PREVIEW_DISPLAY_SCALE = FPIP_PREVIEW_DISPLAY_WIDTH_PX / FPIP_PREVIEW_
 const UT_PREVIEW_DISPLAY_WIDTH_PX = 320;
 const UT_PREVIEW_DISPLAY_SCALE = UT_PREVIEW_DISPLAY_WIDTH_PX / UT_PREVIEW_WIDTH_PX;
 
-export type RmRecord = {
-  id: string;
-  itemName: string;
-  batchNumber: string;
-  isLegacy?: boolean;
-  quantity: number;
-  unit: string;
-  vendorName: string;
-  invoiceNumber: string;
-  receiptDate: string | null;
-  qcStatus: string;
-  arNumber: string | null;
-  retestDate: string | null;
-  expiryDate: string | null;
-  poSubmitted: boolean;
-  retestPeriodDays: number | null;
-};
-
-export type FpRecord = {
-  id: string;
-  productName: string;
-  batchNumber: string;
-  // FB-0044 follow-up (27 Sept 2026): print-only short form (PR-01/26 /
-  // OR-01/26) — printed on the label in place of the long compound batch
-  // number, which doesn't fit on a physical bottle label. Null for batches
-  // that predate this (see page.tsx) — the label falls back to the full
-  // batchNumber for those.
-  shortBatchNumber: string | null;
-  isLegacy?: boolean;
-  quantity: number | null;
-  unit: string;
-  finishDate: string | null;
-  expiryMonth: string | null;
-  qcExpiryDate: string | null;
-  status: string;
-};
-
 const LABEL_TYPE_OPTIONS: { value: LabelType; label: string }[] = [
   { value: "approved_rm", label: "Approved Raw Material" },
   { value: "under_test", label: "Under Test" },
@@ -92,40 +57,60 @@ function dateOrNull(d: string | null) {
   return formatDate(d);
 }
 
-export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; fpRecords: FpRecord[] }) {
+export function LabelPicker() {
   const [labelType, setLabelType] = useState<LabelType>("approved_rm");
-  // FB-0024 (7 Sept 2026, Namrata Gaikwad): a second picker, in between
-  // Label type and the batch field, so a user can find a batch by the raw
-  // material/finished product's *name* (e.g. "jatamansi") rather than
-  // needing to already recognize its batch code. Picking a name here
-  // narrows the batch field below it to just that product's batches;
-  // clearing it (or switching Label type) shows every batch again, same
-  // as before this existed.
-  const [nameFilter, setNameFilter] = useState<string>("");
+  // SCAN-P4-16 (Ravi, 12 Oct 2026): the batch list is no longer loaded with the
+  // page. What is typed here (an item name or a batch number) is sent to the
+  // server, which returns the newest eligible batches that match, at most
+  // LABEL_RESULT_LIMIT. FB-0024 (7 Sept 2026) was the original name search.
+  const [search, setSearch] = useState<string>("");
+  const [rmResults, setRmResults] = useState<RmRecord[]>([]);
+  const [fpResults, setFpResults] = useState<FpRecord[]>([]);
+  const [more, setMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("");
+  // The chosen batch is kept on its own so a new search does not lose it.
+  const [chosenRm, setChosenRm] = useState<RmRecord | undefined>(undefined);
+  const [chosenFp, setChosenFp] = useState<FpRecord | undefined>(undefined);
+  const requestNo = useRef(0);
 
   const isFp = labelType === "finished_product";
 
   // ACC-14: each template is offered only for batches whose current status
-  // matches it (see label-eligibility.ts).
-  const eligibleRmRecords = useMemo(() => {
-    const today = todayIst();
-    return rmRecords.filter((r) => rmEligibleFor(labelType, r, today));
-  }, [labelType, rmRecords]);
-  const eligibleFpRecords = useMemo(() => fpRecords.filter((r) => fpEligibleForLabel(r.status)), [fpRecords]);
+  // matches it (see label-eligibility.ts) — the server applies that filter.
+  useEffect(() => {
+    const myRequest = ++requestNo.current;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await searchLabelBatches(labelType, search);
+        if (myRequest !== requestNo.current) return; // a newer search is already running
+        setRmResults(res.rm);
+        setFpResults(res.fp);
+        setMore(res.more);
+        setLoadError(res.error ?? null);
+      } catch {
+        if (myRequest !== requestNo.current) return;
+        setLoadError("The batches could not be loaded. Try again.");
+      } finally {
+        if (myRequest === requestNo.current) setLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [labelType, search]);
 
-  const rm = !isFp ? eligibleRmRecords.find((r) => r.id === selectedId) : undefined;
-  const fp = isFp ? eligibleFpRecords.find((r) => r.id === selectedId) : undefined;
+  const rm = !isFp ? chosenRm : undefined;
+  const fp = isFp ? chosenFp : undefined;
 
-  // Distinct product names for the currently active record set, so the
-  // name picker offers each RM/FP item once rather than once per batch.
-  const nameOptions = useMemo(() => {
-    const names = isFp ? eligibleFpRecords.map((r) => r.productName) : eligibleRmRecords.map((r) => r.itemName);
-    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
-  }, [isFp, eligibleRmRecords, eligibleFpRecords]);
+  function handleSelect(id: string) {
+    setSelectedId(id);
+    if (isFp) setChosenFp(fpResults.find((r) => r.id === id));
+    else setChosenRm(rmResults.find((r) => r.id === id));
+  }
 
-  const filteredRmRecords = nameFilter ? eligibleRmRecords.filter((r) => r.itemName === nameFilter) : eligibleRmRecords;
-  const filteredFpRecords = nameFilter ? eligibleFpRecords.filter((r) => r.productName === nameFilter) : eligibleFpRecords;
+  // The chosen batch stays in the list even when a later search no longer matches it.
+  const rmOptions = chosenRm && !rmResults.some((r) => r.id === chosenRm.id) && !isFp ? [chosenRm, ...rmResults] : rmResults;
+  const fpOptions = chosenFp && !fpResults.some((r) => r.id === chosenFp.id) && isFp ? [chosenFp, ...fpResults] : fpResults;
 
   const fields: LabelField[] = useMemo(() => {
     if (labelType === "approved_rm" && rm) {
@@ -186,15 +171,12 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
 
   function handleTypeChange(next: LabelType) {
     setLabelType(next);
-    setNameFilter("");
+    setLoading(true);
     setSelectedId("");
-  }
-
-  function handleNameFilterChange(next: string) {
-    setNameFilter(next);
-    // The previously selected batch may not belong to this product — clear
-    // it rather than leave a stale, now-hidden batch selected underneath.
-    setSelectedId("");
+    setChosenRm(undefined);
+    setChosenFp(undefined);
+    setRmResults([]);
+    setFpResults([]);
   }
 
   function handleDownload() {
@@ -222,25 +204,32 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
           </Field>
 
           <Field
-            label="Search by Item Name"
-            htmlFor="name-filter"
-            hint="Type to find a raw material or finished product by name, e.g. Jatamansi — narrows the batch list below."
+            label="Search"
+            htmlFor="batch-search"
+            hint={
+              isFp
+                ? "Type part of the product name or the batch number, e.g. Jatamansi. The newest matching batches are listed below."
+                : "Type part of the item name or the batch number, e.g. Jatamansi. The newest matching batches are listed below."
+            }
           >
-            <Select id="name-filter" value={nameFilter} onChange={(e) => handleNameFilterChange(e.target.value)}>
-              <option value="">All products</option>
-              {nameOptions.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Select>
+            <Input
+              id="batch-search"
+              type="search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setLoading(true);
+              }}
+              placeholder={isFp ? "Product name or batch number" : "Item name or batch number"}
+              autoComplete="off"
+            />
           </Field>
 
           {!isFp ? (
             <Field label="Purchase batch" htmlFor="record" required hint={`Raw material batch, from Purchase. ${ELIGIBILITY_HINT[labelType]}`}>
-              <Select id="record" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-                <option value="">Select a batch…</option>
-                {filteredRmRecords.map((r) => (
+              <Select id="record" value={selectedId} onChange={(e) => handleSelect(e.target.value)}>
+                <option value="">{loading ? "Searching…" : "Select a batch…"}</option>
+                {rmOptions.map((r) => (
                   <option key={r.id} value={r.id} data-legacy={isLegacyCode(r.batchNumber) ? "1" : undefined}>
                     {r.batchNumber}{r.isLegacy ? " (Legacy)" : ""} · {r.itemName}
                   </option>
@@ -249,9 +238,9 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             </Field>
           ) : (
             <Field label="Finished product batch" htmlFor="record" required hint={ELIGIBILITY_HINT.finished_product}>
-              <Select id="record" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-                <option value="">Select a batch…</option>
-                {filteredFpRecords.map((r) => (
+              <Select id="record" value={selectedId} onChange={(e) => handleSelect(e.target.value)}>
+                <option value="">{loading ? "Searching…" : "Select a batch…"}</option>
+                {fpOptions.map((r) => (
                   <option key={r.id} value={r.id} data-legacy={isLegacyCode(r.batchNumber) ? "1" : undefined}>
                     {r.batchNumber}{r.isLegacy ? " (Legacy)" : ""} · {r.productName}
                   </option>
@@ -260,8 +249,24 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
             </Field>
           )}
 
-          {nameFilter && (!isFp ? filteredRmRecords.length === 0 : filteredFpRecords.length === 0) && (
-            <p className="text-sm text-muted">No batches on file for &ldquo;{nameFilter}&rdquo;.</p>
+          {loadError && (
+            <p role="alert" className="rounded-md border border-red/40 bg-red-bg px-3 py-2 text-sm text-red">
+              {loadError}
+            </p>
+          )}
+          {!loading && !loadError && (isFp ? fpResults.length === 0 : rmResults.length === 0) && (
+            <p className="text-sm text-muted">
+              {search.trim()
+                ? `No batch matching \u201c${search.trim()}\u201d qualifies for this label.`
+                : isFp
+                  ? "No finished product batch is QC-approved yet."
+                  : "No raw material batch currently qualifies for this label."}
+            </p>
+          )}
+          {!loading && more && (
+            <p className="text-sm text-muted">
+              Showing the newest {LABEL_RESULT_LIMIT} matches. Type more of the name or batch number to narrow the list.
+            </p>
           )}
 
           {rm && (
@@ -276,13 +281,6 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
               <span>Current FP status:</span>
               <Badge status={fp.status}>{fp.status.replace(/_/g, " ")}</Badge>
             </div>
-          )}
-
-          {!nameFilter && !isFp && eligibleRmRecords.length === 0 && (
-            <p className="text-sm text-muted">No raw material batch currently qualifies for this label.</p>
-          )}
-          {!nameFilter && isFp && eligibleFpRecords.length === 0 && (
-            <p className="text-sm text-muted">No finished product batch is QC-approved yet.</p>
           )}
 
           <div className="flex gap-2">

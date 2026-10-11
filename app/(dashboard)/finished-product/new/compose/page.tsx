@@ -248,6 +248,10 @@ export default async function ComposeFinishedProductPage({
   const unit = sp.unit ?? "";
   const batchStartDate = sp.batch_start_date ?? "";
 
+  // SCAN-P5-07: a draft left for more than 30 minutes is cancelled lazily; do it
+  // here too, before the batches are read, so its reserved raw material is offered.
+  await supabase.rpc("expire_stale_fp_drafts");
+
   if (!mfrDefinitionId || !mfrVersion || !targetQty || !unit || !batchStartDate) {
     redirect("/finished-product/new");
   }

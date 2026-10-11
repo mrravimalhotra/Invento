@@ -41,6 +41,7 @@
     - [Opening Stock](#opening-stock)
     - [Company Details](#company-details)
     - [Purge Test Data](#purge-test-data)
+    - [Stock Integrity Check](#stock-integrity-check)
     - [Legacy / deprecated modules](#legacy--deprecated-modules)
 11. [Glossary](#glossary)
 12. [FAQ & troubleshooting](#faq--troubleshooting)
@@ -479,7 +480,7 @@ Only a batch that is fully Approved (both rounds, and not currently overdue for 
 **How to print labels**
 1. Go to Label Printing.
 2. Pick the **Label type**: Approved Raw Material, Under Test, In-process, or Finished Product.
-3. Pick the **Record** — for the three Raw Material label types, search for the purchase batch by batch number or item name; for Finished Product, search for the finished batch.
+3. Type part of the item name or the batch number in the **Search** box, then pick the batch from the list under it. The list shows the newest matching batches that can have this label, at most 50; if it says more exist, type more of the name or number to narrow it.
 4. Check the on-screen preview — it shows the exact label layout with your batch's details filled in.
 5. Click **Download PDF**. You get a print-ready sheet with several copies of the same label — 6 per page (2×3) for Approved Raw Material, Finished Product, and In-process, or 10 per page for Under Test.
 6. Print, cut the labels apart, and apply them.
@@ -494,7 +495,7 @@ A few fields have no source data anywhere in the system yet, so they print as a 
 This screen only reads information already entered elsewhere — Purchase for batch/vendor/invoice details, Quality Control for approval status and retest period, and Finished Product for batch and expiry details. Nothing you do here changes any of that data.
 
 **Good to know**
-- The batch picker isn't limited to only approved batches — check the QC status shown next to the picker before printing an "Approved Raw Material" label, since the system won't stop you from printing one for a batch that isn't actually approved yet.
+- Each label lists only the batches it fits: Approved Raw Material and Finished Product labels only for batches that are QC-approved right now, Under Test only for batches awaiting a QC decision or due for retest, and In-process for any batch that is not rejected. The batch list is searched on the server, so the page stays fast however many batches there are.
 - Only a PDF download is available; JPEG export has been removed for all four label types.
 - The Raw Material label pickers only list actual raw material purchases — packaging item purchases won't show up there.
 
@@ -747,7 +748,7 @@ Every report is a live read of records from other modules — RM Stock Report mi
 **Good to know**
 - The date filter only narrows down the rows already loaded on screen — it isn't a fresh search, so applying and clearing it is instant.
 - The downloads follow the date filter but not the search box, so set the date range first if you want a narrower export.
-- Download PDF gives a formatted, printable table (with the usual letterhead). Download Excel gives a spreadsheet in which numbers and dates are real numbers and dates, so you can sort and total them in Excel.
+- Download PDF gives a formatted, printable table (with the usual letterhead). A PDF holds at most 3,000 rows (about 80 pages); if the list is longer, the app asks you to narrow it first (a date range or the search box) or to use Download Excel instead. Download Excel gives a spreadsheet in which numbers and dates are real numbers and dates, so you can sort and total them in Excel.
 - On the Purchase Register, the date column is labeled "Re-Test Date" (when the raw material batch is next due for retesting) — don't confuse it with the QC Register's own "Retest Date" column, which tracks a different thing (when a specific QC result needs to be re-checked).
 - QC Register and FP Register are full historical logs — every row shows, including old/inactive ones — unlike most other lists in the app which hide inactive records by default.
 
@@ -869,6 +870,21 @@ Running this clears out data across nearly every module at once — Item Master,
 - Your own account, every user's role assignments, and all Tester Feedback tickets are specifically kept — this action only clears business/inventory data, not accounts or feedback history.
 - Only System Admins can even see this button in an active state; everyone else is blocked at the page level.
 - Because record numbering resets to "-0001" afterward, this is meant for a genuine from-scratch testing reset, not a quick way to remove one bad entry — for that, edit or delete the specific record in its own module instead.
+
+### Stock Integrity Check
+
+**Where to find it:** Admin → Stock Integrity Check
+
+**Who can use it:** System Admin only. Anyone else who opens the page sees an access-restricted message.
+
+**What it's for:** Invento keeps stock in two places: the inventory ledger (how much of each item there is) and the quantity left on each batch. Every receipt, issue, write-off, rejection and undo has to change both. This screen compares them. It runs nine read-only checks: an item's On hand against the parts on Stock Position, each purchase batch and each production-issued batch against the ledger, negative stock, purchase lines that are not submitted but have stock, ledger rows with the wrong unit or item, finished product stock against the bulk left on approved batches, duplicate batch numbers, and orphan records. It never changes data.
+
+**How to use it**
+1. Open Admin → Stock Integrity Check. The checks run every time the page opens; reload to run them again.
+2. A green banner means every check passed. A red banner lists how many differences were found; each failing check shows the first 20 rows.
+3. If anything fails, do not correct stock by hand. Note the rows and tell the developer.
+
+The page also shows the number of rows in the inventory ledger. The stock reports read the whole ledger, so they slow down as it grows; the page warns when it approaches 3 million rows, which is when a closing-balance table should be planned.
 
 ### Legacy / deprecated modules
 

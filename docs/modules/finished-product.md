@@ -12,6 +12,7 @@ Cross-reference: `docs/DESIGN.md` §4.8 (schema), §7.3 (FIFO suggestion),
 > - Batch numbers: full `FP-00001-01/26` plus short `PR-01/26`; screens show both, printed outputs and Reports the short one.
 > - Status only moves along the workflow; the database refuses other direct changes (0070). Finished product stock enters the ledger at QC approval.
 > - Older sections below describe earlier steps (single-batch picker, up-front expiry date, "Re-Test Date" columns); where they disagree with this block, this block is right.
+> - Opening New finished product → Compose, or Stock Position, first runs the 30-minute draft check (`expire_stale_fp_drafts()`), so a stale draft never keeps raw material locked (SCAN-P5-07, 12 Oct 2026).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 

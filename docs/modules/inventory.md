@@ -11,6 +11,7 @@ ledger rows have no document number), §6 (route map), §8 (UI system), §9
 > - Stock Statement gives Opening, receipts, issues and Closing for any period. The **RM Report As On Date shows today's quantities whatever date is picked** (SCAN-P3-11, open).
 > - Each item has one stock unit; quantities show up to 3 decimals; leftovers below 0.0005 are ignored by the oldest-first check and pickers.
 > - Finished product enters the ledger only when QC approves it (yield less samples), and leaves through packaging issues.
+> - Stock Position first runs the 30-minute finished product draft check, so raw material held by a stale draft is released before the figures are read (SCAN-P5-07). The "expired" and "retest due" split in Stock Position, and the Compose picker, use the India date (migration 0114, SCAN-P10-07). The System Administrator can compare the ledger with the batch figures on Admin → Stock Integrity Check (see shell.md).
 > - Later sections (the 3 Sept "redesign" phases, the first Stock Balance screens) describe how this was built; read them for reasons, not for current screens.
 > - Where a later section below disagrees with an earlier one, the later one is right.
 

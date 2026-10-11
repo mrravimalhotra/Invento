@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { drawCompanyHeading } from "@/lib/pdf-company-heading";
 import { getPdfUser } from "@/lib/pdf-user";
 import { formatDateTime } from "@/lib/utils";
+import { flash } from "@/lib/flash";
 
 // The shared letterhead for register-style PDFs (29 Sept 2026, ACC group 9
 // decision (b)): logo, company name, address and licence number, a rule, then
@@ -55,6 +56,12 @@ export function addPageFooters(doc: jsPDF) {
   }
 }
 
+// SCAN-P7-15: a PDF is built in the browser from every row. 10,000 rows is about
+// 280 pages and 250 MB; far more freezes the tab. Above this many rows the person
+// is asked to narrow the list (or use Excel, where the list has it) instead.
+export const PDF_ROW_LIMIT = 3000;
+const PDF_ROWS_PER_PAGE = 36;
+
 export function downloadPdfTable({
   title,
   columns,
@@ -69,6 +76,13 @@ export function downloadPdfTable({
   // Optional line under the title describing what the rows are filtered by.
   subtitle?: string | null;
 }) {
+  if (rows.length > PDF_ROW_LIMIT) {
+    flash(
+      `This PDF would be about ${Math.ceil(rows.length / PDF_ROWS_PER_PAGE).toLocaleString("en-IN")} pages (${rows.length.toLocaleString("en-IN")} rows). Narrow the list first (a date range or the search box) to ${PDF_ROW_LIMIT.toLocaleString("en-IN")} rows or fewer, or download Excel instead where the list has it.`,
+      "error"
+    );
+    return;
+  }
   const doc = new jsPDF();
   const startY = letterhead(doc, title, subtitle);
   autoTable(doc, {

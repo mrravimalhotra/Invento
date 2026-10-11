@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Tags, Package, Truck, ShoppingCart, FlaskConical, ListTree,
   ClipboardList, FileBadge, Boxes, PackageCheck, Tag, FileCheck2, ShieldCheck,
   Thermometer, Users, BarChart3, FileText, MessageSquarePlus, Wrench, Archive,
-  UploadCloud, Trash2, History, BookOpen, PackagePlus, Building2,
+  UploadCloud, Trash2, History, BookOpen, PackagePlus, Building2, Scale,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
@@ -104,6 +104,10 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // module number 20 follows Bulk Data Upload (19)'s precedent for
       // post-baseline additions.
       { href: "/admin/purge-test-data", label: "Purge Test Data", icon: Trash2, module: 20 },
+      // Ravi (12 Oct 2026, SCAN-P3-05): nine read-only comparisons of the ledger and the
+      // batch figures; System Administrator only (the page and the database function both
+      // check). Module 25 follows Company Details (24).
+      { href: "/admin/stock-integrity", label: "Stock Integrity Check", icon: Scale, module: 25 },
       // Ravi (16 Sept 2026): "move the highlighted 'Batch Mfg. Record' to
       // Admin page and rename this to 'Batch Mfg. Record- Deprecated' we
       // will later remove this functionality." This is the real BMR

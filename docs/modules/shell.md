@@ -10,6 +10,8 @@ infrastructure that doesn't belong to any one module's own `docs/modules/*.md`.
 > - List tables can export Excel and PDF (all rows matching the search and "Hide legacy data", not just the page). Every action ends with a visible message; forms keep what you typed when a save fails.
 > - The Dashboard shows four cards at most (low stock on usable stock, finished product batches in progress, retest and expiry in the next 90 days, including items already overdue), summary tiles, and charts; a red "Some of the data could not be loaded" banner appears when a read fails.
 > - Sign-up is closed; password reset links open `/auth/confirm` first.
+> - **Admin → Stock Integrity Check** (System Administrator only, 12 Oct 2026, SCAN-P3-05): nine read-only comparisons of the inventory ledger with the batch figures, run by the database function `stock_integrity_check()` (migration 0114), plus the ledger row count (SCAN-P7-25: plan a closing-balance table before about 3 million rows).
+> - A PDF export is refused above 3,000 rows (`PDF_ROW_LIMIT` in `lib/pdf.ts`, SCAN-P7-15): the user is told to narrow the list or use Excel. Seven database functions and two views now use the India date and year themselves, whatever the connection's time zone is (migration 0114, SCAN-P10-07).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 
