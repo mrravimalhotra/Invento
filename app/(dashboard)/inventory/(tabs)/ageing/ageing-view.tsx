@@ -50,8 +50,10 @@ function whenText(r: AgeingRow) {
   return `in ${r.days} day${r.days === 1 ? "" : "s"}`;
 }
 
-export function AgeingView({ rows }: { rows: AgeingRow[] }) {
-  const [bucket, setBucket] = useState<AgeingBucket | "all">("all");
+export function AgeingView({ rows, initialBucket }: { rows: AgeingRow[]; initialBucket?: string }) {
+  const [bucket, setBucket] = useState<AgeingBucket | "all">(
+    BUCKETS.some((b) => b.value === initialBucket) ? (initialBucket as AgeingBucket) : "all"
+  );
 
   const counts = useMemo(() => {
     const c = new Map<AgeingBucket, number>();

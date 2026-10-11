@@ -22,6 +22,8 @@ export type AlertRow = {
   legacy: boolean;
   /** Opening stock (0100/0101): batch came from the old records. */
   opening?: boolean;
+  /** SCAN-P4-05: the date has already passed and the batch still has stock. */
+  overdue?: boolean;
 };
 
 type DateField = "retest_date" | "expiry_date";
@@ -35,24 +37,36 @@ export async function getDashboardAlerts(
   from: string,
   to: string
 ): Promise<{ retestSoon: AlertRow[]; expirySoon: AlertRow[] }> {
-  const [rawPurchase, rawProduction, fpRetest, rawPurchaseExpiry, rawProductionExpiry, fpExpiry] = await Promise.all([
+  const [
+    rawPurchase, rawProduction, fpRetest, rawPurchaseExpiry, rawProductionExpiry, fpExpiry,
+    retestOverdueP, retestOverdueX, expiryOverdueP, expiryOverdueX,
+  ] = await Promise.all([
     getRawPurchaseDates(supabase, from, to, "retest_date"),
     getRawProductionDates(supabase, from, to, "retest_date"),
     getFpRetests(supabase, from, to),
     getRawPurchaseDates(supabase, from, to, "expiry_date"),
     getRawProductionDates(supabase, from, to, "expiry_date"),
     getFpExpiries(supabase, from, to),
+    // SCAN-P4-05: batches whose date has already passed and that still have
+    // stock stay on the cards, first and marked overdue. Raw material only:
+    // finished product alerts have no "stock left" test yet (SCAN-P7-12), so
+    // listing every past date there would show batches with nothing left.
+    getRawPurchaseDates(supabase, from, to, "retest_date", true),
+    getRawProductionDates(supabase, from, to, "retest_date", true),
+    getRawPurchaseDates(supabase, from, to, "expiry_date", true),
+    getRawProductionDates(supabase, from, to, "expiry_date", true),
   ]);
+  // Oldest date first, so the overdue rows (all before today) lead the list.
   const byDate = (a: AlertRow, b: AlertRow) => a.date.localeCompare(b.date) || a.key.localeCompare(b.key);
   return {
-    retestSoon: [...rawPurchase, ...rawProduction, ...fpRetest].sort(byDate),
-    expirySoon: [...rawPurchaseExpiry, ...rawProductionExpiry, ...fpExpiry].sort(byDate),
+    retestSoon: [...retestOverdueP, ...retestOverdueX, ...rawPurchase, ...rawProduction, ...fpRetest].sort(byDate),
+    expirySoon: [...expiryOverdueP, ...expiryOverdueX, ...rawPurchaseExpiry, ...rawProductionExpiry, ...fpExpiry].sort(byDate),
   };
 }
 
 // Purchased raw materials: the latest QC of each batch (view purchase_line_qc),
 // approved, still in stock — the same rule as the "Due for retest" list on QC.
-async function getRawPurchaseDates(supabase: Supabase, from: string, to: string, field: DateField): Promise<AlertRow[]> {
+async function getRawPurchaseDates(supabase: Supabase, from: string, to: string, field: DateField, overdue = false): Promise<AlertRow[]> {
   type PurchaseDateRow = {
     purchase_line_id: string;
     batch_number: string;
@@ -60,21 +74,24 @@ async function getRawPurchaseDates(supabase: Supabase, from: string, to: string,
     item_name: string;
     ar_number: string | null;
   } & Record<DateField, string>;
-  const { data } = await fetchAllRows<PurchaseDateRow>((f, t) =>
-    supabase
+  const { data } = await fetchAllRows<PurchaseDateRow>((f, t) => {
+    let q = supabase
       .from("purchase_line_qc")
       .select(`purchase_line_id, batch_number, item_code, item_name, ar_number, ${field}`)
       .eq("qc_status", "approved")
       .eq("active", true)
       .eq("item_category", "raw")
-      .gt("live_remaining_qty", 0)
-      .gte(field, from)
-      .lte(field, to)
+      .gt("live_remaining_qty", 0);
+    // Overdue: the date is before today. A batch that is past its EXPIRY is
+    // listed once, on the expiry card, not again as a retest overdue.
+    q = overdue ? q.lt(field, from) : q.gte(field, from).lte(field, to);
+    if (overdue && field === "retest_date") q = q.or(`expiry_date.is.null,expiry_date.gte.${from}`);
+    return q
       .order(field, { ascending: true })
       .order("purchase_line_id", { ascending: true })
       .range(f, t)
-      .returns<PurchaseDateRow[]>()
-  );
+      .returns<PurchaseDateRow[]>();
+  });
   const openingIds = await getOpeningLineIds(supabase);
   return (data ?? []).map((r) => ({
     key: `p-${field}-${r.purchase_line_id}`,
@@ -85,24 +102,22 @@ async function getRawPurchaseDates(supabase: Supabase, from: string, to: string,
     date: r[field],
     legacy: isLegacyCode(r.item_code) || isLegacyCode(r.batch_number),
     opening: openingIds.has(r.purchase_line_id),
+    overdue,
   }));
 }
 
 // Raw material made from finished product issued to Production (RM-FP-…).
-async function getRawProductionDates(supabase: Supabase, from: string, to: string, field: DateField): Promise<AlertRow[]> {
+async function getRawProductionDates(supabase: Supabase, from: string, to: string, field: DateField, overdue = false): Promise<AlertRow[]> {
   type ProductionDateRow = { production_batch_id: string | null; ar_number: string | null } & Record<DateField, string>;
-  const { data: statuses } = await fetchAllRows<ProductionDateRow>(
-    (f, t) =>
-      supabase
-        .from("production_batch_status")
-        .select(`production_batch_id, ar_number, ${field}`)
-        .eq("qc_status", "approved")
-        .gte(field, from)
-        .lte(field, to)
-        .order("production_batch_id", { ascending: true })
-        .range(f, t)
-        .returns<ProductionDateRow[]>()
-  );
+  const { data: statuses } = await fetchAllRows<ProductionDateRow>((f, t) => {
+    let q = supabase
+      .from("production_batch_status")
+      .select(`production_batch_id, ar_number, ${field}`)
+      .eq("qc_status", "approved");
+    q = overdue ? q.lt(field, from) : q.gte(field, from).lte(field, to);
+    if (overdue && field === "retest_date") q = q.or(`expiry_date.is.null,expiry_date.gte.${from}`);
+    return q.order("production_batch_id", { ascending: true }).range(f, t).returns<ProductionDateRow[]>();
+  });
   const meta = new Map((statuses ?? []).filter((s) => s.production_batch_id).map((s) => [s.production_batch_id as string, s]));
   if (meta.size === 0) return [];
   const { data: batches } = await fetchByIdChunks<{ id: string; batch_number: string; items: ItemEmbed }>([...meta.keys()], (chunk) =>
@@ -124,6 +139,7 @@ async function getRawProductionDates(supabase: Supabase, from: string, to: strin
       ar: m.ar_number,
       date: m[field],
       legacy: isLegacyCode(b.items?.item_code) || isLegacyCode(b.batch_number),
+      overdue,
     };
   });
 }

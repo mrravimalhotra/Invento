@@ -47,11 +47,24 @@ function daysUntil(date: string): number {
 }
 
 // B15: one alert — what it is (item, batch, Raw material / Finished product) and when.
-function AlertLine({ row, verb, href }: { row: AlertRow; verb: "retest" | "expires"; href: string }) {
+// SCAN-P4-05 / SCAN-P7-08: a date that has already passed stays on the card,
+// in red; every line opens Expiry and Retest Ageing, which lists the batch.
+const AGEING_HREF = "/inventory/ageing";
+
+function AlertLine({ row, verb }: { row: AlertRow; verb: "retest" | "expires" }) {
   const days = daysUntil(row.date);
+  const overdue = row.overdue === true || days < 0;
+  const href = overdue ? `${AGEING_HREF}?bucket=${verb === "expires" ? "expired" : "retest_overdue"}` : AGEING_HREF;
+  const when = overdue
+    ? `${verb === "expires" ? "expired" : "retest was due"} ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`
+    : days <= 0
+      ? "today"
+      : days === 1
+        ? "in 1 day"
+        : `in ${days} days`;
   return (
     <Link href={href} className="flex items-start gap-2 text-sm hover:underline">
-      <TriangleAlert className="mt-0.5 h-3.5 w-3.5 text-amber shrink-0" />
+      <TriangleAlert className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${overdue ? "text-red" : "text-amber"}`} />
       <span>
         <span className="font-medium">{row.title}</span> · {row.batch}
         <LegacyTag show={row.opening} />
@@ -62,9 +75,10 @@ function AlertLine({ row, verb, href }: { row: AlertRow; verb: "retest" | "expir
         >
           {row.kind === "fp" ? "Finished product" : "Raw material"}
         </span>
-        <span className="block text-xs text-muted">
+        <span className={`block text-xs ${overdue ? "font-medium text-red" : "text-muted"}`}>
           {row.ar ? `${row.ar} · ` : ""}
-          {verb} {formatDate(row.date)} · {days <= 0 ? "today" : days === 1 ? "in 1 day" : `in ${days} days`}
+          {overdue ? when : `${verb} ${formatDate(row.date)} · ${when}`}
+          {overdue ? ` (${formatDate(row.date)})` : ""}
         </span>
       </span>
     </Link>
@@ -148,14 +162,14 @@ export function DashboardView({ data }: { data: DashboardData }) {
           )}
           {retestSoon.length > 0 && (
             <Card className="border-amber/40">
-              <CardHeader title="Retest due in the next 90 days" />
+              <CardHeader title="Retest overdue or due in the next 90 days" />
               <CardBody className="flex flex-col gap-3">
                 {retestSoon.map((q) => (
-                  <AlertLine key={q.key} row={q} verb="retest" href="/qc" />
+                  <AlertLine key={q.key} row={q} verb="retest" />
                 ))}
                 {retestAll.length > retestSoon.length && (
-                  <Link href="/qc" className="text-xs font-medium text-brand hover:underline">
-                    + {retestAll.length - retestSoon.length} more on the QC page
+                  <Link href={AGEING_HREF} className="text-xs font-medium text-brand hover:underline">
+                    + {retestAll.length - retestSoon.length} more in Expiry and Retest Ageing
                   </Link>
                 )}
               </CardBody>
@@ -163,14 +177,14 @@ export function DashboardView({ data }: { data: DashboardData }) {
           )}
           {expirySoon.length > 0 && (
             <Card className="border-amber/40">
-              <CardHeader title="Expiring in the next 90 days" />
+              <CardHeader title="Expired or expiring in the next 90 days" />
               <CardBody className="flex flex-col gap-3">
                 {expirySoon.map((q) => (
-                  <AlertLine key={q.key} row={q} verb="expires" href="/qc" />
+                  <AlertLine key={q.key} row={q} verb="expires" />
                 ))}
                 {expiryAll.length > expirySoon.length && (
-                  <Link href="/qc" className="text-xs font-medium text-brand hover:underline">
-                    + {expiryAll.length - expirySoon.length} more on the QC page
+                  <Link href={AGEING_HREF} className="text-xs font-medium text-brand hover:underline">
+                    + {expiryAll.length - expirySoon.length} more in Expiry and Retest Ageing
                   </Link>
                 )}
               </CardBody>

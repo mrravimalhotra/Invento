@@ -28,7 +28,8 @@ type DbRow = {
   is_legacy: boolean;
 };
 
-export default async function AgeingPage() {
+export default async function AgeingPage({ searchParams }: { searchParams: Promise<{ bucket?: string }> }) {
+  const { bucket } = await searchParams; // from the Dashboard alert links (SCAN-P7-08)
   const supabase = await createClient();
   const today = todayIst();
 
@@ -72,7 +73,7 @@ export default async function AgeingPage() {
         Approved batches by the earlier of their retest and expiry dates. Raw material shows what is still in stock; finished
         product shows bulk not yet packed or sampled. Today is {today}; next 90 days end {addDaysToDate(today, 90)}.
       </p>
-      <AgeingView rows={rows} />
+      <AgeingView rows={rows} initialBucket={bucket} />
     </Card>
   );
 }
