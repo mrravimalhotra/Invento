@@ -189,6 +189,8 @@ async function getDueForRetestLines(
       .lte("retest_date", today)
       .eq("active", true)
       .eq("item_category", "raw")
+      // SCAN-P4-03: expired material is not retested; it is on Ageing and Stock Position.
+      .or(`expiry_date.is.null,expiry_date.gte.${today}`)
       // ACC-10 (29 Sept 2026): no longer limited to batches with a stability
       // reserve — a batch without one was blocked from production yet never
       // listed here. ACC-39: only batches that still have stock to retest.
@@ -260,6 +262,8 @@ async function getProductionDueForRetestLines(
       .eq("qc_status", "approved")
       .not("retest_date", "is", null)
       .lte("retest_date", today)
+      // SCAN-P4-03: expired material is not retested.
+      .or(`expiry_date.is.null,expiry_date.gte.${today}`)
       .order("production_batch_id", { ascending: true })
       .range(from, to)
   );

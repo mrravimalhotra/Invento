@@ -74,6 +74,8 @@ export default async function QualityCheckDetailPage({
   const isRawMaterialQc = !!(record.purchase_line_id || record.production_batch_id);
   let isFinalRetest = false;
   let suggestedExpiry = record.expiry_date;
+  // SCAN-P4-03: a retest cannot set a later expiry than the batch was last approved with.
+  let maxExpiry: string | undefined;
   if (record.status === "checker_approved" && isRawMaterialQc && record.is_retest) {
     const col = record.purchase_line_id ? "purchase_line_id" : "production_batch_id";
     const batchId = (record.purchase_line_id ?? record.production_batch_id) as string;
@@ -91,6 +93,7 @@ export default async function QualityCheckDetailPage({
       .order("created_at", { ascending: false })
       .limit(1);
     suggestedExpiry = prev?.[0]?.expiry_date ?? null;
+    maxExpiry = prev?.[0]?.expiry_date ?? undefined;
   }
   // Opening stock: a Pending QC batch loaded with its manufacturer expiry date starts from it.
   if (!suggestedExpiry && record.purchase_lines?.expiry_date) suggestedExpiry = record.purchase_lines.expiry_date;
@@ -211,6 +214,7 @@ export default async function QualityCheckDetailPage({
                 defaultRetestDays={isRawMaterialQc ? MAX_RM_RETEST_DAYS : undefined}
                 isFinalRetest={isFinalRetest}
                 defaultExpiry={suggestedExpiry ?? ""}
+                maxExpiry={maxExpiry}
               />
             </CardBody>
           </Card>

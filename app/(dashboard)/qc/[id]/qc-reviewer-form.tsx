@@ -18,12 +18,15 @@ export function QcReviewerForm({
   defaultRetestDays,
   isFinalRetest = false,
   defaultExpiry = "",
+  maxExpiry,
 }: {
   id: string;
   maxRetestDays?: number;
   defaultRetestDays?: number;
   isFinalRetest?: boolean;
   defaultExpiry?: string;
+  // SCAN-P4-03: on a retest, the expiry the batch was last approved with (cannot be extended).
+  maxExpiry?: string;
 }) {
   const boundAction = reviewQcRound2.bind(null, id);
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
@@ -66,10 +69,14 @@ export function QcReviewerForm({
           name="expiry_date"
           type="date"
           min={today}
+          max={maxExpiry}
           required={status === "approved"}
           value={expiryDate}
           onChange={(e) => setExpiryDate(e.target.value)}
         />
+        {maxExpiry && (
+          <p className="mt-1 text-xs text-muted">A retest cannot extend the expiry date: {maxExpiry.split("-").reverse().join("-")} or earlier.</p>
+        )}
       </Field>
 
       {isFinalRetest ? (

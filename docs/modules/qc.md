@@ -734,3 +734,7 @@ Round 1 and Round 2 decisions only save while the record is still in the state t
 A finished product batch whose yield was outside the MFR range shows an amber "Yield outside the allowed range" line with the production team's reason on the Awaiting FP QC list.
 
 - The QC list says when it shows only the newest 1,000 records (SCAN-P4-06); older ARs are found through Batch Trace.
+
+## Expired material is not retested; a retest never extends the expiry (12 Oct 2026, migration 0112, SCAN-P4-03)
+
+`start_retest()` refuses an expired batch ("expired on dd-mm-yyyy, so it can't be retested"), and expired batches are left off the Due for retest cards (they show on Ageing and Stock Position). At Round 2 of a retest the Expiry date cannot be later than the expiry the batch was last approved with: the date box has that date as its maximum and the save is refused with the same message if it is bypassed.

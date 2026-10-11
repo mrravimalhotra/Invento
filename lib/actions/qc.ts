@@ -9,7 +9,7 @@ import { friendlyDbError } from "@/lib/db-errors";
 import { MAX_RM_RETEST_DAYS, MAX_RM_RETESTS } from "@/lib/constants/qc-rules";
 import { countRetestsDone } from "@/lib/qc-retests";
 import { beforeDateError } from "@/lib/date-rules";
-import { todayIst } from "@/lib/utils";
+import { formatDate, todayIst } from "@/lib/utils";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -214,6 +214,27 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
       productionBatchId: existing.production_batch_id,
     });
     finalRetest = retestsDone >= MAX_RM_RETESTS;
+  }
+  // SCAN-P4-03 (Ravi, 12 Oct 2026): a retest never extends the manufacturer's
+  // expiry date. The new expiry can be the same date or earlier, not later than
+  // the expiry the batch was last approved with.
+  if (status === "approved" && isRawMaterial && existing.is_retest) {
+    const col = existing.purchase_line_id ? "purchase_line_id" : "production_batch_id";
+    const batchId = (existing.purchase_line_id ?? existing.production_batch_id) as string;
+    const { data: prev } = await supabase
+      .from("quality_checks")
+      .select("expiry_date")
+      .eq(col, batchId)
+      .neq("id", id)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const originalExpiry = prev?.[0]?.expiry_date ?? null;
+    if (originalExpiry && expiryRaw > originalExpiry) {
+      return {
+        error: `A retest cannot extend the expiry date. This batch expires on ${formatDate(originalExpiry)}; enter that date or an earlier one.`,
+      };
+    }
   }
   if (status === "approved") {
     if (finalRetest && retestPeriodRaw) {
