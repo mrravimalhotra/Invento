@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { Button } from "@/components/ui/button";
+import { MAX_UPLOAD_FILE_BYTES, uploadFileTooBigMessage } from "@/lib/bulk-upload/limits";
 import { submitOpeningStock, type OpeningUploadState } from "@/lib/actions/opening-stock";
 import type { OpeningKind } from "@/lib/opening-stock/columns";
 
@@ -13,6 +14,8 @@ export function OpeningUploadForm({ kind, templateHref }: { kind: OpeningKind; t
   const [inputKey, setInputKey] = useState(0);
   // Hide the last result the moment another file is picked.
   const [dismissed, setDismissed] = useState(false);
+  // SCAN-P2-08: a file over the limit is refused here, before it is posted.
+  const [sizeError, setSizeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!state) return;
@@ -34,7 +37,16 @@ export function OpeningUploadForm({ kind, templateHref }: { kind: OpeningKind; t
           name="file"
           accept=".xlsx"
           required
-          onChange={() => setDismissed(true)}
+          onChange={(e) => {
+            setDismissed(true);
+            const f = e.target.files?.[0];
+            if (f && f.size > MAX_UPLOAD_FILE_BYTES) {
+              setSizeError(uploadFileTooBigMessage(f.size));
+              e.target.value = "";
+            } else {
+              setSizeError(null);
+            }
+          }}
           className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white file:cursor-pointer hover:file:bg-brand-dark"
         />
         <Button type="submit" name="intent" value="check" size="sm" variant="secondary" disabled={pending}>
@@ -58,6 +70,12 @@ export function OpeningUploadForm({ kind, templateHref }: { kind: OpeningKind; t
       {shown?.success && (
         <p role="status" className="rounded-md border border-brand/30 bg-brand-light px-3 py-2 text-sm font-medium text-brand-dark">✓ {shown.success}</p>
       )}
+      {sizeError && (
+        <p role="alert" className="rounded-md border border-red/30 bg-red/5 px-3 py-2 text-sm text-red">
+          {sizeError}
+        </p>
+      )}
+
       {shown?.error && (
         <div className="rounded-md border border-red/30 bg-red/5 p-3">
           <p className="text-sm text-red">{shown.error}</p>

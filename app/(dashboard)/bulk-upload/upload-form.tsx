@@ -3,6 +3,7 @@
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { MAX_UPLOAD_FILE_BYTES, uploadFileTooBigMessage } from "@/lib/bulk-upload/limits";
 import type { BulkUploadState } from "@/lib/actions/bulk-upload";
 
 type Action = (prev: BulkUploadState, formData: FormData) => Promise<BulkUploadState>;
@@ -23,6 +24,8 @@ export function BulkUploadForm({ action, templateHref }: { action: Action; templ
   // shown the instant a new file is picked; it's un-set the moment a real
   // submit produces a fresh result, so that result is never hidden.
   const [dismissed, setDismissed] = useState(false);
+  // SCAN-P2-08: a file over the limit is refused here, before it is posted.
+  const [sizeError, setSizeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!state) return;
@@ -45,7 +48,16 @@ export function BulkUploadForm({ action, templateHref }: { action: Action; templ
           name="file"
           accept=".xlsx"
           required
-          onChange={() => setDismissed(true)}
+          onChange={(e) => {
+            setDismissed(true);
+            const f = e.target.files?.[0];
+            if (f && f.size > MAX_UPLOAD_FILE_BYTES) {
+              setSizeError(uploadFileTooBigMessage(f.size));
+              e.target.value = "";
+            } else {
+              setSizeError(null);
+            }
+          }}
           className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white file:cursor-pointer hover:file:bg-brand-dark"
         />
         <Button type="submit" size="sm" disabled={pending}>
@@ -55,6 +67,12 @@ export function BulkUploadForm({ action, templateHref }: { action: Action; templ
           Download template
         </a>
       </div>
+
+      {sizeError && (
+        <p role="alert" className="rounded-md border border-red/30 bg-red/5 px-3 py-2 text-sm text-red">
+          {sizeError}
+        </p>
+      )}
 
       {!dismissed && state?.success && (
         <p role="status" className="rounded-md border border-brand/30 bg-brand-light px-3 py-2 text-sm font-medium text-brand-dark">

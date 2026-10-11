@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
-import type { ColumnDef } from "./schemas";
+import { MAX_UPLOAD_ROWS, type ColumnDef } from "./schemas";
+import { MAX_UPLOAD_FILE_BYTES, uploadFileTooBigMessage } from "./limits";
 
 export type ParsedSheet = {
   headers: string[];
@@ -108,6 +109,7 @@ export async function readFirstSheet(
   options?: { allowFallback?: boolean; skipExamples?: ExampleRowSpec }
 ): Promise<ParsedSheet> {
   const allowFallback = options?.allowFallback ?? true;
+  if (file.size > MAX_UPLOAD_FILE_BYTES) throw new Error(uploadFileTooBigMessage(file.size));
   const arrayBuffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
   try {
@@ -163,17 +165,29 @@ export async function readFirstSheet(
 
   const rows: string[][] = [];
   const rowNumbers: number[] = [];
-  for (let r = 2; r <= sheet.rowCount; r++) {
-    const row = sheet.getRow(r);
+  // SCAN-P2-06: walk only the rows that really exist. The old loop asked for
+  // every row number from 2 to the sheet's last used row, so one stray
+  // formatted cell near row 1,000,000 made a 6 KB file take 6 seconds and
+  // 1.9 GB of memory. The cap (limit + 20 filled rows) stops a file that is
+  // far over the limit before it is read in full; the callers still report
+  // the exact count for files just over the limit.
+  const rowCap = MAX_UPLOAD_ROWS + 20;
+  sheet.eachRow({ includeEmpty: false }, (row, r) => {
+    if (r < 2) return;
     const values: string[] = [];
     for (let c = 1; c <= headers.length; c++) {
       values.push(cellToString(row.getCell(c)));
     }
-    if (!values.some((v) => v !== "")) continue;
-    if (isExampleRow(values)) continue;
+    if (!values.some((v) => v !== "")) return;
+    if (isExampleRow(values)) return;
+    if (rows.length >= rowCap) {
+      throw new Error(
+        `That sheet has more than ${rowCap} filled rows — the limit per upload is ${MAX_UPLOAD_ROWS}. Split it into several files.`
+      );
+    }
     rows.push(values);
     rowNumbers.push(r);
-  }
+  });
 
   return { headers, rows, rowNumbers };
 }

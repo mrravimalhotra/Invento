@@ -55,6 +55,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // SCAN-P2-08: Server Actions accept 1 MB by default. The upload pages cap
+  // files at 800 KB in the browser and again on the server with a plain
+  // message; this higher limit only lets a file between 800 KB and 4 MB reach
+  // the server so it gets that message instead of the framework error page.
+  experimental: {
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
