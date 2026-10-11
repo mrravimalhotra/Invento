@@ -411,3 +411,7 @@ This **supersedes** the per-Item-Type template described above
 ### Finished-product code in the register (migration 0097, 3 Oct 2026)
 
 Ravi: finished-product rows must show the **Finished Product code** (FP-00001), not the MFR code. `coa_template_register.code` is now the FP item code; an MFR not yet approved has no FP item, so it shows its MFR code until then. The MFR code is kept in a new `mfr_code` column (shown as "MFR code" in the register and its exports). The register search matches either code. Bulk upload accepts the FP code (the MFR code still works). The COA screen and the template history page label the product by its FP code.
+
+## Company details as issued (12 Oct 2026, migration 0112, SCAN-P2-13)
+
+An issued Certificate of Analysis keeps a copy of the company name, address and licence label and number (`coa_records.company_snapshot`), and its PDF prints that copy, so a reprint after a licence renewal or address change still shows what was issued. Certificates issued before 0112 have no copy and print the current details. Other documents (reports, labels, slips, Word files) still print the current details; the Company Details screen says so.

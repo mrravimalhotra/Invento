@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "./coa-logo";
-import { getCompany, licenceLine } from "./company";
+import { getCompany, licenceLine, type Company } from "./company";
 
 export type CoaPdfData = {
   coaNumber: string;
@@ -9,6 +9,9 @@ export type CoaPdfData = {
   headerFields: { label: string; value: string }[];
   resultLines: { seq: number; test: string; specification: string; result: string }[];
   remarks: string;
+  // SCAN-P2-13: the company details the certificate was issued with. Absent on
+  // certificates issued before 0112; those print the current details.
+  company?: Company;
 };
 
 // Ravi (22 Sept 2026), from two sample paper COAs: "The format of pdf will
@@ -27,6 +30,7 @@ export type CoaPdfData = {
 // round of "here's what's off" against a real generated certificate.
 export function downloadCoaPdf(data: CoaPdfData) {
   const doc = new jsPDF();
+  const company = data.company ?? getCompany();
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = 14;
 
@@ -38,13 +42,13 @@ export function downloadCoaPdf(data: CoaPdfData) {
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(20, 20, 20);
-  doc.text(getCompany().name, pageWidth / 2, y, { align: "center" });
+  doc.text(company.name, pageWidth / 2, y, { align: "center" });
 
   y += 5;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(90, 90, 90);
-  doc.text(licenceLine(), pageWidth / 2, y, { align: "center" });
+  doc.text(licenceLine(company), pageWidth / 2, y, { align: "center" });
 
   y += 5;
   doc.setDrawColor(31, 111, 78);

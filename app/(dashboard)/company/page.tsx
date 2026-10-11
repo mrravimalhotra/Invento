@@ -55,7 +55,7 @@ export default async function CompanyPage() {
             </div>
             <p className="mt-3 text-xs text-muted">
               The logo sits on top with the company name directly below it. A change applies to the next report or
-              document you download; ones already downloaded are not changed.
+              document you download; ones already downloaded are not changed. A reprint of an older report, label, slip or Word document also shows the new details. Certificates of Analysis keep the details they were issued with.
             </p>
           </CardBody>
         </Card>

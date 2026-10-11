@@ -6,6 +6,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
+import { fetchCompany } from "@/lib/company-server";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -129,6 +130,8 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
       header_data: headerData,
       result_lines: resultLines,
       remarks,
+      // SCAN-P2-13: the company details as they are now, kept with the certificate.
+      company_snapshot: await fetchCompany(supabase),
       issued_by: user!.id,
     })
     .select("id")

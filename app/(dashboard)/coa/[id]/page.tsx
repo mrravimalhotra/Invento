@@ -8,6 +8,7 @@ import { formatDateTime, fpBatchBoth } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
 import { CoaPdfButton } from "../coa-pdf-button";
 import type { HeaderField, ResultLine } from "@/lib/actions/coa";
+import type { Company } from "@/lib/company";
 
 export default async function CoaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,7 +19,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
   const { data: row } = await supabase
     .from("coa_records")
     .select(
-      "id, coa_number, issued_at, file_url, coa_type, header_data, result_lines, remarks, quality_checks(ar_number, is_legacy, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number, short_batch_no)"
+      "id, coa_number, issued_at, file_url, coa_type, header_data, company_snapshot, result_lines, remarks, quality_checks(ar_number, is_legacy, items(item_code, name), purchase_lines(batch_number)), finished_product_batches(batch_number, short_batch_no)"
     )
     .eq("id", id)
     .maybeSingle<{
@@ -28,6 +29,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
       file_url: string | null;
       coa_type: string | null;
       header_data: HeaderField[] | null;
+      company_snapshot: Company | null;
       result_lines: ResultLine[] | null;
       remarks: string | null;
       quality_checks: {
@@ -65,6 +67,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
                 headerFields: row.header_data,
                 resultLines: row.result_lines,
                 remarks: row.remarks ?? "",
+                company: row.company_snapshot ?? undefined,
               }}
             />
           ) : null
