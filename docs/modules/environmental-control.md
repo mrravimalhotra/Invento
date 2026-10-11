@@ -4,6 +4,11 @@ First requested only in the handwritten requirements list photo — invisible
 in `Invento-Modular-Requirements.docx` and every other source document.
 Cross-reference: `docs/DESIGN.md` §4.12.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - **Deprecated.** Shown under Admin as "Environmental Control- Deprecated". Records area, temperature and humidity readings; written by System Admin, Quality Checker, QC Reviewer and MFR Manager, readable by everyone signed in. Not extended; keep as is unless asked.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Screens
 - `/environmental-control` — list of `environmental_control_readings`,
   sorted newest first. Columns: Area, Temperature (°C), Humidity (%RH),

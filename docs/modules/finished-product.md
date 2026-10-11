@@ -3,6 +3,18 @@
 Cross-reference: `docs/DESIGN.md` §4.8 (schema), §7.3 (FIFO suggestion),
 §7.2 (QC-gates-consumption, DB-enforced), §6 (route map).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Flow: New (MFR, batch size, batch start date) → Compose (raw material taken **automatically oldest-first, across several batches if needed**; no manual batch choice) → batch saved as **Draft** with the raw material reserved → **Create Batch** (In Progress) or **Cancel** → **Complete Batch** (yield, finish date, expiry, sample unit, QC/Stability/R&D samples, all mandatory, with a review step) → "Complete - Awaiting QC" → Submit to QC → Approved or Rejected.
+> - A Draft cancels itself after **30 minutes** (applied the next time it is read) and returns the reserved stock; Cancel does the same.
+> - Oldest stock first is a hard database rule (0090); expired, retest-due and not-approved batches are never used.
+> - Yield is checked against the MFR's permissible yield % up to its theoretical yield %; outside it a written reason is needed and shows to QC.
+> - After the batch is completed, an "After completion" card shows samples, bulk packed, and bulk left.
+> - Batch numbers: full `FP-00001-01/26` plus short `PR-01/26`; screens show both, printed outputs and Reports the short one.
+> - Status only moves along the workflow; the database refuses other direct changes (0070). Finished product stock enters the ledger at QC approval.
+> - Older sections below describe earlier steps (single-batch picker, up-front expiry date, "Re-Test Date" columns); where they disagree with this block, this block is right.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Role
 
 Write (`finished_product` in `MODULE_WRITE_ROLES`): `system_admin`,

@@ -75,8 +75,3 @@ export const getCurrentUser = cache(async () => {
 });
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
-
-export function hasAnyRole(user: { roles: Role[] } | null, roles: readonly Role[]) {
-  if (!user) return false;
-  return user.roles.some((r) => roles.includes(r));
-}

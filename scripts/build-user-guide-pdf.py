@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Rebuild public/user-guide.pdf from docs/user-guide/USER_GUIDE.md.
+
+Needs: pandoc, and Python Playwright with Chromium (see docs/modules/user-guide.md).
+Run from the repository root:  python3 scripts/build-user-guide-pdf.py
+"""
+import base64, re, subprocess, sys, tempfile, pathlib
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+SRC = ROOT / "docs/user-guide/USER_GUIDE.md"
+LOGO = ROOT / "public/atharva-logo.svg"
+OUT = ROOT / "public/user-guide.pdf"
+
+md = SRC.read_text(encoding="utf-8")
+i_toc = md.index("## Table of contents")
+i_body = md.index("## Welcome to Invento")
+cover_md, toc_md, body_md = md[:i_toc], md[i_toc:i_body], md[i_body:]
+
+def pandoc(text: str, section_divs: bool = False) -> str:
+    cmd = ["pandoc", "-f", "markdown+lists_without_preceding_blankline", "-t", "html5"]
+    if section_divs:
+        cmd.append("--section-divs")
+    return subprocess.run(cmd, input=text, capture_output=True, text=True, check=True).stdout
+
+cover_html = pandoc(cover_md)
+toc_html = pandoc(toc_md)
+body_html = pandoc(body_md, section_divs=True)
+logo = base64.b64encode(LOGO.read_bytes()).decode()
+
+css = """
+@page { size: A4; margin: 22mm 18mm 20mm 18mm; }
+html { font-family: 'Liberation Sans', Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1c2b24; line-height: 1.45; }
+h1, h2, h3, h4 { color: #16523a; break-after: avoid; }
+h2 { font-size: 20pt; border-bottom: 2px solid #1f6f4e; padding-bottom: 4px; margin-top: 0; }
+h3 { font-size: 14pt; margin-top: 22px; }
+p, li { orphans: 3; widows: 3; }
+a { color: #1f6f4e; text-decoration: none; }
+hr { display: none; }
+ul, ol { padding-left: 22px; }
+code { background: #eef3f0; padding: 0 3px; border-radius: 2px; font-size: 9.5pt; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 9.5pt; }
+th, td { border: 1px solid #c8d6ce; padding: 4px 6px; text-align: left; vertical-align: top; }
+th { background: #e6f0ea; }
+section.level2 { break-before: page; }
+.cover { height: 235mm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.cover img { width: 60mm; margin-bottom: 18mm; }
+.cover h1 { font-size: 30pt; margin: 0 0 10mm 0; }
+.cover p { max-width: 130mm; }
+.toc { break-before: page; }
+.toc h2 { margin-top: 0; }
+"""
+html = f"""<!doctype html><html><head><meta charset="utf-8"><title>Invento User Guide</title><style>{css}</style></head><body>
+<div class="cover"><img src="data:image/svg+xml;base64,{logo}" alt="Atharva">{cover_html}</div>
+<div class="toc">{toc_html}</div>
+{body_html}
+</body></html>"""
+
+header = '<div style="width:100%;font-size:8pt;color:#666;padding:0 18mm;display:flex;justify-content:space-between;font-family:Arial,sans-serif"><span>Invento User Guide</span><span>Atharva</span></div>'
+footer = '<div style="width:100%;font-size:8pt;color:#666;padding:0 18mm;display:flex;justify-content:space-between;font-family:Arial,sans-serif"><span>Confidential — for internal Atharva use</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>'
+
+from playwright.sync_api import sync_playwright
+with tempfile.TemporaryDirectory() as d:
+    page_file = pathlib.Path(d) / "guide.html"
+    page_file.write_text(html, encoding="utf-8")
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        pg = b.new_page()
+        pg.goto(page_file.as_uri())
+        pg.pdf(path=str(OUT), format="A4", print_background=True, display_header_footer=True,
+               header_template=header, footer_template=footer,
+               margin={"top": "22mm", "bottom": "20mm", "left": "18mm", "right": "18mm"})
+        b.close()
+print("wrote", OUT)

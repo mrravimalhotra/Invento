@@ -4,6 +4,15 @@ Not a business module — this doc covers `app/(dashboard)/layout.tsx`,
 `app/(auth)/layout.tsx`, `components/shell/*`, and other app-wide UI
 infrastructure that doesn't belong to any one module's own `docs/modules/*.md`.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - All dates and "today" are India time (IST); the database time zone is Asia/Kolkata (29 Sept). Date entry rules (not in the future, not before the start date, and so on) are enforced by the date box and again by the server action; see the table in "Date entry rules".
+> - Company name, address and licence ("PD/AYU/111" by default) come from **Admin → Company Details** and appear on every printed output; a COA keeps its own copy as issued.
+> - List tables can export Excel and PDF (all rows matching the search and "Hide legacy data", not just the page). Every action ends with a visible message; forms keep what you typed when a save fails.
+> - The Dashboard shows four cards at most (low stock on usable stock, finished product batches in progress, retest and expiry in the next 90 days, including items already overdue), summary tiles, and charts; a red "Some of the data could not be loaded" banner appears when a read fails.
+> - Sign-up is closed; password reset links open `/auth/confirm` first.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Instant loading state on every navigation (21 Sept 2026)
 
 Ravi: *"the app is very slow, help optimize it, where a click has been

@@ -2,6 +2,17 @@
 
 Cross-reference: `docs/DESIGN.md` §4.4 (schema), §7.1 (workflow spec).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - A purchase order starts as a **Draft**; **Final Submit** (whole order) puts each line's remaining quantity (received less QC/Stability/R&D samples) into stock. Only System Admin and Inventory Manager write; only a System Admin can reopen or delete.
+> - Lines are Raw Material or Packaging Item. QC/Stability/R&D quantities and the sample unit are mandatory on raw material lines (0 is allowed); Unit Price and GST % are mandatory (0 is allowed). **The line has no expiry date**: the QC Reviewer sets it at approval (the earlier "Expiry → Re-Test Date" and "Re-Test Date manual entry" sections are superseded).
+> - Batch numbers are generated, never repeat (0080), and cannot be changed after the line is saved.
+> - A submitted order is locked by database guards. **Reopen** is refused once QC has a record on any batch of the order (0112), once a batch has been used or written off, or when the order has a rejected batch; any number of submit/reopen cycles keeps stock correct (0078).
+> - An order has a **Received on** date (not in the future), the vendor's address and mobile are shown, and an order with no lines or with a line missing price or GST % cannot be submitted.
+> - Money is rounded to the paisa by `lib/money.ts`.
+> - Excel upload needs the sample quantities, Unit Price and GST % on every line.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## This closes the review's #1 headline gap: Automatic Sampling Deduction
 
 The baseline's biggest single finding (spec.md) was that QC / Stability / R&D

@@ -4,6 +4,11 @@ First requested only in the handwritten requirements list photo — invisible
 in `Invento-Modular-Requirements.docx` and every other source document.
 Cross-reference: `docs/DESIGN.md` §4.12.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - **Deprecated.** Shown under Admin as "Line Clearance- Deprecated". Records area, optional batch reference and Clear / Not clear; written by System Admin, Quality Checker, QC Reviewer and MFR Manager, readable by everyone signed in. Rows are only inserted, never edited. Not extended; keep as is unless asked.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Screens
 - `/line-clearance` — list of `line_clearance_checks`, sorted newest first.
   Columns: Area, Batch reference, Status (Clear/Not clear badge), Checked

@@ -2,6 +2,13 @@
 
 DESIGN.md cross-reference: §4.9.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - **Deprecated.** The Batch Mfg. Record module (`bmr_*` tables) is kept for the existing records and lives at Admin → "Batch Mfg. Record- Deprecated" (`/admin/bmr-deprecated`). Do not extend it unless asked. The Finished Product page has a separate stateless .docx "Batch Manufacturing Record" download that is unrelated.
+> - A weighment line can only use a batch that is QC-approved, not due for retest and not expired (database trigger).
+> - Known gaps recorded in the scan (SCAN-P8-14): nothing locks a record after approval and one administrator can do all three sign-offs.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 **⚠️ Naming collision, flagged 15 Sept 2026, resolved 16 Sept 2026 by
 moving and deprecating THIS module (not the other one).** The Finished
 Product detail page has a separate link also once labeled "Batch

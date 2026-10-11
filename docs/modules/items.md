@@ -4,6 +4,16 @@ Cross-reference: `docs/DESIGN.md` §4.2 (schema), §4.6 (`stock_balance` view),
 §4.13 (low-stock banner), §6 (route map), §8 (UI system), §9 (barcode
 simplification).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Item Master holds **raw material and packaging** items only. Finished Product items are created by approving an MFR; the New Item form refuses that category. Codes are generated (raw material `RM-001`, packaging `PKG-00001`, finished product `FP-00001`; opening-stock items `LEG-`) and a next-code preview is shown. Item type and Unit are mandatory for raw material, Unit for packaging.
+> - The item form no longer has default QC/Stability/R&D quantities or a default sample unit (they are entered on the purchase line); the Low stock threshold is in the main fields.
+> - Low stock compares the threshold with **usable** stock for raw material.
+> - A raw-material item can carry one COA template (optional at creation, needed before a COA is issued).
+> - Write access: System Admin, Inventory Manager, MFR Manager; delete is admin-only. The list shows inactive items too, with an Active column; pickers offer active items only.
+> - The item page shows batches, FP use and "Available for FP production" (usable stock only).
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Role
 
 Write (`items` in `MODULE_WRITE_ROLES`): `system_admin`, `inventory_manager`,

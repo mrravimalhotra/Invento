@@ -4,6 +4,12 @@ First requested only in the handwritten requirements list photo — invisible
 in `Invento-Modular-Requirements.docx` and every other source document.
 Cross-reference: `docs/DESIGN.md` §4.12, §9 (SOP/STP simplification note).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - SOP / STP Documents (`/documents`, listed under Admin): a register of links, not an upload store. Each entry has type (SOP or STP), title, revision number, file URL and effective date.
+> - Written by System Admin, Quality Checker and QC Reviewer; everyone signed in can read. The list is paged past the 1,000-row cap.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Screens
 - `/documents` — list of `documents` (`active = true` only), sorted by
   title. Columns: Type (SOP/STP badge), Title, Revision, Effective date,

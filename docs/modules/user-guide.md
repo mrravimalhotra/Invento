@@ -3,6 +3,13 @@
 Cross-reference: `docs/user-guide/USER_GUIDE.md` (source of truth), `docs/DESIGN.md`
 §6 (route map), `lib/constants/nav.ts` (Overview group).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - The guide's source is `docs/user-guide/USER_GUIDE.md`. The PDF `public/user-guide.pdf` is **generated** from it by `python3 scripts/build-user-guide-pdf.py` (needs pandoc and Playwright Chromium); never edit the PDF. Regenerate it in the same patch whenever the guide changes, and update the "Version" line.
+> - `/user-guide` (Overview) is open to every signed-in user with Download and Open buttons for the PDF.
+> - Last corrected 11 Oct 2026 against the code (Dashboard, Purchase, Quality Control, Finished Product, Packaging, Reports, Inventory, User Roles & Access, Signing in) after the scan (SCAN-P7-26, P7-27).
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## What this is
 
 Ravi, 22 Sept 2026: *"Create an end-to-end use guide and crate a link in app
@@ -43,6 +50,14 @@ Finished Product, COA) have moved on from what DESIGN.md's schema sections
 describe. Where the two disagreed, the guide follows the current code.
 
 ## Regenerating the PDF
+
+**Quick way (since 11 Oct 2026):** from the repository root run
+`python3 scripts/build-user-guide-pdf.py`. It performs the steps below
+(pandoc, cover and contents page, print CSS, Playwright header/footer) and
+writes `public/user-guide.pdf`. Commit the new PDF in the same patch as the
+Markdown change. The manual steps stay here as the reference for what the
+script does.
+
 
 The PDF is built with Python + Playwright (headless Chromium), not a
 client-side library — this is a one-off/periodic build step, not something

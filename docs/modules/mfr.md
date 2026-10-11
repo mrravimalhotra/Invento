@@ -3,6 +3,16 @@
 Cross-reference: `docs/DESIGN.md` §4.7 (schema), §7.4 (versioning), §6 (route
 map), §8 (UI system — SignatureBlock reuse).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - An MFR is the recipe for one finished product: code `MFR-0001` (older ones `F-0001`), batch size, recipe lines (raw material only), a **Manufacturing Procedure** and an optional **COA template**. Write access: System Admin and MFR Manager.
+> - **One recipe per MFR, no versions** (version stays 1). The recipe can be edited only **before approval**; approval locks the header and the recipe (database guard, 0070). To change an approved recipe, deactivate it and create a new MFR.
+> - Approving creates the linked Finished Product item (and its packaged item); a Finished Product item cannot be created from Item Master.
+> - The procedure stays editable after approval. "Print MFR" downloads a .docx; the older report page (`/mfr/[id]/report`) still works by URL.
+> - Delete is admin-only; deactivate/reactivate hides or shows an MFR in pickers.
+> - Only an Approved, active MFR can be used to start a finished product batch.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Role
 
 Write (`mfr` in `MODULE_WRITE_ROLES`): `system_admin`, `mfr_manager` —
@@ -469,7 +479,7 @@ view) turned up three things the first inspection missed entirely:
   document.run`), with Arial layered on per-run only for the three header
   lines. The company name is left its default (black) color — an earlier
   version of this fix colored it this app's brand green
-  (`lib/pdf.ts`'s `PDF_BRAND`) to match the jsPDF letterheads' own
+  (the brand green) to match the jsPDF letterheads' own
   convention, but the sample's header XML has no explicit `w:color` at
   all, and "similar" here means matching what the reference actually is.
 

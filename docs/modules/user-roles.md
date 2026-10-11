@@ -3,6 +3,13 @@
 Route: `/user-roles`. Cross-reference: `docs/DESIGN.md` §3 (Access control — how
 the #1 gap gets closed) and §4.13.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - `/user-roles` (Admin) is for System Admins only: **create accounts** (name, email, temporary password of at least 10 characters, changed at first sign-in), **assign the six roles** (saving replaces the whole set), **reset a password** and **disable / enable** an account (two-step confirmation). Self-registration is closed.
+> - The last System Admin can never be removed or disabled, and a System Admin cannot remove their own System Admin role or disable their own account.
+> - Role writes are enforced by the database (`user_roles` policy), not only by this screen. The "Maker/checker" and unrestricted-screen descriptions in the history below are earlier states.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Why this module matters
 
 In the pre-review baseline, this screen was **completely unrestricted** — any
@@ -106,7 +113,7 @@ SEC-01).
   query the database directly before changing it — acceptable, since the
   admin who issued it already has full access.
 - **Self-registration closed:** `/register` now explains that accounts come
-  from the System Administrator; `signUp` always refuses; the login page's
+  from the System Administrator; the old `signUp` action was removed (11 Oct 2026, SCAN-P8-13); the login page's
   Register link is gone. Also switch off **Authentication → Sign In /
   Providers → Allow new users to sign up** in Supabase — the app change alone
   doesn't stop a direct call to Supabase Auth's signup endpoint.

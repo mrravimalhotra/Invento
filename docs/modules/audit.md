@@ -7,6 +7,13 @@ created/created_by/updated/updated_by/active, with no way to see a row's
 prior values before an edit, only who last touched it and when. Migration:
 `0058_audit_trail.sql`.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - `/audit` is the Audit Log: who changed what and when, for **every business table** (insert, update, delete; truncate; user accounts), through one trigger (0072). The earlier "four tables only" scope below is **superseded**.
+> - Only a **System Admin or Super Auditor** can read it; everyone else sees "Access restricted". Nobody can edit or delete a log row.
+> - The list shows the newest 500 rows per filter (table, date range), with a "What changed" column that names up to three fields with before and after values. Excel export is available; `/audit/[id]` shows the full before/after.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 `user_roles` has defined a `super_auditor` role since `0001_init.sql`, and
 it's been in `lib/constants/roles.ts`'s `ROLES`/`ROLE_LABELS` the whole
 project — but nothing had ever granted it a permission or a page. This is

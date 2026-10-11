@@ -6,6 +6,13 @@ Register: Dead Stock Log — track purchase date, original value, and 25%
 Depreciation to show Balance Value." Migration:
 `0035_dead_stock_register.sql`.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Dead Stock Register (`/dead-stock`): codes `DS-0001`, written by System Admin, Inventory Manager, MFR Manager, Quality Checker and QC Reviewer; delete is admin-only. It is a standalone register that does not touch stock or production.
+> - Inactive assets are hidden until **Show inactive** is ticked (shown only when one exists); they carry an Inactive tag and the Excel file has a Status column.
+> - The list screen's figures and columns were checked in SCAN-P8-02.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Screens
 - `/dead-stock` — add-form-and-list combined screen (same pattern as
   Vendor Master), sorted by asset code. Columns: Code, Article, Purchased,

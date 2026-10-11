@@ -5,6 +5,15 @@ handwritten list and in `Invento-Modular-Requirements.docx` v1 — only
 surfaced once the real physical templates were reviewed). Cross-reference:
 `docs/DESIGN.md` §4.11.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Four label types: Approved Raw Material, Under Test, In-process and Finished Product; PDF only (JPEG download was removed). Printed 6 or 10 per page depending on type; values that are not on file print as a blank line to write on.
+> - Each type lists only batches it truthfully applies to: Approved RM = QC-approved now, not due for retest, not expired, order submitted; Under Test = awaiting QC or due for retest; In-process = any batch except rejected; Finished Product = status Approved.
+> - RM labels print the order's **Received on** date as Date of Receipt (the day the order was submitted if there is none); the Approved RM label prints the QC Expiry Date.
+> - The Finished Product label prints the **exact** expiry date QC approved as Best Before (dd-mm-yyyy), the short batch number, and Month of Manufacture as month and year.
+> - Value text shrinks to 6 pt before it is cut with "…". The Raw Material picker offers raw material only.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Screens
 - `/labels` — single page, no route params. Two-step picker:
   1. **Label type** — Approved Raw Material / Under Test / In-process /

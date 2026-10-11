@@ -3,6 +3,17 @@
 DESIGN.md cross-reference: §4.5 (schema), §7.1 (sampling deduction),
 §7.2 (QC-gates-consumption).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Two rounds by two different people: Round 1 QC Checker, Round 2 QC Reviewer (System Admin exempt from the same-person rule). A Round 1 rejection is final. Both decisions only save while the record is still in the state the page showed. The sections "Maker/checker segregation of duties (17 Sept 2026)" further down are **superseded** by the two-round review.
+> - Round 2 approval needs an **Expiry date** (not before today) and, except on the last retest, a **Retest period**. Raw material: period pre-filled at 180 days (the maximum), at most **3 retests**; the 3rd retest takes only the Expiry date. The sample quantity is pre-filled on New AR; the expiry is not (the older "Expiry date manual entry removed" section is superseded by 0098).
+> - A retest cannot set a later expiry than the batch was last approved with, and an expired batch is not retested (0112).
+> - Analytical Report No. format: `ARRM-0001/26` (raw material) and `ARFP-0001/26` (finished product); older `AR-001-DDMMYYYY` numbers are unchanged.
+> - Start Retest draws a real sample (stability reserve first, then stock). Legacy (opening-stock) batches carry a Legacy tag and count earlier retests.
+> - `/qc` shows cards for finished product batches in progress, Awaiting QC, Due for retest and Finished Product Awaiting QC; the Dashboard shows in-progress batches and retest/expiry alerts for the next 90 days.
+> - Rejected raw material leaves On hand automatically (see inventory.md).
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Why this module matters
 
 This module, together with `trg_fp_component_qc_gate` (and its twin on

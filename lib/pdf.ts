@@ -4,7 +4,6 @@ import { drawCompanyHeading } from "@/lib/pdf-company-heading";
 import { getPdfUser } from "@/lib/pdf-user";
 import { formatDateTime } from "@/lib/utils";
 
-export const PDF_BRAND = "#1F6F4E";
 // The shared letterhead for register-style PDFs (29 Sept 2026, ACC group 9
 // decision (b)): logo, company name, address and licence number, a rule, then
 // the document title (and an optional line describing the filter used).

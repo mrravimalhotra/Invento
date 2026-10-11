@@ -4,6 +4,13 @@ Not a business module — cross-cutting database/query performance work and
 findings, spanning multiple modules' tables. See `docs/modules/shell.md` for
 the separate "make the wait visible" (loading-state) fix this grew out of.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Rules in force: lists and pickers that can grow are read with `fetchAllRows` / `fetchByIdChunks` (Supabase returns at most 1,000 rows per request), always ending with a unique `.order("id")`; slow lists show the newest rows and say so.
+> - Hot foreign keys are indexed (21 Sept), `getCurrentUser()` is memoized per request, and independent queries run in parallel. The "Known follow-ups" list below is a snapshot of 21 Sept; some items have since been done (see the row-cap section of 29 Sept).
+> - Still on hold by decision: a stock summary table (not needed until about 5 million ledger rows), and paging for Reports and Item Master.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Missing indexes on hot foreign-key columns (21 Sept 2026)
 
 Ravi: *"the app is very slow, help optimize it."* Alongside the loading-state

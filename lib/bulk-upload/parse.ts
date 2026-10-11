@@ -217,12 +217,3 @@ export function findColumnIndex(headers: string[], column: ColumnDef): number {
   const target = normalizeHeader(column.header);
   return headers.findIndex((h) => normalizeHeader(h) === target);
 }
-
-export function requireColumns(headers: string[], columns: ColumnDef[]): string | null {
-  for (const col of columns) {
-    if (col.required && findColumnIndex(headers, col) === -1) {
-      return `Missing required column "${col.header}" — did you use the downloaded template?`;
-    }
-  }
-  return null;
-}

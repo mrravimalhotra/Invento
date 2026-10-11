@@ -7,6 +7,12 @@ key master-data entity with no equivalent anywhere in the schema; Software
 Point.docx separately lists "Instrument ID | Name of instrument and ID no"
 under Master data. Migration: `0034_equipment_master.sql`.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Instrument / Equipment Master (`/equipment`): codes `EQ-0001`, listed by Room then code, with calibration status and next calibration due. Written by System Admin, Inventory Manager, MFR Manager, Quality Checker and QC Reviewer; delete is admin-only. It is a standalone register that does not affect stock.
+> - Inactive equipment is hidden until **Show inactive** is ticked; it carries a grey Inactive tag and the Excel file has a Status column.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Screens
 - `/equipment` — add-form-and-list combined screen (same pattern as Vendor
   Master), sorted by Room, then Equipment code. Columns: Code, Name, Room,

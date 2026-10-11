@@ -2,6 +2,12 @@
 
 Cross-reference: `docs/DESIGN.md` §4.1 (schema), §6 (route map), §8 (UI system).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Item Type Master (`/item-types`): list and add form on one page; written by System Admin, Inventory Manager and MFR Manager; **delete is System Admin only**. The list shows inactive types too, with an Active/Inactive badge.
+> - A raw material must have an item type (mandatory on the item form); packaging may have none. The old `/item-types/new` route was removed.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Role
 
 Write (`item_types` in `MODULE_WRITE_ROLES`): `system_admin`, `inventory_manager`,

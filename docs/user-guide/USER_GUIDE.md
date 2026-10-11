@@ -2,7 +2,7 @@
 
 **A complete guide to using Invento — Atharva's inventory, quality control, and manufacturing system.**
 
-*Version: September 2026 · This guide is updated whenever the app changes in a way that affects how you use it. See "How this guide stays current" at the end.*
+*Version: October 2026 · This guide is updated whenever the app changes in a way that affects how you use it. See "How this guide stays current" at the end.*
 
 ---
 
@@ -70,7 +70,7 @@ Each module section below follows the same pattern, so you always know where to 
 
 ### Signing in
 
-Go to Invento's sign-in page and enter your email and password. If you don't have an account yet, use the **Register** link on the sign-in page to create one — your access to specific screens and actions still depends on which roles a System Admin assigns you afterward (see [What your role lets you do](#what-your-role-lets-you-do)), so a new account can typically view the app immediately but won't see "Add/Edit" buttons until roles are assigned.
+Go to Invento's sign-in page and enter your email and password. Accounts are created by a System Admin: there is no self-registration. If you don't have an account yet, ask your System Admin to create one for you. You will receive a temporary password and be asked to choose your own the first time you sign in. Your access to specific screens and actions depends on which roles the System Admin assigns (see [What your role lets you do](#what-your-role-lets-you-do)); until roles are assigned you can view the app but won't see "Add/Edit" buttons.
 
 Forgot your password? Use the **Forgot password** link on the sign-in page to receive a reset link by email, then set a new password on the page it takes you to.
 
@@ -156,8 +156,8 @@ A handful of things are open to **any** signed-in user regardless of role, becau
 **How to check what needs your attention today**
 1. Open Invento — you land on the Dashboard automatically.
 2. Scan the row of summary cards across the top (Raw materials, Vendors, MFR definitions, Finished batches, POs in the last 30 days, Pending QC). Click any card to jump straight to that module.
-3. If anything needs action, you'll see one or both warning cards just below: **Low stock** (raw materials whose on-hand quantity has dropped below their reorder threshold) and **Retest due soon** (QC items with a retest date coming up in the next 30 days). These only appear when there's something to flag.
-4. Click any item in those warning lists to go straight to the relevant screen (Item Master or Quality Control).
+3. If anything needs action, you'll see up to four cards just below: **Low stock** (raw materials whose usable quantity has dropped below their reorder threshold), **Finished product batches in progress** (batches started but not yet completed), **Retest overdue or due in the next 90 days**, and **Expired or expiring in the next 90 days**. A card only appears when there's something to flag.
+4. Click any item in those cards to go straight to the relevant screen (Item Master, Finished Product or Quality Control).
 5. Scroll down to see four charts: inventory movement in and out over the last 30 days, QC results by status, purchase value over the last 30 days, and finished batches produced over the last 30 days.
 
 **How it connects to the rest of the app**
@@ -165,7 +165,7 @@ Nothing is entered here — every number and chart is a live read of records cre
 
 **Good to know**
 - The "Hide legacy data" checkbox in the top-right corner is a personal display preference, not a delete — it hides old/legacy (LEG-) records from lists and dropdowns throughout the app, on your browser only, and can be switched back on any time.
-- The low-stock and retest warnings only show up when there's actually something to flag — an empty dashboard below the summary cards is a good sign, not a bug.
+- The warning cards only show up when there's actually something to flag — an empty dashboard below the summary cards is a good sign, not a bug.
 - The "Pending QC" count includes items waiting at either QC step (initial check or the second-round review), so it may look higher than just "not yet checked at all."
 
 ---
@@ -350,7 +350,7 @@ This register is independent of Inventory Ledger — it doesn't pull from or pus
 1. Go to Procurement → Purchase and start a new purchase order. Enter the vendor, invoice number, and invoice date — the order's own number is assigned automatically.
 2. On the same screen, use the "Add line" form to add each item received: pick the item, and its batch number is generated for you automatically. Enter the quantity received and confirm the unit (it defaults from the item).
 3. Enter the QC, Stability, and R&D sample quantities and the sample unit for that line — these are set aside for testing and will not count as usable stock. These four fields are mandatory: if an item genuinely needs no sample, enter **0**, not blank — the form pre-fills 0 for you when you pick the item, so in normal use you rarely have to type it yourself.
-4. Enter unit price, GST %, and expiry date, then save the line. Repeat for each item on the invoice, or use bulk upload for many lines at once. While the order is still a Draft, you can edit or delete any line.
+4. Enter the unit price and GST %, then save the line. There is no expiry date to enter here: the expiry date is set by the QC Reviewer when the batch is approved in Quality Control. Repeat for each item on the invoice, or use bulk upload for many lines at once. While the order is still a Draft, you can edit or delete any line.
 
 **How to submit a purchase order so stock becomes available**
 1. Once every line on the order is correct, click **Final Submit** on the order's detail page. This is a whole-order action — you can't submit just one line at a time.
@@ -369,7 +369,7 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 **Good to know**
 - The QC/Stability/R&D quantities and unit are mandatory fields — you cannot leave them blank, but 0 is always an acceptable answer for a line that needs no sample.
 - Reopening a submitted order is a bigger action than submitting it (it reverses real stock), which is why only a System Admin can do it, and the screen asks for a two-step confirmation.
-- You can't change the item, batch number, or unit on a line after it's saved — only quantity, prices, dates, and sample amounts. If you picked the wrong item, delete the line and re-add it (only possible while the order is still a Draft).
+- You can't change the item, batch number, or unit on a line after it's saved — only quantity, prices and sample amounts. If you picked the wrong item, delete the line and re-add it (only possible while the order is still a Draft).
 
 ### Inventory Ledger
 
@@ -377,7 +377,7 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 
 **Who can use it:** Everyone signed in can view all eight tabs (Ledger, Stock Position, Stock Statement, RM Report As On Date, Rejected Materials, Batch Trace, Expiry & Retest Ageing, Retained Samples). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
 
-**What it's for:** This is the record of every stock movement in Invento — material coming in from Purchase, samples pulled out for QC, material consumed making finished product, packaging issued, and wastage — plus two ways to see where things stand: a current on-hand view (Stock Position) and a report of stock as of any past date (RM Report As On Date). Everything on these screens is generated automatically from other modules except wastage, which is the one thing you record here directly.
+**What it's for:** This is the record of every stock movement in Invento — material coming in from Purchase, samples pulled out for QC, material consumed making finished product, packaging issued, and wastage — plus ways to see where things stand: a current on-hand view (Stock Position), a report of raw material stock (RM Report As On Date, which shows today's quantities) and a period view with opening and closing stock (Stock Statement). Everything on these screens is generated automatically from other modules except wastage, which is the one thing you record here directly.
 
 **How to check current stock on hand**
 1. Go to Procurement → Inventory Ledger and open the **Stock Position** tab.
@@ -421,7 +421,7 @@ The ledger's Event column shows **Stock In** when stock is added (receipts, batc
 
 **Good to know**
 - The main Ledger tab shows only the 1,000 most recent events — use the item, reason, and date filters if you're looking for something older rather than scrolling.
-- The RM Report As On Date is a snapshot for a specific date you pick (it defaults to today), not a live view — use it when you need to know what stock looked like at a past point in time, and use the Export PDF button to save or print it.
+- The RM Report As On Date shows **today's** quantities, whatever date you pick, so it is not a true record of stock on a past date. To see how stock moved over a past period, use the Stock Statement tab, which gives Opening and Closing stock for any dates you choose. Use the Export PDF button to save or print the report.
 - Wastage always needs a batch now — if an item has no received batches yet, the form won't let you submit until one exists.
 
 ---
@@ -440,19 +440,20 @@ The ledger's Event column shows **Stock In** when stock is added (receipts, batc
 
 **How to start QC on a newly received batch**
 1. Go to Quality Control & Documents → Quality Control. Batches that just came in and haven't been assigned for QC yet show in the green **"Awaiting QC"** card at the top of the page.
-2. Click **Start QC** on a row (or use **New AR** and pick the item, then the batch, yourself). The sample quantity, sample unit, and expiry date are pre-filled from what was set on the purchase line — check them and adjust if needed.
+2. Click **Start QC** on a row (or use **New AR** and pick the item, then the batch, yourself). The sample quantity and sample unit are pre-filled from what was set on the purchase line — check them and adjust if needed. The expiry date is not entered here; the QC Reviewer sets it at Round 2.
 3. Submit. This gives the batch an Assign Record (AR) with an AR number, and its status becomes "Submitted" — ready for the first review round.
 
 **How to review and approve or reject a batch**
 1. **Round 1 (Quality Checker):** Open the AR. With the batch still "Submitted," you'll see the Round 1 form — choose **Approved** or **Rejected**, add comments, and submit.
    - If **Rejected**, the batch is done — it's rejected, final, and no second round happens.
    - If **Approved**, the status changes to **"Approved – Awaiting Review"** and the AR moves into the QC Reviewer's queue for Round 2. Round 1's decision now shows read-only at the top of the page from here on.
-2. **Round 2 (QC Reviewer):** Open the same AR. Choose **Approved** or **Rejected**, add comments, and if approving, you must also enter a **Retest Period (days)** — how many days until this batch needs to be sampled and tested again. Submit.
+2. **Round 2 (QC Reviewer):** Open the same AR. Choose **Approved** or **Rejected**, add comments, and if approving, you must also enter the **Expiry date** and a **Retest Period (days)** — how many days until this batch needs to be sampled and tested again. For a raw material the retest period is filled in as 180 days (6 months), the longest allowed, and you can shorten it. Submit.
 3. Once Round 2 is decided, the record is final — both rounds' decisions are shown read-only and nothing more can change. Only a batch that clears **both** rounds as Approved has its stock made available for making finished product.
 
 **Fields you'll be asked for**
 - **Sample Quantity / Unit** — pre-filled from what was reserved on the purchase line; usually you just confirm it.
-- **Retest Period (days)** — Round 2 only, and only when approving. This is entered by hand, not calculated automatically, because how long a material stays good before needing a re-check genuinely varies by material and by what the test found. The retest date itself is then worked out automatically from this.
+- **Expiry date** — Round 2 only, and required when approving. It cannot be in the past. On a retest it cannot be later than the expiry the batch was last approved with.
+- **Retest Period (days)** — Round 2 only, and only when approving. This is entered by hand, not calculated automatically, because how long a material stays good before needing a re-check genuinely varies by material and by what the test found. The retest date itself is then worked out automatically from this. For a raw material the period can be at most 180 days.
 - **Comments** — a short note explaining the decision, at both rounds.
 
 **How it connects to the rest of the app**
@@ -463,6 +464,7 @@ Only a batch that is fully Approved (both rounds, and not currently overdue for 
 - The same person can't approve both rounds on the same batch. If you did Round 1, you won't be able to do Round 2 on that same AR.
 - A batch sitting at "Approved – Awaiting Review" is not yet usable — it needs the second round too. Don't assume a batch is clear until it shows a final "Approved" status.
 - A retest AR is marked with a small "Retest" badge so you can tell it apart from a batch's first-ever QC check.
+- **Retest limits for raw material.** After its first approval a raw material batch can be retested at most **three times**, each retest period at most 180 days, so one batch is covered for up to about 18 months. On the **third retest** the QC Reviewer sets only the Expiry date; there is no retest period, and the material can be used until that date and is not retested again.
 
 ### Label Printing
 
@@ -627,23 +629,24 @@ An MFR has to be Approved before it can be used to build a Finished Product batc
 
 **How to build a finished product batch**
 1. Go to Manufacturing → Finished Product and start a new batch.
-2. Pick the approved MFR (recipe) you're building against, and the batch size.
-3. For each ingredient the recipe calls for, the app suggests which raw material batches to draw from — oldest QC-approved stock first (FIFO). Only batches that are fully Approved in QC and not overdue for retest are offered; anything else is unavailable to select.
-4. Confirm or adjust the suggested batches (you can substitute among available approved batches for the same item if needed) and submit.
-5. The new finished batch is created with its own FP batch number, and the raw material quantities used are deducted from inventory immediately.
-6. The new batch then needs its own Quality Control pass, just like a raw material batch, before it's considered complete.
+2. Pick the approved MFR (recipe) you're building against, the batch size and the batch start date.
+3. The next screen works out the quantity of each ingredient and takes the raw material **automatically, oldest QC-approved stock first (FIFO)**, drawing from more than one batch when needed. You do not pick batches yourself. Only batches that are fully Approved in QC and not overdue for retest or expired are used. If an ingredient has not enough approved stock, the screen says so and the batch cannot be created.
+4. Submit. The batch is created as a **Draft**, and the raw material is reserved from inventory straight away.
+5. A Draft is not yet in production. Click **Create Batch** to start production (the batch becomes In Progress and shows on the Dashboard and the Quality Control page), or **Cancel** to release the raw material. A Draft left for more than **30 minutes** cancels itself and the reserved raw material goes back to inventory; a countdown on the batch shows the time left.
+6. When production is finished, open the batch and use **Complete Batch**: enter the batch yield, finish date, expiry date, the sample unit and the QC, Stability and R&D sample quantities. If the yield is outside the allowed range for the MFR you must give a reason, and a very low or high yield is refused. The batch then shows **Complete - Awaiting QC**.
+7. The finished batch then needs its own Quality Control pass, just like a raw material batch, before it is approved and can be packed, labelled or given a certificate.
 
 **Fields you'll be asked for**
 - **MFR / recipe** — must be an Approved MFR; Draft recipes aren't selectable.
-- **Batch size** — scales every ingredient quantity from the recipe automatically.
-- **Raw material batch selection** — defaults to the FIFO suggestion but can be adjusted among currently-approved, non-overdue batches of the same item.
+- **Batch size and batch start date** — the batch size scales every ingredient quantity from the recipe automatically.
+- **Complete Batch** — batch yield, finish date, expiry date, sample unit, and the QC, Stability and R&D sample quantities (all required).
 
 **How it connects to the rest of the app**
 Finished Product sits downstream of MFR (needs an approved recipe) and Quality Control (needs approved raw material batches to draw from), and feeds Packaging (the finished batch is what eventually gets issued out) and Certificate of Analysis / Label Printing (once the finished batch has its own QC approval).
 
 **Good to know**
-- A raw material batch that's pending, rejected, or overdue for retest simply won't appear as an option here — if a batch you expected to use is missing, check its QC status first.
-- Building a batch deducts raw material stock immediately on submission, not after the finished batch's own QC passes — so inventory reflects the real-world consumption as soon as production actually starts.
+- A raw material batch that's pending, rejected, expired or overdue for retest is never used — if a batch you expected is not being drawn from, check its QC status first.
+- The raw material is set aside as soon as the Draft is saved, not after the finished batch's own QC passes. If the Draft is cancelled, by you or after 30 minutes, the stock goes back.
 
 ### Packaging
 
@@ -651,28 +654,31 @@ Finished Product sits downstream of MFR (needs an approved recipe) and Quality C
 
 **Who can use it:** Everyone signed in can view packaging issue records. Only System Admin, Inventory Manager, or MFR Manager can record a new issue.
 
-**What it's for:** Tracks finished product and packaging material being issued out of the warehouse — either to Store/R&D or into Production — so there's a record of what left, how much, and for what purpose.
+**What it's for:** Records finished product being packed and issued to Store, R&D or Production, and the packaging material used, so there's a record of what left, how much, and for what purpose. Every issue is a pack; there is no repack or unpack.
 
 **How to record a packaging issue**
 1. Go to Manufacturing → Packaging and start a new issue.
-2. Choose the issue type — Store/R&D or Production — and the item and batch being issued.
-3. Enter the quantity being issued (can't exceed what's currently available for that batch) and any reference/purpose notes.
-4. Submit — the issued quantity is deducted from that batch's available stock immediately.
+2. Choose the **department** (Store, R&D or Production) and the issue date.
+3. For each line, pick the **approved finished product batch** being packed, the **pack size** (quantity and unit, for example 200 ml) and the **number of packs**. The number of packs cannot use more than what is left of that batch.
+4. Add the **packaging materials** used (material, quantity and unit). They are taken from their purchase batches oldest first.
+5. Submit — the issue and its materials are saved together, each line gets its own **PKG-** code, and the finished product and packaging material quantities are deducted from stock straight away.
 
 **Packing several pack sizes at once (Store/R&D):** after choosing Store or R&D, add one line for each pack size or batch (for example 200 ml × 50 and 1 ltr × 8 from the same batch). Each line has its own packaging materials and gets its own packaging issue code. The date and department are shared. The form shows the bulk product each line uses and what is left in each batch; if any line can't be saved, none are.
 
 **Issuing several batches to Production at once:** choose Production and add one line per Finished Product batch — quantity to convert, QC, Stability and (optionally) R&D quantity, and the sample unit. Each line becomes its own Raw Material (RM-FP) batch with its own QC and its own packaging issue code. A batch can appear on one line only; if you repeat it, a red message appears under that line and Add line / Save stay greyed out until you fix it. Nothing is saved unless every line is valid.
 
 **Fields you'll be asked for**
-- **Issue type** — Store/R&D or Production; mainly affects how the issue is categorized in reporting.
-- **Item + batch** — the specific finished product or packaging batch being issued.
-- **Quantity** — capped at what's currently available for that batch.
+- **Department** — Store, R&D or Production.
+- **Finished product batch** — only approved batches are offered.
+- **Pack size and number of packs** — capped at what is left of the batch.
+- **Packaging materials** — material, quantity and unit for each line.
 
 **How it connects to the rest of the app**
 Packaging draws from the same stock the Inventory Ledger tracks — an issue here shows up as an outgoing movement there. It's typically the last step for a finished batch before it leaves Atharva's control, aside from the Certificate of Analysis and labels that accompany it.
 
 **Good to know**
 - You can't issue more than a batch's current available quantity — the form will stop you rather than letting stock go negative.
+- The Packaging list has a Packing Register PDF for printing.
 
 ---
 
@@ -682,14 +688,21 @@ Packaging draws from the same stock the Inventory Ledger tracks — an issue her
 
 **Where to find it:** Admin → User Roles & Access
 
-**Who can use it:** Viewing your own access is implicit everywhere in the app. This screen's management page — seeing and changing everyone's roles — is visible only to System Admins. Anyone else who opens this page sees a plain "Access restricted" message instead of the tools.
+**Who can use it:** Viewing your own access is implicit everywhere in the app. This screen's management page — creating accounts, resetting passwords, changing roles and disabling accounts — is visible only to System Admins. Anyone else who opens this page sees a plain "Access restricted" message instead of the tools.
 
-**What it's for:** This is where a System Admin controls what each person in the company is allowed to do in Invento — assigning one or more of the six roles (Inventory Manager, System Admin, Super Auditor, Quality Checker, QC Reviewer, MFR Manager) to each user. A person's roles determine which "Add/Edit" buttons and forms they see across every other module.
+**What it's for:** This is where a System Admin controls who can sign in to Invento and what each person is allowed to do — creating accounts (there is no self-registration), assigning one or more of the six roles (Inventory Manager, System Admin, Super Auditor, Quality Checker, QC Reviewer, MFR Manager), resetting a forgotten password and disabling the account of someone who leaves. A person's roles determine which "Add/Edit" buttons and forms they see across every other module.
+
+**How to add a new person**
+1. As a System Admin, go to User Roles & Access and use the add-user form: enter the person's name, their sign-in email and a temporary password (at least 10 characters).
+2. Save. The screen shows the email and temporary password once; give them to the person privately. They are asked to choose their own password the first time they sign in.
+3. Tick the roles the person needs and save (see below).
 
 **How to change someone's roles**
-1. As a System Admin, go to User Roles & Access. You'll see a list of every user, one row each, with a set of six checkboxes showing their current roles.
+1. You'll see a list of every user, one row each, with a set of six checkboxes showing their current roles.
 2. Tick or untick roles for the person you want to change.
 3. Click Save on that person's row. The change takes effect immediately — saving replaces that person's entire set of roles with whatever is checked at that moment (so if you only tick one box, all their other roles are removed).
+
+**Other actions on a person's row:** **Reset password** (sets a new temporary password they must change at next sign-in; two-step confirmation) and **Disable account** (they are signed out and can no longer sign in; two-step confirmation; it can be switched back on with Enable).
 
 **Fields you'll be asked for**
 - **Role checkboxes** — Inventory Manager, System Admin, Super Auditor, Quality Checker, QC Reviewer, MFR Manager. A person can hold any combination, including none.
@@ -699,7 +712,7 @@ Every "Add," "Edit," and "Delete" control throughout Invento checks the roles as
 
 **Good to know**
 - Users are listed by name only, not email — so make sure you recognize the person by their display name before changing their access.
-- There's no confirmation prompt and no safety lock: if you untick your own System Admin box and save, you lose admin access immediately, with no "last admin" protection. Be careful editing your own row.
+- You cannot remove your own System Admin role, and you cannot disable your own account; the last remaining System Admin can never be removed or disabled. Ask another System Admin if you need that done.
 - Saving a row always replaces that person's whole role set — there's no way to add just one role without re-checking all their existing ones too, so double-check every box is set the way you want before saving.
 
 ### Reports
@@ -708,14 +721,14 @@ Every "Add," "Edit," and "Delete" control throughout Invento checks the roles as
 
 **Who can use it:** Every signed-in user can view and export reports. There's no separate write permission for this screen — it's read-only, so there's nothing to restrict.
 
-**What it's for:** Reports is where you pull together the four core registers Atharva needs for day-to-day tracking and audits — raw material stock, QC history, finished product history, and purchases — each as a searchable, sortable table you can filter by date and export as a printed PDF.
+**What it's for:** Reports is where you pull together the four core registers Atharva needs for day-to-day tracking and audits — raw material stock, QC history, finished product history, and purchases — each as a searchable table you can filter by date and download as Excel or as a printed PDF.
 
 **How to pull a report and export it as a PDF**
 1. Go to Admin → Reports.
 2. Scroll to the report card you need: **RM Stock Report**, **QC Register**, **FP Register**, or **Purchase Register**.
 3. Optionally, narrow it down using the **From** / **To** date fields on that card (see below for which date each one filters on).
-4. Use the table's built-in search and column sorting to find specific rows.
-5. Click **Download PDF** to export exactly the rows currently shown (i.e., whatever your date filter and search have narrowed it down to).
+4. Use the table's built-in search to find specific rows on screen. The tables cannot be sorted by column.
+5. Click **Download Excel** or **Download PDF** to export the rows that pass your date filter. The search box only narrows what you see on screen; it does not change what is downloaded.
 
 **Fields you'll be asked for**
 - **From / To (date range)** — appears on every report card. Each report filters by a different underlying date, since each has a different natural "event date":
@@ -729,8 +742,8 @@ Every report is a live read of records from other modules — RM Stock Report mi
 
 **Good to know**
 - The date filter only narrows down the rows already loaded on screen — it isn't a fresh search, so applying and clearing it is instant.
-- The PDF export always matches what's currently on screen, so set your date filter first if you want a narrower export.
-- The export is a formatted, printable PDF table (with the usual letterhead), not a native Excel spreadsheet — there's no `.xlsx` download option currently.
+- The downloads follow the date filter but not the search box, so set the date range first if you want a narrower export.
+- Download PDF gives a formatted, printable table (with the usual letterhead). Download Excel gives a spreadsheet in which numbers and dates are real numbers and dates, so you can sort and total them in Excel.
 - On the Purchase Register, the date column is labeled "Re-Test Date" (when the raw material batch is next due for retesting) — don't confuse it with the QC Register's own "Retest Date" column, which tracks a different thing (when a specific QC result needs to be re-checked).
 - QC Register and FP Register are full historical logs — every row shows, including old/inactive ones — unlike most other lists in the app which hide inactive records by default.
 

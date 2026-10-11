@@ -35,10 +35,6 @@ export function getCompany(): Company {
   return current;
 }
 
-// "Atharva Nature Healthcare Pvt. Ltd., Wagholi, Pune"
-export function companyNameAndAddress(c: Company = current): string {
-  return c.address ? `${c.name}, ${c.address}` : c.name;
-}
 // "Mfg. Lic. No. - PD/AYU/111"
 export function licenceLine(c: Company = current): string {
   return `${c.licenceLabel} - ${c.licenceNo}`;

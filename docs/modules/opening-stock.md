@@ -4,6 +4,13 @@ Requested by Ravi (3 Oct 2026, FB-0054 / B4): add opening stock for raw material
 finished product before go-live. Part 1 (migration 0100) covers raw material and packaging; part 2 (migration 0101) covers finished
 product, packed and bulk.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - `/opening-stock` (Admin) loads the physical stock count before go-live from an Excel sheet: raw material and packaging (with a required Unit column, converted to the item's own unit), and finished product (packed and bulk). Each load is all or nothing and is listed as `OPN-0001…`.
+> - Raw material rows are Approved, Pending QC or Rejected; old batch numbers and AR numbers are kept as typed (numbers that look app-made are refused). Loaded batches carry the **Legacy** tag.
+> - Loading is open to all roles during testing; the System Admin closes it by hand and can re-open it or undo a load that nothing has used yet (audited). No cut-off date is stored.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Decisions (Ravi)
 - Source: the physical stock count sheet. Raw material QC status is per row: Approved, Pending QC or Rejected.
 - Vendor and unit price are optional. Rows with no vendor use the system vendor `V-OPENING`.

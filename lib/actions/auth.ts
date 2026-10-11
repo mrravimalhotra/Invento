@@ -44,16 +44,10 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
 }
 
 // Self-registration is closed (28 Sept 2026): a System Admin creates accounts
-// via createUserAccount (lib/actions/admin-users.ts). Kept as an exported,
-// always-refusing action so any stale client that still posts here gets a
-// clear answer. Note this does NOT stop a direct call to Supabase Auth's own
-// signup endpoint with the public anon key — for that, "Allow new users to
-// sign up" must also be switched off in the Supabase dashboard.
-export async function signUp(_prev: ActionState, _formData: FormData): Promise<ActionState> {
-  return {
-    error: "Self-registration is disabled. Ask your System Administrator to create your account.",
-  };
-}
+// via createUserAccount (lib/actions/admin-users.ts). There is no sign-up action
+// any more. Supabase Auth's own signup endpoint is still reachable with the
+// public anon key, so "Allow new users to sign up" must stay switched off in
+// the Supabase dashboard.
 
 export async function signOut() {
   const supabase = await createClient();

@@ -6,6 +6,14 @@ for Item Master, Vendor, Purchase, etc, with a standard downloadable
 Excel template per module. Scoped via `AskUserQuestion` before any code
 was written:
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - `/bulk-upload` (Admin) has one Excel template per module: Item Master, Vendor Master, Item Type Master, MFR (Recipe and Manufacturing Procedure on two sheets), Purchase, Equipment, Dead Stock and COA Templates (by item or MFR code). Each template has Instructions, a data sheet with one example row, and (mostly) a Reference sheet.
+> - **All or nothing per file**: if any row fails, nothing is imported and every problem is listed with its row number. Codes are always generated; a code column in the file is ignored.
+> - Limits: a file over 800 KB or with more than 500 filled rows is refused before it is read. Purchase upload needs the QC/Stability/R&D quantities, Unit Price and GST % on every line (0 allowed).
+> - Each upload uses the same role rule and database policy as the module's own create screen. Dates and cells are read as the sheet shows them (0096/ACC-23).
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 - **Modules (first pass)**: Item Master, Vendor Master, Item Type
   Master, and MFR — pure master/setup data with no ledger or workflow
   side effects. Purchase was deliberately **not** included this pass (a

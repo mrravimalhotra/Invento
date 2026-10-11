@@ -4,6 +4,17 @@ Cross-reference: `docs/DESIGN.md` §4.6 (schema), §5 (auto-numbering — n/a,
 ledger rows have no document number), §6 (route map), §8 (UI system), §9
 (known simplifications).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - `/inventory` has eight tabs: Ledger, Stock Position, Stock Statement, RM Report As On Date, Rejected Materials, Batch Trace, Expiry & Retest Ageing and Retained Samples. The Ledger shows the newest 1,000 events; filters reach older ones.
+> - Stock Position shows On hand with a breakdown that adds up, and for raw material **Usable** and **Not usable** (awaiting QC, retest due, expired). Low stock compares the threshold with usable stock.
+> - Wastage always needs a batch; it uses the batch's own item and unit and refuses draft batches. Rejected raw material is taken out of On hand automatically ("QC Rejected").
+> - Stock Statement gives Opening, receipts, issues and Closing for any period. The **RM Report As On Date shows today's quantities whatever date is picked** (SCAN-P3-11, open).
+> - Each item has one stock unit; quantities show up to 3 decimals; leftovers below 0.0005 are ignored by the oldest-first check and pickers.
+> - Finished product enters the ledger only when QC approves it (yield less samples), and leaves through packaging issues.
+> - Later sections (the 3 Sept "redesign" phases, the first Stock Balance screens) describe how this was built; read them for reasons, not for current screens.
+> - Where a later section below disagrees with an earlier one, the later one is right.
+
+
 ## Role
 
 Write (`inventory` in `MODULE_WRITE_ROLES`): `system_admin`,
