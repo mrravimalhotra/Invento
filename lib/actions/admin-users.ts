@@ -206,7 +206,9 @@ export async function completePasswordChange(
     if (updateError.code === "weak_password") {
       return { error: "That password is too weak. Try a longer one." };
     }
-    return { error: `Couldn't change your password: ${updateError.message}` };
+    // SCAN-P1-05: log the detail on the server; show the same fixed wording as updatePassword().
+    console.error("completePasswordChange:", updateError.code, updateError.message);
+    return { error: "Couldn't change your password. Please try again." };
   }
 
   const adminClient = createAdminClient();
