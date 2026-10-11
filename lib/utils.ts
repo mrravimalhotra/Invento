@@ -97,6 +97,13 @@ export function formatNumber(n: number | string | null | undefined, decimals = 2
 // while printed slips already use 3, so screen and slip disagreed. Money,
 // percentages and readings keep formatNumber()'s 2 (or their own) decimals.
 export function formatQty(n: number | string | null | undefined) {
+  // SCAN-P7-21: an amount too small to show in 3 decimals is not zero. A
+  // positive speck reads "< 0.001"; a tiny negative is printed as it is
+  // instead of "-0".
+  const num = typeof n === "string" ? parseFloat(n) : n;
+  if (typeof num === "number" && Number.isFinite(num) && num !== 0 && Math.abs(num) < 0.0005) {
+    return num > 0 ? "< 0.001" : num.toLocaleString("en-IN", { maximumFractionDigits: 6 });
+  }
   return formatNumber(n, 3);
 }
 
@@ -136,4 +143,12 @@ export function fpBatchBoth(batch: string | null | undefined, short?: string | n
 }
 export function fpBatchShort(batch: string | null | undefined, short?: string | null) {
   return short || batch || "";
+}
+
+// SCAN-P5-13: batch numbers contain a slash (PR-03/26), and browsers treat a
+// slash in a download name differently. Every downloaded file name goes
+// through this: the slash and other characters a file name cannot hold become
+// "-", so PR-03/26 always downloads as PR-03-26.
+export function safeFileName(name: string): string {
+  return name.replace(/[\\/:*?"<>|\s]+/g, "-").replace(/-{2,}/g, "-");
 }

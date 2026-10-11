@@ -168,7 +168,26 @@ export function DataTable<T>({
             {pageRows.length === 0 && (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-10 text-center text-muted">
-                  {emptyLabel}
+                  {/* SCAN-P7-20: say so when a search or filter removed every row, instead of "none yet". */}
+                  {rows.length > 0 ? (
+                    <span>
+                      No rows match.{" "}
+                      {hideLegacy && isLegacy ? "“Hide legacy data” is on. " : ""}
+                      <button
+                        type="button"
+                        className="font-medium text-brand-dark hover:underline"
+                        onClick={() => {
+                          setQuery("");
+                          setSource("all");
+                          setPage(0);
+                        }}
+                      >
+                        Clear search and filters
+                      </button>
+                    </span>
+                  ) : (
+                    emptyLabel
+                  )}
                 </td>
               </tr>
             )}
@@ -184,11 +203,14 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
-      {pageCount > 1 && (
+      {rows.length > 0 && (
         <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-sm text-muted">
           <span>
-            Page {currentPage + 1} of {pageCount} · {filtered.length} rows
+            {pageCount > 1 ? `Page ${currentPage + 1} of ${pageCount} · ` : ""}
+            {filtered.length} {filtered.length === 1 ? "row" : "rows"}
+            {filtered.length < rows.length ? ` (of ${rows.length})` : ""}
           </span>
+          {pageCount > 1 && (
           <div className="flex gap-2">
             <button
               className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40"
@@ -205,6 +227,7 @@ export function DataTable<T>({
               Next
             </button>
           </div>
+          )}
         </div>
       )}
     </div>
