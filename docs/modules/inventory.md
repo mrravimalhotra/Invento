@@ -142,19 +142,11 @@ Per DESIGN.md §1 and §4.6, matching the second-pass requirements review:
   briefing — this is not a schema change I should make unilaterally): a
   periodic `stock_balance_snapshot` table if true historical
   reconstruction is ever required.
-- **Schema gap: `record_wastage()`'s `p_reason` is accepted but never
-  persisted.** Reading `0002_transactions.sql` closely:
-  `record_wastage(p_item_id, p_purchase_line_id, p_quantity, p_unit,
-  p_reason)` takes a reason, but its `insert into inventory_ledger` omits
-  it — `inventory_ledger` has no `reason`/`notes` column at all. The Record
-  Wastage form still requires and submits a reason (so the UI's contract
-  with the user is honest, and so nothing needs to change if the column is
-  added later), and `recordWastage()` always passes `p_reason` through, but
-  **the reason is not currently retrievable from the ledger after
-  submission.** Requesting, for the once-only follow-up migration: add
-  `inventory_ledger.reason text` and have `record_wastage()` insert it. I
-  did not add this myself, per the briefing's rule against a second
-  `000N_*.sql` colliding with other agents' migrations.
+- **Wastage reason (corrected 11 Oct 2026, SCAN-P3-06).** The reason typed
+  for a write-off has been saved on the ledger row since migration 0036
+  (`inventory_ledger.reason`). The Inventory Ledger (and the Ledger on each
+  item page) now shows it in a **Reason** column, searchable and in the Excel
+  download. The Batch Trace still shows only the total written off.
 - **Stock Balance is not filtered to `category = 'raw'`.** DESIGN.md calls
   it "the as-of-now equivalent of the legacy 'Raw Material Stock' screen",
   but the `stock_balance` view and the brief's own column list

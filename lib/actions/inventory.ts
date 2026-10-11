@@ -14,14 +14,9 @@ export type ActionState = { error?: string; success?: string } | undefined;
 // 0002_transactions.sql as a side effect of Purchase/QC/Finished
 // Product/Packaging inserts; this is the sole direct-user-initiated event.
 //
-// NOTE (schema gap, flagged in final report / docs/modules/inventory.md):
-// record_wastage(p_item_id, p_purchase_line_id, p_quantity, p_unit, p_reason)
-// accepts p_reason but inventory_ledger has no reason/notes column, so the
-// RPC itself never persists it (see 0002_transactions.sql). We still pass
-// it through on every call (future-proof + honors the RPC's contract), and
-// require it client-side so the reason is at least captured in the request,
-// but until a migration adds inventory_ledger.reason it is not retrievable
-// from the ledger afterwards.
+// The reason is required and is saved on the ledger row (inventory_ledger.reason,
+// kept since 0036). It is shown in the Reason column of the Ledger and its
+// downloads (SCAN-P3-06).
 export async function recordWastage(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const itemId = String(formData.get("itemId") || "").trim();
   const purchaseLineIdRaw = String(formData.get("purchaseLineId") || "").trim();

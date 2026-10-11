@@ -105,6 +105,12 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
       searchValue: (r) => (r.reference_type ? `${r.reference_type} ${ledgerReasonLabel(r.reference_type)}` : ""),
     },
     {
+      // SCAN-P3-06: the reason typed for a write-off (kept since 0036).
+      header: "Reason",
+      accessor: (r) => (r.reason ? <span className="whitespace-pre-wrap">{r.reason}</span> : "—"),
+      searchValue: (r) => r.reason ?? "",
+    },
+    {
       header: "By",
       accessor: (r) => r.eventByName ?? "—",
     },
@@ -134,6 +140,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
       },
       { header: "Department", value: (r) => r.department ?? "" },
       { header: "Reference", value: (r) => (r.reference_type ? ledgerReasonLabel(r.reference_type) : "") },
+      { header: "Reason", value: (r) => r.reason ?? "" },
       { header: "By", value: (r) => r.eventByName ?? "" },
       { header: "Source", value: (r) => (r.purchase_lines?.is_legacy || r.fpBatchIsLegacy ? "Legacy" : "New") },
     ],

@@ -23,6 +23,8 @@ export type RawLedgerRow = {
   reference_type: string | null;
   reference_id: string | null;
   event_by: string | null;
+  /** Why a write-off was recorded (SCAN-P3-06); blank for system-written events. */
+  reason?: string | null;
   items: { name: string; item_code: string } | null;
   purchase_lines: { batch_number: string; is_legacy?: boolean | null } | null;
   // Production-sourced Raw Material batch context (19 Sept 2026 —

@@ -138,7 +138,7 @@ export function WastageForm({
         </Field>
       </div>
 
-      <Field label="Reason" htmlFor="reason" required hint="Recorded with this request; see docs/modules/inventory.md for a schema note on persistence.">
+      <Field label="Reason" htmlFor="reason" required hint="Saved with the write-off and shown in the Reason column of the Inventory Ledger.">
         <Textarea id="reason" name="reason" required rows={3} />
       </Field>
 

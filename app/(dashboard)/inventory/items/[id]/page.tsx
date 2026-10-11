@@ -282,7 +282,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
   const { data: ledgerData } = await supabase
     .from("inventory_ledger_with_balance")
     .select(
-      "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, running_balance, items(name, item_code), purchase_lines(batch_number, is_legacy), production_issue_batches(batch_number)"
+      "id, event_at, event_type, quantity, unit, department, reference_type, reference_id, event_by, reason, running_balance, items(name, item_code), purchase_lines(batch_number, is_legacy), production_issue_batches(batch_number)"
     )
     .eq("item_id", id)
     .order("event_at", { ascending: false })
