@@ -1,6 +1,7 @@
 import { qcRoundOutcomes } from "@/lib/qc-rounds";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
+import { AuditHistoryLink } from "@/components/ui/audit-history-link";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
@@ -138,6 +139,7 @@ export default async function QualityCheckDetailPage({
         description={record.items ? `${record.items.item_code} — ${record.items.name}` : undefined}
         action={
           <div className="flex items-center gap-2">
+            <AuditHistoryLink recordId={record.id} roles={user?.roles ?? []} />
             {record.is_legacy && <LegacyTag />}
             {record.is_retest && <Badge status="pending">Retest</Badge>}
             <Badge status={record.status}>{qcRecordStatusLabel(record.status)}</Badge>

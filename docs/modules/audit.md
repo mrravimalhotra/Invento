@@ -10,7 +10,7 @@ prior values before an edit, only who last touched it and when. Migration:
 > **Current behaviour (read this first; the sections below are a dated history).**
 > - `/audit` is the Audit Log: who changed what and when, for **every business table** (insert, update, delete; truncate; user accounts), through one trigger (0072). The earlier "four tables only" scope below is **superseded**.
 > - Only a **System Admin or Super Auditor** can read it; everyone else sees "Access restricted". Nobody can edit or delete a log row.
-> - The list shows the newest 500 rows per filter (table, date range), with a "What changed" column that names up to three fields with before and after values. Excel export is available; `/audit/[id]` shows the full before/after.
+> - The list is read 200 rows at a time (newest first, Newer/Older links) with filters for table (all audited tables, incl. company settings, opening stock and COA template revisions), action, person, record text (matches the record's own reference in the stored data, or its id) and dates (`lib/audit-query.ts`, SCAN-P1-15). "What changed" names up to three fields with before and after values. Excel exports the page on screen with Before and After columns; "Download all matching" (`lib/actions/audit-export.ts`) exports up to the newest 10,000 matches. `/audit/[id]` shows field names in words and people, items, vendors, batches, recipes and item types by name (`lib/audit-names.ts`, SCAN-P8-12). Item, Purchase Order, QC, MFR and Finished Product pages carry a History link (`components/ui/audit-history-link.tsx`).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 

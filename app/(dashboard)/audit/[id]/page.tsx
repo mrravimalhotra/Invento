@@ -8,12 +8,14 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
+import { resolveAuditNames } from "@/lib/audit-names";
 import {
   type AuditLogRow,
   tableLabel,
   recordLabel,
   diffFields,
-  displayValue,
+  readableValue,
+  friendlyFieldName,
   changedViaLabel,
   summarizeChange,
 } from "../audit-diff";
@@ -46,15 +48,9 @@ export default async function AuditLogDetailPage({ params }: { params: Promise<{
 
   if (!row) notFound();
 
-  let changedByName: string | null = null;
-  if (row.changed_by) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", row.changed_by)
-      .maybeSingle();
-    changedByName = profile?.full_name ?? null;
-  }
+  // SCAN-P8-12: people, items, vendors, batches, recipes and item types shown by name, not id.
+  const names = await resolveAuditNames(supabase, [row]);
+  const changedByName: string | null = row.changed_by ? (names[row.changed_by] ?? null) : null;
 
   const changes = diffFields(row);
 
@@ -99,17 +95,17 @@ export default async function AuditLogDetailPage({ params }: { params: Promise<{
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-                    <th className="px-5 py-2 font-medium">Field</th>
-                    <th className="px-5 py-2 font-medium">Before</th>
-                    <th className="px-5 py-2 font-medium">After</th>
+                    <th scope="col" className="px-5 py-2 font-medium">Field</th>
+                    <th scope="col" className="px-5 py-2 font-medium">Before</th>
+                    <th scope="col" className="px-5 py-2 font-medium">After</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {changes.map((c) => (
                     <tr key={c.key}>
-                      <td className="px-5 py-2 font-mono text-xs text-muted">{c.key}</td>
-                      <td className="px-5 py-2">{displayValue(c.oldValue)}</td>
-                      <td className="px-5 py-2 font-medium">{displayValue(c.newValue)}</td>
+                      <td className="px-5 py-2 text-muted" title={c.key}>{friendlyFieldName(c.key)}</td>
+                      <td className="px-5 py-2">{readableValue(c.oldValue, names)}</td>
+                      <td className="px-5 py-2 font-medium">{readableValue(c.newValue, names)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -125,8 +121,8 @@ export default async function AuditLogDetailPage({ params }: { params: Promise<{
               <tbody className="divide-y divide-border">
                 {Object.entries((row.action === "insert" ? row.new_data : row.old_data) ?? {}).map(([key, value]) => (
                   <tr key={key}>
-                    <td className="px-5 py-2 font-mono text-xs text-muted">{key}</td>
-                    <td className="px-5 py-2">{displayValue(value)}</td>
+                    <td className="px-5 py-2 text-muted" title={key}>{friendlyFieldName(key)}</td>
+                    <td className="px-5 py-2">{readableValue(value, names)}</td>
                   </tr>
                 ))}
               </tbody>

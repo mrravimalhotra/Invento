@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
+import { AuditHistoryLink } from "@/components/ui/audit-history-link";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
@@ -68,6 +69,7 @@ export default async function ItemDetailPage({
       <PageHeader
         title={item.name}
         description={`${item.item_code} · ${CATEGORY_LABELS[item.category] ?? item.category}${readOnly ? " · Read-only — you don't have write access to Item Master." : ""}`}
+        action={<AuditHistoryLink recordId={item.id} roles={user?.roles ?? []} />}
       />
 
       {created === "1" && (

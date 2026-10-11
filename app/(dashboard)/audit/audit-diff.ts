@@ -41,6 +41,18 @@ export const AUDIT_TABLE_OPTIONS: { value: string; label: string }[] = [
   { value: "auth.users", label: "User Account" },
   { value: "profiles", label: "User Profile" },
   { value: "page_feedback", label: "Tester Feedback" },
+  // SCAN-P1-15: audited since 0096 / 0100 / 0102 but missing from this filter.
+  { value: "company_settings", label: "Company Details & Settings" },
+  { value: "opening_loads", label: "Opening Stock Load" },
+  { value: "opening_stock_settings", label: "Opening Stock Open / Closed" },
+  { value: "coa_template_revisions", label: "COA Template Revision" },
+];
+
+export const AUDIT_ACTION_OPTIONS: { value: string; label: string }[] = [
+  { value: "insert", label: "Created" },
+  { value: "update", label: "Edited" },
+  { value: "delete", label: "Deleted" },
+  { value: "truncate", label: "Table emptied" },
 ];
 
 // How a change reached the database (audit_log.changed_via, 0072). Rows
@@ -81,6 +93,10 @@ export type AuditLogRow = {
   changed_at: string;
   changed_via: string | null;
   changed_by_name: string | null;
+  // SCAN-P8-12: plain-words text of the changed fields (names instead of ids), added by the
+  // server for the Excel Before / After columns.
+  before_text?: string;
+  after_text?: string;
 };
 
 const TABLE_LABELS = Object.fromEntries(AUDIT_TABLE_OPTIONS.map((o) => [o.value, o.label]));
@@ -190,6 +206,48 @@ export function namedFields(changed: { key: string; oldValue: unknown; newValue:
   });
   const rest = list.length - parts.length;
   return rest > 0 ? `${parts.join(", ")} (+${rest} more)` : parts.join(", ");
+}
+
+// SCAN-P8-12: field name in words ("Item", "Batch number") for the detail page and Excel.
+export function friendlyFieldName(key: string): string {
+  const text = fieldLabel(key);
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+// id (uuid) -> name, built on the server by lib/audit-names.ts.
+export type AuditNameMap = Record<string, string>;
+
+export function readableValue(v: unknown, names: AuditNameMap): string {
+  if (typeof v === "string" && UUID_PATTERN.test(v)) return names[v] ?? v;
+  return displayValue(v);
+}
+
+const MAX_TEXT_FIELDS = 25;
+
+// "Before" and "After" cells for the Excel file: only the fields that changed for an edit,
+// every field for a created or deleted record, with names instead of ids.
+export function beforeAfterText(
+  row: Pick<AuditLogRow, "action" | "old_data" | "new_data">,
+  names: AuditNameMap
+): { before: string; after: string } {
+  if (row.action === "truncate") return { before: "", after: "" };
+  const part = (key: string, v: unknown) => `${friendlyFieldName(key)}: ${readableValue(v, names)}`;
+  if (row.action === "update") {
+    const changed = diffFields(row);
+    const meaningful = changed.filter((c) => !STAMP_FIELDS.has(c.key));
+    const list = (meaningful.length > 0 ? meaningful : changed).slice(0, MAX_TEXT_FIELDS);
+    return {
+      before: list.map((c) => part(c.key, c.oldValue)).join("; "),
+      after: list.map((c) => part(c.key, c.newValue)).join("; "),
+    };
+  }
+  const data = (row.action === "insert" ? row.new_data : row.old_data) ?? {};
+  const entries = Object.entries(data)
+    .filter(([k, v]) => k !== "id" && !STAMP_FIELDS.has(k) && v !== null && v !== undefined && v !== "")
+    .slice(0, MAX_TEXT_FIELDS)
+    .map(([k, v]) => part(k, v));
+  const text = entries.join("; ");
+  return row.action === "insert" ? { before: "", after: text } : { before: text, after: "" };
 }
 
 export function displayValue(v: unknown): string {

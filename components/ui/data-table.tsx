@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/form";
-import { Download, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportTable, type ExportFormat, type TableExport } from "@/lib/table-export";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 import { clampPage } from "@/lib/paging";
+import { cn } from "@/lib/utils";
 
 export type Column<T> = {
   header: string;
@@ -14,6 +15,24 @@ export type Column<T> = {
   sortValue?: (row: T) => string | number;
   searchValue?: (row: T) => string;
 };
+
+type SortKey = string | number;
+
+// SCAN-P7-18: a column is sortable when it gives a sort value, or at least a search text.
+function sortKeyOf<T>(c: Column<T>, row: T): SortKey {
+  if (c.sortValue) return c.sortValue(row);
+  return c.searchValue?.(row) ?? "";
+}
+
+// Empty values go last in either direction; numbers compare as numbers, text with numbers
+// inside it in natural order (RM-2 before RM-10), ignoring case.
+function isEmptyKey(k: SortKey): boolean {
+  return k === "" || (typeof k === "number" && Number.isNaN(k));
+}
+function compareKeys(a: SortKey, b: SortKey): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
 
 export function DataTable<T>({
   columns,
@@ -86,19 +105,60 @@ export function DataTable<T>({
     );
   }, [legacyFiltered, query, columns]);
 
+  // SCAN-P7-18: click a heading to sort ascending, again for descending, a third time to
+  // go back to the original order. Sorting happens before paging and before export.
+  const [sort, setSort] = useState<{ header: string; dir: "asc" | "desc" } | null>(null);
+  const sorted = useMemo(() => {
+    const col = sort ? columns.find((c) => c.header === sort.header) : undefined;
+    if (!sort || !col) return filtered;
+    const sign = sort.dir === "asc" ? 1 : -1;
+    return filtered
+      .map((row, i) => ({ row, i, k: sortKeyOf(col, row) }))
+      .sort((a, b) => {
+        const ae = isEmptyKey(a.k);
+        const be = isEmptyKey(b.k);
+        if (ae || be) return ae === be ? a.i - b.i : ae ? 1 : -1; // empty values stay last
+        const c = compareKeys(a.k, b.k);
+        return c !== 0 ? c * sign : a.i - b.i;
+      })
+      .map((x) => x.row);
+  }, [filtered, columns, sort]);
+
+  function toggleSort(header: string) {
+    setSort((s) => (!s || s.header !== header ? { header, dir: "asc" } : s.dir === "asc" ? { header, dir: "desc" } : null));
+    setPage(0);
+  }
+
+  // SCAN-P7-24: show that a wide table continues to the right (shadow and a line of text).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setMoreRight(el.scrollWidth - el.clientWidth - el.scrollLeft > 4);
+  }, []);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(checkScroll);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, [checkScroll]);
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   // ACC-25: the page is clamped to the last page that exists. A filter outside
   // the table (date range, category…) can shrink the rows while the table is
   // on a later page; without this it showed an empty table and "Page 11 of 2".
   const currentPage = clampPage(page, filtered.length, pageSize);
-  const pageRows = filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
+  const pageRows = sorted.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   const legacyCount = isLegacy ? rows.filter(isLegacy).length : 0;
 
   async function runExport(format: ExportFormat) {
     if (!exportConfig) return;
     setExporting(format);
     try {
-      await exportTable(exportConfig, format, filtered, { search: query, hideLegacy: !!isLegacy && hideLegacy });
+      await exportTable(exportConfig, format, sorted, { search: query, hideLegacy: !!isLegacy && hideLegacy });
     } finally {
       setExporting(null);
     }
@@ -110,6 +170,7 @@ export function DataTable<T>({
         <div className="relative max-w-xs flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted" />
           <Input
+            aria-label={searchPlaceholder}
             placeholder={searchPlaceholder}
             className="pl-8"
             value={query}
@@ -180,15 +241,43 @@ export function DataTable<T>({
           </div>
         )}
       </div>
-      <div className="overflow-x-auto">
+      <div className="relative">
+      <div ref={scrollRef} onScroll={checkScroll} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-black/[0.02] text-left text-xs font-semibold uppercase tracking-wide text-muted">
-              {columns.map((c) => (
-                <th key={c.header} className="px-4 py-2.5 whitespace-nowrap">
-                  {c.header}
-                </th>
-              ))}
+              {columns.map((c, ci) => {
+                const canSort = !!(c.sortValue || c.searchValue);
+                const dir = sort?.header === c.header ? sort.dir : null;
+                return (
+                  <th
+                    key={c.header}
+                    scope="col"
+                    aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : undefined}
+                    className={cn("px-4 py-2.5 whitespace-nowrap", ci === 0 && "max-md:sticky max-md:left-0 max-md:bg-[#fafafa]")}
+                  >
+                    {canSort ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(c.header)}
+                        title="Click to sort"
+                        className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground max-md:min-h-10"
+                      >
+                        {c.header}
+                        {dir === "asc" ? (
+                          <ArrowUp className="h-3 w-3" aria-hidden="true" />
+                        ) : dir === "desc" ? (
+                          <ArrowDown className="h-3 w-3" aria-hidden="true" />
+                        ) : (
+                          <ChevronsUpDown className="h-3 w-3 opacity-40" aria-hidden="true" />
+                        )}
+                      </button>
+                    ) : (
+                      c.header
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -220,8 +309,8 @@ export function DataTable<T>({
             )}
             {pageRows.map((row, i) => (
               <tr key={i} className="border-b border-border last:border-0 hover:bg-black/[0.015]">
-                {columns.map((c) => (
-                  <td key={c.header} className="px-4 py-2.5 align-top">
+                {columns.map((c, ci) => (
+                  <td key={c.header} className={cn("px-4 py-2.5 align-top", ci === 0 && "max-md:sticky max-md:left-0 max-md:bg-card")}>
                     {c.accessor(row)}
                   </td>
                 ))}
@@ -230,6 +319,14 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
+      {moreRight && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-black/15 to-transparent"
+        />
+      )}
+      </div>
+      {moreRight && <p className="px-4 py-1.5 text-xs text-muted md:hidden">Swipe sideways to see more columns →</p>}
       {rows.length > 0 && (
         <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-sm text-muted">
           <span>
@@ -240,14 +337,16 @@ export function DataTable<T>({
           {pageCount > 1 && (
           <div className="flex gap-2">
             <button
-              className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40"
+              aria-label="Previous page"
+              className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40 max-md:min-h-10 max-md:px-4"
               disabled={currentPage === 0}
               onClick={() => setPage(Math.max(0, currentPage - 1))}
             >
               Prev
             </button>
             <button
-              className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40"
+              aria-label="Next page"
+              className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40 max-md:min-h-10 max-md:px-4"
               disabled={currentPage >= pageCount - 1}
               onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))}
             >

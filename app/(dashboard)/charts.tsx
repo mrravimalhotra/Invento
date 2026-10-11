@@ -11,7 +11,8 @@ import { formatNumber, formatQty } from "@/lib/utils";
 const BRAND = "#1f6f4e";
 const AMBER = "#b45309";
 const RED = "#b91c1c";
-const MUTED = "#94a3a0";
+// SCAN-P7-23: darkened from #94a3a0 (2.6:1 on white) to at least 3:1 for graphics.
+const MUTED = "#6b7f7b";
 // Two-round QC review (20 Sept 2026) — distinct color for the new
 // "checker_approved / Awaiting Review" slice, so it reads apart from the
 // pre-existing amber "Submitted" slice on the same pie.

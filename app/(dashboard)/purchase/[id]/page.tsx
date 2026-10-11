@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
+import { AuditHistoryLink } from "@/components/ui/audit-history-link";
 import { createClient } from "@/lib/supabase/server";
 import { canWrite } from "@/lib/constants/roles";
 import type { RawItemOption } from "../purchase-line-form";
@@ -77,6 +78,7 @@ export default async function PurchaseOrderDetailPage({
         rawItems={(rawItems ?? []) as RawItemOption[]}
         canEdit={canEdit}
         isSystemAdmin={isSystemAdmin}
+        historyLink={<AuditHistoryLink recordId={po.id} roles={user?.roles ?? []} />}
       />
     </div>
   );

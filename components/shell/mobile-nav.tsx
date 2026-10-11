@@ -13,13 +13,33 @@ import { NavList } from "./nav-list";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const openRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
   // While open: Esc closes, the page behind does not scroll, focus moves in.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      // SCAN-P7-23: Tab stays inside the menu while it is open.
+      if (e.key !== "Tab") return;
+      const items = panelRef.current?.querySelectorAll<HTMLElement>("a[href], button:not([disabled])");
+      if (!items || items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !panelRef.current?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !panelRef.current?.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+    const opener = openRef.current;
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -27,12 +47,15 @@ export function MobileNav() {
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
+      // ...and focus goes back to the button that opened it.
+      opener?.focus();
     };
   }, [open]);
 
   return (
     <div className="md:hidden">
       <button
+        ref={openRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open menu"
@@ -52,6 +75,7 @@ export function MobileNav() {
           className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
         />
         <aside
+          ref={panelRef}
           id="mobile-menu"
           role="dialog"
           aria-modal="true"

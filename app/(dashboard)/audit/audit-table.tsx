@@ -18,7 +18,12 @@ export type { AuditLogRow };
 
 export function AuditTable({ rows }: { rows: AuditLogRow[] }) {
   const columns: Column<AuditLogRow>[] = [
-    { header: "When", accessor: (r) => formatDateTime(r.changed_at), searchValue: (r) => formatDateTime(r.changed_at) },
+    {
+      header: "When",
+      accessor: (r) => formatDateTime(r.changed_at),
+      searchValue: (r) => formatDateTime(r.changed_at),
+      sortValue: (r) => new Date(r.changed_at).getTime(),
+    },
     { header: "Table", accessor: (r) => tableLabel(r.table_name), searchValue: (r) => tableLabel(r.table_name) },
     { header: "Record", accessor: (r) => recordLabel(r), searchValue: (r) => recordLabel(r) },
     {
@@ -55,6 +60,7 @@ export function AuditTable({ rows }: { rows: AuditLogRow[] }) {
     title: "Audit Log",
     filename: "audit-log",
     formats: ["excel"],
+    note: "This file holds the changes on the page shown. Use Download all matching for every change that matches the filters.",
     columns: [
       { header: "When", type: "datetime", value: (r) => r.changed_at },
       { header: "Table", value: (r) => tableLabel(r.table_name) },
@@ -63,6 +69,9 @@ export function AuditTable({ rows }: { rows: AuditLogRow[] }) {
       { header: "Changed By", value: (r) => changedByLabel(r) },
       { header: "Via", value: (r) => changedViaLabel(r.changed_via) },
       { header: "What changed", value: (r) => summarizeChange(r) },
+      // SCAN-P8-12: the values before and after, with names instead of ids.
+      { header: "Before", value: (r) => r.before_text ?? "" },
+      { header: "After", value: (r) => r.after_text ?? "" },
     ],
   };
 

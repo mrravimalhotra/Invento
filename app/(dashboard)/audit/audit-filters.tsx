@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Field, Input, Select } from "@/components/ui/form";
 import { todayIst } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { AUDIT_TABLE_OPTIONS } from "./audit-diff";
+import { AUDIT_ACTION_OPTIONS, AUDIT_TABLE_OPTIONS } from "./audit-diff";
 
 // Same server-side "GET form, submit on change" pattern as the Inventory
 // Ledger's LedgerFilters (app/(dashboard)/inventory/(tabs)/ledger-filters.tsx)
@@ -19,12 +19,20 @@ export function AuditFilters({
   table,
   from,
   to,
+  user,
+  action,
+  record,
+  users,
 }: {
   table: string;
   from: string;
   to: string;
+  user: string;
+  action: string;
+  record: string;
+  users: { id: string; name: string }[];
 }) {
-  const hasFilters = !!(table || from || to);
+  const hasFilters = !!(table || from || to || user || action || record);
 
   return (
     <form action="/audit" className="flex flex-wrap items-end gap-3 border-b border-border p-4">
@@ -42,6 +50,29 @@ export function AuditFilters({
             </option>
           ))}
         </Select>
+      </Field>
+      <Field label="Action" htmlFor="action">
+        <Select id="action" name="action" defaultValue={action} onChange={(e) => e.currentTarget.form?.requestSubmit()}>
+          <option value="">All actions</option>
+          {AUDIT_ACTION_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Changed by" htmlFor="user">
+        <Select id="user" name="user" defaultValue={user} onChange={(e) => e.currentTarget.form?.requestSubmit()}>
+          <option value="">Everyone</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Record (batch, AR, PO or code)" htmlFor="record">
+        <Input id="record" name="record" type="search" defaultValue={record} maxLength={60} placeholder="e.g. ARRM-0001/26" />
       </Field>
       <Field label="From" htmlFor="from">
         <Input id="from" name="from" type="date" defaultValue={from} max={to || todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />

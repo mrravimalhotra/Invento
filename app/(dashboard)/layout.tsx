@@ -47,10 +47,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen">
+      {/* SCAN-P7-23: keyboard users can jump past the menu. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[60] focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:ring-2 focus:ring-brand"
+      >
+        Skip to main content
+      </a>
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0">
         <Topbar user={user} />
-        <main className="flex-1 overflow-x-hidden p-4 md:p-6">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-x-hidden p-4 outline-none md:p-6">
           <Suspense fallback={null}>
             <FlashHost />
           </Suspense>

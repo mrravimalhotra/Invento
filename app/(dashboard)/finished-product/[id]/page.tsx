@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
+import { AuditHistoryLink } from "@/components/ui/audit-history-link";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -174,6 +175,7 @@ export default async function FinishedProductDetailPage({
         description={mfr ? `Built from ${mfr.code} · ${mfr.name} (recipe v${batch.mfr_version})` : `Recipe v${batch.mfr_version}`}
         action={
           <div className="flex items-center gap-2">
+            <AuditHistoryLink recordId={batch.id} roles={user?.roles ?? []} />
             {batch.is_legacy && <LegacyTag />}
             <Badge status={displayStatus}>{fpStatusLabel(displayStatus)}</Badge>
           </div>

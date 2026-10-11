@@ -14,7 +14,7 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-1 overflow-y-auto px-3 py-4">
+    <nav aria-label="Main menu" className="flex-1 overflow-y-auto px-3 py-4">
       {NAV_GROUPS.map((group) => (
         <div key={group.title} className="mb-4">
           <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
@@ -29,8 +29,9 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
                   <Link
                     href={item.href}
                     onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors max-md:min-h-10",
                       active
                         ? "bg-brand-light text-brand-dark font-medium"
                         : "text-foreground/80 hover:bg-black/5"

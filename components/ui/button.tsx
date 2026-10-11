@@ -13,8 +13,9 @@ const variantClasses: Record<Variant, string> = {
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: "px-3 py-1.5 text-sm",
-  md: "px-4 py-2 text-sm",
+  // SCAN-P7-24: at least 40 px high under 768 px (phone), unchanged above.
+  sm: "px-3 py-1.5 text-sm max-md:min-h-10",
+  md: "px-4 py-2 text-sm max-md:min-h-10",
 };
 
 const base =

@@ -85,6 +85,8 @@ Once you're signed in, you'll always see the same layout:
 - **Top bar (right)** — your name and assigned role(s), a live **low stock** alert badge when any item has fallen below its reorder threshold (click it to jump straight to Item Master), a **Profile** link, and **Sign out**.
 - **Main area** — the screen you're currently on.
 
+**Lists and tables.** Every list has a search box above it. On lists whose column headings show a small up/down mark, click the heading to sort by that column (click again to reverse, a third time to go back to the original order); the sort applies to the whole list, not just the page on screen, and to Excel and PDF downloads. On a phone the menu and buttons are larger, the first column stays in view while you swipe a wide list sideways, and a note appears when there is more to the right. Keyboard users can press Tab once on any page to reveal a **Skip to main content** link.
+
 At the bottom of every single page you'll find a **Feedback & change log** box — this is the fastest way to report something confusing or broken from exactly where you noticed it. See [Tester Feedback](#tester-feedback) for details.
 
 ### Your profile
@@ -574,23 +576,27 @@ This module is self-contained — it doesn't read or affect data from Purchase, 
 
 **Who can use it:** View-only, and restricted to System Admin and Super Auditor. Everyone else who opens the page sees an "Access restricted" message instead of the log.
 
-**What it's for:** A read-only history of who changed what, and when, for the handful of records where proving a decision later actually matters — Quality Control approvals, Finished Product batch status, Purchase Order submission, and MFR (manufacturing record) approvals. It shows the before-and-after values around each change, not just who last touched a record.
+**What it's for:** A read-only history of who changed what, and when, across the whole app — every create, edit and delete on masters, purchasing, QC, production, packaging, finished products, COA, stock corrections, company settings, opening stock, user roles and accounts. It shows the before-and-after values around each change, not just who last touched a record.
 
 **How to look up a change**
 1. Go to Audit Log.
-2. Optionally filter by table and/or date range using the filters at the top.
-3. Scan the list — each row shows When, Table, the affected Record (its own reference number, e.g. AR number, batch number, PO number, or MFR code), the Action (created/updated/deleted), who made the change, and a short summary of what changed (e.g. which status field flipped).
-4. Click a row to open its detail page, which shows a full before/after comparison for every field that changed, plus the raw stored data if you need the exact values.
+2. Narrow the list with the filters at the top: **Table**, **Action** (created, edited, deleted), **Changed by** (a person), **Record** (type a batch number, AR number, PO number, item code or vendor code), and a **From / To** date range. The list updates as you choose.
+3. Scan the list — each row shows When, Table, the affected Record, the Action, who made the change and how, and a short summary naming the fields that changed (for example "quantity 10 → 12"). Click a column heading to sort the page.
+4. Click **View** on a row to open its detail page: a full before/after comparison with field names in words, and people, items, vendors, batches and recipes shown by name instead of by code.
+5. The list shows 200 changes at a time, newest first; use **Older** and **Newer** at the bottom to move through them.
+
+**History on a record's own page:** the Item, Purchase Order, QC record, MFR and Finished Product batch pages show a **History** button (System Admin and Super Auditor only) that opens the Audit Log for that one record.
+
+**Download:** the **Excel** button above the list saves the page you are looking at; **Download all matching (Excel)** at the bottom saves every change that matches your filters (up to the newest 10,000; the file says so if there were more). The Excel files include Before and After columns.
 
 **Fields you'll be asked for**
-This is a read-only screen — there's nothing to fill in beyond the optional table and date filters on the list page.
+This is a read-only screen — there's nothing to fill in beyond the optional filters on the list page.
 
 **How it connects to the rest of the app**
-The log only covers four record types: Quality Control decisions, Finished Product batch status, Purchase Order submission, and MFR approvals — not every change made anywhere in the app. Every entry links back to the real record it's about.
+The log covers every business record in the app, and every entry links back to the real record it is about. Nobody can edit or delete a log row.
 
 **Good to know**
-- The list caps out at 500 rows per filter — narrow the date range or table if you're looking for something older or don't see it.
-- There's no export (CSV/PDF) from this list yet, unlike most other list screens in the app.
+- The Record box matches the text you type against the record's own reference (batch number, AR number, PO number, code, name) or its full internal id; it does not look inside other fields.
 - If you can view the page but see "Access restricted," it means your role isn't System Admin or Super Auditor — ask an admin if you need audit access.
 
 ---
@@ -735,7 +741,7 @@ Every "Add," "Edit," and "Delete" control throughout Invento checks the roles as
 1. Go to Admin → Reports.
 2. Scroll to the report card you need: **RM Stock Report**, **QC Register**, **FP Register**, or **Purchase Register**.
 3. Optionally, narrow it down using the **From** / **To** date fields on that card (see below for which date each one filters on).
-4. Use the table's built-in search to find specific rows on screen. The tables cannot be sorted by column.
+4. Use the table's built-in search to find specific rows on screen, and click a column heading (where it shows the up/down mark) to sort.
 5. Click **Download Excel** or **Download PDF** to export the rows that pass your date filter. The search box only narrows what you see on screen; it does not change what is downloaded.
 
 **Fields you'll be asked for**

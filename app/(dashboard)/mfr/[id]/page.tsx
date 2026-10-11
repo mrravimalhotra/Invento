@@ -3,6 +3,7 @@ import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
+import { AuditHistoryLink } from "@/components/ui/audit-history-link";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -142,7 +143,12 @@ export default async function MfrDetailPage({
       <PageHeader
         title={`${def.code} · ${def.name}`}
         description={finishedProduct ? finishedProduct.item_code : `No Finished Product item — ${noItemReason}`}
-        action={<PrintMfrButton data={mfrDocxData} filename={mfrDocxFilename(def.name)} />}
+        action={
+          <div className="flex items-center gap-2">
+            <AuditHistoryLink recordId={def.id} roles={user?.roles ?? []} />
+            <PrintMfrButton data={mfrDocxData} filename={mfrDocxFilename(def.name)} />
+          </div>
+        }
       />
 
       {coa === "failed" && (

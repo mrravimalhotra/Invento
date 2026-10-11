@@ -4,6 +4,7 @@ import {
   Children,
   isValidElement,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -102,8 +103,14 @@ export function Select({
   required,
   name,
   id,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
   ...rest
 }: SelectHTMLAttributes<HTMLSelectElement>) {
+  // SCAN-P7-22: the visible text box carries the `id` (so a <label for> names it and a click on
+  // the label focuses it); the hidden native select gets a derived id.
+  const autoId = useId();
+  const baseId = id ?? autoId;
   const options = useMemo(() => optionsFromChildren(children), [children]);
   const [hideLegacy] = useHideLegacy();
 
@@ -227,7 +234,7 @@ export function Select({
       <select
         ref={selectRef}
         name={name}
-        id={id}
+        id={id ? `${id}-native` : undefined}
         required={required}
         disabled={disabled}
         value={currentValue}
@@ -254,9 +261,13 @@ export function Select({
         <input
           ref={inputRef}
           type="text"
+          id={id}
           role="combobox"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           aria-expanded={open}
-          aria-controls={id ? `${id}-listbox` : undefined}
+          aria-controls={open ? `${baseId}-listbox` : undefined}
+          aria-activedescendant={open && visibleOptions.length > 0 ? `${baseId}-opt-${safeHighlight}` : undefined}
           aria-autocomplete="list"
           autoComplete="off"
           disabled={disabled}
@@ -311,7 +322,7 @@ export function Select({
         createPortal(
           <ul
             ref={listRef}
-            id={id ? `${id}-listbox` : undefined}
+            id={`${baseId}-listbox`}
             role="listbox"
             style={{ position: "fixed", top: coords.top, left: coords.left, width: coords.width }}
             className="z-50 max-h-56 overflow-auto rounded-md border border-border bg-white py-1 text-sm shadow-lg"
@@ -320,6 +331,7 @@ export function Select({
             {visibleOptions.map((o, i) => (
               <li
                 key={o.value}
+                id={`${baseId}-opt-${i}`}
                 role="option"
                 aria-selected={o.value === currentValue}
                 onMouseDown={(e) => {

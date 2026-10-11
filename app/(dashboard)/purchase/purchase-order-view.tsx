@@ -39,12 +39,14 @@ export function PurchaseOrderView({
   rawItems,
   canEdit,
   isSystemAdmin,
+  historyLink,
 }: {
   po: PurchaseOrderHeader;
   lineRows: LineRow[];
   rawItems: RawItemOption[];
   canEdit: boolean;
   isSystemAdmin: boolean;
+  historyLink?: React.ReactNode;
 }) {
   const isDraft = po.status === "draft";
   // FB-0018: lines are only addable/editable/deletable while the PO is
@@ -60,6 +62,7 @@ export function PurchaseOrderView({
         description={`Vendor: ${po.vendor?.name ?? "—"} (${po.vendor?.vendor_code ?? "—"}) · Invoice ${po.invoice_number} dated ${formatDate(
           po.invoice_date
         )}${po.received_on ? ` · Received on ${formatDate(po.received_on)}` : ""}`}
+        action={historyLink}
       />
       {po.vendor && (
         <div className="-mt-3 mb-5">
