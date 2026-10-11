@@ -116,6 +116,9 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
 // approval (Round 2 still has to clear it), so asking for a retest period
 // this early would be premature; it's collected at Round 2 instead, right
 // when it starts to matter.
+// SCAN-P10-02: shown when two people decide the same record at the same moment.
+const ALREADY_DECIDED = "Someone else has just made this decision. Refresh the page to see the result.";
+
 export async function reviewQcRound1(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "qc_review_round1")) return { error: "Not authorized." };
@@ -137,7 +140,7 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
     return { error: "This record has already had its first QC decision and cannot be changed." };
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("quality_checks")
     .update({
       status,
@@ -145,8 +148,13 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
       checker_by: user!.id,
       checker_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    // SCAN-P10-02: only while still waiting for this decision. If someone else
+    // decided it in the meantime, nothing is overwritten.
+    .eq("status", "submitted")
+    .select("id");
   if (error) return { error: friendlyDbError(error) };
+  if (!updated || updated.length === 0) return { error: ALREADY_DECIDED };
 
   revalidatePath("/qc");
   revalidatePath(`/qc/${id}`);
@@ -227,7 +235,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
     return { error: "You made the first QC decision — a different QC Reviewer must make the final decision." };
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("quality_checks")
     .update({
       status,
@@ -237,8 +245,12 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
       reviewed_by: user!.id,
       reviewed_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    // SCAN-P10-02: only while still waiting for the final decision.
+    .eq("status", "checker_approved")
+    .select("id");
   if (error) return { error: friendlyDbError(error) };
+  if (!updated || updated.length === 0) return { error: ALREADY_DECIDED };
 
   revalidatePath("/qc");
   revalidatePath(`/qc/${id}`);
