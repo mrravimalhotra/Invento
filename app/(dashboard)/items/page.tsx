@@ -9,6 +9,7 @@ import Link from "next/link";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { ItemsTable, type ItemRow } from "./items-table";
 import { lowStockCheck } from "@/lib/low-stock";
+import { LoadWarning } from "@/components/ui/load-warning";
 
 type ItemQueryRow = {
   id: string;
@@ -48,7 +49,7 @@ export default async function ItemsPage({
   // list page that must show *every* row return more than the cap.
   // fetchAllRows pages both queries in max-rows-sized `.range()` windows
   // until each is exhausted, same fix already shipped for Stock Position.
-  const [{ data: itemsData }, { data: balances }, { data: usables }] = await Promise.all([
+  const [{ data: itemsData, error: itemsError }, { data: balances, error: balancesError }, { data: usables, error: usablesError }] = await Promise.all([
     fetchAllRows<ItemQueryRow>((from, to) => {
       let query = supabase
         .from("items")
@@ -113,6 +114,7 @@ export default async function ItemsPage({
         description="Raw materials, finished products, and packaging materials."
         action={canCreate ? <LinkButton href="/items/new">New item</LinkButton> : undefined}
       />
+      <LoadWarning errors={[itemsError, balancesError, usablesError]} what="the item list" />
       <div className="mb-4 flex gap-1.5">
         {tabs.map((t) => (
           <Link

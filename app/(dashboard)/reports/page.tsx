@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadWarning } from "@/components/ui/load-warning";
 import { latestQcByBatch, resolveDisplayStatus } from "@/lib/finished-product-status";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import {
@@ -137,7 +138,7 @@ export default async function ReportsPage() {
   // "In Process" even for batches long since approved or rejected.
   const fpBatchRows = (fpRes.data ?? []) as unknown as (FpRow & { id: string })[];
   // ACC-08: looked up in chunks (see fetchByIdChunks).
-  const { data: fpQcRows } = await fetchByIdChunks(
+  const { data: fpQcRows, error: fpQcError } = await fetchByIdChunks(
     fpBatchRows.map((r) => r.id),
     (chunk) =>
       supabase
@@ -156,6 +157,10 @@ export default async function ReportsPage() {
       <PageHeader
         title="Reports"
         description="Filterable registers with a printable PDF export — replaces the old baseline's permanent 'Coming soon' placeholder."
+      />
+      <LoadWarning
+        what="the reports"
+        errors={[itemsRes.error, balancesRes.error, usableRes.error, qcRes.error, fpRes.error, purchaseRes.error, fpQcError]}
       />
       <div className="flex flex-col gap-6">
         <RmStockReport rows={rmStockRows} />

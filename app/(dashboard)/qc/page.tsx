@@ -8,6 +8,7 @@ import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QcTable, type QcListRow } from "./qc-table";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
+import { LoadWarning } from "@/components/ui/load-warning";
 import { getOpeningLineIds } from "@/lib/opening-stock/legacy-lines";
 import { DueForRetest, type DueForRetestLine } from "./due-for-retest";
 import { AwaitingQc, type AwaitingQcLine } from "./awaiting-qc";
@@ -27,7 +28,7 @@ export default async function QcListPage() {
   const user = await getCurrentUser();
   const supabase = await createClient();
 
-  const [{ data }, awaitingLines, awaitingFpLines, dueLines, awaitingProductionLines, productionDueLines, inProgress] = await Promise.all([
+  const [{ data, error: listError }, awaitingLines, awaitingFpLines, dueLines, awaitingProductionLines, productionDueLines, inProgress] = await Promise.all([
     // FB-0027 (12 Sept 2026): a Finished Product's QC record never gets an
     // `item_id` (submitFinishedProductToQc() only sets
     // finished_product_batch_id — see lib/actions/finished-product.ts), so
@@ -63,6 +64,14 @@ export default async function QcListPage() {
         description="Assign Records (AR) for incoming batches and the review decision that gates production — DESIGN.md §4.5 / §7.2."
         action={canWrite(user?.roles ?? [], "qc_assign") ? <LinkButton href="/qc/new">New AR</LinkButton> : null}
       />
+
+      <LoadWarning errors={[listError]} what="the QC list" />
+      {rows.length >= QC_LIMIT && (
+        <p className="mb-4 rounded-md border border-amber/40 bg-amber-bg px-3 py-2 text-sm text-amber">
+          The QC list below shows only the newest {QC_LIMIT.toLocaleString("en-IN")} records. Older records exist but are not in this list,
+          its search or its downloads. To find an older AR, use Batch Trace.
+        </p>
+      )}
 
       <BatchesInProgress rows={inProgress.rows} total={inProgress.total} />
 

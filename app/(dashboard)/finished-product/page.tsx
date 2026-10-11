@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { latestQcByBatch } from "@/lib/finished-product-status";
 import { FinishedProductTable, type FpRow } from "./finished-product-table";
+import { LoadWarning } from "@/components/ui/load-warning";
 
 type FpQueryRow = {
   id: string;
@@ -35,7 +36,7 @@ export default async function FinishedProductListPage() {
   // before showing "cancelled" — an acceptable, self-correcting tradeoff
   // for a lazy background cleanup, not a correctness issue for anything
   // else on this page.
-  const [, { data }] = await Promise.all([
+  const [, { data, error: loadError }] = await Promise.all([
     supabase.rpc("expire_stale_fp_drafts"),
     fetchAllRows((from, to) =>
       supabase
@@ -54,7 +55,7 @@ export default async function FinishedProductListPage() {
 
   // ACC-08: looked up in chunks — one .in() with every batch id is too long
   // a URL once there are many batches.
-  const { data: qcRows } = await fetchByIdChunks(
+  const { data: qcRows, error: qcLoadError } = await fetchByIdChunks(
     fpRows.map((r) => r.id),
     (chunk) =>
       supabase
@@ -75,6 +76,7 @@ export default async function FinishedProductListPage() {
         description="Production batches built from an approved MFR — recipe scaled to target quantity, RM batches drawn FIFO from QC-Approved stock only."
         action={canCreate ? <LinkButton href="/finished-product/new">New batch</LinkButton> : undefined}
       />
+      <LoadWarning errors={[loadError, qcLoadError]} what="the batch list" />
       <Card>
         <FinishedProductTable rows={rows} />
       </Card>

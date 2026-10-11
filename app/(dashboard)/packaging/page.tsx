@@ -9,6 +9,7 @@ import { formatDate, formatNumber, fpBatchShort } from "@/lib/utils";
 import { materialsSummary, rmFpBatchesText, rmFpItemCodesText } from "@/lib/packaging-materials";
 import { PackagingExportButton } from "./packaging-export-button";
 import { PackagingTable, type PackagingRow } from "./packaging-table";
+import { LoadWarning } from "@/components/ui/load-warning";
 
 export default async function PackagingListPage({
   searchParams,
@@ -24,7 +25,7 @@ export default async function PackagingListPage({
   // one issue can now carry several materials (bottles, caps, labels, …),
   // each with its own quantity/unit — embedded here in place of the old
   // singular items(name) FK read off packaging_item_id.
-  const { data } = await fetchAllRows((from, to) =>
+  const { data, error: loadError } = await fetchAllRows((from, to) =>
     supabase
       .from("packaging_issues")
       .select(
@@ -65,6 +66,7 @@ export default async function PackagingListPage({
           </div>
         }
       />
+      <LoadWarning errors={[loadError]} what="the packaging list" />
       {createdCount > 0 && (
         <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
           {createdCount === 1

@@ -3,6 +3,7 @@ import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { toIstDateString } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { LabelPicker, type RmRecord, type FpRecord } from "./label-picker";
+import { LoadWarning } from "@/components/ui/load-warning";
 
 // FB-0024 fix (11 Sept 2026): every other belongs-to embed in this codebase
 // (Purchase, Reports, QC — see e.g. purchase/[id]/page.tsx's
@@ -72,7 +73,7 @@ export default async function LabelsPage() {
   // chunks) — before, the whole purchase_batch_status view was read in one
   // request, so most batches fell outside the 1,000 returned and showed as
   // "not submitted" with a blank retest period on the Approved label.
-  const [{ data: linesData }, { data: fpData }] = await Promise.all([
+  const [{ data: linesData, error: linesError }, { data: fpData, error: fpError }] = await Promise.all([
     // Raw material only (2 Sept 2026): the three purchase-line templates here
     // (Approved Raw Material / RM Under Test / In-process) are raw-material
     // labels; `items!inner(...)` is required for `.eq("items.category", ...)`
@@ -187,6 +188,7 @@ export default async function LabelsPage() {
         title="Label Printing"
         description="Print compact labels for raw material and finished product batches — Approved Raw Material, Under Test, In-process, and Finished Product templates."
       />
+      <LoadWarning errors={[linesError, fpError]} what="the batch pickers" />
       <LabelPicker rmRecords={rmRecords} fpRecords={fpRecords} />
     </div>
   );

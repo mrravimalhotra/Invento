@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CoaTable, type CoaRow } from "./coa-table";
+import { LoadWarning } from "@/components/ui/load-warning";
 
 export default async function CoaListPage({
   searchParams,
@@ -17,7 +18,7 @@ export default async function CoaListPage({
   const user = await getCurrentUser();
   const supabase = await createClient();
 
-  const { data } = await fetchAllRows((from, to) =>
+  const { data, error: loadError } = await fetchAllRows((from, to) =>
     supabase
       .from("coa_records")
       .select(
@@ -44,6 +45,7 @@ export default async function CoaListPage({
           </div>
         }
       />
+      <LoadWarning errors={[loadError]} what="the certificate list" />
       {created === "1" && (
         <p className="mb-4 rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
           New COA has been successfully added.

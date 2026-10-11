@@ -6,10 +6,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { MfrTable, type MfrRow } from "./mfr-table";
+import { LoadWarning } from "@/components/ui/load-warning";
 
 export default async function MfrListPage() {
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
-  const { data } = await fetchAllRows((from, to) =>
+  const { data, error: loadError } = await fetchAllRows((from, to) =>
     supabase
       .from("mfr_definitions")
       .select(
@@ -30,6 +31,7 @@ export default async function MfrListPage() {
         description="Recipes for finished products — editable only before approval; once approved, a recipe is locked."
         action={canCreate ? <LinkButton href="/mfr/new">New MFR</LinkButton> : undefined}
       />
+      <LoadWarning errors={[loadError]} what="the MFR list" />
       <Card>
         <MfrTable rows={rows} />
       </Card>
