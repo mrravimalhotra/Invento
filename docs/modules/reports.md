@@ -3,6 +3,13 @@
 Route: `/reports`. Cross-reference: `docs/DESIGN.md` §4.14 (Dashboard &
 Reports) and §9 (Known simplifications).
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - `/reports` has four registers: RM Stock, QC, FP and Purchase. Each can be filtered by date (not RM Stock) and downloaded as **Excel and as PDF**. The statement further down that there is no native Excel export is **superseded**; Excel exports numbers and dates as real numbers and dates.
+> - Purchase Register shows only submitted, active lines and has a Unit column. QC Register has a Type column. RM Stock Report has a Usable Now column and its Low stock flag compares the threshold with usable stock.
+> - In the QC, FP and Purchase registers, opening-stock (legacy) rows are marked in a Source column in downloads.
+> - Data is fetched past the 1,000-row cap with a stable order.
+> - See the dated sections below for the reasons.
+
 ## Purpose
 
 The old baseline's Reports screen was a placeholder that said "Coming soon"
@@ -106,7 +113,7 @@ Date filter is on `purchase_lines.created_at` ("Received") — the natural
 "when was this batch received" event, distinct from `expiry_date` which is
 already its own displayed column.
 
-## Export format
+## Export format (original; superseded, Excel download now exists, see the Current behaviour note)
 
 The Download PDF button produces a real PDF (via `jsPDF` +
 `jspdf-autotable`, through the shared `downloadPdfTable()` helper — same

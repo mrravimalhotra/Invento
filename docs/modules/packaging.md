@@ -2,6 +2,14 @@
 
 DESIGN.md cross-reference: §4.10.
 
+> **Current behaviour (read this first; the sections below are a dated history).**
+> - Every issue is a **pack**. The Pack / Repack / Unpack choice was removed (29 Sept 2026, migration 0079, ACC-05); the database accepts only `pack`. Descriptions of repack and unpack further down are **superseded**.
+> - Only **approved** finished-product batches can be issued. Departments: production, R&D, store.
+> - An issue and its packaging-material lines are saved in **one step** (`create_packaging_issue()`); an issue is limited to what is left of that batch (yield less samples, less earlier issues).
+> - Packaging materials come out of their purchase batches **oldest first (FIFO)** and every ledger row records its batch.
+> - The list page has a Packing Register PDF; several lines can be entered in one save (Store, R&D and Production).
+> - See "Packaging integrity (29 Sept 2026)" and the later dated sections for the reasons and details.
+
 **Newly-promoted module.** Like BMR, this was a "Not Yet Built" table row
 until the second requirements-review pass found real source documents for
 it — there is no packaging module in the first-draft codebase, so this was
@@ -21,7 +29,7 @@ adapted from prior code. Field spec sources:
   `transaction_type` exists as a first-class `pack` / `repack` / `unpack`
   field instead of `packaging_issues` only ever meaning "pack".
 
-## Screens
+## Screens (original design; see the Current behaviour note above for what changed)
 
 ### List — `/packaging`
 - `DataTable` of every `packaging_issues` row, newest first by
