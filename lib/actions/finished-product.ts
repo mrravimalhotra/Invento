@@ -1,5 +1,6 @@
 "use server";
 
+import { quantityLimitError } from "@/lib/limits";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -72,6 +73,8 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
     return { error: "Target quantity must be greater than 0." };
   }
   if (!unit) return { error: "Unit is required." };
+  const targetTooBig = quantityLimitError("Target quantity", targetQty, unit);
+  if (targetTooBig) return { error: targetTooBig };
   if (!batchStartDate) return { error: "Batch start date is required." };
 
   const componentsOrError = parseComponents(formData);

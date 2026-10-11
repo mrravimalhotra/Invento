@@ -42,6 +42,7 @@
 // Purchase Type category, is rejected with a row error asking for a more
 // specific name rather than silently guessing which one was meant.
 
+import { quantityLimitError, unitPriceLimitError } from "@/lib/limits";
 import { normName } from "@/lib/name-rules";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
@@ -1020,6 +1021,11 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
       rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Unit "${unitRaw}" isn't a valid unit (${UNITS.join(", ")}).`);
       return;
     }
+    const quantityTooBig = quantityLimitError("Quantity", quantity, unit);
+    if (quantityTooBig) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): ${quantityTooBig}`);
+      return;
+    }
 
     // QC/Stability/R&D sampling only applies to Raw Material lines — same
     // rule the Purchase line form itself enforces by hiding these fields
@@ -1106,6 +1112,11 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
       const n = Number(unitPriceRaw);
       if (Number.isNaN(n) || n < 0) {
         rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Unit Price must be a number ≥ 0.`);
+        return;
+      }
+      const priceTooBig = unitPriceLimitError(n);
+      if (priceTooBig) {
+        rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): ${priceTooBig}`);
         return;
       }
       unit_price = n;

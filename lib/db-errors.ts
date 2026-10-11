@@ -85,6 +85,10 @@ function mapKnown(code: string, message: string): string | null {
       }
       return "A linked record (such as the item, vendor or batch) no longer exists. Refresh the page and try again.";
     case "23514":
+      // SCAN-P10-05: the *_limit constraints (migration 0116) get their own wording.
+      if (/_limit"/.test(message)) {
+        return "A quantity, price or text is above the largest value the app accepts. Check for an extra zero, or shorten an over-long text.";
+      }
       return "One of the values isn't allowed — check that quantities aren't negative or above what's available.";
     case "23502":
       return "A required field is missing.";

@@ -1,5 +1,6 @@
 "use server";
 
+import { NAME_MAX, STEP_MAX, quantityLimitError, textLimitError } from "@/lib/limits";
 import { UNITS } from "@/lib/constants/units";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -30,6 +31,8 @@ function parseLines(formData: FormData): LineInput[] | { error: string } {
       return { error: `Line ${i + 1}: quantity must be greater than 0.` };
     }
     if (!unit) return { error: `Line ${i + 1}: unit is required.` };
+    const lineTooBig = quantityLimitError(`Line ${i + 1}: quantity`, quantity, unit);
+    if (lineTooBig) return { error: lineTooBig };
     lines.push({ itemId, quantity, unit });
   }
   if (lines.length === 0) return { error: "Add at least one recipe line." };
@@ -64,6 +67,7 @@ function parseLines(formData: FormData): LineInput[] | { error: string } {
 //    fact remembered to clean up.
 export async function createMfrDefinition(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get("name") || "").trim();
+  { const limitError = textLimitError("Name", name, NAME_MAX); if (limitError) return { error: limitError }; }
   const batchSizeQty = Number(formData.get("batch_size_qty"));
   const batchSizeUnit = String(formData.get("batch_size_unit") || "");
   const itemTypeIdRaw = String(formData.get("item_type_id") || "");
@@ -81,6 +85,8 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
     return { error: "Batch size must be greater than 0." };
   }
   if (!batchSizeUnit) return { error: "Batch size unit is required." };
+  const batchTooBig = quantityLimitError("Batch size", batchSizeQty, batchSizeUnit);
+  if (batchTooBig) return { error: batchTooBig };
   // SCAN-P2-09: the form's drop-down only offers the app's units; the database now checks too.
   if (!UNITS.includes(batchSizeUnit as (typeof UNITS)[number])) return { error: `Batch size unit must be one of: ${UNITS.join(", ")}.` };
   if (market !== "domestic" && market !== "export") return { error: "Market must be Domestic or Export." };
@@ -186,6 +192,8 @@ function parseProcedureSteps(formData: FormData): ProcedureStepInput[] | { error
     if (!stage && !operation) continue; // removed row
     if (!stage) return { error: `Step ${i + 1}: stage is required.` };
     if (!operation) return { error: `Step ${i + 1}: operation is required.` };
+    const stepLimit = textLimitError(`Step ${i + 1}: operation`, operation, STEP_MAX);
+    if (stepLimit) return { error: stepLimit };
     steps.push({ stage, operation });
   }
   return steps;

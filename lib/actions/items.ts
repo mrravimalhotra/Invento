@@ -1,5 +1,6 @@
 "use server";
 
+import { NAME_MAX, textLimitError } from "@/lib/limits";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -41,6 +42,7 @@ function numOrNull(formData: FormData, key: string): number | null | { error: st
 
 export async function createItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get("name") || "").trim();
+  { const limitError = textLimitError("Name", name, NAME_MAX); if (limitError) return { error: limitError }; }
   const botanical_alias = String(formData.get("botanical_alias") || "").trim() || null;
   const category = String(formData.get("category") || "");
   const item_type_id = String(formData.get("item_type_id") || "") || null;
@@ -147,6 +149,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
 
 export async function updateItem(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get("name") || "").trim();
+  { const limitError = textLimitError("Name", name, NAME_MAX); if (limitError) return { error: limitError }; }
   const botanical_alias = String(formData.get("botanical_alias") || "").trim() || null;
   const item_type_id = String(formData.get("item_type_id") || "") || null;
   const unit = String(formData.get("unit") || "") || null;

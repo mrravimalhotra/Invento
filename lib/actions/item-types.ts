@@ -1,5 +1,6 @@
 "use server";
 
+import { NAME_MAX, textLimitError } from "@/lib/limits";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -11,6 +12,7 @@ export type ActionState = { error?: string; success?: string } | undefined;
 
 export async function createItemType(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const description = String(formData.get("description") || "").trim();
+  { const limitError = textLimitError("Description", description, NAME_MAX); if (limitError) return { error: limitError }; }
   if (!description) return { error: "Description is required." };
 
   const user = await getCurrentUser();
@@ -37,6 +39,7 @@ export async function updateItemType(
   formData: FormData
 ): Promise<ActionState> {
   const description = String(formData.get("description") || "").trim();
+  { const limitError = textLimitError("Description", description, NAME_MAX); if (limitError) return { error: limitError }; }
   const active = formData.get("active") === "on";
   if (!description) return { error: "Description is required." };
 

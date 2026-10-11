@@ -1,5 +1,6 @@
 "use server";
 
+import { firstLimitError, quantityLimitError, unitPriceLimitError } from "@/lib/limits";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -159,6 +160,30 @@ export async function previewBatchNumber(itemId: string): Promise<{ batchNumber?
   return { batchNumber: data as string };
 }
 
+// SCAN-P10-05: the most recent purchase of this item, so the line form can say
+// "this is 10 times the last purchase" before a stray extra zero is saved. It only
+// informs; it never blocks. `excludeLineId` keeps an edited line from comparing with itself.
+export async function lastPurchaseForItem(
+  itemId: string,
+  excludeLineId?: string,
+): Promise<{ quantity: number; unit: string } | null> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "purchase")) return null;
+  if (!itemId) return null;
+  const supabase = await createClient();
+  let q = supabase
+    .from("purchase_lines")
+    .select("quantity, unit")
+    .eq("item_id", itemId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1);
+  if (excludeLineId) q = q.neq("id", excludeLineId);
+  const { data } = await q.maybeSingle();
+  if (!data) return null;
+  return { quantity: Number(data.quantity), unit: String(data.unit) };
+}
+
 // FB-0017 (2 Sept 2026): qc_qty/stability_qty/rnd_qty are entered in
 // `sample_unit`, which can differ from the line's own `unit` (e.g. QC qty
 // in "g" while the line is in "kg") — see purchase-line-form.tsx. The
@@ -286,6 +311,8 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   if (qc_qty + stability_qty + rnd_qty > quantity) {
     return { error: "QC + Stability + R&D quantity cannot exceed the received quantity." };
   }
+  const limitError = firstLimitError(quantityLimitError("Quantity", quantity, unit), unitPriceLimitError(unit_price));
+  if (limitError) return { error: limitError };
 
   const supabase = await createClient();
 
@@ -491,6 +518,8 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
   if (qc_qty + stability_qty + rnd_qty > quantity) {
     return { error: "QC + Stability + R&D quantity cannot exceed the received quantity." };
   }
+  const limitError = firstLimitError(quantityLimitError("Quantity", quantity, unit), unitPriceLimitError(unit_price));
+  if (limitError) return { error: limitError };
 
   const { error } = await supabase
     .from("purchase_lines")

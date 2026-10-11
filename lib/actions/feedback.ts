@@ -1,5 +1,6 @@
 "use server";
 
+import { TEXT_MAX } from "@/lib/limits";
 import { z } from "zod";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { revalidatePath } from "next/cache";
@@ -36,7 +37,7 @@ const submitSchema = z.object({
   pagePath: z.string().trim().min(1),
   pageLabel: z.string().trim().min(1),
   urlPath: z.string().trim().min(1),
-  observation: z.string().trim().min(5, "Please describe the observation in a bit more detail."),
+  observation: z.string().trim().min(5, "Please describe the observation in a bit more detail.").max(TEXT_MAX, "The observation is too long (limit 2,000 characters)."),
 });
 
 export async function submitFeedback(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -101,7 +102,7 @@ export async function listPageFeedback(pagePath: string): Promise<FeedbackList> 
 // see 0017_feedback_owner_crud.sql for why. This never touches
 // category/status/claude_notes — those stay admin-only via triageFeedback().
 const updateOwnSchema = z.object({
-  observation: z.string().trim().min(5, "Please describe the observation in a bit more detail."),
+  observation: z.string().trim().min(5, "Please describe the observation in a bit more detail.").max(TEXT_MAX, "The observation is too long (limit 2,000 characters)."),
 });
 
 export async function updateOwnFeedback(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {

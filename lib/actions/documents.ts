@@ -1,5 +1,6 @@
 "use server";
 
+import { NAME_MAX, textLimitError } from "@/lib/limits";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -12,6 +13,7 @@ export type ActionState = { error?: string; success?: string } | undefined;
 export async function createDocument(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const docType = String(formData.get("doc_type") || "");
   const title = String(formData.get("title") || "").trim();
+  { const limitError = textLimitError("Title", title, NAME_MAX); if (limitError) return { error: limitError }; }
   const revisionRaw = String(formData.get("revision_number") || "0").trim();
   const fileUrl = String(formData.get("file_url") || "").trim();
   const effectiveDate = String(formData.get("effective_date") || "").trim();

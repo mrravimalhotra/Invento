@@ -1,5 +1,6 @@
 "use server";
 
+import { NAME_MAX } from "@/lib/limits";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { firstDateError, futureDateError, notAfterDateError } from "@/lib/date-rules";
@@ -15,7 +16,7 @@ export type ActionState = { error?: string; success?: string } | undefined;
 const CALIBRATION_STATUSES = ["calibrated", "due", "not_applicable"] as const;
 
 const equipmentSchema = z.object({
-  name: z.string().trim().min(1, "Name is required."),
+  name: z.string().trim().min(1, "Name is required.").max(NAME_MAX, "Name is too long (limit 200 characters)."),
   room_no: z.string().trim().optional(),
   section: z.string().trim().optional(),
   asset_id: z.string().trim().optional(),

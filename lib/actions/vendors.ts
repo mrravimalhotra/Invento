@@ -1,5 +1,6 @@
 "use server";
 
+import { ADDRESS_MAX, NAME_MAX } from "@/lib/limits";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -12,8 +13,8 @@ import { STALE_MESSAGE, applyLoadedAt, readLoadedAt } from "@/lib/stale-check";
 export type ActionState = { error?: string; success?: string } | undefined;
 
 const vendorSchema = z.object({
-  name: z.string().trim().min(1, "Name is required."),
-  address: z.string().trim().optional(),
+  name: z.string().trim().min(1, "Name is required.").max(NAME_MAX, "Name is too long (limit 200 characters)."),
+  address: z.string().trim().max(ADDRESS_MAX, "Address is too long (limit 500 characters).").optional(),
   mobile: z.string().trim().optional(),
   phone: z.string().trim().optional(),
   email: z

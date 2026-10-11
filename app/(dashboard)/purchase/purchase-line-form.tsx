@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { UNITS, compatibleUnits, convertUnit, entryUnitsFor } from "@/lib/constants/units";
 import { formatNumber, isLegacyCode, formatQty } from "@/lib/utils";
 import type { LineRow } from "./[id]/purchase-lines-table";
+import { BigQuantityNotice, isMuchLargerThanLast, useLastPurchase } from "./big-quantity-notice";
 
 export type RawItemOption = {
   id: string;
@@ -165,6 +166,12 @@ export function PurchaseLineForm({
   }
 
   const qty = Number(quantity) || 0;
+  const last = useLastPurchase(itemId);
+  const bigVsLast = isMuchLargerThanLast(qty, unit, last);
+  const bigKey = `${itemId}|${quantity}|${unit}`;
+  const [confirmedKey, setConfirmedKey] = useState("");
+  const bigConfirmed = confirmedKey === bigKey;
+  const needsBigConfirm = bigVsLast && !bigConfirmed;
   const price = Number(unitPrice) || 0;
   const gst = Number(gstPct) || 0;
   // SCAN-P10-06: the same paisa rounding as the order page and the downloads.
@@ -355,6 +362,10 @@ export function PurchaseLineForm({
         </p>
       )}
 
+      {bigVsLast && last && (
+        <BigQuantityNotice last={last} confirmed={bigConfirmed} onConfirmedChange={(v) => setConfirmedKey(v ? bigKey : "")} />
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Unit Price (₹)" htmlFor="unit_price" required>
           <Input
@@ -401,7 +412,7 @@ export function PurchaseLineForm({
       </div>
 
       <div>
-        <Button type="submit" disabled={pending || overSampled}>
+        <Button type="submit" disabled={pending || overSampled || needsBigConfirm}>
           {pending ? "Adding…" : "Add line"}
         </Button>
       </div>
@@ -438,6 +449,12 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
   }, [state]);
 
   const qty = Number(quantity) || 0;
+  const last = useLastPurchase(line.item_id, line.id);
+  const bigVsLast = isMuchLargerThanLast(qty, unit, last);
+  const bigKey = `${line.id}|${quantity}|${unit}`;
+  const [confirmedKey, setConfirmedKey] = useState("");
+  const bigConfirmed = confirmedKey === bigKey;
+  const needsBigConfirm = bigVsLast && !bigConfirmed;
   const price = Number(unitPrice) || 0;
   const gst = Number(gstPct) || 0;
   // SCAN-P10-06: the same paisa rounding as the order page and the downloads.
@@ -570,6 +587,10 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
         </p>
       )}
 
+      {bigVsLast && last && (
+        <BigQuantityNotice last={last} confirmed={bigConfirmed} onConfirmedChange={(v) => setConfirmedKey(v ? bigKey : "")} />
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Unit Price (₹)" htmlFor="unit_price" required>
           <Input
@@ -613,7 +634,7 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
       </div>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={pending || overSampled}>
+        <Button type="submit" disabled={pending || overSampled || needsBigConfirm}>
           {pending ? "Saving…" : "Save changes"}
         </Button>
         <Button type="button" variant="secondary" onClick={onDone} disabled={pending}>

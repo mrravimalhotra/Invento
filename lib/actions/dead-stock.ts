@@ -1,5 +1,6 @@
 "use server";
 
+import { NAME_MAX, TEXT_MAX } from "@/lib/limits";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { beforeDateError, firstDateError, futureDateError } from "@/lib/date-rules";
@@ -16,7 +17,7 @@ const numeric = (label: string) =>
   z.coerce.number({ error: `${label} must be a number.` }).nonnegative(`${label} can't be negative.`);
 
 const deadStockSchema = z.object({
-  article_name: z.string().trim().min(1, "Name of the article is required."),
+  article_name: z.string().trim().min(1, "Name of the article is required.").max(NAME_MAX, "Name of the article is too long (limit 200 characters)."),
   date_of_purchase: z.string().trim().optional(),
   quantity: numeric("Quantity").positive("Quantity must be greater than zero.").default(1),
   purchase_price: numeric("Purchase price").optional(),
@@ -26,7 +27,7 @@ const deadStockSchema = z.object({
   rejected_value: numeric("Rejected value").default(0),
   balance_qty: numeric("Balance qty").optional(),
   balance_value: numeric("Balance value").optional(),
-  remark: z.string().trim().optional(),
+  remark: z.string().trim().max(TEXT_MAX, "Remark is too long (limit 2,000 characters).").optional(),
 });
 
 // Date rules (Ravi, 3 Oct 2026): neither date can be in the future, and the

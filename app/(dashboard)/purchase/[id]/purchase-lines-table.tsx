@@ -16,6 +16,7 @@ const downloadRmIntimationPdf = async (...args: Parameters<typeof import("./rm-i
 
 export type LineRow = {
   id: string;
+  item_id: string;
   batch_number: string;
   is_legacy?: boolean;
   quantity: string;

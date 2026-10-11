@@ -1,5 +1,6 @@
 "use server";
 
+import { UNIT_COUNT_MAX, quantityLimitError } from "@/lib/limits";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -44,6 +45,8 @@ function parseMaterials(formData: FormData, prefix = "", label = ""): MaterialIn
     if (!unit) {
       return { error: `${lead}material ${i + 1}: unit is required.` };
     }
+    const tooBig = quantityLimitError(`${lead}material ${i + 1}: quantity used`, quantity, unit);
+    if (tooBig) return { error: tooBig };
     materials.push({ itemId, quantity, unit });
   }
   if (materials.length === 0) return { error: `${lead}add at least one packaging material.` };
@@ -254,6 +257,9 @@ async function saveStoreRndIssues(formData: FormData, department: string, issueD
 
     const unitCountRaw = String(formData.get(`pl_units_${i}`) || "").trim();
     const unitCount = Number(unitCountRaw);
+    if (unitCount > UNIT_COUNT_MAX) {
+      return { error: `Line ${i + 1}: number of units is above the largest value the app accepts (${UNIT_COUNT_MAX.toLocaleString("en-IN")}). Check for an extra zero.` };
+    }
     if (!unitCountRaw || Number.isNaN(unitCount) || unitCount <= 0) {
       return { error: `${label}: unit count must be a positive number.` };
     }
