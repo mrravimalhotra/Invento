@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { drawCompanyHeading } from "@/lib/pdf-company-heading";
+import { safeFileName } from "@/lib/utils";
 
 // "Against each raw material purchased under purchase lines, create Raw
 // Material Intimation slip as per attached sample. At the end of the Raw
@@ -132,5 +133,5 @@ export function downloadRmIntimationPdf(data: RmIntimationData, filename: string
   // attached sample's own layout (measured second-copy start ~155mm).
   drawSlip(doc, data, 7);
   drawSlip(doc, data, 155);
-  doc.save(filename);
+  doc.save(safeFileName(filename));
 }

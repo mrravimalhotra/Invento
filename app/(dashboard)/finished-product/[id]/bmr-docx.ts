@@ -15,6 +15,7 @@ import {
 import { convertUnit, unitFamily } from "@/lib/constants/units";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "@/lib/atharva-logo";
 import { getCompany, licenceLine } from "@/lib/company";
+import { safeFileName } from "@/lib/utils";
 
 // Ravi (15 Sept 2026): "Once Batch is in Completed - Awaiting QC, start
 // showing link to 'BATCH MANUFACTURING RECORD' as attached in the .docx
@@ -269,7 +270,7 @@ export async function downloadBmrDocx(data: BmrData, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename;
+  a.download = safeFileName(filename);
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

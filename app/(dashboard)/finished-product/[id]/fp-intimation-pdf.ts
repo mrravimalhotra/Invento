@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { drawCompanyHeading } from "@/lib/pdf-company-heading";
+import { safeFileName } from "@/lib/utils";
 
 // Ravi (15 Sept 2026): "when a Finished Product batch is submitted to QC, a
 // Finish Product Intimation Slip should be generated and link should be
@@ -127,5 +128,5 @@ export function downloadFpIntimationPdf(data: FpIntimationData, filename: string
   // attached sample and rm-intimation-pdf.ts's own precedent.
   drawSlip(doc, data, 7);
   drawSlip(doc, data, 155);
-  doc.save(filename);
+  doc.save(safeFileName(filename));
 }
