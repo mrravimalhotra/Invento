@@ -21,8 +21,7 @@ export default async function EquipmentPage({
     fetchAllRows((from, to) =>
       supabase
         .from("equipment")
-        .select("id, equipment_code, name, room_no, section, asset_id, quantity, calibration_status")
-        .eq("active", true)
+        .select("id, equipment_code, name, room_no, section, asset_id, quantity, calibration_status, active")
         .order("room_no")
         .order("equipment_code")
         .order("id", { ascending: true })

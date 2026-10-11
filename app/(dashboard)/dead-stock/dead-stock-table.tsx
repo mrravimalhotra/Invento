@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, formatNumber, formatQty } from "@/lib/utils";
+import { InactiveTag } from "@/components/ui/inactive-tag";
 import type { TableExport } from "@/lib/table-export";
 import { deadStockWarnings } from "@/lib/dead-stock-check";
 
@@ -21,6 +22,7 @@ export type DeadStockRow = {
   rejected_value: number | null;
   resolution_date: string | null;
   remark: string | null;
+  active: boolean;
 };
 
 // SCAN-P8-02: figures typed by hand that contradict each other.
@@ -40,7 +42,12 @@ export function DeadStockTable({ rows }: { rows: DeadStockRow[] }) {
   const columns: Column<DeadStockRow>[] = [
     {
       header: "Code",
-      accessor: (r) => <span className="font-mono text-xs">{r.asset_code}</span>,
+      accessor: (r) => (
+        <>
+          <span className="font-mono text-xs">{r.asset_code}</span>
+          <InactiveTag show={!r.active} />
+        </>
+      ),
       searchValue: (r) => r.asset_code,
     },
     {
@@ -86,6 +93,7 @@ export function DeadStockTable({ rows }: { rows: DeadStockRow[] }) {
     formats: ["excel"],
     columns: [
       { header: "Code", value: (r) => r.asset_code },
+      { header: "Status", value: (r) => (r.active ? "Active" : "Inactive") },
       { header: "Article", value: (r) => r.article_name },
       { header: "Purchased", type: "date", value: (r) => r.date_of_purchase },
       { header: "Qty", type: "number", decimals: 3, value: (r) => r.quantity },
@@ -108,6 +116,7 @@ export function DeadStockTable({ rows }: { rows: DeadStockRow[] }) {
       rows={rows}
       emptyLabel="No dead stock recorded yet."
       searchPlaceholder="Search assets…"
+      isInactive={(r) => !r.active}
       exportConfig={exportConfig}
     />
   );

@@ -82,3 +82,7 @@ Read is open to any signed-in user.
 - No calibration-due alert on the Dashboard — `calibration_status`/
   `next_calibration_due` exist to be set, but nothing currently surfaces
   an equipment item that's due, unlike RM's "Retest due soon" card.
+
+## Show inactive (11 Oct 2026, SCAN-P8-03)
+
+The list loads active and inactive equipment. Inactive items are hidden until "Show inactive" is ticked (shown only when at least one exists); they carry a grey Inactive tag. The Excel file has a Status column and includes inactive rows only when the tick is on. To bring an item back, open it and tick Active.

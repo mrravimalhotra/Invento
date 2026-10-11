@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { InactiveTag } from "@/components/ui/inactive-tag";
 import type { TableExport } from "@/lib/table-export";
 
 export type EquipmentRow = {
@@ -13,6 +14,7 @@ export type EquipmentRow = {
   asset_id: string | null;
   quantity: number;
   calibration_status: string | null;
+  active: boolean;
 };
 
 const CALIBRATION_LABELS: Record<string, string> = {
@@ -25,7 +27,12 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
   const columns: Column<EquipmentRow>[] = [
     {
       header: "Code",
-      accessor: (r) => <span className="font-mono text-xs">{r.equipment_code}</span>,
+      accessor: (r) => (
+        <>
+          <span className="font-mono text-xs">{r.equipment_code}</span>
+          <InactiveTag show={!r.active} />
+        </>
+      ),
       searchValue: (r) => r.equipment_code,
     },
     {
@@ -59,6 +66,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
     formats: ["excel"],
     columns: [
       { header: "Code", value: (r) => r.equipment_code },
+      { header: "Status", value: (r) => (r.active ? "Active" : "Inactive") },
       { header: "Name", value: (r) => r.name },
       { header: "Room", value: (r) => r.room_no ?? "" },
       { header: "Section", value: (r) => r.section ?? "" },
@@ -77,6 +85,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
       rows={rows}
       emptyLabel="No equipment yet."
       searchPlaceholder="Search equipment, room, or asset ID…"
+      isInactive={(r) => !r.active}
       exportConfig={exportConfig}
     />
   );

@@ -22,9 +22,8 @@ export default async function DeadStockPage({
       supabase
         .from("dead_stock_items")
         .select(
-          "id, asset_code, article_name, date_of_purchase, quantity, purchase_price, depreciation_pct, depreciated_unit_value, balance_qty, balance_value, rejected_qty, rejected_value, resolution_date, remark"
+          "id, asset_code, article_name, date_of_purchase, quantity, purchase_price, depreciation_pct, depreciated_unit_value, balance_qty, balance_value, rejected_qty, rejected_value, resolution_date, remark, active"
         )
-        .eq("active", true)
         .order("asset_code")
         .order("id", { ascending: true })
         .range(from, to)

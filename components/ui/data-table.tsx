@@ -23,6 +23,7 @@ export function DataTable<T>({
   pageSize = 15,
   isLegacy,
   isOpeningStock,
+  isInactive,
   exportConfig,
 }: {
   columns: Column<T>[];
@@ -36,6 +37,10 @@ export function DataTable<T>({
   // Opening stock (0100): rows this returns true for came from the old records.
   // A Source filter (All / New / Legacy) appears when there is at least one.
   isOpeningStock?: (row: T) => boolean;
+  // SCAN-P8-03: rows this returns true for are retired records. They are hidden
+  // unless the "Show inactive" tick is on (off by default); the tick appears only
+  // when there is at least one such row.
+  isInactive?: (row: T) => boolean;
   // When provided, Excel / PDF buttons appear and export every row that
   // matches the search box and the "Hide legacy data" switch (not just the
   // page on screen). See lib/table-export.ts.
@@ -61,10 +66,17 @@ export function DataTable<T>({
   }, [rows, isOpeningStock, source]);
   const openingCount = isOpeningStock ? rows.filter(isOpeningStock).length : 0;
 
+  const [showInactive, setShowInactive] = useState(false);
+  const activeFiltered = useMemo(() => {
+    if (!isInactive || showInactive) return sourceFiltered;
+    return sourceFiltered.filter((row) => !isInactive(row));
+  }, [sourceFiltered, isInactive, showInactive]);
+  const inactiveCount = isInactive ? rows.filter(isInactive).length : 0;
+
   const legacyFiltered = useMemo(() => {
-    if (!isLegacy || !hideLegacy) return sourceFiltered;
-    return sourceFiltered.filter((row) => !isLegacy(row));
-  }, [sourceFiltered, isLegacy, hideLegacy]);
+    if (!isLegacy || !hideLegacy) return activeFiltered;
+    return activeFiltered.filter((row) => !isLegacy(row));
+  }, [activeFiltered, isLegacy, hideLegacy]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return legacyFiltered;
@@ -122,6 +134,21 @@ export function DataTable<T>({
               <option value="new">New</option>
               <option value="legacy">Legacy</option>
             </select>
+          </label>
+        )}
+        {isInactive && inactiveCount > 0 && (
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border"
+              checked={showInactive}
+              onChange={(e) => {
+                setShowInactive(e.target.checked);
+                setPage(0);
+              }}
+            />
+            Show inactive
+            <span className="text-xs text-muted">({inactiveCount} retired)</span>
           </label>
         )}
         {isLegacy && legacyCount > 0 && (
