@@ -21,7 +21,11 @@ export type OpeningUploadState =
       error?: string;
       rowErrors?: string[];
       // set by "Check file" when every row passed
-      checked?: { kind: OpeningKind; rows: number; approved: number; pending: number; rejected: number };
+      checked?: {
+        kind: OpeningKind; rows: number; approved: number; pending: number; rejected: number;
+        // SCAN-P2-10: per item, what this file will load (raw material and packaging)
+        summary: { code: string; name: string; unit: string; batches: number; total: number }[];
+      };
       success?: string;
     }
   | undefined;
@@ -63,7 +67,7 @@ export async function submitOpeningStock(_prev: OpeningUploadState, formData: Fo
   const category = kind === "raw" ? "raw" : kind === "packaging" ? "packaging" : "processed";
   const [itemsRes, vendorsRes] = await Promise.all([
     fetchAllRows((from, to) =>
-      supabase.from("items").select("id, item_code, category, unit, packaged_item_id").eq("active", true)
+      supabase.from("items").select("id, item_code, name, category, unit, packaged_item_id").eq("active", true)
         .order("id", { ascending: true }).range(from, to)),
     fetchAllRows((from, to) =>
       supabase.from("vendors").select("id, vendor_code").eq("active", true)
@@ -114,7 +118,7 @@ export async function submitOpeningStock(_prev: OpeningUploadState, formData: Fo
   }
 
   if (intent === "check") {
-    return { checked: { kind, rows: result.rows.length, ...result.counts } };
+    return { checked: { kind, rows: result.rows.length, ...result.counts, summary: result.summary } };
   }
 
   const { data, error } =

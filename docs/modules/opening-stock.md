@@ -60,3 +60,7 @@ batch pickers (text "(Legacy)"). Lists built on the `purchase_line_qc` view find
 
 ## Not yet
 - A reopened opening-stock purchase order can still be edited like any other.
+
+## Unit column and summary (11 Oct 2026, SCAN-P2-10)
+
+Raw material and packaging sheets have a required **Unit** column after the quantity. The quantity is converted to the item's own unit (250 g into a kg item loads 0.25 kg); a unit that cannot be converted, or a blank one, is refused. The Reference sheet shows each item's name and own unit. After **Check**, the screen lists what the file will load per item (batches and total quantity in the item's unit). Sheets downloaded before this change have no Unit column and are refused: download the template again.

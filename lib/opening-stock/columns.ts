@@ -17,7 +17,8 @@ export const MAX_OPENING_ROWS = 500;
 export const RM_COLUMNS: ColumnDef[] = [
   { header: "Item Code", required: true, hint: "The Item Master code of the raw material, e.g. RM-001" },
   { header: "Batch No", required: true, hint: "Exactly as printed on the container. Not a number made by this app (RM-001-0001/26 style)" },
-  { header: "Quantity in stock", required: true, numeric: true, hint: "In the item's own unit, as counted. Above 0" },
+  { header: "Quantity in stock", required: true, numeric: true, hint: "As counted, in the unit given in the Unit column. Above 0" },
+  { header: "Unit", required: true, hint: "The unit the quantity is counted in (kg, g, mg, ltr, ml, nos, bottle, pack). Must be the item's own unit or one that converts to it (g for a kg item). The Reference sheet shows each item's unit" },
   { header: "Receipt date", required: true, hint: "When the batch was received. Older stock is used first. Not in the future" },
   { header: "Manufacturer expiry date", required: false, hint: "Required for Approved and Pending QC batches" },
   { header: "QC status", required: true, hint: "Approved, Pending QC or Rejected" },
@@ -32,7 +33,8 @@ export const RM_COLUMNS: ColumnDef[] = [
 
 export const PKG_COLUMNS: ColumnDef[] = [
   { header: "Item Code", required: true, hint: "The Item Master code of the packaging item, e.g. PKG-001" },
-  { header: "Quantity", required: true, numeric: true, hint: "In the item's own unit, as counted. Above 0" },
+  { header: "Quantity", required: true, numeric: true, hint: "As counted, in the unit given in the Unit column. Above 0" },
+  { header: "Unit", required: true, hint: "The unit the quantity is counted in (kg, g, mg, ltr, ml, nos, bottle, pack). Must be the item's own unit or one that converts to it. The Reference sheet shows each item's unit" },
   { header: "Receipt date", required: true, hint: "When the lot was received. Older stock is used first. Not in the future" },
   { header: "Lot No", required: false, hint: "Optional. Left blank, the app gives the lot a number" },
   { header: "Vendor Code", required: false, hint: "Optional. A code from Vendor Master" },
@@ -56,10 +58,10 @@ export const OPENING_COLUMNS: Record<OpeningKind, ColumnDef[]> = { raw: RM_COLUM
 
 export const OPENING_EXAMPLES: Record<OpeningKind, string[][]> = {
   raw: [
-    ["RM-001", "AB-2291", "250", "12-03-2026", "11-03-2029", "Approved", "AR/24-25/118", "20-03-2026", "16-09-2026", "0", "V-0001", "410", "18"],
-    ["RM-001", "AB-2305", "40", "02-05-2026", "30-04-2029", "Pending QC", "", "", "", "", "", "", ""],
+    ["RM-001", "AB-2291", "250", "kg", "12-03-2026", "11-03-2029", "Approved", "AR/24-25/118", "20-03-2026", "16-09-2026", "0", "V-0001", "410", "18"],
+    ["RM-001", "AB-2305", "40", "kg", "02-05-2026", "30-04-2029", "Pending QC", "", "", "", "", "", "", ""],
   ],
-  packaging: [["PKG-001", "5000", "10-04-2026", "L-77", "V-0001", "3.5", "18"]],
+  packaging: [["PKG-001", "5000", "nos", "10-04-2026", "L-77", "V-0001", "3.5", "18"]],
   finished: [["FP-00001", "B-1042", "05-02-2026", "04-02-2028", "12.5", "300", "100 ml", "AR/24-25/310", "12-02-2026"]],
 };
 

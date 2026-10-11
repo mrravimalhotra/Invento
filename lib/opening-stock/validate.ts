@@ -3,12 +3,13 @@ import { parseUploadDate, DATE_FORMAT_HINT } from "@/lib/bulk-upload/dates";
 import type { ColumnDef } from "@/lib/bulk-upload/schemas";
 import { OPENING_COLUMNS, QC_STATUS_WORDS, type OpeningKind } from "./columns";
 import { MAX_RM_RETESTS } from "@/lib/constants/qc-rules";
+import { UNITS, convertUnit } from "@/lib/constants/units";
 
 // Checks every row of an opening stock sheet and builds the rows the database
 // function load_opening_stock() takes. The database repeats the important
 // checks; these ones exist to list every problem at once, with Excel row numbers.
 
-export type OpeningItem = { id: string; item_code: string; category: string; unit: string; packaged_item_id?: string | null };
+export type OpeningItem = { id: string; item_code: string; name?: string; category: string; unit: string; packaged_item_id?: string | null };
 
 export type OpeningContext = {
   today: string; // yyyy-mm-dd, India
@@ -23,11 +24,33 @@ export type OpeningContext = {
 
 export type OpeningRowPayload = Record<string, string | number | null>;
 
+// SCAN-P2-10: what each item will receive, shown after "Check file" so the loader can
+// compare it with the old stock sheet before pressing Load.
+export type OpeningSummaryLine = { code: string; name: string; unit: string; batches: number; total: number };
+
 export type OpeningCheck = {
   errors: string[];
   rows: OpeningRowPayload[];
   counts: { approved: number; pending: number; rejected: number };
+  summary: OpeningSummaryLine[];
 };
+
+const UNIT_WORDS: Record<string, string> = {
+  kg: "kg", kgs: "kg", g: "g", gm: "g", gms: "g", gram: "g", grams: "g", mg: "mg",
+  ml: "ml", l: "ltr", lt: "ltr", ltr: "ltr", litre: "ltr", liter: "ltr", litres: "ltr", liters: "ltr", nos: "nos",
+  bottle: "bottle", bottles: "bottle", pack: "pack", packs: "pack",
+};
+
+/** "Kg" -> "kg", "Litres" -> "ltr"; null when the word is not one of the app's units. */
+export function normalizeUnit(text: string): string | null {
+  const t = text.trim().toLowerCase();
+  if (UNIT_WORDS[t]) return UNIT_WORDS[t];
+  return (UNITS as readonly string[]).includes(t) ? t : null;
+}
+
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
+}
 
 const APP_AR = /^AR(RM|FP)-\d+\/\d{2}$/i;
 
@@ -40,6 +63,7 @@ export function validateOpeningSheet(kind: OpeningKind, sheet: ParsedSheet, ctx:
   const counts = { approved: 0, pending: 0, rejected: 0 };
   const seenBatches = new Set<string>();
   const seenArs = new Set<string>();
+  const totals = new Map<string, OpeningSummaryLine>();
 
   sheet.rows.forEach((raw, n) => {
     const xr = sheet.rowNumbers[n];
@@ -90,8 +114,24 @@ export function validateOpeningSheet(kind: OpeningKind, sheet: ParsedSheet, ctx:
       bad(`${item.item_code} is not a ${kind === "raw" ? "raw material" : "packaging"} item.`);
     }
 
-    const qty = num(kind === "raw" ? "Quantity in stock" : "Quantity", true);
+    let qty = num(kind === "raw" ? "Quantity in stock" : "Quantity", true);
     if (qty !== null && qty <= 0) bad("Quantity must be above 0.");
+    // SCAN-P2-10: the unit is typed on every row and must match the item's own unit (or convert to it).
+    const unitText = get("Unit");
+    if (!unitText) bad("Unit is required (the unit the quantity is counted in).");
+    else {
+      const entered = normalizeUnit(unitText);
+      if (!entered) bad(`Unit "${unitText}" is not one of kg, g, mg, ltr, ml, nos, bottle, pack.`);
+      else if (item && qty !== null && qty > 0) {
+        const converted = convertUnit(qty, entered, item.unit);
+        if (converted === null) {
+          bad(`${item.name ?? item.item_code} is kept in ${item.unit}; you entered ${entered}, which cannot be converted. Use ${item.unit}.`);
+          qty = null;
+        } else {
+          qty = round6(converted);
+        }
+      }
+    }
     const receipt = date("Receipt date", true);
 
     const price = num("Unit price", false);
@@ -175,10 +215,19 @@ export function validateOpeningSheet(kind: OpeningKind, sheet: ParsedSheet, ctx:
       }
     }
 
-    if (errors.length === startErrors) rows.push(payload);
+    if (errors.length === startErrors) {
+      rows.push(payload);
+      if (item && qty !== null) {
+        const t = totals.get(item.id) ?? { code: item.item_code, name: item.name ?? "", unit: item.unit, batches: 0, total: 0 };
+        t.batches += 1;
+        t.total = round6(t.total + qty);
+        totals.set(item.id, t);
+      }
+    }
   });
 
-  return { errors, rows, counts };
+  const summary = [...totals.values()].sort((a, b) => a.code.localeCompare(b.code));
+  return { errors, rows, counts, summary };
 }
 
 // ---- finished product ------------------------------------------------------
@@ -306,5 +355,5 @@ function validateFinishedSheet(sheet: ParsedSheet, ctx: OpeningContext): Opening
     }
   });
 
-  return { errors, rows, counts: { approved: rows.length, pending: 0, rejected: 0 } };
+  return { errors, rows, counts: { approved: rows.length, pending: 0, rejected: 0 }, summary: [] };
 }

@@ -16,6 +16,7 @@ const INTRO: Record<OpeningKind, string[]> = {
   raw: [
     "Opening stock: Raw Material — one row per batch in stock on the day the old records stop. Fill it from the physical stock count sheet.",
     "QC status is Approved, Pending QC or Rejected. Approved and Rejected batches need the old Analytical Report (AR) number, written exactly as in the old records, and the QC approval date. Approved batches also need the retest date and the manufacturer expiry date. Pending QC batches only need the expiry date; they join the normal QC queue.",
+    "Unit is the unit the quantity was counted in (for example g for 250 g). It must be the item's own unit or one that converts to it (g, mg for a kg item; ml for a ltr item); the Reference sheet lists each item's own unit. A unit that cannot be converted is refused.",
     "Retests already done (0 to 3) counts toward the limit of 3 retests, so a batch retested twice before can be retested once more.",
     "Batch No must be the number on the container. A number that looks like one this app makes (for example RM-001-0001/26) is refused, and so is an AR number that looks like ARRM-0001/26 or ARFP-0001/26.",
     "Vendor Code and Unit price are optional. Rows with no vendor are recorded against a system vendor called \"Opening stock (vendor not recorded)\".",
@@ -23,6 +24,7 @@ const INTRO: Record<OpeningKind, string[]> = {
   packaging: [
     "Opening stock: Packaging — one row per lot in stock on the day the old records stop. Fill it from the physical stock count sheet.",
     "Lot No is optional; left blank, the app gives the lot a number. Packaging needs no QC.",
+    "Unit is the unit the quantity was counted in. It must be the item's own unit or one that converts to it; the Reference sheet lists each item's own unit.",
     "Vendor Code and Unit price are optional. Rows with no vendor are recorded against a system vendor called \"Opening stock (vendor not recorded)\".",
   ],
 };
@@ -34,13 +36,13 @@ export async function buildOpeningWorkbook(kind: OpeningKind, supabase: Supabase
 
   const [{ data: items }, { data: vendors }] = await Promise.all([
     fetchAllRows((from, to) =>
-      supabase.from("items").select("item_code").eq("category", category).eq("active", true)
+      supabase.from("items").select("item_code, name, unit").eq("category", category).eq("active", true)
         .order("item_code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
     fetchAllRows((from, to) =>
       supabase.from("vendors").select("vendor_code").eq("active", true)
         .order("vendor_code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
   ]);
-  let itemCodes = (items ?? []).map((i) => i.item_code);
+  let itemRows = (items ?? []).map((i) => ({ code: i.item_code as string, name: (i.name ?? "") as string, unit: (i.unit ?? "") as string }));
   if (kind === "finished") {
     // only items that are the finished product of an MFR (not the packaged or production-RM items)
     const { data: mfrs } = await fetchAllRows((from, to) =>
@@ -48,9 +50,9 @@ export async function buildOpeningWorkbook(kind: OpeningKind, supabase: Supabase
         .not("finished_product_item_id", "is", null).order("id", { ascending: true }).range(from, to));
     const fpIds = new Set((mfrs ?? []).map((m) => m.finished_product_item_id as string));
     const { data: fpItems } = await fetchAllRows((from, to) =>
-      supabase.from("items").select("id, item_code").eq("category", "processed").eq("active", true)
+      supabase.from("items").select("id, item_code, name, unit").eq("category", "processed").eq("active", true)
         .order("item_code", { ascending: true }).order("id", { ascending: true }).range(from, to));
-    itemCodes = (fpItems ?? []).filter((i) => fpIds.has(i.id as string)).map((i) => i.item_code as string);
+    itemRows = (fpItems ?? []).filter((i) => fpIds.has(i.id as string)).map((i) => ({ code: i.item_code as string, name: (i.name ?? "") as string, unit: (i.unit ?? "") as string }));
   }
   const vendorCodes = (vendors ?? []).map((v) => v.vendor_code).filter((c) => c !== "V-OPENING");
 
@@ -79,8 +81,11 @@ export async function buildOpeningWorkbook(kind: OpeningKind, supabase: Supabase
   addExampleRows(sheet, columns, OPENING_EXAMPLES[kind]);
 
   const ref = workbook.addWorksheet("Reference");
-  const itemLast = addReferenceColumn(ref, 1, `Active ${meta.title} item codes`, itemCodes);
+  const itemLast = addReferenceColumn(ref, 1, `Active ${meta.title} item codes`, itemRows.map((r) => r.code));
   const vendorLast = addReferenceColumn(ref, 2, "Active vendor codes", vendorCodes);
+  // SCAN-P2-10: the item's name and own unit beside its code, so a quantity can be checked against the unit the item is kept in.
+  addReferenceColumn(ref, 4, "Item name", itemRows.map((r) => r.name));
+  addReferenceColumn(ref, 5, "Item's own unit", itemRows.map((r) => r.unit));
   const end = 1 + MAX_OPENING_ROWS;
   const col = (h: string) => columns.findIndex((c) => c.header === h) + 1;
   if (kind === "finished") {
