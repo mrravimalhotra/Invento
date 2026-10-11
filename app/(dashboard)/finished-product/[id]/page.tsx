@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LegacyTag } from "@/components/ui/legacy-tag";
+import { afterCompletion } from "@/lib/fp-after-completion";
 import { formatDate, formatNumber, formatQty, fpBatchBoth, fpBatchShort } from "@/lib/utils";
 import { resolveDisplayStatus, fpStatusLabel } from "@/lib/finished-product-status";
 import { CompleteBatchForm } from "./complete-batch-form";
@@ -40,7 +41,7 @@ export default async function FinishedProductDetailPage({
       // below, which needs the FP item's own code/name ("F.P.Code" / "Name of
       // The Product" on the slip) — same embedded-select alias pattern
       // app/(dashboard)/mfr/[id]/page.tsx already uses for the same FK.
-      "id, batch_number, short_batch_no, is_legacy, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, yield_reason, status, batch_start_date, created_at, mfr_definitions(id, code, name, theoretical_yield_pct, permissible_yield_pct, items:finished_product_item_id(item_code, name))"
+      "id, batch_number, short_batch_no, is_legacy, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, yield_reason, status, batch_start_date, created_at, mfr_definitions(id, code, name, theoretical_yield_pct, permissible_yield_pct, items:finished_product_item_id(item_code, name, unit))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -83,7 +84,7 @@ export default async function FinishedProductDetailPage({
     name: string;
     theoretical_yield_pct: number | null;
     permissible_yield_pct: number | null;
-    items: { item_code: string; name: string } | null;
+    items: { item_code: string; name: string; unit: string | null } | null;
   } | null;
   const fpItem = mfr?.items ?? null;
 
@@ -130,6 +131,41 @@ export default async function FinishedProductDetailPage({
   // onward (submitted_to_qc, approved, rejected), not only while the
   // batch is in that exact one status.
   const bmrEligible = !["draft", "in_process", "cancelled"].includes(batch.status);
+
+  // SCAN-P5-14: "After completion" card — samples, packed quantity, bulk left
+  // and the packing runs that used this batch.
+  type PackingRun = {
+    id: string;
+    code: string | null;
+    pack_size: string | null;
+    unit_count: number | null;
+    department: string | null;
+    issue_date: string | null;
+    fp_qty_consumed: string | number | null;
+  };
+  let packingRuns: PackingRun[] = [];
+  let packingLoadFailed = false;
+  if (bmrEligible) {
+    const { data: runs, error: runsError } = await supabase
+      .from("packaging_issues")
+      .select("id, code, pack_size, unit_count, department, issue_date, fp_qty_consumed")
+      .eq("finished_product_batch_id", id)
+      .order("issue_date", { ascending: false })
+      .order("id", { ascending: true })
+      .limit(500);
+    packingRuns = (runs ?? []) as unknown as PackingRun[];
+    packingLoadFailed = !!runsError;
+  }
+  const after = afterCompletion({
+    batchYield: batch.batch_yield,
+    batchUnit: batch.unit,
+    itemUnit: fpItem?.unit ?? null,
+    qcSample: batch.qc_sample_qty,
+    stability: batch.stability_qty,
+    rnd: batch.rnd_qty,
+    issuedInItemUnit: packingRuns.map((r) => Number(r.fp_qty_consumed ?? 0)),
+  });
+  const DEPARTMENT_LABELS: Record<string, string> = { production: "Production", rnd: "R&D", store: "Store" };
 
   return (
     <div>
@@ -277,6 +313,75 @@ export default async function FinishedProductDetailPage({
             </div>
           </CardBody>
         </Card>
+
+        {bmrEligible && (
+          <Card>
+            <CardHeader
+              title="After completion"
+              action={
+                <Link href="/packaging" className="text-sm text-brand hover:underline">
+                  Open Packaging
+                </Link>
+              }
+            />
+            <CardBody className="grid gap-3 text-sm sm:grid-cols-3">
+              <div>
+                <span className="text-muted">Samples taken</span>
+                <p className="mt-1 font-medium">
+                  QC {formatQty(batch.qc_sample_qty ?? 0)} · Stability {formatQty(batch.stability_qty ?? 0)} · R&amp;D{" "}
+                  {formatQty(batch.rnd_qty ?? 0)} {batch.unit}
+                </p>
+              </div>
+              <div>
+                <span className="text-muted">Packed (bulk used by packaging)</span>
+                <p className="mt-1 font-medium">
+                  {formatQty(after.packed)} {batch.unit}
+                </p>
+              </div>
+              <div>
+                <span className="text-muted">Bulk remaining (unpacked)</span>
+                <p className="mt-1 font-medium">{after.left != null ? `${formatQty(after.left)} ${batch.unit}` : "—"}</p>
+              </div>
+              <div className="sm:col-span-3">
+                <span className="text-muted">Packing runs</span>
+                {packingLoadFailed ? (
+                  <p className="mt-1 text-red">The packing runs could not be loaded. Reload the page.</p>
+                ) : packingRuns.length === 0 ? (
+                  <p className="mt-1 text-muted">None yet.</p>
+                ) : (
+                  <div className="mt-1 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted">
+                          <th className="py-1.5 pr-4">Code</th>
+                          <th className="py-1.5 pr-4">Issue date</th>
+                          <th className="py-1.5 pr-4">Department</th>
+                          <th className="py-1.5 pr-4">Pack size</th>
+                          <th className="py-1.5 pr-4">Unit count</th>
+                          <th className="py-1.5">Bulk used</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {packingRuns.map((r) => (
+                          <tr key={r.id} className="border-b border-border last:border-0">
+                            <td className="py-1.5 pr-4 font-mono text-xs">{r.code ?? "—"}</td>
+                            <td className="py-1.5 pr-4">{formatDate(r.issue_date)}</td>
+                            <td className="py-1.5 pr-4">{r.department ? DEPARTMENT_LABELS[r.department] ?? r.department : "—"}</td>
+                            <td className="py-1.5 pr-4">{r.pack_size ?? "—"}</td>
+                            <td className="py-1.5 pr-4">{r.unit_count ?? "—"}</td>
+                            <td className="py-1.5">
+                              {r.fp_qty_consumed != null ? `${formatQty(r.fp_qty_consumed)} ${fpItem?.unit ?? ""}` : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        )}
 
         {latestQc && (
           <Card>

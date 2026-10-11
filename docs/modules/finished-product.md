@@ -1301,3 +1301,7 @@ The BMR column "Qty. drawn from batch" now shows the AR number for production ra
 ## Yield rule (11 Oct 2026, SCAN-P5-05)
 
 Completing a batch shows the yield as a percentage of the batch size. The allowed range is the MFR's permissible yield % up to its theoretical yield % (100% when none is set). A yield outside it needs a written reason (at least 5 characters), saved on the batch (`finished_product_batches.yield_reason`, migration 0110) and shown to QC on the Awaiting FP QC card and on the batch page. A yield above 150% of the batch size is refused.
+
+## After completion card (11 Oct 2026, SCAN-P5-14)
+
+From "Completed – awaiting QC" onward the batch page has an "After completion" card: the QC, Stability and R&D samples taken, the bulk packed (what packaging issues used, converted to the batch unit), the bulk remaining (yield less samples less packed, never below zero, the same rule as the Ageing report) and the list of packing runs for this batch (code, issue date, department, pack size, unit count, bulk used). Read only. Rule in `lib/fp-after-completion.ts`.
