@@ -1,6 +1,7 @@
 import { lowStockCheck } from "@/lib/low-stock";
 import type { Metadata } from "next";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
+import { LoadWarning } from "@/components/ui/load-warning";
 import { createClient } from "@/lib/supabase/server";
 import { istDayStart, isLegacyCode, todayIst } from "@/lib/utils";
 import { addDaysToDate, chartUnit, isInternalMove, lastIstDays, lineValueInclGst } from "@/lib/dashboard-series";
@@ -60,10 +61,10 @@ export default async function DashboardPage() {
     fpAll, fpNon,
     poAll, poNon,
     { data: qcRows },
-    { data: ledger30 },
-    { data: purchase30 },
-    { data: fp30 },
-    { data: items },
+    { data: ledger30, error: ledgerError },
+    { data: purchase30, error: purchaseError },
+    { data: fp30, error: fpError },
+    { data: items, error: itemsError },
   ] = await Promise.all([
     supabase.from("items").select("*", head()).eq("category", "raw").eq("active", true),
     supabase.from("items").select("*", head()).eq("category", "raw").eq("active", true).not("item_code", "like", "LEG-%"),
@@ -119,10 +120,10 @@ export default async function DashboardPage() {
         .order("id", { ascending: true })
         .range(from, to)
     ),
-    fetchAllRows<{ id: string; name: string; item_code: string; category: string; low_stock_threshold: string | number }>((from, to) =>
+    fetchAllRows<{ id: string; name: string; item_code: string; category: string; unit: string | null; low_stock_threshold: string | number }>((from, to) =>
       supabase
         .from("items")
-        .select("id, name, item_code, category, low_stock_threshold")
+        .select("id, name, item_code, category, unit, low_stock_threshold")
         .not("low_stock_threshold", "is", null)
         .eq("active", true)
         .order("id", { ascending: true })
@@ -156,14 +157,14 @@ export default async function DashboardPage() {
   // chunks. Before, the whole stock_balance view was read in one capped
   // request, so an item outside the first 1,000 counted as 0 on hand and
   // showed as a false "Low stock".
-  const { data: balances } = await fetchByIdChunks<{ item_id: string; on_hand: string | number }>(
+  const { data: balances, error: balancesError } = await fetchByIdChunks<{ item_id: string; on_hand: string | number }>(
     (items ?? []).map((it) => it.id),
     (chunk) => supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk)
   );
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
   // SCAN-P3-10: raw material is compared on usable stock (see lib/low-stock.ts).
   const rawIds = (items ?? []).filter((it) => it.category === "raw").map((it) => it.id);
-  const { data: statuses } = await fetchByIdChunks<{ item_id: string; usable: string | number }>(
+  const { data: statuses, error: statusesError } = await fetchByIdChunks<{ item_id: string; usable: string | number }>(
     rawIds,
     (chunk) => supabase.from("item_stock_status").select("item_id, usable").in("item_id", chunk)
   );
@@ -180,9 +181,13 @@ export default async function DashboardPage() {
       name: it.name,
       item_code: it.item_code,
       threshold: it.low_stock_threshold,
+      unit: it.unit ?? "",
       onHand,
       usable: r.basis === "usable" ? r.compared : null,
-    }));
+      compared: r.compared,
+    }))
+    // SCAN-P7-10: the card lists the worst first (least stock against its threshold).
+    .sort((a, b) => a.compared / (Number(a.threshold) || 1) - b.compared / (Number(b.threshold) || 1) || a.item_code.localeCompare(b.item_code));
 
   const data: DashboardData = {
     rawMaterials: pair(rawAll, rawNon),
@@ -218,5 +223,10 @@ export default async function DashboardPage() {
     days,
   };
 
-  return <DashboardView data={data} />;
+  return (
+    <>
+      <LoadWarning errors={[ledgerError, purchaseError, fpError, itemsError, balancesError, statusesError]} what="the Dashboard" />
+      <DashboardView data={data} />
+    </>
+  );
 }

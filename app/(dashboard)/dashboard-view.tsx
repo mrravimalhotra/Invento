@@ -28,7 +28,7 @@ export type DashboardData = {
   finishedBatches: CountPair;
   pos30: CountPair;
   qc: QcStatusCounts;
-  lowStock: { id: string; name: string; item_code: string; threshold: string | number; onHand: number; usable: number | null }[];
+  lowStock: { id: string; name: string; item_code: string; threshold: string | number; unit: string; onHand: number; usable: number | null; compared: number }[];
   retestSoon: AlertRow[];
   expirySoon: AlertRow[];
   fpInProgress: FpInProgressRow[];
@@ -127,17 +127,22 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lowStock.length > 0 && (
             <Card className="border-amber/40">
-              <CardHeader title="Low stock" />
+              <CardHeader title={`Low stock (${lowStock.length})`} />
               <CardBody className="flex flex-col gap-2">
-                {lowStock.slice(0, 6).map((it) => (
+                {lowStock.slice(0, 8).map((it) => (
                   <Link key={it.id} href="/items" className="flex items-center gap-2 text-sm hover:underline">
                     <TriangleAlert className="h-3.5 w-3.5 text-amber shrink-0" />
                     {it.name} ({it.item_code}) —{" "}
                     {it.usable !== null
-                      ? `${formatQty(it.usable)} usable now (${formatQty(it.onHand)} on hand), threshold ${it.threshold}`
-                      : `${formatQty(it.onHand)} on hand, threshold ${it.threshold}`}
+                      ? `${formatQty(it.usable)} ${it.unit} usable now (${formatQty(it.onHand)} on hand), threshold ${it.threshold}`
+                      : `${formatQty(it.onHand)} ${it.unit} on hand, threshold ${it.threshold}`}
                   </Link>
                 ))}
+                {lowStock.length > 8 && (
+                  <Link href="/inventory/balance" className="text-xs font-medium text-brand hover:underline">
+                    + {lowStock.length - 8} more in Stock Position
+                  </Link>
+                )}
               </CardBody>
             </Card>
           )}
