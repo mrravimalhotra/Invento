@@ -4,6 +4,7 @@ import { drawCompanyHeading } from "@/lib/pdf-company-heading";
 import { getPdfUser } from "@/lib/pdf-user";
 import { formatDateTime } from "@/lib/utils";
 import { flash } from "@/lib/flash";
+import { loadUnicodeFont } from "@/lib/pdf-font";
 
 // The shared letterhead for register-style PDFs (29 Sept 2026, ACC group 9
 // decision (b)): logo, company name, address and licence number, a rule, then
@@ -32,8 +33,10 @@ export function letterhead(doc: jsPDF, title: string, subtitle?: string | null) 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(90, 90, 90);
-    doc.text(subtitle, 14, ruleY + 13.5);
-    return ruleY + 18;
+    // SCAN-P7-13: a long filter line wraps inside the margins instead of running off the page.
+    const lines = doc.splitTextToSize(subtitle, pageWidth - 28) as string[];
+    doc.text(lines, 14, ruleY + 13.5);
+    return ruleY + 13.5 + (lines.length - 1) * 4 + 4.5;
   }
   return ruleY + 14; // y-offset for content start
 }
@@ -62,7 +65,50 @@ export function addPageFooters(doc: jsPDF) {
 export const PDF_ROW_LIMIT = 3000;
 const PDF_ROWS_PER_PAGE = 36;
 
-export function downloadPdfTable({
+// SCAN-P7-13: a column whose every value is short (a code, a number, a date, a unit) is given the
+// width of its longest value and never wraps, so "RM-00031" and "1,250.5" stay in one piece. Longer
+// columns (names, remarks) share the rest and wrap at spaces.
+const SHORT_VALUE_CHARS = 16;
+const CELL_PADDING = 2;
+
+export type PdfLayout = {
+  landscape: boolean;
+  fontSize: number;
+  columnStyles: Record<number, { cellWidth: number | "auto" }>;
+};
+
+export function planTableLayout(
+  doc: jsPDF,
+  columns: string[],
+  body: string[][],
+  usableWidth: (landscape: boolean) => number
+): PdfLayout {
+  const landscape = columns.length > 7;
+  const available = usableWidth(landscape);
+  const sizes = columns.length > 12 ? [7, 6.5, 6] : [8, 7, 6.5];
+  let chosen: PdfLayout | null = null;
+  for (const fontSize of sizes) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontSize);
+    const widths: (number | "auto")[] = columns.map((head, c) => {
+      const cells = body.map((r) => r[c] ?? "");
+      if (cells.some((v) => v.length > SHORT_VALUE_CHARS)) return "auto";
+      const bodyMax = Math.max(0, ...cells.map((v) => doc.getTextWidth(v)));
+      const headWord = Math.max(0, ...head.split(/\s+/).map((w) => doc.getTextWidth(w)));
+      return Math.ceil((Math.max(bodyMax, headWord) + CELL_PADDING * 2 + 1) * 10) / 10;
+    });
+    const fixed = widths.reduce<number>((s, w) => s + (typeof w === "number" ? w : 0), 0);
+    const autoCount = widths.filter((w) => w === "auto").length;
+    const columnStyles: PdfLayout["columnStyles"] = {};
+    widths.forEach((w, i) => (columnStyles[i] = { cellWidth: w }));
+    chosen = { landscape, fontSize, columnStyles };
+    // Leave at least 24 mm for each wrapping column.
+    if (fixed + autoCount * 24 <= available) break;
+  }
+  return chosen as PdfLayout;
+}
+
+export async function downloadPdfTable({
   title,
   columns,
   rows,
@@ -83,14 +129,19 @@ export function downloadPdfTable({
     );
     return;
   }
-  const doc = new jsPDF();
+  const body = rows.map((r) => r.map((c) => String(c ?? "—")));
+  // A4, upright up to 7 columns, sideways above that (SCAN-P7-13).
+  const doc = new jsPDF({ orientation: columns.length > 7 ? "landscape" : "portrait", unit: "mm", format: "a4" });
+  await loadUnicodeFont(doc); // SCAN-P7-14: ₹, macron letters and Hindi print correctly
+  const layout = planTableLayout(doc, columns, body, (landscape) => (landscape ? 297 : 210) - 28);
   const startY = letterhead(doc, title, subtitle);
   autoTable(doc, {
     startY,
     head: [columns],
-    body: rows.map((r) => r.map((c) => String(c ?? "—"))),
-    headStyles: { fillColor: [31, 111, 78], textColor: 255, fontSize: 8 },
-    styles: { fontSize: 8, cellPadding: 2 },
+    body,
+    headStyles: { fillColor: [31, 111, 78], textColor: 255, fontSize: layout.fontSize },
+    styles: { fontSize: layout.fontSize, cellPadding: CELL_PADDING, overflow: "linebreak" },
+    columnStyles: layout.columnStyles,
     alternateRowStyles: { fillColor: [247, 249, 248] },
     margin: { bottom: 16 },
   });

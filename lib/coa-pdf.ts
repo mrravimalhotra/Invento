@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ATHARVA_LOGO_PNG_BASE64, ATHARVA_LOGO_ASPECT } from "./coa-logo";
 import { getCompany, licenceLine, type Company } from "./company";
+import { loadUnicodeFont } from "./pdf-font";
 
 export type CoaPdfData = {
   coaNumber: string;
@@ -28,8 +29,9 @@ export type CoaPdfData = {
 // fidelity to a scanned paper form is inherently an iterate-once-you-can-
 // compare-them job, not something to get exactly right blind. Expect a
 // round of "here's what's off" against a real generated certificate.
-export function downloadCoaPdf(data: CoaPdfData) {
+export async function downloadCoaPdf(data: CoaPdfData) {
   const doc = new jsPDF();
+  await loadUnicodeFont(doc, { italic: true }); // SCAN-P7-14
   const company = data.company ?? getCompany();
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = 14;
@@ -77,24 +79,36 @@ export function downloadCoaPdf(data: CoaPdfData) {
   const right = data.headerFields.slice(half);
   const colWidth = (pageWidth - marginX * 2) / 2;
   const rightX = marginX + colWidth;
-  const lineHeight = 6;
+  const leftLabelW = 38;
+  const rightLabelW = 32;
+  const leftValueW = colWidth - leftLabelW - 3;
+  const rightValueW = pageWidth - marginX - (rightX + rightLabelW);
+  const lineHeight = 4.2; // one wrapped line at 9 pt
+  const rowGap = 1.8;
   const gridStartY = y;
   doc.setFontSize(9);
-  left.forEach((f, i) => {
-    const rowY = gridStartY + i * lineHeight;
-    doc.setFont("helvetica", "bold");
-    doc.text(f.label, marginX, rowY);
-    doc.setFont("helvetica", "normal");
-    doc.text(`: ${f.value}`, marginX + 38, rowY);
-  });
-  right.forEach((f, i) => {
-    const rowY = gridStartY + i * lineHeight;
-    doc.setFont("helvetica", "bold");
-    doc.text(f.label, rightX, rowY);
-    doc.setFont("helvetica", "normal");
-    doc.text(`: ${f.value}`, rightX + 32, rowY);
-  });
-  y = gridStartY + Math.max(left.length, right.length) * lineHeight + 6;
+  // SCAN-P4-10: every header value (and label) wraps inside its own column and the row grows to
+  // fit, instead of one long value running over the next column.
+  const rows = Math.max(left.length, right.length);
+  let rowY = gridStartY;
+  for (let i = 0; i < rows; i++) {
+    let rowLines = 1;
+    for (const [field, x, labelW, valueW] of [
+      [left[i], marginX, leftLabelW, leftValueW],
+      [right[i], rightX, rightLabelW, rightValueW],
+    ] as const) {
+      if (!field) continue;
+      doc.setFont("helvetica", "bold");
+      const labelLines = doc.splitTextToSize(field.label, labelW - 2) as string[];
+      doc.text(labelLines, x, rowY);
+      doc.setFont("helvetica", "normal");
+      const valueLines = doc.splitTextToSize(`: ${field.value}`, valueW) as string[];
+      doc.text(valueLines, x + labelW, rowY);
+      rowLines = Math.max(rowLines, labelLines.length, valueLines.length);
+    }
+    rowY += rowLines * lineHeight + rowGap;
+  }
+  y = rowY + 4;
 
   autoTable(doc, {
     startY: y,
@@ -113,15 +127,38 @@ export function downloadCoaPdf(data: CoaPdfData) {
 
   let cursorY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 30;
 
-  cursorY += 8;
+  // SCAN-P4-10: Remarks and the two signature lines never fall off the bottom: when they do not
+  // fit under the table, they start on a new page.
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const bottomLimit = pageHeight - 15;
+  const remarksLineHeight = 5;
+  const signatureBlock = 16 + 8; // gap above the line, line and label
   doc.setFontSize(9);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(20, 20, 20);
-  const remarksLines = doc.splitTextToSize(`Remarks: ${data.remarks}`, pageWidth - marginX * 2);
-  doc.text(remarksLines, marginX, cursorY);
-  cursorY += remarksLines.length * 5;
+  const remarksLines = doc.splitTextToSize(`Remarks: ${data.remarks}`, pageWidth - marginX * 2) as string[];
+  cursorY += 8;
+  if (cursorY + remarksLines.length * remarksLineHeight + signatureBlock > bottomLimit) {
+    // Keep the remarks and the signatures together where they fit on one page.
+    if (remarksLines.length * remarksLineHeight + signatureBlock <= bottomLimit - 20) {
+      doc.addPage();
+      cursorY = 20;
+    }
+  }
+  for (const line of remarksLines) {
+    if (cursorY > bottomLimit - signatureBlock) {
+      doc.addPage();
+      cursorY = 20;
+    }
+    doc.text(line, marginX, cursorY);
+    cursorY += remarksLineHeight;
+  }
 
   cursorY += 16;
+  if (cursorY + 8 > bottomLimit) {
+    doc.addPage();
+    cursorY = 30;
+  }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.line(marginX, cursorY, marginX + 50, cursorY);

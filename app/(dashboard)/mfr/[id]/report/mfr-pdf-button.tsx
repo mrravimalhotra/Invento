@@ -3,6 +3,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPageFooters, letterhead } from "@/lib/pdf";
+import { loadUnicodeFont } from "@/lib/pdf-font";
 import { Button } from "@/components/ui/button";
 
 export type MfrPdfData = {
@@ -22,8 +23,9 @@ export type MfrPdfData = {
 };
 
 export function MfrPdfButton({ data }: { data: MfrPdfData }) {
-  function handleDownload() {
+  async function handleDownload() {
     const doc = new jsPDF();
+    await loadUnicodeFont(doc); // SCAN-P7-14
     const startY = letterhead(doc, `Master Formula Record — ${data.code} (v${data.version})`);
 
     doc.setFontSize(9);

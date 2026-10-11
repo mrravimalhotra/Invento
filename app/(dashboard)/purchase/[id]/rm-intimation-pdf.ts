@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { drawCompanyHeading } from "@/lib/pdf-company-heading";
+import { loadUnicodeFont } from "@/lib/pdf-font";
 import { safeFileName } from "@/lib/utils";
 
 // "Against each raw material purchased under purchase lines, create Raw
@@ -127,8 +128,9 @@ function drawSlip(doc: jsPDF, data: RmIntimationData, top: number) {
   doc.text("QC Incharge", RIGHT_X, finalY + 30, { align: "right" });
 }
 
-export function downloadRmIntimationPdf(data: RmIntimationData, filename: string) {
+export async function downloadRmIntimationPdf(data: RmIntimationData, filename: string) {
   const doc = new jsPDF();
+  await loadUnicodeFont(doc); // SCAN-P7-14
   // Two identical copies stacked on one A4 page (297mm tall), matching the
   // attached sample's own layout (measured second-copy start ~155mm).
   drawSlip(doc, data, 7);

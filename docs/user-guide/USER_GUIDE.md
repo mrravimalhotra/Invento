@@ -519,7 +519,7 @@ This screen only reads information already entered elsewhere — Purchase for ba
 6. For each row in the Test Results table, enter the actual **Result**. The S.No., Test, and Specification columns come from the item's (or MFR's) template and can't be changed here.
 7. Check the **Remarks** line at the bottom — it defaults to "The above sample complies/Not complies as per IHS." Edit it to say what's actually true for this batch (e.g., delete whichever of "complies" / "Not complies" doesn't apply).
 8. Click **Generate certificate**.
-9. On the certificate's own page, click **Download PDF** to get the final letterhead certificate. (Analyzed-by / Approved-by lines are left blank for a physical signature.)
+9. On the certificate's own page, click **Download PDF** to get the final letterhead certificate. Long product names and wording wrap inside their box, and if the Remarks and signature lines do not fit under the test table they move together to a new page. (Analyzed-by / Approved-by lines are left blank for a physical signature.)
 
 **Setting up test templates**
 Every raw material and every finished-product MFR has its own COA template: a list of Tests and Specifications. You can define it when you first add the item or MFR (optional), or later from the item page / MFR page (card "Certificate of Analysis template"). The serial number is assigned automatically; saving replaces the list, and each save is kept in the template's history. Who can edit follows who can edit the item (or MFR). **COA Template Register** (link on the Certificate of Analysis list) lists every item and MFR with its template status, test count and last change, and exports to Excel and PDF.
@@ -757,7 +757,7 @@ Every report is a live read of records from other modules — RM Stock Report mi
 **Good to know**
 - The date filter only narrows down the rows already loaded on screen — it isn't a fresh search, so applying and clearing it is instant.
 - The downloads follow the date filter but not the search box, so set the date range first if you want a narrower export.
-- Download PDF gives a formatted, printable table (with the usual letterhead). A PDF holds at most 3,000 rows (about 80 pages); if the list is longer, the app asks you to narrow it first (a date range or the search box) or to use Download Excel instead. Download Excel gives a spreadsheet in which numbers and dates are real numbers and dates, so you can sort and total them in Excel.
+- Download PDF gives a formatted, printable table (with the usual letterhead). Lists with more than 7 columns print sideways on A4 so item codes and quantities stay in one piece; the rupee sign and letters with marks (for example Brahmī) print correctly, and Hindi names print too (without joined letter forms). A PDF holds at most 3,000 rows (about 80 pages); if the list is longer, the app asks you to narrow it first (a date range or the search box) or to use Download Excel instead. Download Excel gives a spreadsheet in which numbers and dates are real numbers and dates, so you can sort and total them in Excel.
 - On the Purchase Register, the date column is labeled "Re-Test Date" (when the raw material batch is next due for retesting) — don't confuse it with the QC Register's own "Retest Date" column, which tracks a different thing (when a specific QC result needs to be re-checked).
 - QC Register and FP Register are full historical logs — every row shows, including old/inactive ones — unlike most other lists in the app which hide inactive records by default.
 

@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { drawCompanyHeading } from "@/lib/pdf-company-heading";
+import { loadUnicodeFont } from "@/lib/pdf-font";
 import { safeFileName } from "@/lib/utils";
 
 // Ravi (15 Sept 2026): "when a Finished Product batch is submitted to QC, a
@@ -122,8 +123,9 @@ function drawSlip(doc: jsPDF, data: FpIntimationData, top: number) {
   doc.text("QC Incharge", RIGHT_X, finalY + 30, { align: "right" });
 }
 
-export function downloadFpIntimationPdf(data: FpIntimationData, filename: string) {
+export async function downloadFpIntimationPdf(data: FpIntimationData, filename: string) {
   const doc = new jsPDF();
+  await loadUnicodeFont(doc); // SCAN-P7-14
   // Two identical copies stacked on one A4 page, matching both the
   // attached sample and rm-intimation-pdf.ts's own precedent.
   drawSlip(doc, data, 7);

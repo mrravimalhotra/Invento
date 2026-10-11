@@ -76,7 +76,7 @@ export async function exportTable<T>(
   if (format === "pdf") {
     // Loaded on demand so the PDF library isn't part of every page.
     const { downloadPdfTable } = await import("@/lib/pdf");
-    downloadPdfTable({
+    await downloadPdfTable({
       title: cfg.title,
       columns: cfg.columns.map((c) => c.header),
       rows: rows.map((r) => cfg.columns.map((c) => exportCellText(c, r))),
