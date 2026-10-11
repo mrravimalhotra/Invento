@@ -420,3 +420,7 @@ migration):
 ## Error messages (30 Sept 2026)
 
 Every failure is shown in plain words with the reason. Problems in the sheet name the row ("Row 4: Item Type "X" doesn't match…"). Database failures go through `friendlyDbError` (`lib/db-errors.ts`): known causes get a specific sentence, and unknown ones say what kind of problem it is (database busy, database update not yet applied, value not acceptable) plus a reference code for support. A missing database function (code PGRST202) now says a database update hasn't been applied and nothing was saved. List pages that fail to load use the same wording instead of raw database text.
+
+## Limits and price rule (11 Oct 2026)
+
+A file larger than 800 KB, or a sheet with more than 500 filled rows, is refused with a message before it is read (Server Actions body limit raised to 4 MB). Purchase upload: Unit Price (₹) and GST % are required on every line (0 allowed).

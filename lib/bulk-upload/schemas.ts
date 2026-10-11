@@ -203,8 +203,8 @@ export const PURCHASE_COLUMNS: ColumnDef[] = [
   { header: "Stability Qty", required: false, hint: "Required for Raw Material lines (enter 0 if none needed) — leave blank for Packaging Item lines", numeric: true },
   { header: "R&D Qty", required: false, hint: "Required for Raw Material lines (enter 0 if none needed) — leave blank for Packaging Item lines", numeric: true },
   { header: "Sample Unit", required: false, hint: "unit QC/Stability/R&D Qty are entered in, if different from Unit above — Raw Material lines only, converted to Unit on save; same dropdown as Unit" },
-  { header: "Unit Price (₹)", required: false, numeric: true },
-  { header: "GST %", required: false, numeric: true, percent: true },
+  { header: "Unit Price (₹)", required: true, hint: "price per Unit, a number ≥ 0 — enter 0 if there is none", numeric: true },
+  { header: "GST %", required: true, hint: "a number ≥ 0 — enter 0 if there is none", numeric: true, percent: true },
 ];
 
 export const EQUIPMENT_COLUMNS: ColumnDef[] = [

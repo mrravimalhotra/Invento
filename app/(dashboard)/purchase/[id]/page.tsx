@@ -19,7 +19,7 @@ export default async function PurchaseOrderDetailPage({
   const { data: poRaw } = await supabase
     .from("purchase_orders")
     .select(
-      "id, po_number, invoice_number, invoice_date, created_at, status, submitted_at, reopened_at, vendor:vendors(id, vendor_code, name, address, mobile)"
+      "id, po_number, invoice_number, invoice_date, received_on, created_at, status, submitted_at, reopened_at, vendor:vendors(id, vendor_code, name, address, mobile)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -31,6 +31,7 @@ export default async function PurchaseOrderDetailPage({
     po_number: string;
     invoice_number: string;
     invoice_date: string;
+    received_on: string | null;
     created_at: string;
     status: "draft" | "submitted";
     submitted_at: string | null;

@@ -27,6 +27,8 @@ type PurchaseLineFetch = {
   purchase_order: {
     invoice_number: string;
     invoice_date: string;
+    received_on: string | null;
+    submitted_at: string | null;
     vendor: { name: string } | null;
   } | null;
 };
@@ -79,7 +81,7 @@ export default async function LabelsPage() {
       supabase
         .from("purchase_lines")
         .select(
-          "id, batch_number, is_legacy, created_at, pushed_at, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, vendor:vendors(name))"
+          "id, batch_number, is_legacy, created_at, pushed_at, quantity, unit, item:items!inner(name, category), purchase_order:purchase_orders(invoice_number, invoice_date, received_on, submitted_at, vendor:vendors(name))"
         )
         .eq("active", true)
         .eq("items.category", "raw")
@@ -138,7 +140,10 @@ export default async function LabelsPage() {
       vendorName: po?.vendor?.name ?? "—",
       invoiceNumber: po?.invoice_number ?? "—",
       // Opening stock: the real receipt date is the line's date, not the load day.
-      receiptDate: l.is_legacy ? toIstDateString(l.created_at) : po?.invoice_date ?? null,
+      // B13: the typed "Received on" date; older / bulk-uploaded POs fall back to the submit day, then the invoice date.
+      receiptDate: l.is_legacy
+        ? toIstDateString(l.created_at)
+        : po?.received_on ?? (po?.submitted_at ? toIstDateString(po.submitted_at) : po?.invoice_date ?? null),
       isLegacy: l.is_legacy,
       qcStatus: status?.qc_status ?? "not_submitted",
       arNumber: status?.ar_number ?? null,

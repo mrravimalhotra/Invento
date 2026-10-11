@@ -234,3 +234,9 @@ Ravi asked for date entry to be blocked by function ("Date validation review", p
 | RM Report | As on date | Not later than today |
 
 Left as before: SOP/STP effective date (a future date is allowed) and every system-set time stamp. Not built: the raw-material expiry date on Purchase (B42, waiting for a decision).
+
+## Dashboard alerts and sign-in links (11 Oct 2026)
+
+- Expiry / retest alerts for raw material now also list items that are **already overdue** (red, "expired / retest was due N days ago"); the "more" link opens Expiry and Retest Ageing on the matching bucket.
+- Password reset links open `/auth/confirm` first; an old or used link shows "This reset link can't be used" with a link to request a new one. Supabase dashboard settings are in `docs/SUPABASE_SETUP.md`.
+- Feedback: the first resolved time is kept; load errors are shown; the admin list has search and a Page filter.

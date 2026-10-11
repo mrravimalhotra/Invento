@@ -994,3 +994,10 @@ duplicate purchase batch number for any item, LEG- items included.
 ## Vendor address and mobile (30 Sept 2026, B23)
 
 Choosing a vendor on New Purchase Order shows that vendor's address and mobile under the dropdown, and the same line appears under the heading of a purchase order. Read-only; "not on file" is shown when a vendor has none. Change them on Vendor Master.
+
+## Received-on date, price / GST rule, empty orders (11 Oct 2026, scan fixes)
+
+- **Received on** (new, `purchase_orders.received_on`, migration 0109): typed on the new-order form, default today, not in the future. Shown under the order title. Bulk-uploaded and older orders have none.
+- Submit is refused for an order with no lines, and (in the app) for an order that still has a line without a Unit Price or GST % (0 is allowed). Opening-stock orders and lines saved before the 15 Sept rule are left alone.
+- Excel upload: Unit Price (₹) and GST % are required on every line; enter 0 if there is none. The database function repeats the check.
+- A line saved at the same instant as a submit now waits for the submit and is refused as "submitted" instead of being left out of stock (SCAN-P10-01).

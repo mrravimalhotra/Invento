@@ -158,3 +158,7 @@ those lines did not agree with the stock screens. It now shows only
 submitted, active lines. A Unit column was added (on screen and in the PDF),
 and the Re-Test Date column was removed because it was blank for nearly every
 row (the same decision as ACC-31 on the finished-product page).
+
+## QC Register type column (11 Oct 2026)
+
+The QC Register has a **Type** column and shows the production batch for production raw-material checks (previously blank).

@@ -1293,3 +1293,7 @@ Ravi: *"In Reports, no need to show full one. Only use short ones. In app Screen
 - The short number is per product per year (PR-01/26 can repeat across products), so documents always carry the product name / F.P. code too.
 - COAs issued before this change keep the full number in their stored header; only newly issued COAs print the short one.
 - No migration (`short_batch_no` has been stored since 0066).
+
+## BMR / item page details (11 Oct 2026)
+
+The BMR column "Qty. drawn from batch" now shows the AR number for production raw-material batches. The item page's Production RM issue date and the intimation slip use the typed issue date.

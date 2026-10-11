@@ -81,12 +81,15 @@ export function PurchaseOrderForm({
               </Select>
               {selectedVendor && <VendorContactLine address={selectedVendor.address} mobile={selectedVendor.mobile} />}
             </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Invoice number" htmlFor="invoice_number" required>
                 <Input id="invoice_number" name="invoice_number" required />
               </Field>
               <Field label="Invoice date" htmlFor="invoice_date" required>
                 <Input id="invoice_date" name="invoice_date" type="date" max={todayIst()} required />
+              </Field>
+              <Field label="Received on" htmlFor="received_on" required hint="The day the goods arrived. Printed as Date of Receipt on the RM label.">
+                <Input id="received_on" name="received_on" type="date" max={todayIst()} defaultValue={todayIst()} required />
               </Field>
             </div>
             <div className="flex gap-3">

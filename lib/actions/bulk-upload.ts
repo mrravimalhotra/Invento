@@ -1090,6 +1090,15 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
       return;
     }
 
+    // B3: every purchase line needs a price and a GST % (0 is allowed) so the invoice value is never silently short.
+    if (!unitPriceRaw) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): Unit Price is required (enter 0 if there is none).`);
+      return;
+    }
+    if (!gstPctRaw) {
+      rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): GST % is required (enter 0 if there is none).`);
+      return;
+    }
     let unit_price: number | null = null;
     if (unitPriceRaw) {
       const n = Number(unitPriceRaw);

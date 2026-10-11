@@ -13,6 +13,7 @@ export type PurchaseOrderHeader = {
   po_number: string;
   invoice_number: string;
   invoice_date: string;
+  received_on?: string | null;
   created_at: string;
   status: "draft" | "submitted";
   submitted_at: string | null;
@@ -57,7 +58,7 @@ export function PurchaseOrderView({
         title={po.po_number}
         description={`Vendor: ${po.vendor?.name ?? "—"} (${po.vendor?.vendor_code ?? "—"}) · Invoice ${po.invoice_number} dated ${formatDate(
           po.invoice_date
-        )}`}
+        )}${po.received_on ? ` · Received on ${formatDate(po.received_on)}` : ""}`}
       />
       {po.vendor && (
         <div className="-mt-3 mb-5">

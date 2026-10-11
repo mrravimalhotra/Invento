@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { convertUnit } from "@/lib/constants/units";
-import { escapeLike } from "@/lib/utils";
+import { escapeLike, todayIst } from "@/lib/utils";
 import { friendlyDbError } from "@/lib/db-errors";
 import { futureDateError } from "@/lib/date-rules";
 
@@ -21,6 +21,8 @@ const poSchema = z.object({
   vendor_id: z.string().uuid({ message: "Select a vendor." }),
   invoice_number: z.string().trim().min(1, "Invoice number is required."),
   invoice_date: z.string().trim().min(1, "Invoice date is required."),
+  // B13: the day the goods physically arrived; printed as "Date of Receipt" on RM labels.
+  received_on: z.string().trim().optional(),
 });
 
 // Header data returned to the client on a successful create, shaped to
@@ -43,6 +45,7 @@ export type CreatePurchaseOrderState =
         po_number: string;
         invoice_number: string;
         invoice_date: string;
+        received_on: string | null;
         created_at: string;
         status: "draft";
         submitted_at: null;
@@ -60,10 +63,14 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
     vendor_id: String(formData.get("vendor_id") || ""),
     invoice_number: String(formData.get("invoice_number") || ""),
     invoice_date: String(formData.get("invoice_date") || ""),
+    received_on: String(formData.get("received_on") || ""),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const invoiceDateError = futureDateError(parsed.data.invoice_date, "Invoice date");
   if (invoiceDateError) return { error: invoiceDateError };
+  const receivedOn = parsed.data.received_on || todayIst();
+  const receivedOnError = futureDateError(receivedOn, "Received on");
+  if (receivedOnError) return { error: receivedOnError };
 
   const supabase = await createClient();
 
@@ -98,8 +105,9 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
       vendor_id: parsed.data.vendor_id,
       invoice_number: parsed.data.invoice_number,
       invoice_date: parsed.data.invoice_date,
+      received_on: receivedOn,
     })
-    .select("id, po_number, invoice_number, invoice_date, created_at, vendor:vendors(id, vendor_code, name, address, mobile)")
+    .select("id, po_number, invoice_number, invoice_date, received_on, created_at, vendor:vendors(id, vendor_code, name, address, mobile)")
     .single();
   if (error) return { error: friendlyDbError(error) };
 
@@ -110,6 +118,7 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
     po_number: string;
     invoice_number: string;
     invoice_date: string;
+    received_on: string | null;
     created_at: string;
     vendor: { id: string; vendor_code: string; name: string } | null;
   };
@@ -121,6 +130,7 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
       po_number: created.po_number,
       invoice_number: created.invoice_number,
       invoice_date: created.invoice_date,
+      received_on: created.received_on,
       created_at: created.created_at,
       status: "draft",
       submitted_at: null,
@@ -555,6 +565,27 @@ export async function submitPurchaseOrder(id: string, _prev: ActionState, _formD
   if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
 
   const supabase = await createClient();
+
+  // B11: a purchase order's value must be complete before it is submitted. Lines created
+  // before the price / GST rule (and opening-stock loads) are left as they are.
+  const { data: poRow } = await supabase.from("purchase_orders").select("opening_load_id").eq("id", id).maybeSingle();
+  if (poRow && !(poRow as { opening_load_id: string | null }).opening_load_id) {
+    const { count: unpriced } = await supabase
+      .from("purchase_lines")
+      .select("id", { count: "exact", head: true })
+      .eq("purchase_order_id", id)
+      .eq("active", true)
+      .eq("is_legacy", false)
+      .or("unit_price.is.null,gst_pct.is.null");
+    if (unpriced && unpriced > 0) {
+      return {
+        error: `${unpriced} line${unpriced === 1 ? " has" : "s have"} no Unit Price or GST %. Edit ${
+          unpriced === 1 ? "it" : "them"
+        } (enter 0 if there is none) before submitting.`,
+      };
+    }
+  }
+
   const { error } = await supabase.rpc("submit_purchase_order", { p_po_id: id });
   if (error) return { error: friendlyDbError(error) };
 

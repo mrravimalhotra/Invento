@@ -517,3 +517,7 @@ retest. Now each template lists only the batches it truthfully applies to
 | Under Test | Awaiting a QC decision (not yet assigned, Round 1 or Round 2 pending, retest in progress) or due for retest |
 | In-process | Any batch except rejected |
 | Finished Product | Finished product batches with status Approved |
+
+## Date of Receipt (11 Oct 2026)
+
+RM labels print the order's **Received on** date. Orders without one (older or bulk-uploaded) use the day the order was submitted; opening stock keeps its own line date.
