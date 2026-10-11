@@ -3,11 +3,12 @@
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
 import { completeFinishedProductBatch, type ActionState } from "@/lib/actions/finished-product";
-import { Field, Input, Select } from "@/components/ui/form";
+import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { compatibleUnits, convertUnit } from "@/lib/constants/units";
 import { formatDate, formatQty, todayIst } from "@/lib/utils";
 import { futureDateError, notAfterDateError } from "@/lib/date-rules";
+import { checkYield, yieldBlockedMessage } from "@/lib/yield-rule";
 
 type Defaults = {
   batch_yield: string | number | null;
@@ -16,6 +17,7 @@ type Defaults = {
   qc_sample_qty: string | number | null;
   stability_qty: string | number | null;
   rnd_qty: string | number | null;
+  yield_reason?: string | null;
 };
 
 const numOrEmpty = (v: string | number | null) => (v === null || v === undefined || v === "" ? "" : String(v));
@@ -39,12 +41,19 @@ export function CompleteBatchForm({
   defaults,
   unit,
   startDate,
+  batchSize,
+  theoreticalPct,
+  permissiblePct,
 }: {
   batchId: string;
   defaults: Defaults;
   unit: string;
   // yyyy-mm-dd; the finish date can not be earlier than this (FB-0025).
   startDate?: string | null;
+  // SCAN-P5-05: the yield is judged against the batch size and the MFR's yield limits.
+  batchSize: string | number;
+  theoreticalPct?: number | null;
+  permissiblePct?: number | null;
 }) {
   const boundAction = completeFinishedProductBatch.bind(null, batchId);
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
@@ -53,6 +62,8 @@ export function CompleteBatchForm({
   const [clientError, setClientError] = useState<string | undefined>(undefined);
 
   const [batchYield, setBatchYield] = useState(numOrEmpty(defaults.batch_yield));
+  const [yieldReason, setYieldReason] = useState(defaults.yield_reason ?? "");
+  const yieldCheck = checkYield({ batchYield, batchSize, theoreticalPct, permissiblePct });
   const [finishDate, setFinishDate] = useState(defaults.finish_date ?? "");
   const [expiryMonth, setExpiryMonth] = useState(defaults.expiry_month ?? "");
 
@@ -91,6 +102,14 @@ export function CompleteBatchForm({
   function goToReview() {
     if (!batchYield || Number(batchYield) <= 0) {
       setClientError("Batch yield is required and must be greater than 0.");
+      return;
+    }
+    if (yieldCheck.blocked && yieldCheck.pct !== null) {
+      setClientError(yieldBlockedMessage(yieldCheck.pct));
+      return;
+    }
+    if (yieldCheck.needsReason && yieldReason.trim().length < 5) {
+      setClientError(`The yield is ${yieldCheck.pct}% of the batch size, outside the allowed range (${yieldCheck.rangeText}). Write the reason (at least 5 characters).`);
       return;
     }
     if (!finishDate) {
@@ -168,6 +187,32 @@ export function CompleteBatchForm({
             onChange={(e) => setBatchYield(e.target.value)}
           />
         </Field>
+        <div className="sm:col-span-3">
+          {yieldCheck.pct !== null && (
+            <p
+              className={
+                yieldCheck.blocked ? "text-sm font-medium text-red" : yieldCheck.needsReason ? "text-sm font-medium text-amber" : "text-xs text-muted"
+              }
+            >
+              Yield is {formatQty(yieldCheck.pct)}% of the batch size ({formatQty(batchSize)} {unit}). Allowed range: {yieldCheck.rangeText}.
+              {yieldCheck.blocked && ` ${yieldBlockedMessage(yieldCheck.pct)}`}
+            </p>
+          )}
+          {yieldCheck.needsReason && (
+            <div className="mt-2">
+              <Field label="Reason for the yield" htmlFor="yield_reason" required hint="Outside the allowed range: say why. QC will see this.">
+                <Textarea
+                  id="yield_reason"
+                  name="yield_reason"
+                  rows={2}
+                  maxLength={500}
+                  value={yieldReason}
+                  onChange={(e) => setYieldReason(e.target.value)}
+                />
+              </Field>
+            </div>
+          )}
+        </div>
         <Field label="Finish date" htmlFor="finish_date" required>
           <Input
             id="finish_date"
@@ -288,6 +333,12 @@ export function CompleteBatchForm({
                 {formatQty(batchYield)} {unit}
               </p>
             </div>
+            {yieldCheck.pct !== null && (
+              <div>
+                <span className="text-muted">Yield % of batch size</span>
+                <p className="mt-1 font-medium">{formatQty(yieldCheck.pct)}%{yieldCheck.needsReason && yieldReason ? ` — ${yieldReason}` : ""}</p>
+              </div>
+            )}
             <div>
               <span className="text-muted">Finish date</span>
               <p className="mt-1 font-medium">{finishDate}</p>

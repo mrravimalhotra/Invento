@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
 import { formatDate } from "@/lib/utils";
 import { beforeDateError, firstDateError, futureDateError, istDay, notAfterDateError } from "@/lib/date-rules";
+import { checkYield, yieldBlockedMessage } from "@/lib/yield-rule";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -318,7 +319,7 @@ export async function completeFinishedProductBatch(
   const supabase = await createClient();
   const { data: current, error: fetchError } = await supabase
     .from("finished_product_batches")
-    .select("status, unit, batch_start_date")
+    .select("status, unit, batch_start_date, target_qty, mfr_definitions(theoretical_yield_pct, permissible_yield_pct)")
     .eq("id", id)
     .maybeSingle();
   if (fetchError || !current) return { error: friendlyDbError(fetchError, "Batch not found.") };
@@ -335,6 +336,23 @@ export async function completeFinishedProductBatch(
     notAfterDateError(expiryMonth, finishDate, "Expiry date", "the finish date")
   );
   if (completionDateError) return { error: completionDateError };
+  // SCAN-P5-05: the yield is judged against the batch size and the MFR's yield limits.
+  const mfrLimits = current.mfr_definitions as unknown as
+    | { theoretical_yield_pct: number | null; permissible_yield_pct: number | null }
+    | null;
+  const yieldResult = checkYield({
+    batchYield,
+    batchSize: current.target_qty,
+    theoreticalPct: mfrLimits?.theoretical_yield_pct,
+    permissiblePct: mfrLimits?.permissible_yield_pct,
+  });
+  if (yieldResult.blocked && yieldResult.pct !== null) return { error: yieldBlockedMessage(yieldResult.pct) };
+  const yieldReason = String(formData.get("yield_reason") ?? "").trim();
+  if (yieldResult.needsReason && yieldReason.length < 5) {
+    return {
+      error: `The yield is ${yieldResult.pct}% of the batch size, outside the allowed range (${yieldResult.rangeText}). Write the reason (at least 5 characters) before completing the batch.`,
+    };
+  }
   if (current.status !== "in_process") {
     return {
       error: "This batch is no longer in progress — it may already be completed or submitted to QC. Refresh to see its current status.",
@@ -372,6 +390,8 @@ export async function completeFinishedProductBatch(
     .from("finished_product_batches")
     .update({
       batch_yield: batchYield,
+      // Stored only when the yield is outside the MFR range, so QC can see why.
+      yield_reason: yieldResult.needsReason ? yieldReason.slice(0, 500) : null,
       finish_date: finishDate,
       expiry_month: expiryMonth,
       qc_sample_qty: qcSampleQty,

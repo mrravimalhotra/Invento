@@ -40,7 +40,7 @@ export default async function FinishedProductDetailPage({
       // below, which needs the FP item's own code/name ("F.P.Code" / "Name of
       // The Product" on the slip) — same embedded-select alias pattern
       // app/(dashboard)/mfr/[id]/page.tsx already uses for the same FK.
-      "id, batch_number, short_batch_no, is_legacy, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, status, batch_start_date, created_at, mfr_definitions(id, code, name, items:finished_product_item_id(item_code, name))"
+      "id, batch_number, short_batch_no, is_legacy, mfr_definition_id, mfr_version, target_qty, unit, batch_yield, actual_yield_pct, expiry_month, finish_date, qc_sample_qty, stability_qty, rnd_qty, yield_reason, status, batch_start_date, created_at, mfr_definitions(id, code, name, theoretical_yield_pct, permissible_yield_pct, items:finished_product_item_id(item_code, name))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -81,6 +81,8 @@ export default async function FinishedProductDetailPage({
     id: string;
     code: string;
     name: string;
+    theoretical_yield_pct: number | null;
+    permissible_yield_pct: number | null;
     items: { item_code: string; name: string } | null;
   } | null;
   const fpItem = mfr?.items ?? null;
@@ -213,6 +215,12 @@ export default async function FinishedProductDetailPage({
               <span className="text-muted">Actual yield % (generated)</span>
               <p className="mt-1 font-medium">{batch.actual_yield_pct != null ? `${formatNumber(batch.actual_yield_pct)}%` : "—"}</p>
             </div>
+            {batch.yield_reason && (
+              <div className="sm:col-span-2">
+                <span className="text-muted">Reason for yield outside the allowed range</span>
+                <p className="mt-1 font-medium text-amber">{batch.yield_reason}</p>
+              </div>
+            )}
             <div>
               <span className="text-muted">Finish date</span>
               <p className="mt-1 font-medium">{formatDate(batch.finish_date)}</p>
@@ -334,6 +342,9 @@ export default async function FinishedProductDetailPage({
                 batchId={id}
                 unit={batch.unit}
                 startDate={batch.batch_start_date}
+                batchSize={batch.target_qty}
+                theoreticalPct={mfr?.theoretical_yield_pct ?? null}
+                permissiblePct={mfr?.permissible_yield_pct ?? null}
                 defaults={{
                   batch_yield: batch.batch_yield,
                   finish_date: batch.finish_date,
@@ -341,6 +352,7 @@ export default async function FinishedProductDetailPage({
                   qc_sample_qty: batch.qc_sample_qty,
                   stability_qty: batch.stability_qty,
                   rnd_qty: batch.rnd_qty,
+                  yield_reason: batch.yield_reason,
                 }}
               />
             </CardBody>

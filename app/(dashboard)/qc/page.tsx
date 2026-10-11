@@ -1,3 +1,4 @@
+import { MIN_STOCK_QTY } from "@/lib/stock-precision";
 import { todayIst } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -149,7 +150,7 @@ async function getAwaitingFpQcLines(
 ): Promise<AwaitingFpQcLine[]> {
   const { data: lines } = await supabase
     .from("finished_product_batches")
-    .select("id, batch_number, short_batch_no, qc_sample_qty, unit, mfr_definitions(name)")
+    .select("id, batch_number, short_batch_no, qc_sample_qty, unit, batch_yield, target_qty, yield_reason, mfr_definitions(name)")
     .eq("status", "complete_awaiting_qc")
     .eq("active", true)
     .order("created_at", { ascending: false });
@@ -182,7 +183,7 @@ async function getDueForRetestLines(
       // ACC-10 (29 Sept 2026): no longer limited to batches with a stability
       // reserve — a batch without one was blocked from production yet never
       // listed here. ACC-39: only batches that still have stock to retest.
-      .gt("live_remaining_qty", 0)
+      .gte("live_remaining_qty", MIN_STOCK_QTY)
       .order("batch_number", { ascending: true })
       .order("purchase_line_id", { ascending: true })
       .range(from, to)
@@ -267,7 +268,7 @@ async function getProductionDueForRetestLines(
       .in("id", chunk)
       .eq("active", true)
       // ACC-10 / ACC-39: every due batch that still has stock.
-      .gt("live_remaining_qty", 0)
+      .gte("live_remaining_qty", MIN_STOCK_QTY)
       .returns<ProductionBatchRow[]>()
   );
   // Stability reserve already used by earlier retests (0080).

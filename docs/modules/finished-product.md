@@ -1297,3 +1297,7 @@ Ravi: *"In Reports, no need to show full one. Only use short ones. In app Screen
 ## BMR / item page details (11 Oct 2026)
 
 The BMR column "Qty. drawn from batch" now shows the AR number for production raw-material batches. The item page's Production RM issue date and the intimation slip use the typed issue date.
+
+## Yield rule (11 Oct 2026, SCAN-P5-05)
+
+Completing a batch shows the yield as a percentage of the batch size. The allowed range is the MFR's permissible yield % up to its theoretical yield % (100% when none is set). A yield outside it needs a written reason (at least 5 characters), saved on the batch (`finished_product_batches.yield_reason`, migration 0110) and shown to QC on the Awaiting FP QC card and on the batch page. A yield above 150% of the batch size is refused.

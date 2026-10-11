@@ -728,3 +728,7 @@ should be sent to QC that the process has started").
 ## Two people deciding at once (11 Oct 2026)
 
 Round 1 and Round 2 decisions only save while the record is still in the state the page showed. If someone else decided first, the second person sees "Someone else has just made this decision. Refresh the page to see the result." and nothing is overwritten.
+
+## Yield reason on FP QC (11 Oct 2026)
+
+A finished product batch whose yield was outside the MFR range shows an amber "Yield outside the allowed range" line with the production team's reason on the Awaiting FP QC list.

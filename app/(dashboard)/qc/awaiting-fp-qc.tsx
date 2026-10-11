@@ -14,6 +14,10 @@ export type AwaitingFpQcLine = {
   short_batch_no: string | null;
   qc_sample_qty: string | number | null;
   unit: string | null;
+  batch_yield?: string | number | null;
+  target_qty?: string | number | null;
+  // SCAN-P5-05: why the yield was outside the MFR range (blank when it was within it)
+  yield_reason?: string | null;
   mfr_definitions: { name: string } | null;
 };
 
@@ -74,6 +78,15 @@ function AwaitingFpQcRow({ line, canSubmit }: { line: AwaitingFpQcLine; canSubmi
         <p className="font-medium">
           {line.mfr_definitions?.name ?? "—"} · {fpBatchBoth(line.batch_number, line.short_batch_no)}
         </p>
+        {line.yield_reason && (
+          <p className="text-xs font-medium text-amber">
+            Yield outside the allowed range
+            {line.batch_yield != null && line.target_qty != null && Number(line.target_qty) > 0
+              ? ` (${formatQty((Number(line.batch_yield) / Number(line.target_qty)) * 100)}% of batch size)`
+              : ""}
+            : {line.yield_reason}
+          </p>
+        )}
         {line.qc_sample_qty !== null && (
           <p className="text-xs text-muted">
             QC sample: {formatQty(line.qc_sample_qty)} {line.unit}
