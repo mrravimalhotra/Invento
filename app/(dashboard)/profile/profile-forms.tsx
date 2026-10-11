@@ -2,7 +2,7 @@
 
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useRef, useState } from "react";
-import { updateProfile, updatePassword, type ActionState } from "@/lib/actions/auth";
+import { updateProfile, changeOwnPassword, type ActionState } from "@/lib/actions/auth";
 import { Field, Input, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
@@ -26,7 +26,7 @@ export function ProfileForm({ defaultName }: { defaultName: string }) {
 }
 
 export function PasswordForm() {
-  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(updatePassword, undefined);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(changeOwnPassword, undefined);
   const [clientError, setClientError] = useState<string | undefined>();
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);
@@ -46,6 +46,9 @@ export function PasswordForm() {
     <form action={formAction} onSubmit={handleSubmit} className="flex flex-col gap-3">
       {error && <p className="text-sm text-red">{error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
+      <Field label="Current password" htmlFor="currentPassword">
+        <PasswordInput id="currentPassword" name="currentPassword" autoComplete="current-password" required />
+      </Field>
       <Field label="New password" htmlFor="password" hint={`At least ${PASSWORD_MIN_LENGTH} characters.`}>
         <PasswordInput
           id="password"

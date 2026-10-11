@@ -6,7 +6,8 @@ the #1 gap gets closed) and §4.13.
 > **Current behaviour (read this first; the sections below are a dated history).**
 > - `/user-roles` (Admin) is for System Admins only: **create accounts** (name, email, temporary password of at least 10 characters, changed at first sign-in), **assign the six roles** (saving replaces the whole set), **reset a password** and **disable / enable** an account (two-step confirmation). Self-registration is closed.
 > - The last System Admin can never be removed or disabled, and a System Admin cannot remove their own System Admin role or disable their own account.
-> - Role writes are enforced by the database (`user_roles` policy), not only by this screen. The "Maker/checker" and unrestricted-screen descriptions in the history below are earlier states.
+> - **Automatic sign-out** (12 Oct 2026, SCAN-P1-02, migration 0113): a card on this page sets the idle period for everyone except System Admin (0 = off, otherwise 5 to 480 minutes, default 60), stored in `company_settings.idle_timeout_minutes` and changed only through `set_idle_timeout()`. See the section at the end.
+- Role writes are enforced by the database (`user_roles` policy), not only by this screen. The "Maker/checker" and unrestricted-screen descriptions in the history below are earlier states.
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 
@@ -199,3 +200,12 @@ Ravi: "own System Admin option should be disabled for System Admins so they can 
 - Another System Admin can still change your roles, and the existing "at least one System Admin must remain" guard (0073) still applies. The SQL editor / service role is not affected (no signed-in user).
 - Adding roles to yourself, and removing your own non-admin roles, still work.
 - Suite `sec07` (41 checks; 1 known control failure unchanged) covers it.
+
+## Automatic sign-out after inactivity (12 Oct 2026, SCAN-P1-02, migration 0113)
+
+Ravi: *"make it configurable with default 60 mins but option to disable this setting. Exclude System Admin from this."*
+
+- Setting: `company_settings.idle_timeout_minutes` (0 = off; otherwise 5 to 480; default 60), written only by `set_idle_timeout(p_minutes)` (System Admin; every change is in the Audit Log). Everyone signed in can read it.
+- `components/shell/idle-sign-out.tsx` is mounted by the dashboard layout for every signed-in user who is **not** a System Admin, when the setting is above 0. It counts key presses, clicks, touches, mouse moves and scrolling in any open tab (shared through `localStorage` when the browser allows it), checks the clock every 10 seconds, shows a "Still there?" warning two minutes before, and then runs `signOutIdle()` (sign-out and redirect to `/login?idle=1`, which says why).
+- It is a browser-side timer: it signs the browser out, it does not end a session someone has copied elsewhere (that would need the Supabase session time-box, a Pro-plan setting).
+- A change applies the next time each person loads a page.

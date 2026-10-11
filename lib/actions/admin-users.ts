@@ -288,3 +288,32 @@ export async function enableUserAccount(
   revalidatePath("/user-roles");
   return { success: "Account re-enabled. Tick their roles below and click Save roles." };
 }
+
+// SCAN-P1-02 (Ravi, 12 Oct 2026): the automatic sign-out after inactivity.
+// System Admin only (also enforced by set_idle_timeout() in the database).
+// 0 = off, otherwise 5 to 480 minutes; a System Admin is never signed out by it.
+export async function setIdleTimeout(_prev: AdminUserActionState, formData: FormData): Promise<AdminUserActionState> {
+  const user = await getCurrentUser();
+  if (!user?.roles.includes("system_admin")) return { error: "Only the System Administrator can change the automatic sign-out." };
+
+  const enabled = formData.get("enabled") === "on";
+  let minutes = 0;
+  if (enabled) {
+    const raw = String(formData.get("minutes") ?? "").trim();
+    minutes = Number(raw);
+    if (!raw || !Number.isInteger(minutes) || minutes < 5 || minutes > 480) {
+      return { error: "Enter a whole number of minutes from 5 to 480." };
+    }
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_idle_timeout", { p_minutes: minutes });
+  if (error) return { error: friendlyDbError(error, "Could not save the automatic sign-out setting.") };
+
+  revalidatePath("/", "layout");
+  return {
+    success: enabled
+      ? `Saved. People are signed out after ${minutes} minutes without activity (System Admins are not).`
+      : "Saved. Automatic sign-out is switched off.",
+  };
+}

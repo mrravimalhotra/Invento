@@ -6,7 +6,8 @@ import { PageFeedback } from "@/components/feedback/page-feedback";
 import { PdfUserSetter } from "@/components/shell/pdf-user-setter";
 import { CompanySetter } from "@/components/shell/company-setter";
 import { createClient } from "@/lib/supabase/server";
-import { fetchCompany } from "@/lib/company-server";
+import { fetchCompany, fetchIdleTimeoutMinutes } from "@/lib/company-server";
+import { IdleSignOut } from "@/components/shell/idle-sign-out";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { FlashHost } from "@/components/ui/flash-host";
 import { Suspense } from "react";
@@ -39,7 +40,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     );
   }
 
-  const company = await fetchCompany(await createClient());
+  const supabase = await createClient();
+  const [company, idleMinutes] = await Promise.all([fetchCompany(supabase), fetchIdleTimeoutMinutes(supabase)]);
+  // SCAN-P1-02: automatic sign-out after inactivity; a System Admin is never signed out this way.
+  const idleSignOut = idleMinutes > 0 && !user.roles.includes("system_admin");
 
   return (
     <div className="flex min-h-screen">
@@ -54,6 +58,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <PageFeedback currentUserId={user.id} />
           <PdfUserSetter name={user.fullName} />
           <CompanySetter company={company} />
+          {idleSignOut && <IdleSignOut minutes={idleMinutes} />}
         </main>
       </div>
     </div>

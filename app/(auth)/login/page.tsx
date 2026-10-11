@@ -21,6 +21,7 @@ function LoginForm() {
   const params = useSearchParams();
   const next = safeRedirectPath(params.get("next"));
   const disabled = params.get("disabled") === "1";
+  const idle = params.get("idle") === "1";
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -28,7 +29,12 @@ function LoginForm() {
       {state?.error ? (
         <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{state.error}</p>
       ) : (
-        disabled && <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{ACCOUNT_DISABLED_MESSAGE}</p>
+        (disabled && <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{ACCOUNT_DISABLED_MESSAGE}</p>) ||
+        (idle && (
+          <p className="rounded-md bg-amber-bg px-3 py-2 text-sm text-amber">
+            You were signed out because you were inactive for a while. Sign in again to continue.
+          </p>
+        ))
       )}
       <input type="hidden" name="next" value={next} />
       <Field label="Email" htmlFor="email" required>

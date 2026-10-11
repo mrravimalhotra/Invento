@@ -72,6 +72,8 @@ Each module section below follows the same pattern, so you always know where to 
 
 Go to Invento's sign-in page and enter your email and password. Accounts are created by a System Admin: there is no self-registration. If you don't have an account yet, ask your System Admin to create one for you. You will receive a temporary password and be asked to choose your own the first time you sign in. Your access to specific screens and actions depends on which roles the System Admin assigns (see [What your role lets you do](#what-your-role-lets-you-do)); until roles are assigned you can view the app but won't see "Add/Edit" buttons.
 
+**Automatic sign-out.** To protect a PC left unattended, Invento signs you out after a period without activity (60 minutes unless your System Admin has changed it, or switched it off). A reminder appears two minutes before, with a **Stay signed in** button. System Admins are not signed out this way. Anything you had not saved is lost, so save long entries as you go.
+
 Forgot your password? Use the **Forgot password** link on the sign-in page to receive a reset link by email, then set a new password on the page it takes you to.
 
 ### Finding your way around
@@ -86,7 +88,7 @@ At the bottom of every single page you'll find a **Feedback & change log** box �
 
 ### Your profile
 
-Click **Profile** in the top bar at any time to see your account details (email, assigned roles), update your display name, or change your password. This is entirely self-service — you don't need a System Admin to change your own name or password.
+Click **Profile** in the top bar at any time to see your account details (email, assigned roles), update your display name, or change your password, which asks for your current password first. This is entirely self-service — you don't need a System Admin to change your own name or password.
 
 ### First-time orientation
 
@@ -701,6 +703,8 @@ Packaging draws from the same stock the Inventory Ledger tracks — an issue her
 1. You'll see a list of every user, one row each, with a set of six checkboxes showing their current roles.
 2. Tick or untick roles for the person you want to change.
 3. Click Save on that person's row. The change takes effect immediately — saving replaces that person's entire set of roles with whatever is checked at that moment (so if you only tick one box, all their other roles are removed).
+
+**Automatic sign-out.** The card above the user list sets how long a person can be inactive before Invento signs them out: tick the box and enter 5 to 480 minutes (60 by default), or untick it to switch the sign-out off. It applies to every role except System Admin.
 
 **Other actions on a person's row:** **Reset password** (sets a new temporary password they must change at next sign-in; two-step confirmation) and **Disable account** (they are signed out and can no longer sign in; two-step confirmation; it can be switched back on with Enable).
 

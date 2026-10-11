@@ -14,6 +14,8 @@ declare r record; v bigint; bad text := ''; begin
     if not p_expect_zero and v <> r.n and r.tbl not in ('profiles','user_roles') then bad := bad || r.tbl || ' ' || v || '/' || r.n || ' '; end if;
   end loop; return bad; end $$;
 grant execute on function t.mismatch(boolean) to authenticated, anon;
+-- 0113: new functions are no longer executable by the public by default, so the test helpers are granted to anon explicitly
+grant execute on function public.t_ok(text,text), public.t_fail(text,text,text), public.t_check(text,boolean) to anon;
 select t_check('seed has data in the key tables', (select bool_and(n > 0) from t.counts where tbl in ('items','vendors','purchase_lines','quality_checks','mfr_lines','inventory_ledger','stock_balance','item_position','inventory_ledger_with_balance','purchase_batch_status')));
 
 \echo '===== user WITH a role (inventory manager) ====='

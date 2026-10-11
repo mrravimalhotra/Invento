@@ -55,6 +55,14 @@ export async function signOut() {
   redirect("/login");
 }
 
+// SCAN-P1-02: the automatic sign-out after inactivity (components/shell/idle-sign-out.tsx).
+// Same as signOut, and the sign-in page says why.
+export async function signOutIdle() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login?idle=1");
+}
+
 export async function requestPasswordReset(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   if (!email) return { error: "Email is required." };
@@ -102,6 +110,29 @@ export async function updatePassword(_prev: ActionState, formData: FormData): Pr
   }
 
   return { success: "Password updated." };
+}
+
+// SCAN-P1-04: changing your password from Profile asks for the current one, so
+// someone at an unattended, signed-in screen cannot lock the owner out. The
+// reset page and the forced first-sign-in change keep using updatePassword().
+export async function changeOwnPassword(prev: ActionState, formData: FormData): Promise<ActionState> {
+  const currentPassword = String(formData.get("currentPassword") || "");
+  if (!currentPassword) return { error: "Enter your current password." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { error: "Your session has expired. Sign in again and retry." };
+
+  const { error } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
+  if (error) {
+    if (error.code === "over_request_rate_limit") {
+      return { error: "Too many attempts. Wait a few minutes and try again." };
+    }
+    return { error: "Your current password is not correct." };
+  }
+  return updatePassword(prev, formData);
 }
 
 export async function updateProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {

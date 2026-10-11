@@ -261,3 +261,10 @@ Left as before: SOP/STP effective date (a future date is allowed) and every syst
 - **Sign-in** (SCAN-P1-03, P1-05): the page you were opening keeps its query string after sign-in; a failed forced password change shows a fixed message.
 - **File names** (SCAN-P5-13): downloaded BMR and slip files turn "/" and other unsafe characters into "-" (`safeFileName` in `lib/utils.ts`).
 - Next.js 16.3.8 (security advisories, SCAN-P1-18).
+
+## Public key lock-down, idle sign-out, current password (12 Oct 2026, migration 0113, SCAN-P1-02/04/10/12/13)
+
+- **Anonymous role.** The public API key (it is in the web page) can no longer do anything: the `anon` role holds no privilege on any table, view or number sequence in `public`, and no ordinary function there is executable by it or by PUBLIC. Signed-in users and the service role keep exactly the rights they had (some internal functions stay closed to signed-in users on purpose). Objects created from now on are closed to `anon` by default, and a function is executable by signed-in users and the service role. Views cannot be written by signed-in users (`current_qc_approvals` could be).
+- **Helper functions.** `_item_stock_unit` and `check_sufficient_stock` refuse a signed-in account that has no role ("Not allowed."). `stability_reserve_left` and `_unit_factor` are only closed to the anonymous role. Not added: limiting `_item_stock_unit` to people who can edit items, because QC approval of a finished product batch (a QC Reviewer) legitimately sets a blank unit.
+- **Idle sign-out** and the **current password** on Profile: see `docs/modules/user-roles.md` and `docs/modules/shell.md` "Profile". Changing the password from Profile asks for the current one (`changeOwnPassword`); the reset page and the forced first-sign-in change are unchanged.
+- Test: suite `sa113` (44 checks). In suites, helper functions created by the suite must be granted to `anon` if the suite runs statements as `anon`.

@@ -8,6 +8,8 @@ import { ShieldAlert } from "lucide-react";
 import { getUserAccountStatuses } from "@/lib/auth/user-accounts";
 import { UserRoleRow } from "./user-role-row";
 import { AddUserForm } from "./add-user-form";
+import { IdleTimeoutForm } from "./idle-timeout-form";
+import { fetchIdleTimeoutMinutes } from "@/lib/company-server";
 
 type ProfileRow = { id: string; full_name: string | null };
 type RoleRow = { user_id: string; role: string };
@@ -62,6 +64,7 @@ async function UserRolesManager({ currentUserId }: { currentUserId: string }) {
       supabase.from("user_roles").select("user_id, role"),
       getUserAccountStatuses(),
     ]);
+  const idleMinutes = await fetchIdleTimeoutMinutes(supabase);
 
   const roleMap = new Map<string, string[]>();
   for (const r of (roleRows ?? []) as RoleRow[]) {
@@ -90,6 +93,12 @@ async function UserRolesManager({ currentUserId }: { currentUserId: string }) {
             docs/SUPABASE_SETUP.md. Role assignment below still works.
           </CardBody>
         )}
+      </Card>
+      <Card>
+        <CardHeader title="Automatic sign-out" />
+        <CardBody>
+          <IdleTimeoutForm minutes={idleMinutes} />
+        </CardBody>
       </Card>
       <Card>
         <CardHeader
