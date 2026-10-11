@@ -7,7 +7,7 @@ import { LegacyTag } from "@/components/ui/legacy-tag";
 import { HideLegacyToggle } from "@/components/ui/hide-legacy-toggle";
 import { PageHeader } from "@/components/ui/page-header";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
-import { formatDate, fpBatchBoth, isLegacyCode, todayIst } from "@/lib/utils";
+import { formatDate, formatQty, fpBatchBoth, isLegacyCode, todayIst } from "@/lib/utils";
 import type { AlertRow } from "./dashboard-alerts";
 import type { FpInProgressRow } from "@/lib/fp-in-progress";
 import { DashboardCharts } from "./charts";
@@ -28,12 +28,12 @@ export type DashboardData = {
   finishedBatches: CountPair;
   pos30: CountPair;
   qc: QcStatusCounts;
-  lowStock: { id: string; name: string; item_code: string; threshold: string | number; onHand: number }[];
+  lowStock: { id: string; name: string; item_code: string; threshold: string | number; onHand: number; usable: number | null }[];
   retestSoon: AlertRow[];
   expirySoon: AlertRow[];
   fpInProgress: FpInProgressRow[];
   fpInProgressTotal: number;
-  ledger30: { event_type: string; event_at: string; quantity: number; legacy: boolean }[];
+  ledger30: { event_type: string; event_at: string; quantity: number; unit: string; legacy: boolean }[];
   purchase30: { created_at: string; value: number; legacy: boolean }[];
   fp30: { created_at: string; legacy: boolean }[];
   days: string[];
@@ -132,7 +132,10 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 {lowStock.slice(0, 6).map((it) => (
                   <Link key={it.id} href="/items" className="flex items-center gap-2 text-sm hover:underline">
                     <TriangleAlert className="h-3.5 w-3.5 text-amber shrink-0" />
-                    {it.name} ({it.item_code}) — {it.onHand.toLocaleString("en-IN")} on hand, threshold {it.threshold}
+                    {it.name} ({it.item_code}) —{" "}
+                    {it.usable !== null
+                      ? `${formatQty(it.usable)} usable now (${formatQty(it.onHand)} on hand), threshold ${it.threshold}`
+                      : `${formatQty(it.onHand)} on hand, threshold ${it.threshold}`}
                   </Link>
                 ))}
               </CardBody>

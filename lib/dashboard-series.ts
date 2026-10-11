@@ -1,4 +1,6 @@
 import { toIstDateString, todayIst } from "@/lib/utils";
+import { lineMoney } from "@/lib/money";
+import { convertUnit, unitFamily } from "@/lib/constants/units";
 
 // ACC-26 (29 Sept 2026): helpers for the Dashboard's "last 30 days" charts.
 //
@@ -57,8 +59,29 @@ export function lineValueInclGst(
   unitPrice: number | string | null | undefined,
   gstPct: number | string | null | undefined
 ): number {
-  const qty = Number(quantity) || 0;
-  const price = Number(unitPrice) || 0;
-  const gst = Number(gstPct) || 0;
-  return qty * price * (1 + gst / 100);
+  // SCAN-P10-06: the same paisa rounding as the Purchase screens.
+  return lineMoney({ quantity, unit_price: unitPrice, gst_pct: gstPct }).lineTotal;
+}
+
+// SCAN-P7-09: the Inventory movement chart used to add kg, ltr and packs into
+// one line. Now it draws one chart per unit, and leaves out the ledger rows
+// that only move stock between two forms of the same thing: the packs made
+// from a batch and then issued (packaged_fp_yield / packaged_fp_issue), the
+// production raw material made from a finished product (production_rm_yield),
+// and the bulk taken out for a Production conversion (fp_packaging_pull from
+// the production department). Everything else is real stock coming in or out.
+const INTERNAL_MOVE_TYPES = new Set(["packaged_fp_yield", "packaged_fp_issue", "production_rm_yield"]);
+
+export function isInternalMove(referenceType: string | null | undefined, department: string | null | undefined): boolean {
+  if (referenceType && INTERNAL_MOVE_TYPES.has(referenceType)) return true;
+  return referenceType === "fp_packaging_pull" && department === "production";
+}
+
+/** Weights are shown in kg, volumes in ltr; counts (nos, count, bottle, pack) keep their own label. */
+export function chartUnit(quantity: number, unit: string | null | undefined): { unit: string; quantity: number } {
+  const u = (unit ?? "").trim() || "nos";
+  const family = unitFamily(u);
+  if (family === "weight") return { unit: "kg", quantity: convertUnit(quantity, u, "kg") ?? quantity };
+  if (family === "volume") return { unit: "ltr", quantity: convertUnit(quantity, u, "ltr") ?? quantity };
+  return { unit: u === "count" ? "nos" : u, quantity };
 }

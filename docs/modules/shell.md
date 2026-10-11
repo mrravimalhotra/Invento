@@ -240,3 +240,5 @@ Left as before: SOP/STP effective date (a future date is allowed) and every syst
 - Expiry / retest alerts for raw material now also list items that are **already overdue** (red, "expired / retest was due N days ago"); the "more" link opens Expiry and Retest Ageing on the matching bucket.
 - Password reset links open `/auth/confirm` first; an old or used link shows "This reset link can't be used" with a link to request a new one. Supabase dashboard settings are in `docs/SUPABASE_SETUP.md`.
 - Feedback: the first resolved time is kept; load errors are shown; the admin list has search and a Page filter.
+
+- Dashboard (SCAN-P7-09, P7-11): the **POs (30d)** card counts submitted orders only, dated by Received on (or the submit day); the **Purchase value** chart is plotted on the same date. **Inventory movement** is drawn as one chart per unit (kg, ltr, nos ...) and leaves out the internal pack and production-conversion pairs, so units are never added together.

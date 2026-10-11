@@ -1,8 +1,9 @@
+import { lowStockCheck } from "@/lib/low-stock";
 import type { Metadata } from "next";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { istDayStart, isLegacyCode, todayIst } from "@/lib/utils";
-import { addDaysToDate, lastIstDays, lineValueInclGst } from "@/lib/dashboard-series";
+import { addDaysToDate, chartUnit, isInternalMove, lastIstDays, lineValueInclGst } from "@/lib/dashboard-series";
 import { ALERT_WINDOW_DAYS, getDashboardAlerts } from "./dashboard-alerts";
 import { getFpInProgress } from "@/lib/fp-in-progress";
 import { DashboardView, type CountPair, type DashboardData, type QcStatusCounts } from "./dashboard-view";
@@ -18,16 +19,19 @@ type LedgerRow = {
   event_type: string;
   event_at: string;
   quantity: number;
+  unit: string | null;
+  reference_type: string | null;
+  department: string | null;
   items: { item_code: string } | null;
   purchase_lines: { batch_number: string } | null;
   production_issue_batches: { batch_number: string } | null;
 };
 type PurchaseLineRow = {
-  created_at: string;
+  pushed_at: string;
   quantity: number;
   unit_price: number | null;
   gst_pct: number | null;
-  purchase_orders: { po_number: string } | null;
+  purchase_orders: { po_number: string; received_on: string | null } | null;
 };
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -69,8 +73,12 @@ export default async function DashboardPage() {
     supabase.from("mfr_definitions").select("*", head()).not("code", "like", "LEG-%"),
     supabase.from("finished_product_batches").select("*", head()).eq("active", true),
     supabase.from("finished_product_batches").select("*", head()).eq("active", true).not("batch_number", "like", "LEG-%"),
-    supabase.from("purchase_orders").select("*", head()).eq("active", true).gte("created_at", since),
-    supabase.from("purchase_orders").select("*", head()).eq("active", true).gte("created_at", since).not("po_number", "like", "LEG-%"),
+    // SCAN-P7-11: only submitted orders count, dated by the day the goods
+    // were received (received_on), or the day the order was submitted.
+    supabase.from("purchase_orders").select("*", head()).eq("active", true).eq("status", "submitted")
+      .or(`received_on.gte.${days[0]},and(received_on.is.null,submitted_at.gte.${since})`),
+    supabase.from("purchase_orders").select("*", head()).eq("active", true).eq("status", "submitted")
+      .or(`received_on.gte.${days[0]},and(received_on.is.null,submitted_at.gte.${since})`).not("po_number", "like", "LEG-%"),
     // Quality-check counts per status, with and without legacy records
     // (0084_dashboard_qc_counts.sql).
     supabase.rpc("dashboard_qc_counts"),
@@ -80,7 +88,7 @@ export default async function DashboardPage() {
     fetchAllRows((from, to) =>
       supabase
         .from("inventory_ledger")
-        .select("event_type, event_at, quantity, items(item_code), purchase_lines(batch_number), production_issue_batches(batch_number)")
+        .select("event_type, event_at, quantity, unit, reference_type, department, items(item_code), purchase_lines(batch_number), production_issue_batches(batch_number)")
         .gte("event_at", since)
         .order("event_at", { ascending: true })
         .order("seq", { ascending: true })
@@ -92,12 +100,12 @@ export default async function DashboardPage() {
     fetchAllRows((from, to) =>
       supabase
         .from("purchase_lines")
-        .select("created_at, quantity, unit_price, gst_pct, purchase_orders!inner(po_number)")
+        .select("pushed_at, quantity, unit_price, gst_pct, purchase_orders!inner(po_number, received_on)")
         .eq("active", true)
         .not("pushed_at", "is", null)
         .eq("purchase_orders.active", true)
-        .gte("created_at", since)
-        .order("created_at", { ascending: true })
+        .gte("pushed_at", since)
+        .order("pushed_at", { ascending: true })
         .order("id", { ascending: true })
         .range(from, to)
     ),
@@ -111,10 +119,10 @@ export default async function DashboardPage() {
         .order("id", { ascending: true })
         .range(from, to)
     ),
-    fetchAllRows<{ id: string; name: string; item_code: string; low_stock_threshold: string | number }>((from, to) =>
+    fetchAllRows<{ id: string; name: string; item_code: string; category: string; low_stock_threshold: string | number }>((from, to) =>
       supabase
         .from("items")
-        .select("id, name, item_code, low_stock_threshold")
+        .select("id, name, item_code, category, low_stock_threshold")
         .not("low_stock_threshold", "is", null)
         .eq("active", true)
         .order("id", { ascending: true })
@@ -153,14 +161,27 @@ export default async function DashboardPage() {
     (chunk) => supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk)
   );
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
+  // SCAN-P3-10: raw material is compared on usable stock (see lib/low-stock.ts).
+  const rawIds = (items ?? []).filter((it) => it.category === "raw").map((it) => it.id);
+  const { data: statuses } = await fetchByIdChunks<{ item_id: string; usable: string | number }>(
+    rawIds,
+    (chunk) => supabase.from("item_stock_status").select("item_id, usable").in("item_id", chunk)
+  );
+  const usableMap = new Map((statuses ?? []).map((x) => [x.item_id, Number(x.usable)]));
   const lowStock = (items ?? [])
-    .filter((it) => (balanceMap.get(it.id) ?? 0) < Number(it.low_stock_threshold))
-    .map((it) => ({
+    .map((it) => {
+      const onHand = balanceMap.get(it.id) ?? 0;
+      const r = lowStockCheck({ category: it.category, threshold: it.low_stock_threshold, onHand, usable: usableMap.get(it.id) ?? 0 });
+      return { it, onHand, r };
+    })
+    .filter((x) => x.r.low)
+    .map(({ it, onHand, r }) => ({
       id: it.id,
       name: it.name,
       item_code: it.item_code,
       threshold: it.low_stock_threshold,
-      onHand: balanceMap.get(it.id) ?? 0,
+      onHand,
+      usable: r.basis === "usable" ? r.compared : null,
     }));
 
   const data: DashboardData = {
@@ -175,17 +196,21 @@ export default async function DashboardPage() {
     expirySoon: alerts.expirySoon,
     fpInProgress: inProgress.rows,
     fpInProgressTotal: inProgress.total,
-    ledger30: ((ledger30 ?? []) as unknown as LedgerRow[]).map((l) => ({
+    ledger30: ((ledger30 ?? []) as unknown as LedgerRow[])
+      .filter((l) => !isInternalMove(l.reference_type, l.department))
+      .map((l) => ({
       event_type: l.event_type,
       event_at: l.event_at,
-      quantity: Number(l.quantity),
+      ...chartUnit(Number(l.quantity), l.unit),
       legacy:
         isLegacyCode(l.items?.item_code) ||
         isLegacyCode(l.purchase_lines?.batch_number) ||
         isLegacyCode(l.production_issue_batches?.batch_number),
     })),
     purchase30: ((purchase30 ?? []) as unknown as PurchaseLineRow[]).map((l) => ({
-      created_at: l.created_at,
+      // SCAN-P7-11: plotted on the day the goods were received (the order's
+      // received_on), or the day the order was submitted when that is blank.
+      created_at: l.purchase_orders?.received_on ? `${l.purchase_orders.received_on}T12:00:00+05:30` : l.pushed_at,
       value: lineValueInclGst(l.quantity, l.unit_price, l.gst_pct),
       legacy: isLegacyCode(l.purchase_orders?.po_number),
     })),
