@@ -29,7 +29,7 @@ export default async function FeedbackAdminPage() {
       ) : (
         <Card>
           <CardHeader title="All submissions" />
-          <FeedbackAdminList rows={await listAllFeedback()} />
+          <FeedbackAdminList {...(await listAllFeedback())} />
         </Card>
       )}
     </div>

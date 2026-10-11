@@ -14,8 +14,12 @@ const TABS: { key: FeedbackStatus | "all"; label: string }[] = [
   { key: "rejected", label: FEEDBACK_STATUS_LABELS.rejected },
 ];
 
-export function FeedbackAdminList({ rows }: { rows: FeedbackRow[] }) {
+export function FeedbackAdminList({ rows, error }: { rows: FeedbackRow[]; error?: string }) {
   const [tab, setTab] = useState<FeedbackStatus | "all">("all");
+  // SCAN-P8-11: search and a Page filter, so the list stays usable as tickets grow.
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState("");
+  const pages = useMemo(() => Array.from(new Set(rows.map((r) => r.page_label))).sort((a, b) => a.localeCompare(b)), [rows]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: rows.length };
@@ -23,7 +27,14 @@ export function FeedbackAdminList({ rows }: { rows: FeedbackRow[] }) {
     return c;
   }, [rows]);
 
-  const filtered = tab === "all" ? rows : rows.filter((r) => r.status === tab);
+  const q = query.trim().toLowerCase();
+  const filtered = rows.filter(
+    (r) =>
+      (tab === "all" || r.status === tab) &&
+      (!page || r.page_label === page) &&
+      (!q ||
+        [r.ticket_number, r.page_label, r.observation, r.submitted_by_name, r.claude_notes ?? ""].some((v) => v.toLowerCase().includes(q)))
+  );
 
   return (
     <div>
@@ -42,8 +53,32 @@ export function FeedbackAdminList({ rows }: { rows: FeedbackRow[] }) {
           </button>
         ))}
       </div>
+      <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search ticket, page, text or name…"
+          aria-label="Search feedback"
+          className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-1.5 text-sm"
+        />
+        <select
+          value={page}
+          onChange={(e) => setPage(e.target.value)}
+          aria-label="Filter by page"
+          className="rounded-md border border-border bg-card px-2 py-1.5 text-sm"
+        >
+          <option value="">All pages</option>
+          {pages.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </div>
+      {error && <p className="p-4 text-sm text-red">Couldn&apos;t load feedback. {error}</p>}
       {filtered.length === 0 ? (
-        <p className="p-6 text-sm text-muted">No feedback in this category.</p>
+        !error && <p className="p-6 text-sm text-muted">{rows.length === 0 ? "No feedback in this category." : "No feedback matches this filter."}</p>
       ) : (
         filtered.map((row) => (
           // Remount on save (updated_at changes) so the uncontrolled

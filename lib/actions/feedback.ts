@@ -27,6 +27,11 @@ export type FeedbackRow = {
   updated_at: string | null;
 };
 
+// SCAN-P8-11: a failed read used to come back as an empty list, so the screens
+// said "no feedback" when the real cause was a failed read. The error travels
+// with the rows now.
+export type FeedbackList = { rows: FeedbackRow[]; error?: string };
+
 const submitSchema = z.object({
   pagePath: z.string().trim().min(1),
   pageLabel: z.string().trim().min(1),
@@ -71,7 +76,7 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
   return { success: "Thanks — your observation has been recorded." };
 }
 
-export async function listPageFeedback(pagePath: string): Promise<FeedbackRow[]> {
+export async function listPageFeedback(pagePath: string): Promise<FeedbackList> {
   const supabase = await createClient();
   const { data, error } = await fetchAllRows((from, to) =>
     supabase
@@ -86,8 +91,8 @@ export async function listPageFeedback(pagePath: string): Promise<FeedbackRow[]>
       .order("id", { ascending: true })
       .range(from, to)
   );
-  if (error) return [];
-  return data ?? [];
+  if (error) return { rows: [], error: friendlyDbError(error, "Couldn't load feedback.") };
+  return { rows: data ?? [] };
 }
 
 // FB-0012 (1 Sept 2026): "there should be option to edit/delete the
@@ -147,7 +152,7 @@ export async function deleteOwnFeedback(id: string, _prev: ActionState, _formDat
   return { success: "Deleted." };
 }
 
-export async function listAllFeedback(): Promise<FeedbackRow[]> {
+export async function listAllFeedback(): Promise<FeedbackList> {
   const supabase = await createClient();
   const { data, error } = await fetchAllRows((from, to) =>
     supabase
@@ -159,8 +164,8 @@ export async function listAllFeedback(): Promise<FeedbackRow[]> {
       .order("id", { ascending: true })
       .range(from, to)
   );
-  if (error) return [];
-  return data ?? [];
+  if (error) return { rows: [], error: friendlyDbError(error, "Couldn't load feedback.") };
+  return { rows: data ?? [] };
 }
 
 const triageSchema = z.object({
@@ -182,13 +187,25 @@ export async function triageFeedback(id: string, _prev: ActionState, formData: F
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
+  // SCAN-P8-11: the resolved time is the moment a ticket FIRST reached
+  // Implemented or Rejected. Saving it again (to correct the reply text, or to
+  // flip Rejected to Implemented) keeps that first time; going back to an open
+  // status clears it.
+  const resolvedStatuses: string[] = ["implemented", "rejected"];
+  const { data: current } = await supabase.from("page_feedback").select("status, resolved_at").eq("id", id).maybeSingle();
+  const nowResolved = resolvedStatuses.includes(parsed.data.status);
+  const resolvedAt = !nowResolved
+    ? null
+    : current?.resolved_at && resolvedStatuses.includes(current.status)
+      ? current.resolved_at
+      : new Date().toISOString();
   const { error } = await supabase
     .from("page_feedback")
     .update({
       category: parsed.data.category,
       status: parsed.data.status,
       claude_notes: parsed.data.claudeNotes || null,
-      resolved_at: ["implemented", "rejected"].includes(parsed.data.status) ? new Date().toISOString() : null,
+      resolved_at: resolvedAt,
     })
     .eq("id", id);
   if (error) return { error: friendlyDbError(error) };

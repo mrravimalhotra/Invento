@@ -55,13 +55,16 @@ function PageFeedbackInner({
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<FeedbackRow[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(submitFeedback, undefined);
 
   function refresh() {
     startTransition(async () => {
-      const rows = await listPageFeedback(pagePath);
-      setItems(rows);
+      const res = await listPageFeedback(pagePath);
+      // Keep the rows already on screen when a refresh fails; say so instead of "none".
+      if (!res.error) setItems(res.rows);
+      setLoadError(res.error ?? null);
       setLoaded(true);
     });
   }
@@ -123,8 +126,9 @@ function PageFeedbackInner({
           </form>
 
           <div className="mt-4 flex flex-col gap-3">
+            {loadError && <p className="text-xs text-red">Couldn&apos;t load feedback for this page. {loadError}</p>}
             {items.length === 0 ? (
-              <p className="text-xs text-muted">No feedback recorded for this page yet.</p>
+              !loadError && <p className="text-xs text-muted">No feedback recorded for this page yet.</p>
             ) : (
               items.map((item) => (
                 <FeedbackItem key={item.id} item={item} currentUserId={currentUserId} onChanged={refresh} />
