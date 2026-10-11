@@ -13,6 +13,7 @@ export type StatementRow = {
   unit: string;
   opening: number;
   purchased: number;
+  openingLoad: number;
   produced: number;
   otherIn: number;
   usedInProduction: number;
@@ -65,6 +66,7 @@ export function StatementTable({ rows, from, to }: { rows: StatementRow[]; from:
     { header: "Unit", accessor: (r) => r.unit || "—" },
     num("Opening", (r) => r.opening, true),
     num("Purchased", (r) => r.purchased),
+    num("Opening load", (r) => r.openingLoad),
     num("Produced", (r) => r.produced),
     num("Other in", (r) => r.otherIn),
     num("Used in production", (r) => r.usedInProduction),
@@ -100,6 +102,7 @@ export function StatementTable({ rows, from, to }: { rows: StatementRow[]; from:
       { header: "Unit", value: (r) => r.unit },
       { header: "Opening", type: "number", decimals: 3, value: (r) => r.opening },
       { header: "Purchased", type: "number", decimals: 3, value: (r) => r.purchased },
+      { header: "Opening load", type: "number", decimals: 3, value: (r) => r.openingLoad },
       { header: "Produced", type: "number", decimals: 3, value: (r) => r.produced },
       { header: "Other in", type: "number", decimals: 3, value: (r) => r.otherIn },
       { header: "Used in production", type: "number", decimals: 3, value: (r) => r.usedInProduction },

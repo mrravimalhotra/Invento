@@ -56,7 +56,7 @@ select t_check('wastage and rejected sit in their own columns', t_st('00000000-0
 select t_check('packaging pull and an unknown reason (other out) today', t_st('00000000-0000-0000-0000-0000000000c3', t_d(0), t_d(0)) = '68|0|0|0|0|4|0|0|0|6|58');
 select t_check('whole range: every column and opening 0', t_st('00000000-0000-0000-0000-0000000000c3', t_d(-30), t_d(0)) = '0|100|7|1|30|4|2|3|5|6|58');
 select t_check('closing for To = today equals On hand on Stock Position', (select closing from stock_statement(t_d(-30), t_d(0)) where item_id='00000000-0000-0000-0000-0000000000c3') = t_oh('00000000-0000-0000-0000-0000000000c3'));
-select t_check('opening + in - out = closing on every row', not exists (select 1 from stock_statement(t_d(-30), t_d(0)) s where s.opening + s.purchased + s.produced + s.other_in - s.used_in_production - s.packaging - s.samples - s.wastage - s.rejected - s.other_out <> s.closing));
+select t_check('opening + in - out = closing on every row', not exists (select 1 from stock_statement(t_d(-30), t_d(0)) s where s.opening + s.purchased + s.opening_load + s.produced + s.other_in - s.used_in_production - s.packaging - s.samples - s.wastage - s.rejected - s.other_out <> s.closing));
 select t_check('splitting a range in two gives the same closing (opening of part 2 = closing of part 1)', (select closing from stock_statement(t_d(-30), t_d(-4)) where item_id='00000000-0000-0000-0000-0000000000c3') = (select opening from stock_statement(t_d(-3), t_d(0)) where item_id='00000000-0000-0000-0000-0000000000c3'));
 
 \echo '===== which items are listed'

@@ -35,7 +35,7 @@ export function StatementFilter({
         Apply
       </Button>
       <p className="basis-full text-xs text-muted">
-        Opening is the stock at the start of the From day, closing the stock at the end of the To day (India time). Use From and To the same day for one day.
+        Opening is the stock at the start of the From day, closing the stock at the end of the To day (India time). Use From and To the same day for one day. Opening load is stock loaded through Opening Stock. Rejected is what QC rejected less what was handed back when it was written off. Items that are now inactive are included if they had stock or movement in the period (Stock Position hides them).
       </p>
     </form>
   );

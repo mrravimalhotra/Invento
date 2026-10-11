@@ -13,6 +13,9 @@ import { TraceView, type TraceRow, type TraceKind } from "./trace-view";
 // finds the batch and shows the result.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SEARCH_LIMIT = 25;
+const TRACE_LINE_LIMIT = 1000; // PostgREST returns at most this many lines
+const TRACE_MAX_DEPTH = 6; // trace_batch (0106) stops after this many levels
 const KINDS: TraceKind[] = ["purchase", "fp", "production"];
 const KIND_LABEL: Record<TraceKind, string> = {
   purchase: "Raw / packing material",
@@ -40,6 +43,10 @@ export default async function BatchTracePage({
   const supabase = await createClient();
 
   let hits: Hit[] = [];
+  // SCAN-P3-13: say so when a search or a trace hit its limit, so a short list is never mistaken for a complete one.
+  let fpFull = false;
+  let plFull = false;
+  let pbFull = false;
   let searchError: string | null = null;
   if (q) {
     const like = `%${escapeLike(q)}%`;
@@ -52,7 +59,7 @@ export default async function BatchTracePage({
         .ilike("batch_number", like)
         .order("created_at", { ascending: false })
         .order("id", { ascending: true })
-        .limit(25)
+        .limit(SEARCH_LIMIT)
         .returns<PurchaseHit[]>(),
       supabase
         .from("production_issue_batches")
@@ -60,7 +67,7 @@ export default async function BatchTracePage({
         .ilike("batch_number", like)
         .order("created_at", { ascending: false })
         .order("id", { ascending: true })
-        .limit(25)
+        .limit(SEARCH_LIMIT)
         .returns<ProductionHit[]>(),
       supabase
         .from("finished_product_batches")
@@ -68,9 +75,12 @@ export default async function BatchTracePage({
         .or(`batch_number.ilike.${likeOr},short_batch_no.ilike.${likeOr}`)
         .order("created_at", { ascending: false })
         .order("id", { ascending: true })
-        .limit(25)
+        .limit(SEARCH_LIMIT)
         .returns<FpHit[]>(),
     ]);
+    fpFull = (fp.data ?? []).length >= SEARCH_LIMIT;
+    plFull = (pl.data ?? []).length >= SEARCH_LIMIT;
+    pbFull = (pb.data ?? []).length >= SEARCH_LIMIT;
     searchError = pl.error?.message ?? pb.error?.message ?? fp.error?.message ?? null;
     hits = [
       ...(fp.data ?? []).map((r): Hit => ({
@@ -123,6 +133,15 @@ export default async function BatchTracePage({
         {searchError && <p className="border-t border-border p-4 text-sm text-red">{searchError}</p>}
         {q && !searchError && (
           <div className="border-t border-border">
+            {(fpFull || plFull || pbFull) && (
+              <p className="border-b border-border bg-amber-bg px-4 py-2 text-xs text-amber">
+                Only the newest {SEARCH_LIMIT} matches of{" "}
+                {[fpFull && "finished product", plFull && "raw / packing material", pbFull && "production raw material"]
+                  .filter(Boolean)
+                  .join(", ")}{" "}
+                batches are listed. Type more of the batch number to narrow the search.
+              </p>
+            )}
             {hits.length === 0 ? (
               <p className="p-4 text-sm text-muted">No batch matches “{q}”.</p>
             ) : (
@@ -171,6 +190,16 @@ export default async function BatchTracePage({
         <Card>
           <p className="p-4 text-sm text-muted">That batch was not found.</p>
         </Card>
+      )}
+      {rows.length >= TRACE_LINE_LIMIT && (
+        <p className="rounded-md border border-amber/40 bg-amber-bg px-3 py-2 text-sm text-amber">
+          This trace has {TRACE_LINE_LIMIT.toLocaleString("en-IN")} lines, the most that can be shown. Some links may be missing, so do not use it as a complete recall list.
+        </p>
+      )}
+      {rows.length > 0 && Math.max(...rows.map((r) => r.depth)) >= TRACE_MAX_DEPTH && (
+        <p className="rounded-md border border-amber/40 bg-amber-bg px-3 py-2 text-sm text-amber">
+          This trace reached its limit of {TRACE_MAX_DEPTH} levels. Anything further along the chain is not shown.
+        </p>
       )}
       {rows.length > 0 && <TraceView rows={rows} />}
     </div>

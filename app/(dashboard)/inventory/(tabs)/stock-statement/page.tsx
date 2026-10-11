@@ -22,6 +22,7 @@ type StatementDbRow = {
   unit: string | null;
   opening: string | number;
   purchased: string | number;
+  opening_load: string | number;
   produced: string | number;
   other_in: string | number;
   used_in_production: string | number;
@@ -68,6 +69,7 @@ export default async function StockStatementPage({
     unit: r.unit ?? "",
     opening: n(r.opening),
     purchased: n(r.purchased),
+    openingLoad: n(r.opening_load),
     produced: n(r.produced),
     otherIn: n(r.other_in),
     usedInProduction: n(r.used_in_production),
