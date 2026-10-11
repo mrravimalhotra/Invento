@@ -18,15 +18,16 @@ export type RmReportExportRow = {
   sqty: number;
   qty: number;
   unit: string;
-  unitPrice: number;
-  total: number;
+  // null = no price on file (shown as "No price", left out of the total)
+  unitPrice: number | null;
+  total: number | null;
   qcState: BatchQcState;
 };
 
 export function RmReportExport({ asOf, rows }: { asOf: string; rows: RmReportExportRow[] }) {
   function handleExport() {
     downloadPdfTable({
-      title: `RM Report As On Date — ${asOf}`,
+      title: `RM Report — current stock as of ${asOf}`,
       columns: ["Item", "Batch No.", "Source", "PQTY", "SQTY", "QTY", "Unit", "Unit Price", "Total", "QC Status"],
       rows: rows.map((r) => [
         r.item,
@@ -36,11 +37,11 @@ export function RmReportExport({ asOf, rows }: { asOf: string; rows: RmReportExp
         r.sqty.toFixed(3),
         r.qty.toFixed(3),
         r.unit,
-        r.unitPrice.toFixed(2),
-        r.total.toFixed(2),
+        r.unitPrice === null ? "No price" : r.unitPrice.toFixed(2),
+        r.total === null ? "No price" : r.total.toFixed(2),
         BATCH_QC_LABELS[r.qcState],
       ]),
-      filename: `rm-report-as-on-${asOf}.pdf`,
+      filename: `rm-report-current-${asOf}.pdf`,
     });
   }
 

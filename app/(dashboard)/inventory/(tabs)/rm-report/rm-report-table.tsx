@@ -25,8 +25,8 @@ export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf:
     { header: "SQTY", accessor: (r) => formatQty(r.sqty) },
     { header: "QTY", accessor: (r) => <span className="font-medium">{formatQty(r.qty)}</span> },
     { header: "Unit", accessor: (r) => r.unit },
-    { header: "Unit Price", accessor: (r) => formatNumber(r.unitPrice) },
-    { header: "Total", accessor: (r) => formatNumber(r.total) },
+    { header: "Unit Price", accessor: (r) => (r.unitPrice === null ? <span className="text-muted">No price</span> : formatNumber(r.unitPrice)) },
+    { header: "Total", accessor: (r) => (r.total === null ? <span className="text-muted">No price</span> : formatNumber(r.total)) },
     {
       header: "QC Status",
       accessor: (r) => <Badge status={r.qcState}>{BATCH_QC_LABELS[r.qcState]}</Badge>,
@@ -37,8 +37,8 @@ export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf:
   // Export decision (c), 29 Sept 2026: Excel added next to the existing
   // Export PDF (which is unchanged).
   const exportConfig: TableExport<RmReportExportRow> = {
-    title: `RM Report as on ${asOf}`,
-    filename: `rm-report-${asOf}`,
+    title: `RM Report — current stock as of ${asOf}`,
+    filename: `rm-report-current-${asOf}`,
     formats: ["excel"],
     columns: [
       { header: "Item", value: (r) => r.item },
@@ -61,7 +61,7 @@ export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf:
       exportConfig={exportConfig}
       isOpeningStock={(r) => r.isLegacy}
       searchPlaceholder="Search item or batch…"
-      emptyLabel={`No purchase batches received on or before ${asOf}.`}
+      emptyLabel="No raw material batches in stock."
       pageSize={20}
     />
   );

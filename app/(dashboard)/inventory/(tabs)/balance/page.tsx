@@ -1,3 +1,4 @@
+import { lowStockCheck } from "@/lib/low-stock";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
@@ -113,7 +114,8 @@ export default async function StockPositionPage() {
     return {
       ...it,
       onHand,
-      low: threshold !== null && onHand < threshold,
+      // SCAN-P3-10: raw material is flagged on usable stock (lib/low-stock.ts).
+      low: lowStockCheck({ category: it.category, threshold, onHand, usable }).low,
       received: p ? Number(p.received) : 0,
       yielded: p ? Number(p.yielded) : 0,
       heldQc: p ? Number(p.held_qc) : 0,

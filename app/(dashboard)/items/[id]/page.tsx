@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { EditItemForm, DeleteItemForm } from "../item-form";
 import { Barcode } from "../barcode";
 import { formatQty } from "@/lib/utils";
+import { lowStockCheck } from "@/lib/low-stock";
 import { CoaTemplateCard } from "../../coa/coa-template-card";
 import { loadCoaTemplate } from "@/lib/coa-template-data";
 
@@ -29,7 +30,7 @@ export default async function ItemDetailPage({
   if (!user) redirect("/login");
 
   const supabase = await createClient();
-  const [{ data: item }, { data: itemTypes }, { data: balance }] = await Promise.all([
+  const [{ data: item }, { data: itemTypes }, { data: balance }, { data: status }] = await Promise.all([
     supabase
       .from("items")
       .select(
@@ -39,6 +40,7 @@ export default async function ItemDetailPage({
       .maybeSingle(),
     supabase.from("item_types").select("id, description").eq("active", true).order("description", { ascending: true }),
     supabase.from("stock_balance").select("on_hand").eq("item_id", id).maybeSingle(),
+    supabase.from("item_stock_status").select("usable").eq("item_id", id).maybeSingle(),
   ]);
 
   if (!item) notFound();
@@ -50,7 +52,12 @@ export default async function ItemDetailPage({
   const readOnly = !canWrite(user.roles, "items");
   const isSystemAdmin = user.roles.includes("system_admin");
   const onHand = balance?.on_hand != null ? Number(balance.on_hand) : 0;
-  const isLow = item.low_stock_threshold != null && onHand < Number(item.low_stock_threshold);
+  const isLow = lowStockCheck({
+    category: item.category,
+    threshold: item.low_stock_threshold,
+    onHand,
+    usable: status?.usable != null ? Number(status.usable) : 0,
+  }).low;
 
   return (
     <div>

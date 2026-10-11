@@ -162,3 +162,7 @@ row (the same decision as ACC-31 on the finished-product page).
 ## QC Register type column (11 Oct 2026)
 
 The QC Register has a **Type** column and shows the production batch for production raw-material checks (previously blank).
+
+## RM Stock Report (11 Oct 2026)
+
+The RM Stock Report has a **Usable Now** column and its Low stock flag compares the threshold with usable stock (SCAN-P3-10).

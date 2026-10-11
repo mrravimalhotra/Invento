@@ -1,9 +1,9 @@
+import { roundMoney, sumMoney } from "@/lib/money";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
-import { formatNumber, todayIst, istDayEnd } from "@/lib/utils";
+import { formatNumber, todayIst, formatDate } from "@/lib/utils";
 import { computeBatchQcState } from "@/lib/batch-qc-status";
-import { RmReportFilter } from "./rm-report-filter";
 import { RmReportExport, type RmReportExportRow } from "./rm-report-export";
 import { RmReportTable } from "./rm-report-table";
 
@@ -35,13 +35,11 @@ function todayIso() {
   return todayIst();
 }
 
-export default async function RmReportPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ asOf?: string }>;
-}) {
-  const { asOf: asOfParam } = await searchParams;
-  const asOf = asOfParam && /^\d{4}-\d{2}-\d{2}$/.test(asOfParam) && asOfParam <= todayIso() ? asOfParam : todayIso();
+// SCAN-P3-11 (Ravi, 11 Oct 2026): this report shows CURRENT stock only. The quantity column
+// is the quantity left today, so a date picker made it look like past stock; the date
+// picker is gone and the Stock Statement (Inventory) gives true figures for a past date.
+export default async function RmReportPage() {
+  const asOf = todayIso();
 
   const supabase = await createClient();
   // FB-0018: a draft (not yet Final Submitted) line's remaining_qty has
@@ -71,7 +69,6 @@ export default async function RmReportPage({
       .eq("active", true)
       .eq("purchase_orders.status", "submitted")
       .eq("items.category", "raw")
-      .lte("created_at", istDayEnd(asOf))
       .order("created_at", { ascending: false })
       .order("id", { ascending: true })
       .range(from, to)
@@ -93,11 +90,36 @@ export default async function RmReportPage({
   );
   const statusByLine = new Map((statusRows ?? []).map((s) => [s.purchase_line_id, s]));
 
-  const rows: RmReportExportRow[] = (data ?? []).map((r) => {
+  // Raw material made through Production issues is stock of raw items too (it is in On hand
+  // on Stock Position), so it is listed here as well; it has no purchase price.
+  const { data: prodBatches, error: prodError } = await fetchAllRows<{
+    id: string; batch_number: string; quantity: string | number; live_remaining_qty: string | number; unit: string;
+    items: { name: string; item_code: string } | null;
+  }>((from, to) =>
+    supabase
+      .from("production_issue_batches")
+      .select("id, batch_number, quantity, live_remaining_qty, unit, items!inner(name, item_code)")
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+      .returns<{
+        id: string; batch_number: string; quantity: string | number; live_remaining_qty: string | number; unit: string;
+        items: { name: string; item_code: string } | null;
+      }[]>()
+  );
+  const { data: prodStatusRows } = await fetchByIdChunks<{ production_batch_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }>(
+    (prodBatches ?? []).map((b) => b.id),
+    (chunk) => supabase.from("production_batch_status").select("production_batch_id, qc_status, retest_date, expiry_date").in("production_batch_id", chunk)
+  );
+  const prodStatusById = new Map((prodStatusRows ?? []).map((x) => [x.production_batch_id, x]));
+
+  const purchaseRows: RmReportExportRow[] = (data ?? []).map((r) => {
     const pqty = Number(r.quantity);
     const sqty = Number(r.qc_qty) + Number(r.stability_qty) + Number(r.rnd_qty);
     const qty = Number(r.live_remaining_qty);
-    const unitPrice = r.unit_price === null ? 0 : Number(r.unit_price);
+    // A missing price is shown as "No price" and left out of the total (it used to count as 0).
+    const unitPrice = r.unit_price === null ? null : Number(r.unit_price);
     const status = statusByLine.get(r.id);
     return {
       item: `${r.items?.name ?? "—"} (${r.items?.item_code ?? "—"}) — Batch ${r.batch_number}`,
@@ -108,26 +130,52 @@ export default async function RmReportPage({
       qty,
       unit: r.unit,
       unitPrice,
-      total: qty * unitPrice,
+      total: unitPrice === null ? null : roundMoney(qty * unitPrice),
       qcState: computeBatchQcState(status?.qc_status, status?.retest_date, undefined, status?.expiry_date),
     };
   });
+  const productionRows: RmReportExportRow[] = (prodBatches ?? []).map((b) => {
+    const status = prodStatusById.get(b.id);
+    return {
+      item: `${b.items?.name ?? "—"} (${b.items?.item_code ?? "—"}) — Batch ${b.batch_number} (Production)`,
+      batchNumber: b.batch_number,
+      isLegacy: false,
+      pqty: Number(b.quantity),
+      sqty: 0,
+      qty: Number(b.live_remaining_qty),
+      unit: b.unit,
+      unitPrice: null,
+      total: null,
+      qcState: computeBatchQcState(status?.qc_status, status?.retest_date, undefined, status?.expiry_date),
+    };
+  });
+  // A batch QC rejected is out of On hand (0104); it is listed under Rejected Materials.
+  const rows = [...purchaseRows, ...productionRows].filter((r) => r.qcState !== "rejected");
 
-  const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
+  const grandTotal = sumMoney(rows.map((r) => r.total ?? 0));
+  const unpriced = rows.filter((r) => r.total === null && r.qty > 0).length;
 
   return (
     <Card>
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border">
-        <RmReportFilter asOf={asOf} />
-        <div className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+        <p className="max-w-2xl text-sm text-muted">
+          Current stock of each raw material batch, as of today ({formatDate(asOf)}). Rejected batches are not listed
+          (see Rejected Materials). For stock on a past date use the Stock Statement.
+        </p>
+        <div>
           <RmReportExport asOf={asOf} rows={rows} />
         </div>
       </div>
-      {error && <p className="p-4 text-sm text-red">{friendlyDbError(error, "Couldn't load this list.")}</p>}
+      {(error || prodError) && <p className="p-4 text-sm text-red">{friendlyDbError((error ?? prodError)!, "Couldn't load this list.")}</p>}
       <RmReportTable rows={rows} asOf={asOf} />
       {rows.length > 0 && (
         <div className="flex justify-end border-t border-border px-4 py-2.5 text-sm font-semibold">
           Grand total: {formatNumber(grandTotal)}
+          {unpriced > 0 && (
+            <span className="ml-2 font-normal text-muted">
+              ({unpriced} batch{unpriced === 1 ? " has" : "es have"} no price and {unpriced === 1 ? "is" : "are"} not valued)
+            </span>
+          )}
         </div>
       )}
     </Card>

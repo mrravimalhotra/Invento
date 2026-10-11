@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { ItemsTable, type ItemRow } from "./items-table";
+import { lowStockCheck } from "@/lib/low-stock";
 
 type ItemQueryRow = {
   id: string;
@@ -22,6 +23,7 @@ type ItemQueryRow = {
 };
 
 type BalanceQueryRow = { item_id: string; on_hand: string | number };
+type UsableQueryRow = { item_id: string; usable: string | number };
 
 export default async function ItemsPage({
   searchParams,
@@ -46,7 +48,7 @@ export default async function ItemsPage({
   // list page that must show *every* row return more than the cap.
   // fetchAllRows pages both queries in max-rows-sized `.range()` windows
   // until each is exhausted, same fix already shipped for Stock Position.
-  const [{ data: itemsData }, { data: balances }] = await Promise.all([
+  const [{ data: itemsData }, { data: balances }, { data: usables }] = await Promise.all([
     fetchAllRows<ItemQueryRow>((from, to) => {
       let query = supabase
         .from("items")
@@ -65,9 +67,19 @@ export default async function ItemsPage({
         .range(from, to)
         .returns<BalanceQueryRow[]>()
     ),
+    // SCAN-P3-10: raw material is flagged Low on usable stock, not on hand.
+    fetchAllRows<UsableQueryRow>((from, to) =>
+      supabase
+        .from("item_stock_status")
+        .select("item_id, usable")
+        .order("item_id", { ascending: true })
+        .range(from, to)
+        .returns<UsableQueryRow[]>()
+    ),
   ]);
 
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
+  const usableMap = new Map((usables ?? []).map((u) => [u.item_id, Number(u.usable)]));
 
   const rows: ItemRow[] = (itemsData ?? []).map((it) => ({
     ...it,
@@ -75,6 +87,12 @@ export default async function ItemsPage({
     item_types: Array.isArray(it.item_types) ? it.item_types[0] ?? null : it.item_types,
     on_hand: balanceMap.get(it.id) ?? 0,
     hasBalance: balanceMap.has(it.id),
+    low: lowStockCheck({
+      category: it.category,
+      threshold: it.low_stock_threshold,
+      onHand: balanceMap.get(it.id) ?? 0,
+      usable: usableMap.get(it.id) ?? 0,
+    }).low,
   })) as unknown as ItemRow[];
 
   const canCreate = canWrite(user?.roles ?? [], "items");

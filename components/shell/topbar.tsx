@@ -8,13 +8,14 @@ import type { CurrentUser } from "@/lib/auth/session";
 import { ROLE_LABELS } from "@/lib/constants/roles";
 import { createClient } from "@/lib/supabase/server";
 import { MobileNav } from "./mobile-nav";
+import { lowStockCheck } from "@/lib/low-stock";
 
 async function LowStockBanner() {
   const supabase = await createClient();
   const { data: items } = await fetchAllRows((from, to) =>
     supabase
       .from("items")
-      .select("id, name, item_code, low_stock_threshold")
+      .select("id, name, item_code, category, low_stock_threshold")
       .not("low_stock_threshold", "is", null)
       .eq("active", true)
       .order("id", { ascending: true })
@@ -42,7 +43,21 @@ async function LowStockBanner() {
   );
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
 
-  const low = items.filter((it) => (balanceMap.get(it.id) ?? 0) < Number(it.low_stock_threshold));
+  // SCAN-P3-10: raw material is compared on usable stock (lib/low-stock.ts).
+  const { data: statuses } = await fetchByIdChunks<{ item_id: string; usable: number }>(
+    items.filter((it) => it.category === "raw").map((it) => it.id),
+    (chunk) => supabase.from("item_stock_status").select("item_id, usable").in("item_id", chunk)
+  );
+  const usableMap = new Map((statuses ?? []).map((x) => [x.item_id, Number(x.usable)]));
+  const low = items.filter(
+    (it) =>
+      lowStockCheck({
+        category: it.category,
+        threshold: it.low_stock_threshold,
+        onHand: balanceMap.get(it.id) ?? 0,
+        usable: usableMap.get(it.id) ?? 0,
+      }).low
+  );
   if (low.length === 0) return null;
 
   return (

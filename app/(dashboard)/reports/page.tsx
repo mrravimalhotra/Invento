@@ -29,8 +29,8 @@ export default async function ReportsPage() {
   // fix as Stock Position (Twelfth pass) and Item Master (this pass):
   // fetchAllRows pages every query in max-rows-sized `.range()` windows
   // until each is exhausted.
-  const [itemsRes, balancesRes, qcRes, fpRes, purchaseRes] = await Promise.all([
-    fetchAllRows<Omit<RmStockRow, "onHand">>((from, to) =>
+  const [itemsRes, balancesRes, usableRes, qcRes, fpRes, purchaseRes] = await Promise.all([
+    fetchAllRows<Omit<RmStockRow, "onHand" | "usable">>((from, to) =>
       supabase
         .from("items")
         .select("id, item_code, name, unit, low_stock_threshold, created_at")
@@ -39,7 +39,7 @@ export default async function ReportsPage() {
         .order("created_at", { ascending: false })
         .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)
-        .returns<Omit<RmStockRow, "onHand">[]>()
+        .returns<Omit<RmStockRow, "onHand" | "usable">[]>()
     ),
     fetchAllRows<BalanceQueryRow>((from, to) =>
       supabase
@@ -48,6 +48,15 @@ export default async function ReportsPage() {
         .order("item_id", { ascending: true })
         .range(from, to)
         .returns<BalanceQueryRow[]>()
+    ),
+    // SCAN-P3-10: the flag compares the threshold with usable stock.
+    fetchAllRows<{ item_id: string; usable: string | number }>((from, to) =>
+      supabase
+        .from("item_stock_status")
+        .select("item_id, usable")
+        .order("item_id", { ascending: true })
+        .range(from, to)
+        .returns<{ item_id: string; usable: string | number }[]>()
     ),
     // created_at dropped from both selects below (21 Sept 2026, pagination
     // roadmap step 2 — a quick audit of every fetchAllRows call site for
@@ -110,9 +119,11 @@ export default async function ReportsPage() {
   for (const b of balancesRes.data ?? []) {
     onHandByItem.set(b.item_id, Number(b.on_hand ?? 0));
   }
+  const usableByItem = new Map((usableRes.data ?? []).map((u) => [u.item_id, Number(u.usable ?? 0)]));
   const rmStockRows: RmStockRow[] = (itemsRes.data ?? []).map((i) => ({
     ...i,
     onHand: onHandByItem.get(i.id) ?? 0,
+    usable: usableByItem.get(i.id) ?? 0,
   }));
 
   const qcRows = (qcRes.data ?? []) as unknown as QcRow[];

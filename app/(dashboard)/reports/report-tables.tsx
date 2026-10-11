@@ -1,5 +1,6 @@
 "use client";
 
+import { lowStockCheck } from "@/lib/low-stock";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Field, Select } from "@/components/ui/form";
@@ -18,6 +19,8 @@ export type RmStockRow = {
   low_stock_threshold: number | string | null;
   created_at: string;
   onHand: number;
+  /** Usable now: QC approved, in date (item_stock_status). */
+  usable: number;
 };
 
 export function RmStockReport({ rows }: { rows: RmStockRow[] }) {
@@ -32,6 +35,12 @@ export function RmStockReport({ rows }: { rows: RmStockRow[] }) {
       xl: { type: "number", decimals: 3, value: (r) => r.onHand },
     },
     {
+      header: "Usable Now",
+      cell: (r) => formatQty(r.usable),
+      pdfValue: (r) => formatQty(r.usable),
+      xl: { type: "number", decimals: 3, value: (r) => r.usable },
+    },
+    {
       header: "Low Stock Threshold",
       cell: (r) => formatQty(r.low_stock_threshold),
       pdfValue: (r) => formatQty(r.low_stock_threshold),
@@ -40,8 +49,7 @@ export function RmStockReport({ rows }: { rows: RmStockRow[] }) {
     {
       header: "Flag",
       cell: (r) => {
-        const threshold = r.low_stock_threshold === null || r.low_stock_threshold === "" ? null : Number(r.low_stock_threshold);
-        const isLow = threshold !== null && !Number.isNaN(threshold) && r.onHand < threshold;
+        const isLow = lowStockCheck({ category: "raw", threshold: r.low_stock_threshold, onHand: r.onHand, usable: r.usable }).low;
         return isLow ? (
           <span className="inline-flex items-center rounded-full bg-amber-bg px-2.5 py-0.5 text-xs font-medium text-amber">
             Below threshold
@@ -51,8 +59,7 @@ export function RmStockReport({ rows }: { rows: RmStockRow[] }) {
         );
       },
       pdfValue: (r) => {
-        const threshold = r.low_stock_threshold === null || r.low_stock_threshold === "" ? null : Number(r.low_stock_threshold);
-        const isLow = threshold !== null && !Number.isNaN(threshold) && r.onHand < threshold;
+        const isLow = lowStockCheck({ category: "raw", threshold: r.low_stock_threshold, onHand: r.onHand, usable: r.usable }).low;
         return isLow ? "Below threshold" : "OK";
       },
     },
@@ -61,7 +68,7 @@ export function RmStockReport({ rows }: { rows: RmStockRow[] }) {
   return (
     <ReportSection
       title="RM Stock Report"
-      description="Raw material items with current on-hand quantity (from the inventory ledger) against each item's low-stock threshold."
+      description="Raw material items with current on-hand quantity (from the inventory ledger) against each item's low-stock threshold. The flag compares the threshold with the usable quantity (QC approved, in date), not with everything on hand."
       rows={rows}
       columns={columns}
       dateOf={(r) => r.created_at}

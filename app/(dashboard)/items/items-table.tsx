@@ -24,6 +24,8 @@ export type ItemRow = {
   item_types: { description: string } | null;
   on_hand: number;
   hasBalance: boolean;
+  /** Low stock: raw material on usable stock, others on hand (lib/low-stock.ts). */
+  low: boolean;
   created_at: string;
 };
 
@@ -49,9 +51,7 @@ export function ItemsTable({ rows }: { rows: ItemRow[] }) {
     {
       header: "Low stock",
       accessor: (r) =>
-        r.low_stock_threshold != null && r.on_hand < Number(r.low_stock_threshold) ? (
-          <Badge status="rejected">Low</Badge>
-        ) : null,
+        r.low ? <Badge status="rejected">Low</Badge> : null,
     },
     {
       header: "Status",
@@ -76,7 +76,7 @@ export function ItemsTable({ rows }: { rows: ItemRow[] }) {
       { header: "Unit", value: (r) => r.unit ?? "" },
       { header: "Stock on hand", type: "number", decimals: 3, value: (r) => (r.hasBalance ? r.on_hand : null) },
       { header: "Low-stock threshold", type: "number", decimals: 3, value: (r) => (r.low_stock_threshold != null ? Number(r.low_stock_threshold) : null) },
-      { header: "Low stock", value: (r) => (r.low_stock_threshold != null && r.on_hand < Number(r.low_stock_threshold) ? "Low" : "") },
+      { header: "Low stock", value: (r) => (r.low ? "Low" : "") },
       { header: "Status", value: (r) => (r.active ? "Active" : "Inactive") },
       { header: "Created", type: "date", value: (r) => r.created_at },
     ],

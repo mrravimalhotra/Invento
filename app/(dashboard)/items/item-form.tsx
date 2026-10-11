@@ -81,7 +81,7 @@ export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOptio
         <Field label="Barcode" htmlFor="barcode" hint="Optional, must be unique.">
           <Input id="barcode" name="barcode" />
         </Field>
-        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the topbar low-stock banner.">
+        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the low-stock banner. For raw material it is compared with usable stock (QC approved, in date); for other items, with stock on hand.">
           <Input id="low_stock_threshold" name="low_stock_threshold" type="number" step="any" min="0" />
         </Field>
       </div>
@@ -213,7 +213,7 @@ export function EditItemForm({
         <Field label="Barcode" htmlFor="barcode" hint="Optional, must be unique.">
           <Input id="barcode" name="barcode" defaultValue={item.barcode ?? ""} />
         </Field>
-        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the topbar low-stock banner.">
+        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the low-stock banner. For raw material it is compared with usable stock (QC approved, in date); for other items, with stock on hand.">
           <Input
             id="low_stock_threshold"
             name="low_stock_threshold"

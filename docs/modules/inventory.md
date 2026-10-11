@@ -37,19 +37,17 @@ the cross-cutting rule in DESIGN.md §3.
   embed through. Shows on-hand per active item with a red "Low stock" badge
   when `on_hand < low_stock_threshold`, a muted "no threshold set" note when
   the item has none.
-- **RM Report As On Date** — `/inventory/rm-report`
-  (`.../rm-report/page.tsx`), named to match the legacy report exactly.
-  Queries `purchase_lines` (`active = true`, `created_at <= <asOf>`) joined
-  to `items`. Columns: Item, Batch No., **PQTY** (`quantity`), **SQTY**
-  (`qc_qty + stability_qty + rnd_qty`), **QTY** (`remaining_qty`, the
-  DB-generated column), Unit, Unit Price, **Total** (`remaining_qty ×
-  unit_price`), plus a grand-total footer. Date picker (`rm-report-filter.tsx`,
-  a plain GET form so no `useSearchParams()`/Suspense is needed — auto-submits
-  on change) defaults to today. "Export PDF" (`rm-report-export.tsx`) calls
-  `lib/pdf.ts`'s `downloadPdfTable()` client-side with the same rows the
-  table renders — this is a real gap closed: the RM Report As On Date with a
-  working export button was a "Not Yet Built" item in the requirements
-  review.
+- **RM Report** — `/inventory/rm-report` (`.../rm-report/page.tsx`). Current
+  stock only (SCAN-P3-11): the date picker was removed because the figures were
+  always today's, whatever date was chosen. One row per batch with stock left:
+  bought batches that are not rejected, plus production raw-material batches.
+  Columns: Item, Batch No., Source, **PQTY** (`quantity`), **SQTY**
+  (`qc_qty + stability_qty + rnd_qty`), **QTY** (live remaining), Unit, Unit
+  Price, **Total** (QTY x Unit Price, to the paisa), plus a grand total. A batch
+  with no price shows "No price" (production raw material has none) and is left
+  out of the total, with a note of how many. Rejected batches are not listed
+  (they are in Rejected Materials). For stock on a past date use the Stock
+  Statement. "Export PDF" and Excel (`rm-report-export.tsx`) use the same rows.
 - **Record wastage** — `/inventory/wastage/new`
   (`app/(dashboard)/inventory/wastage/new/page.tsx` +
   `wastage-form.tsx`). Item dropdown, dependent batch dropdown (that item's
@@ -88,7 +86,7 @@ the cross-cutting rule in DESIGN.md §3.
 - `app/(dashboard)/inventory/(tabs)/page.tsx` — Ledger.
 - `app/(dashboard)/inventory/(tabs)/balance/page.tsx` — Stock Balance.
 - `app/(dashboard)/inventory/(tabs)/rm-report/page.tsx`,
-  `rm-report-filter.tsx`, `rm-report-export.tsx` — RM Report As On Date.
+  `rm-report-table.tsx`, `rm-report-export.tsx` — RM Report.
 - `app/(dashboard)/inventory/wastage/new/page.tsx`,
   `app/(dashboard)/inventory/wastage/wastage-form.tsx` — Record wastage.
 
@@ -104,7 +102,7 @@ Per DESIGN.md §1 and §4.6, matching the second-pass requirements review:
 1. **No current-balance / "stock on hand" view.** The baseline had no
    as-of-now stock screen at all (users summed the raw log by hand). The
    Stock Balance tab is new, built on the `stock_balance` view.
-2. **No RM Report As On Date with export.** Present in the legacy system by
+2. **No RM Report with export.** Present in the legacy system by
    name (PQTY/SQTY/QTY/Price/Total) but listed as "Not Yet Built" — no
    report and no export button existed. Now built against
    `purchase_lines.remaining_qty`, with a working `Export PDF` button.
@@ -129,39 +127,7 @@ Per DESIGN.md §1 and §4.6, matching the second-pass requirements review:
   to receive the rows first. A footer note tells the user when the cap is
   hit. Worth revisiting with server-side pagination once the table has real
   volume — noted here rather than built now, to stay in scope.
-- **RM Report "as of \<date\>" filters which batches are *included*
-  (`created_at <= asOf`), not what each batch's PQTY/SQTY/QTY *were* on that
-  date.** The schema has no historical/point-in-time snapshot of
-  `remaining_qty` — it's a live generated column. So a date in the past
-  shows exactly the batches received by then, but with **today's** current
-  remaining quantities, not a reconstruction of stock as it stood back then.
-  This matches the schema as given (no snapshot table exists) and is
-  consistent with DESIGN.md's non-goals; flagging it explicitly since the
-  report's name ("As On Date") could otherwise imply true historical
-  point-in-time values. **Suggested follow-up** (not built, per the
-  briefing — this is not a schema change I should make unilaterally): a
-  periodic `stock_balance_snapshot` table if true historical
-  reconstruction is ever required.
-- **Wastage reason (corrected 11 Oct 2026, SCAN-P3-06).** The reason typed
-  for a write-off has been saved on the ledger row since migration 0036
-  (`inventory_ledger.reason`). The Inventory Ledger (and the Ledger on each
-  item page) now shows it in a **Reason** column, searchable and in the Excel
-  download. The Batch Trace still shows only the total written off.
-- **Stock Balance is not filtered to `category = 'raw'`.** DESIGN.md calls
-  it "the as-of-now equivalent of the legacy 'Raw Material Stock' screen",
-  but the `stock_balance` view and the brief's own column list
-  (`items(name, code, unit, low_stock_threshold)`) don't mention a category
-  filter, and `items.category` now also covers `processed`/`packaging`
-  stock that's equally useful to see on hand. Showing all active items
-  (with a Category column) rather than narrowing to raw materials only —
-  flagging in case Ravi wants it split or filtered on review.
-- **Added `inventory` to `lib/constants/roles.ts`'s `MODULE_WRITE_ROLES`.**
-  Every other module already had its own key there; `inventory` was the one
-  missing entry. Not in the briefing's explicit no-touch list
-  (`nav.ts`/migrations/`components/ui`/`components/shell`), so added it
-  directly, mirroring the existing pattern and the RPC's own role list
-  exactly — flagging in case this collides with another agent's edit to the
-  same file.
+- **RM Report is current stock only** (SCAN-P3-11); the old "as of date" choice implied a past-date view the schema cannot give. The Stock Statement is the past-date report.
 
 ## FB-0013 — Finished Product batch visibility (1 Sept 2026)
 
@@ -248,7 +214,7 @@ per-something view was a clean fit for a per-*batch* QC status — the main
 Ledger tab is per-*event* (the same batch appears on many push/pull rows),
 Stock Balance is per-*item* (one item can have several batches in
 different QC states at once, so a single status there would be
-misleading). **"RM Report As On Date" is the one view that's already one
+misleading). **"RM Report" is the one view that's already one
 row per batch**, so the new "QC Status" column was added there, not to
 the other two tabs (Ravi's explicit choice — not a leftover gap).
 
@@ -442,7 +408,7 @@ Second of four phases scoped in `claude/inventory-ledger-redesign.md`
 purchase time. It never decreased when that specific batch was later
 consumed by a `finished_product_components` insert, or had wastage
 recorded against it — the Purchase Lines table, the FP compose picker,
-RM Report As On Date, the Wastage batch dropdown, and the Purchase
+RM Report, the Wastage batch dropdown, and the Purchase
 Register report all displayed this frozen figure as if it were live
 "what's left in this batch." Most consequentially: the FP compose
 picker's "X avail." hint could describe a batch that had already been
@@ -495,7 +461,7 @@ recommended computed-on-read approach):
 **Read sites switched from `remaining_qty` to `live_remaining_qty`:**
 the FP compose picker (`getCandidateBatches()` — also now filters out a
 batch already at zero remaining, not just offering it with "0 avail.");
-the Wastage form's batch dropdown; RM Report As On Date's QTY (and
+the Wastage form's batch dropdown; RM Report's QTY (and
 derived Total) column; the Purchase Register report's Remaining Qty
 column. The Purchase Lines table (`purchase/[id]`) keeps its existing
 "of which X remaining after QC/Stability/R&D" subline as-is (that's a
@@ -1112,3 +1078,9 @@ stored). Test suite `ag108`.
 
 **Stock Statement drill-down:** each row has a **View ledger** link that opens
 the Ledger for that item and the same From and To dates.
+
+## Arithmetic and quantity fixes (11 Oct 2026, group 2)
+
+- **Low stock** compares the threshold with **usable** stock for raw material (approved, not past retest or expiry), on the Dashboard, top bar, Item Master, item page, Stock Position and the RM Stock Report (new column Usable Now). Packaging and finished product still use on hand (SCAN-P3-10).
+- **Leftovers below 0.0005** (a rounding speck such as 0.0003 kg) no longer block newer batches in the oldest-stock-first check, and are not offered on the compose screen, listed in QC pickers, Ageing or the Wastage form. They are ignored, not deleted. Compose quantities are rounded to 3 decimals and a batch needed in full is taken whole (SCAN-P5-08, migration 0110).
+- **Expiry and Retest Ageing**: a finished product batch shows bulk in stock = yield - samples - bulk used by packaging issues (store, R&D and production). Fully packed batches stay listed with 0 (SCAN-P6-06, migration 0110).
