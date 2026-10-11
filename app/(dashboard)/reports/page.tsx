@@ -156,7 +156,7 @@ export default async function ReportsPage() {
     <div>
       <PageHeader
         title="Reports"
-        description="Filterable registers with a printable PDF export — replaces the old baseline's permanent 'Coming soon' placeholder."
+        description="Registers for stock, quality checks, finished product batches and purchases. Filter by date, then download Excel or PDF."
       />
       <LoadWarning
         what="the reports"

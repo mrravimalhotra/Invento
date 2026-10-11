@@ -110,7 +110,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
     <div>
       <PageHeader
         title="Dashboard"
-        description="Live from the same tables every other module writes to — no separate reporting layer."
+        description="What needs attention today, and the last 30 days at a glance."
         action={<HideLegacyToggle />}
       />
 
