@@ -1,3 +1,4 @@
+import { MIN_STOCK_QTY, round3 } from "@/lib/stock-precision";
 import { todayIst } from "@/lib/utils";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -209,20 +210,21 @@ function allocateFifo(
   alreadyTaken: Map<string, number> = new Map()
 ): { allocations: Allocation[]; shortfallQty: number } {
   const allocations: Allocation[] = [];
-  let remaining = neededQty;
+  let remaining = round3(neededQty);
   for (const c of candidates) {
     if (remaining <= 0) break;
     const avail = Number(c.remainingQty) - (alreadyTaken.get(c.id) ?? 0);
-    if (avail <= 0) continue;
-    const take = Math.min(avail, remaining);
+    // SCAN-P5-08: less than 0.0005 left counts as empty (the database oldest-first rule agrees).
+    if (avail < MIN_STOCK_QTY) continue;
+    // Take the whole batch when it is not more than is needed, else exactly the three-decimal need.
+    const take = avail <= remaining + 1e-9 ? Number(avail.toFixed(9)) : round3(remaining);
     allocations.push({ source: c.source, id: c.id, batchNumber: c.batchNumber, qty: take, isLegacy: c.isLegacy });
     alreadyTaken.set(c.id, (alreadyTaken.get(c.id) ?? 0) + take);
-    remaining -= take;
+    remaining = round3(remaining - take);
   }
-  // Guard against floating-point dust (e.g. an exact match leaving
-  // `remaining` at 1e-13) reading as a real shortfall.
+  // A shortfall under half a thousandth is rounding dust, not a real shortage.
   const shortfallQty = Math.max(remaining, 0);
-  return { allocations, shortfallQty: shortfallQty < 1e-9 ? 0 : shortfallQty };
+  return { allocations, shortfallQty: shortfallQty < MIN_STOCK_QTY ? 0 : shortfallQty };
 }
 
 export default async function ComposeFinishedProductPage({
@@ -294,7 +296,7 @@ export default async function ComposeFinishedProductPage({
       .filter((l) => l.items)
       .map(async (l) => {
         const item = l.items!;
-        const scaledQuantity = Number(l.quantity) * scaleFactor;
+        const scaledQuantity = round3(Number(l.quantity) * scaleFactor);
         const candidates = await getCandidateBatches(supabase, item.id);
         return { l, item, scaledQuantity, candidates };
       })

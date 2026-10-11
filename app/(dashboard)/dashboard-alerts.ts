@@ -1,3 +1,4 @@
+import { MIN_STOCK_QTY } from "@/lib/stock-precision";
 import type { createClient } from "@/lib/supabase/server";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { isLegacyCode, fpBatchBoth } from "@/lib/utils";
@@ -81,7 +82,7 @@ async function getRawPurchaseDates(supabase: Supabase, from: string, to: string,
       .eq("qc_status", "approved")
       .eq("active", true)
       .eq("item_category", "raw")
-      .gt("live_remaining_qty", 0);
+      .gte("live_remaining_qty", MIN_STOCK_QTY);
     // Overdue: the date is before today. A batch that is past its EXPIRY is
     // listed once, on the expiry card, not again as a retest overdue.
     q = overdue ? q.lt(field, from) : q.gte(field, from).lte(field, to);
@@ -126,7 +127,7 @@ async function getRawProductionDates(supabase: Supabase, from: string, to: strin
       .select("id, batch_number, items!inner(item_code, name)")
       .in("id", chunk)
       .eq("active", true)
-      .gt("live_remaining_qty", 0)
+      .gte("live_remaining_qty", MIN_STOCK_QTY)
       .returns<{ id: string; batch_number: string; items: ItemEmbed }[]>()
   );
   return (batches ?? []).map((b) => {

@@ -1,3 +1,4 @@
+import { MIN_STOCK_QTY } from "@/lib/stock-precision";
 import { redirect } from "next/navigation";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -40,7 +41,7 @@ export default async function NewWastagePage() {
         .eq("purchase_orders.status", "submitted")
         // Only batches with something left — wastage can't be recorded
         // against an empty batch, and it keeps this list short.
-        .gt("live_remaining_qty", 0)
+        .gte("live_remaining_qty", MIN_STOCK_QTY)
         .order("created_at", { ascending: false })
         .order("id", { ascending: true })
         .range(from, to)
