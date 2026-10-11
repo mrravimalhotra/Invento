@@ -23,8 +23,9 @@ export function cn(...inputs: ClassValue[]) {
 // type="date"> fields (e.g. the "Expiry date" pickers on Finished Product
 // Step 1 and Complete Batch) — their displayed format is set by the
 // browser/OS locale, not by this app, and isn't something formatDate()
-// touches. Also out of scope: label-picker.tsx's separate month/year-only
-// "Best Before" formatter, which has no day component to reformat.
+// touches. (The finished product label's "Best Before" now prints the exact
+// expiry date through formatDate, SCAN-P4-13; only "Month of Manufacture" keeps
+// a month/year formatter.)
 // ACC-13 (29 Sept 2026): the business runs on India time, but the app server
 // (Vercel) runs in UTC — so dates were worked out in UTC: between midnight
 // and 05:30 IST "today" was still yesterday, and a timestamp formatted on the

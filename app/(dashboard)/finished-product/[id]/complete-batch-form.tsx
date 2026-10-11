@@ -231,8 +231,8 @@ export function CompleteBatchForm({
             FB-0025 (12 Sept 2026) already renamed this field's label from
             "Expiry Month" — the underlying column is still named
             `expiry_month` (a real `date`, not a display label; see the
-            "Best Before" month/year rendering in labels/label-picker.tsx,
-            which reads this same column and is unaffected by any of this). */}
+            "Best Before" date on labels in labels/label-picker.tsx, which
+            reads this same column and prints it as a full date). */}
         <Field label="Expiry date" htmlFor="expiry_month" required>
           <Input
             id="expiry_month"

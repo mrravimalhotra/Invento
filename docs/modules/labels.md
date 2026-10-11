@@ -523,3 +523,7 @@ retest. Now each template lists only the batches it truthfully applies to
 RM labels print the order's **Received on** date. Orders without one (older or bulk-uploaded) use the day the order was submitted; opening stock keeps its own line date.
 
 - Value text on labels (vendor, product names) now shrinks to 6 pt (was 7 pt) before it is cut with "…", so names of about 50 characters fit (SCAN-P4-15).
+
+## Best Before prints the exact date (12 Oct 2026, SCAN-P4-13)
+
+The finished product label's Best Before is the exact expiry date QC approved (dd-mm-yyyy), not a month. Month of Manufacture still prints month and year.

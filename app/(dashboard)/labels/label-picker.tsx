@@ -173,7 +173,8 @@ export function LabelPicker({ rmRecords, fpRecords }: { rmRecords: RmRecord[]; f
         { label: "Batch No.", value: fp.shortBatchNumber ?? fp.batchNumber },
         { label: "Batch Quantity", value: fp.quantity != null ? `${formatQty(fp.quantity)} ${fp.unit}` : null },
         { label: "Month of Manufacture", value: monthYear(fp.finishDate) },
-        { label: "Best Before", value: monthYear(fp.qcExpiryDate ?? fp.expiryMonth) },
+        // SCAN-P4-13 (Ravi, 12 Oct 2026): the exact expiry date, not a month, so the label never claims more shelf life than QC approved.
+        { label: "Best Before", value: dateOrNull(fp.qcExpiryDate ?? fp.expiryMonth) },
         { label: "Sign", value: null },
       ];
     }
