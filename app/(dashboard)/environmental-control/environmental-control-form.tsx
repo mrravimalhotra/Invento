@@ -18,10 +18,10 @@ export function NewEnvironmentalReadingForm() {
         <Input id="area" name="area" placeholder="e.g. Raw Material Store" required autoFocus />
       </Field>
       <Field label="Temperature (°C)" htmlFor="temperature">
-        <Input id="temperature" name="temperature" type="number" step="0.1" inputMode="decimal" />
+        <Input id="temperature" name="temperature" type="number" step="0.1" min="-50" max="100" inputMode="decimal" />
       </Field>
       <Field label="Humidity (%RH)" htmlFor="humidity">
-        <Input id="humidity" name="humidity" type="number" step="0.1" inputMode="decimal" />
+        <Input id="humidity" name="humidity" type="number" step="0.1" min="0" max="100" inputMode="decimal" />
       </Field>
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>

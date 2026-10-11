@@ -21,8 +21,17 @@ export async function createEnvironmentalReading(
 
   const temperature = temperatureRaw === "" ? null : Number(temperatureRaw);
   const humidity = humidityRaw === "" ? null : Number(humidityRaw);
-  if (temperature !== null && Number.isNaN(temperature)) return { error: "Temperature must be a number." };
-  if (humidity !== null && Number.isNaN(humidity)) return { error: "Humidity must be a number." };
+  if (temperature !== null && !Number.isFinite(temperature)) return { error: "Temperature must be a number." };
+  if (humidity !== null && !Number.isFinite(humidity)) return { error: "Humidity must be a number." };
+  // SCAN-P8-05: a reading needs at least one value, and the value must be physically possible.
+  // (Acceptance ranges and excursion flags per area are a separate item, C9.)
+  if (temperature === null && humidity === null) return { error: "Enter a temperature, a humidity, or both." };
+  if (temperature !== null && (temperature < -50 || temperature > 100)) {
+    return { error: "Temperature must be between -50 and 100 °C. Check the value." };
+  }
+  if (humidity !== null && (humidity < 0 || humidity > 100)) {
+    return { error: "Humidity must be between 0 and 100 %RH. Check the value." };
+  }
 
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "environmental_control")) return { error: "Not authorized." };
