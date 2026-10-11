@@ -1003,3 +1003,7 @@ Choosing a vendor on New Purchase Order shows that vendor's address and mobile u
 - A line saved at the same instant as a submit now waits for the submit and is refused as "submitted" instead of being left out of stock (SCAN-P10-01).
 
 - **Rounding rule** (SCAN-P10-06): one helper (`lib/money.ts`) rounds every line amount to the paisa, half a paisa up, on whole paise. A line's Total Cost = Item Total (quantity x price) + GST amount, each to the paisa; an order's total is the sum of its line totals. The order page states the rule. The Purchase list, order page, Dashboard chart, RM Report and Excel / PDF use the same figures.
+
+## Approved batches are locked (12 Oct 2026, migration 0112, SCAN-P3-01)
+
+A purchase order can no longer be reopened once QC has a record on one of its batches, in any status (message: "QC has started on batch X (Analytical Report No. ...)"). The "rejected" and "already used" refusals are unchanged. A draft line that has a QC record keeps its item, batch number, unit, quantity and sample quantities; price and GST % can still be edited. A mistaken quantity on an approved batch is corrected by a stock correction, not by reopening the order.

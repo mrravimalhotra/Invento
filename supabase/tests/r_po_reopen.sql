@@ -56,18 +56,10 @@ select t_fail('reopen refused: batch used', $q$select reopen_purchase_order('000
 select t_check('stock unchanged after refusal: 108', t_oh('00000000-0000-0000-0000-0000000000c3') = 108);
 select t_ok('cancel the FP draft (gives the 6 kg back)', $q$update finished_product_batches set status='cancelled' where id='00000000-0000-0000-0000-0000000000b1'$q$);
 select t_check('back to 114 after cancel', t_oh('00000000-0000-0000-0000-0000000000c3') = 114);
-select t_ok('reopen allowed again after the cancel', $q$select reopen_purchase_order('00000000-0000-0000-0000-0000000000d1')$q$);
-select t_check('after reopen: 0 (never negative)', t_oh('00000000-0000-0000-0000-0000000000c3') = 0);
-
-\echo '===== ACC-06: batch on a reopened PO cannot be used'
-select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',false);
-select t_check('QC status still approved on the reopened batch', (select qc_status from purchase_batch_status where purchase_line_id='00000000-0000-0000-0000-0000000000e1') = 'approved');
-select t_fail('using the reopened batch is refused', $q$insert into finished_product_batches (id,batch_number,short_batch_no,mfr_definition_id,mfr_version,target_qty,unit,batch_start_date) select '00000000-0000-0000-0000-0000000000b2', b.batch_number, b.short_batch_no, m.id, 1, 30, 'kg', current_date from (select id from mfr_definitions where name='Test MFR') m, get_next_fp_batch_number(m.id) b; insert into finished_product_components (finished_product_batch_id,item_id,purchase_line_id,quantity) values ('00000000-0000-0000-0000-0000000000b2','00000000-0000-0000-0000-0000000000c3','00000000-0000-0000-0000-0000000000e1',6)$q$, 'isn''t submitted');
-select t_check('stock still 0, not -6', t_oh('00000000-0000-0000-0000-0000000000c3') = 0);
-select t_ok('submit again', $q$select submit_purchase_order('00000000-0000-0000-0000-0000000000d1')$q$);
-select t_check('back to 114 after re-submit', t_oh('00000000-0000-0000-0000-0000000000c3') = 114);
-select t_ok('batch usable again after re-submit', $q$insert into finished_product_batches (id,batch_number,short_batch_no,mfr_definition_id,mfr_version,target_qty,unit,batch_start_date) select '00000000-0000-0000-0000-0000000000b3', b.batch_number, b.short_batch_no, m.id, 1, 30, 'kg', current_date from (select id from mfr_definitions where name='Test MFR') m, get_next_fp_batch_number(m.id) b; insert into finished_product_components (finished_product_batch_id,item_id,purchase_line_id,quantity) values ('00000000-0000-0000-0000-0000000000b3','00000000-0000-0000-0000-0000000000c3','00000000-0000-0000-0000-0000000000e1',6)$q$);
-select t_check('stock 108', t_oh('00000000-0000-0000-0000-0000000000c3') = 108);
+select t_fail('reopen refused once QC has a record on the batch (SCAN-P3-01, 0112)', $q$select reopen_purchase_order('00000000-0000-0000-0000-0000000000d1')$q$, 'QC has started on batch B1');
+select t_check('stock unchanged after the refusal: 114', t_oh('00000000-0000-0000-0000-0000000000c3') = 114);
+-- (Until 0112 an approved batch could be reopened and then edited or used; the ACC-06 checks for that
+--  path are replaced by the refusal above and by suite pa112.)
 
 \echo '===== wastage also blocks reopen'
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
