@@ -242,3 +242,13 @@ Left as before: SOP/STP effective date (a future date is allowed) and every syst
 - Feedback: the first resolved time is kept; load errors are shown; the admin list has search and a Page filter.
 
 - Dashboard (SCAN-P7-09, P7-11): the **POs (30d)** card counts submitted orders only, dated by Received on (or the submit day); the **Purchase value** chart is plotted on the same date. **Inventory movement** is drawn as one chart per unit (kg, ltr, nos ...) and leaves out the internal pack and production-conversion pairs, so units are never added together.
+
+## Group 3 clean-ups (11 Oct 2026)
+
+- **Load warning** (SCAN-P7-17): lists and the Dashboard show a red "Some of the data could not be loaded" banner (`components/ui/load-warning.tsx`) when a database read fails, instead of a short or empty list. Added to the Dashboard, Reports, Items, QC, Finished Product, MFR, COA, Packaging and Labels. The raw error is only logged on the server.
+- **Empty lists** (SCAN-P7-20): when a search or filter removes every row the table says "No rows match" with a Clear search and filters button (not "none yet"); the footer always shows the row count ("N rows", "N of M" when filtered).
+- **Tiny quantities** (SCAN-P7-21): an amount below 0.0005 shows as "< 0.001" (a tiny negative as it is), never "0" or "-0".
+- **Low stock card** (SCAN-P7-10): header shows the count; items are listed worst first with units; more than 8 shows a link to Stock Position.
+- **Sign-in** (SCAN-P1-03, P1-05): the page you were opening keeps its query string after sign-in; a failed forced password change shows a fixed message.
+- **File names** (SCAN-P5-13): downloaded BMR and slip files turn "/" and other unsafe characters into "-" (`safeFileName` in `lib/utils.ts`).
+- Next.js 16.3.8 (security advisories, SCAN-P1-18).

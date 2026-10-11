@@ -37,3 +37,5 @@ exercise this, per `claude/data-gap-analysis.md`) — building real
 threshold/excursion detection needs area-specific acceptable ranges defined
 first, which don't exist anywhere in the schema today. Left as a follow-up
 rather than guessing at thresholds.
+
+- A reading needs a temperature, a humidity, or both; temperature must be -50 to 100 °C and humidity 0 to 100 %RH (SCAN-P8-05). Area acceptance ranges stay a separate item (C9).
