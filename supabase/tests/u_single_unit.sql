@@ -53,7 +53,7 @@ select t_ok('purchase line for the item with no unit, in g', $q$insert into purc
 select t_check('item adopted "g" as its stock unit', (select unit='g' from items where id='00000000-0000-0000-0000-0000000000c6'));
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
 select t_fail('admin cannot change unit of a used item (kg → g)', $q$update items set unit='g' where id='00000000-0000-0000-0000-0000000000c3'$q$, 'can''t be changed');
-select t_ok('admin can change unit of an unused item', $q$insert into items (id,item_code,name,category,unit) values ('00000000-0000-0000-0000-0000000000c7','RM-T0004','Unused','raw','kg'); update items set unit='g' where id='00000000-0000-0000-0000-0000000000c7'$q$);
+select t_ok('admin can change unit of an unused item', $q$insert into items (id,item_code,name,category,unit,item_type_id) values ('00000000-0000-0000-0000-0000000000c7','RM-T0004','Unused','raw','kg','00000000-0000-0000-0000-0000000000c1'); update items set unit='g' where id='00000000-0000-0000-0000-0000000000c7'$q$);
 select t_ok('other item edits still work on a used item', $q$update items set name='Ashwagandha root' where id='00000000-0000-0000-0000-0000000000c3'$q$);
 
 \echo '===== 3. QC approve the batches'

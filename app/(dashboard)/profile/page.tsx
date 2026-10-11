@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ROLE_LABELS } from "@/lib/constants/roles";
 import { redirect } from "next/navigation";
-import { ProfileForm, PasswordForm } from "./profile-forms";
+import { PasswordForm } from "./profile-forms";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -13,7 +13,7 @@ export default async function ProfilePage() {
     <div>
       <PageHeader
         title="My Profile"
-        description="Self-service name, email, and password — item 1 on both the Quality Control and Store sections of the handwritten requirements list; the baseline had no equivalent."
+        description="Your account details and password. Your display name is set by the System Administrator."
       />
       <div className="grid max-w-2xl gap-6">
         <Card>
@@ -33,8 +33,12 @@ export default async function ProfilePage() {
         </Card>
         <Card>
           <CardHeader title="Display name" />
-          <CardBody>
-            <ProfileForm defaultName={user.fullName} />
+          <CardBody className="grid gap-2 text-sm">
+            <p className="font-medium">{user.fullName || "(no name set)"}</p>
+            <p className="text-muted">
+              The name shown on QC decisions, certificates and the audit trail is set by the System Administrator. If it
+              is wrong, ask them to change it on User Roles &amp; Access.
+            </p>
           </CardBody>
         </Card>
         <Card>

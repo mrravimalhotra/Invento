@@ -10,6 +10,7 @@ Cross-reference: `docs/DESIGN.md` §4.4 (schema), §7.1 (workflow spec).
 > - An order has a **Received on** date (not in the future), the vendor's address and mobile are shown, and an order with no lines or with a line missing price or GST % cannot be submitted.
 > - Money is rounded to the paisa by `lib/money.ts`.
 > - Excel upload needs the sample quantities, Unit Price and GST % on every line.
+> - GST % is 0 to 100 on the form, the upload and the database (migration 0115, SCAN-P2-09).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 

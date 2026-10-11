@@ -11,6 +11,7 @@ was written:
 > - **All or nothing per file**: if any row fails, nothing is imported and every problem is listed with its row number. Codes are always generated; a code column in the file is ignored.
 > - Limits: a file over 800 KB or with more than 500 filled rows is refused before it is read. Purchase upload needs the QC/Stability/R&D quantities, Unit Price and GST % on every line (0 allowed).
 > - Each upload uses the same role rule and database policy as the module's own create screen. Dates and cells are read as the sheet shows them (0096/ACC-23).
+> - Duplicate checks for item, vendor, item type and MFR names ignore capitals, repeated spaces and a trailing full stop; an MFR name written two ways in one file is one MFR; GST % above 100 is refused (SCAN-P2-03, P2-09).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 

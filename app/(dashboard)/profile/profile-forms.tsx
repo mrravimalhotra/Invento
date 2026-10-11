@@ -2,28 +2,10 @@
 
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useRef, useState } from "react";
-import { updateProfile, changeOwnPassword, type ActionState } from "@/lib/actions/auth";
-import { Field, Input, PasswordInput } from "@/components/ui/form";
+import { changeOwnPassword, type ActionState } from "@/lib/actions/auth";
+import { Field, PasswordInput } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
-
-export function ProfileForm({ defaultName }: { defaultName: string }) {
-  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(updateProfile, undefined);
-  return (
-    <form action={formAction} className="flex flex-col gap-3">
-      {state?.error && <p className="text-sm text-red">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
-      <Field label="Full name" htmlFor="fullName">
-        <Input id="fullName" name="fullName" defaultValue={defaultName} required />
-      </Field>
-      <div>
-        <Button type="submit" disabled={pending} size="sm">
-          {pending ? "Saving…" : "Save name"}
-        </Button>
-      </div>
-    </form>
-  );
-}
 
 export function PasswordForm() {
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(changeOwnPassword, undefined);

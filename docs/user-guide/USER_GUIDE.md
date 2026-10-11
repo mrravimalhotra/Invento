@@ -89,7 +89,7 @@ At the bottom of every single page you'll find a **Feedback & change log** box �
 
 ### Your profile
 
-Click **Profile** in the top bar at any time to see your account details (email, assigned roles), update your display name, or change your password, which asks for your current password first. This is entirely self-service — you don't need a System Admin to change your own name or password.
+Click **Profile** in the top bar at any time to see your account details (email, assigned roles), see your display name, or change your password, which asks for your current password first. You change your own password yourself; your display name is shown but can only be changed by the System Administrator (ask them on User Roles & Access), because it appears on QC decisions, certificates and the audit trail.
 
 ### First-time orientation
 
@@ -197,7 +197,7 @@ Master data is the foundation everything else builds on: your catalog of items, 
 4. System Admins also see a Delete button here, which asks for confirmation before permanently removing the item type.
 
 **Fields you'll be asked for**
-- **Description** — the category name itself; it must be unique, so you'll get an error if you try to add one that already exists.
+- **Description** — the category name itself; it must be unique (capitals, extra spaces and a trailing full stop are ignored), so you'll get an error if you try to add one that already exists.
 - **Active** — only appears on the edit screen; unticking it hides the item type from pickers elsewhere without deleting its history.
 
 **How it connects to the rest of the app**
@@ -223,16 +223,17 @@ Every item in Item Master can be tagged with one item type, and several bulk-upl
 
 **How to edit an item**
 1. From the list, click the item's code or name to open its detail page.
-2. Update any field except the item code (which is permanent once assigned) and, for Finished Product items, the category (which is locked).
+2. Update any field except the item code (which is permanent once assigned) and the category once it is fixed: a Finished Product item's category is always locked, and a Raw material or Packaging item's category locks as soon as it has purchases, recipes, QC records or stock movements (create a new item if you picked the wrong one).
 3. Save. Changes take effect immediately; there's no approval step.
 4. System Admins also see a Delete button here, which asks for confirmation before permanently removing the item.
 
 **Fields you'll be asked for**
 - **Item code** — shown as a read-only preview while creating (e.g. "RM-006" for a raw material; after RM-999 it carries on as RM-1000); the real code is only assigned once you save, and it never changes afterward.
 - **Botanical Name** — an optional alternate/scientific name for the raw material.
-- **Category** — Raw material or Packaging only when creating; existing Finished Product items show Category locked and read-only.
-- **Item type** — optional dropdown pulled from Item Type Master's active entries.
-- **Barcode** — optional, free text, but must be unique across all items; if filled in, the item's detail page shows it as a scannable barcode image.
+- **Category** — Raw material or Packaging only when creating; it shows locked and read-only for Finished Product items and for any item that already has records.
+- **Active** — un-ticking it is refused while the item still has stock on hand (write the stock off or use it up first); the form also tells you when the item is used in recipes.
+- **Item type** — dropdown pulled from Item Type Master's active entries; required for a Raw material.
+- **Barcode** — optional, 3 to 40 plain characters (no accents or emoji), and must be unique across all items; if filled in, the item's detail page shows it as a scannable barcode image.
 - **Low stock threshold** — optional number; when stock on hand falls below it, the item is flagged with a "Low stock" badge.
 
 **How it connects to the rest of the app**
@@ -526,7 +527,7 @@ If you need to set up templates for many items at once, use **Admin → Bulk Dat
 **Fields you'll be asked for**
 - **Raw Material / Finished Product** — which kind of batch you're certifying; this determines which picker and which template (recipe-based vs. raw item) is used.
 - **Batch picker** — only lists batches already marked Approved by Quality Control; a batch that's still pending or under test won't appear.
-- **Certificate header fields** — pre-filled from the batch/QC record (e.g. batch number, manufacturing date, analysis date) but always editable before you submit.
+- **Certificate header fields** — filled in from the batch and QC record (batch number, product, AR number, quantities, dates) and locked; only the Sampled Qty wording can be edited. The system checks them again when you save and refuses a certificate whose header or tests differ from the batch or the template.
 - **Result** — the actual value/finding you record for each test on the template; Test and Specification themselves are read-only, copied from the template.
 - **Remarks** — the closing statement printed at the bottom of the certificate.
 
@@ -706,6 +707,8 @@ Packaging draws from the same stock the Inventory Ledger tracks — an issue her
 3. Click Save on that person's row. The change takes effect immediately — saving replaces that person's entire set of roles with whatever is checked at that moment (so if you only tick one box, all their other roles are removed).
 
 **Automatic sign-out.** The card above the user list sets how long a person can be inactive before Invento signs them out: tick the box and enter 5 to 480 minutes (60 by default), or untick it to switch the sign-out off. It applies to every role except System Admin.
+
+**Change name:** each person's row has a **Change name** button (System Admin only). Names are at most 100 characters and no two people can share one (capitals and extra spaces are ignored).
 
 **Other actions on a person's row:** **Reset password** (sets a new temporary password they must change at next sign-in; two-step confirmation) and **Disable account** (they are signed out and can no longer sign in; two-step confirmation; it can be switched back on with Enable).
 

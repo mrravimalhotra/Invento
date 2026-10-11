@@ -175,7 +175,7 @@ const lineSchema = z.object({
   stability_qty: z.coerce.number().min(0, "Stability quantity can't be negative.").default(0),
   rnd_qty: z.coerce.number().min(0, "R&D quantity can't be negative.").default(0),
   unit_price: z.coerce.number().min(0, "Unit price can't be negative."),
-  gst_pct: z.coerce.number().min(0, "GST % can't be negative."),
+  gst_pct: z.coerce.number().min(0, "GST % can't be negative.").max(100, "GST % can't be more than 100."),
 });
 
 export async function createPurchaseLine(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -406,7 +406,7 @@ const updateLineSchema = z.object({
   stability_qty: z.coerce.number().min(0, "Stability quantity can't be negative.").default(0),
   rnd_qty: z.coerce.number().min(0, "R&D quantity can't be negative.").default(0),
   unit_price: z.coerce.number().min(0, "Unit price can't be negative."),
-  gst_pct: z.coerce.number().min(0, "GST % can't be negative."),
+  gst_pct: z.coerce.number().min(0, "GST % can't be negative.").max(100, "GST % can't be more than 100."),
 });
 
 type LineWithPoStatus = {

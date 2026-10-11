@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQty } from "@/lib/utils";
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
 import { createItem, updateItem, deleteItem, type ActionState } from "@/lib/actions/items";
@@ -113,10 +114,20 @@ export function EditItemForm({
   id,
   itemTypes,
   item,
+  categoryLocked,
+  onHand,
+  recipeLines,
 }: {
   id: string;
   itemTypes: ItemTypeOption[];
+  // SCAN-P2-01: true once the item has purchases, recipes, QC records or stock movements.
+  categoryLocked: boolean;
+  // SCAN-P2-02: shown beside the Active tick.
+  onHand: number;
+  recipeLines: number;
   item: {
+    // SCAN-P10-03: as loaded; the save only goes through if the record is still like this.
+    updated_at: string | null;
     name: string;
     botanical_alias: string | null;
     category: string;
@@ -135,6 +146,7 @@ export function EditItemForm({
     <form action={formAction} className="flex flex-col gap-5">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
+      <input type="hidden" name="loaded_at" value={item.updated_at ?? ""} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Name" htmlFor="name" required>
@@ -143,7 +155,16 @@ export function EditItemForm({
         <Field label="Botanical Name" htmlFor="botanical_alias">
           <Input id="botanical_alias" name="botanical_alias" defaultValue={item.botanical_alias ?? ""} />
         </Field>
-        {item.category === "processed" || item.category === "packaged_fp" ? (
+        {categoryLocked && item.category !== "processed" && item.category !== "packaged_fp" ? (
+          <Field
+            label="Category"
+            htmlFor="category"
+            hint="Fixed because this item already has purchases, recipes, QC records or stock movements. To use a different category, create a new item."
+          >
+            <Input id="category" value={item.category === "raw" ? "Raw material" : "Packaging"} readOnly disabled />
+            <input type="hidden" name="category" value={item.category} />
+          </Field>
+        ) : item.category === "processed" || item.category === "packaged_fp" ? (
           <Field
             label="Category"
             htmlFor="category"
@@ -225,7 +246,19 @@ export function EditItemForm({
         </Field>
       </div>
 
-      <Checkbox name="active" label="Active" defaultChecked={item.active} />
+      <div className="flex flex-col gap-1">
+        <Checkbox name="active" label="Active" defaultChecked={item.active} />
+        {onHand > 0.0005 && (
+          <p className="text-xs text-muted">
+            {formatQty(onHand)} {item.unit ?? ""} on hand: the item can&apos;t be made inactive until that stock is written off or used.
+          </p>
+        )}
+        {recipeLines > 0 && (
+          <p className="text-xs text-muted">
+            Used in {recipeLines} recipe line{recipeLines === 1 ? "" : "s"}. An inactive item no longer appears in pick-lists, so check the recipes first.
+          </p>
+        )}
+      </div>
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>

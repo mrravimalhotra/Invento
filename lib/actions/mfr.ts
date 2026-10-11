@@ -1,5 +1,6 @@
 "use server";
 
+import { UNITS } from "@/lib/constants/units";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
@@ -80,6 +81,8 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
     return { error: "Batch size must be greater than 0." };
   }
   if (!batchSizeUnit) return { error: "Batch size unit is required." };
+  // SCAN-P2-09: the form's drop-down only offers the app's units; the database now checks too.
+  if (!UNITS.includes(batchSizeUnit as (typeof UNITS)[number])) return { error: `Batch size unit must be one of: ${UNITS.join(", ")}.` };
   if (market !== "domestic" && market !== "export") return { error: "Market must be Domestic or Export." };
 
   const linesOrError = parseLines(formData);

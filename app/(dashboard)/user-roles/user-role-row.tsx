@@ -9,6 +9,7 @@ import { ROLES, ROLE_LABELS } from "@/lib/constants/roles";
 import { formatDate } from "@/lib/utils";
 import { ResetPasswordControl } from "./reset-password-control";
 import { AccountAccessControl } from "./account-access-control";
+import { RenameUserControl } from "./rename-user-control";
 
 export type AccountStatus = {
   email: string | null;
@@ -100,6 +101,9 @@ export function UserRoleRow({
           </Button>
         </form>
       )}
+      <div>
+        <RenameUserControl userId={userId} displayName={displayName} />
+      </div>
       {account && !isSelf && (
         <div className="flex flex-wrap items-start gap-2">
           {!disabled && <ResetPasswordControl userId={userId} displayName={displayName} />}

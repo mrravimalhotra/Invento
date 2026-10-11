@@ -32,6 +32,7 @@ select t_check('RM-1001 follows', public.get_next_item_code('raw') = 'RM-1001');
 select t_check('bulk across the boundary stays unique', (select count(distinct c) = 4 and count(*) = 4 from public.get_next_item_codes('raw', 4) c));
 reset role;
 -- an item can actually be saved with the widened code, and codes stay unique
-insert into items (item_code, name, category, unit) values ('RM-001-x-probe', 'probe', 'raw', 'kg') on conflict do nothing;
+insert into item_types (id, description) values ('00000000-0000-0000-0000-00000000f0a1', 'Probe type');
+insert into items (item_code, name, category, unit, item_type_id) values ('RM-001-x-probe', 'probe', 'raw', 'kg', '00000000-0000-0000-0000-00000000f0a1') on conflict do nothing;
 delete from items where item_code = 'RM-001-x-probe';
 select t_check('items.item_code is still unique', exists (select 1 from pg_indexes where tablename='items' and indexdef ilike '%unique%' and indexdef ilike '%item_code%') or exists (select 1 from pg_constraint where conrelid='public.items'::regclass and contype='u'));

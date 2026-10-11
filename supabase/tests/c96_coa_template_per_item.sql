@@ -15,10 +15,10 @@ insert into items (id, item_code, name, category, unit, item_type_id) values
  ('00000000-0000-0000-0000-00000000e001','RM-001','Ashwagandha root','raw','kg','00000000-0000-0000-0000-00000000f001'),
  ('00000000-0000-0000-0000-00000000e002','RM-002','Brahmi','raw','kg','00000000-0000-0000-0000-00000000f001'),
  ('00000000-0000-0000-0000-00000000e003','PKG-00001','Bottle 100 ml','packaging','nos',null),
- ('00000000-0000-0000-0000-00000000e004','RM-004','Shatavari','raw','kg',null);
+ ('00000000-0000-0000-0000-00000000e004','RM-004','Shatavari','raw','kg','00000000-0000-0000-0000-00000000f001');
 insert into mfr_definitions (id, code, name, batch_size_qty, batch_size_unit) values
- ('00000000-0000-0000-0000-00000000a001','MFR-0001','Hair oil',100,'Ltr'),
- ('00000000-0000-0000-0000-00000000a002','MFR-0002','Cough syrup',50,'Ltr');
+ ('00000000-0000-0000-0000-00000000a001','MFR-0001','Hair oil',100,'ltr'),
+ ('00000000-0000-0000-0000-00000000a002','MFR-0002','Cough syrup',50,'ltr');
 
 -- the old per-Item-Type shape is gone
 select t_check('templates no longer have an item_type_id column', not exists (select 1 from information_schema.columns where table_name='coa_templates' and column_name='item_type_id'));

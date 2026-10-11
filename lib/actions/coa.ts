@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
 import { fetchCompany } from "@/lib/company-server";
+import { resolveRawMaterial, resolveFinishedProduct } from "@/lib/coa-draft";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -61,8 +62,8 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   // non-empty text — an empty label would mean the form sent something
   // this action doesn't recognize.
   for (const field of headerData) {
-    if (!String(field.label ?? "").trim() || !String(field.value ?? "").trim()) {
-      return { error: "Every header field must have a value before generating the certificate." };
+    if (!String(field.label ?? "").trim()) {
+      return { error: "Could not read the certificate header — reload the page and try again." };
     }
   }
 
@@ -103,7 +104,7 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
     return { error: "Subject type no longer matches this quality check — reload and try again." };
   }
 
-  const templateQuery = supabase.from("coa_templates").select("id");
+  const templateQuery = supabase.from("coa_templates").select("id, coa_template_lines(seq, test, specification)");
   const { data: template } = await (isRm
     ? templateQuery.eq("item_id", qc.purchase_lines?.item_id ?? "")
     : templateQuery.eq("mfr_definition_id", qc.finished_product_batches?.mfr_definition_id ?? "")
@@ -115,6 +116,57 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
         : "This product's MFR has no COA template — add one on its MFR page first.",
     };
   }
+
+  // SCAN-P4-08 (Ravi, 12 Oct 2026): the certificate is issued for THIS batch and THIS
+  // template. The header is rebuilt from the batch and QC record and the test list from the
+  // template; only the results, the remarks and the hand-composed "Sampled Qty" wording
+  // are taken from the form. Anything else that differs is refused.
+  const draft = isRm ? await resolveRawMaterial(supabase, qc.id) : await resolveFinishedProduct(supabase, qc.id);
+  if (!draft.ok) return { error: draft.reason };
+  if (headerData.length !== draft.headerFields.length) {
+    return { error: "The certificate header does not match this batch — reload the page and try again." };
+  }
+  for (let i = 0; i < draft.headerFields.length; i++) {
+    const want = draft.headerFields[i];
+    const got = headerData[i];
+    if (String(got.label ?? "").trim().toLowerCase() !== want.label.trim().toLowerCase()) {
+      return { error: "The certificate header does not match this batch — reload the page and try again." };
+    }
+    const handWritten = want.label.trim().toLowerCase() === "sampled qty";
+    if (!handWritten && String(got.value ?? "").trim() !== want.value.trim()) {
+      return {
+        error: `"${want.label}" does not match the batch record ("${want.value}"). It is filled in from the batch and cannot be changed — reload the page and try again.`,
+      };
+    }
+    if (handWritten && !String(got.value ?? "").trim()) {
+      return { error: "Sampled Qty is required before generating the certificate." };
+    }
+    if (handWritten && String(got.value ?? "").length > 100) {
+      return { error: "Sampled Qty must be 100 characters or fewer." };
+    }
+  }
+  const templateLines = (template.coa_template_lines ?? []).slice().sort((a, b) => a.seq - b.seq);
+  if (resultLines.length !== templateLines.length) {
+    return { error: "The test list does not match the COA template — reload the page and try again." };
+  }
+  for (let i = 0; i < templateLines.length; i++) {
+    const t = templateLines[i];
+    const r = resultLines[i];
+    if (Number(r.seq) !== t.seq || String(r.test ?? "") !== t.test || String(r.specification ?? "") !== t.specification) {
+      return { error: `The test "${t.test}" or its specification differs from the COA template — reload the page and try again.` };
+    }
+    if (String(r.result ?? "").length > 500) {
+      return { error: `The result for "${t.test}" must be 500 characters or fewer.` };
+    }
+  }
+  // Store exactly what was checked, in the template's own order, not what the browser sent.
+  headerData = draft.headerFields.map((f, i) => ({ label: f.label, value: String(headerData[i].value).trim() }));
+  resultLines = templateLines.map((t, i) => ({
+    seq: t.seq,
+    test: t.test,
+    specification: t.specification,
+    result: String(resultLines[i].result).trim(),
+  }));
 
   const { data: coaNumber, error: coaNumError } = await supabase.rpc("get_next_coa_number");
   if (coaNumError || !coaNumber) return { error: friendlyDbError(coaNumError, "Could not generate a COA number.") };

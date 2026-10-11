@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
-import { escapeLike } from "@/lib/utils";
 import { friendlyDbError } from "@/lib/db-errors";
+import { STALE_MESSAGE, applyLoadedAt, readLoadedAt } from "@/lib/stale-check";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -48,13 +48,9 @@ export async function createVendor(_prev: ActionState, formData: FormData): Prom
   // existing vendor — the same rule bulk upload already applies. App-level
   // only, like the other duplicate-name checks (Item, MFR, Equipment, Dead
   // Stock).
-  const { data: dupName } = await supabase
-    .from("vendors")
-    .select("vendor_code")
-    .ilike("name", escapeLike(parsed.data.name))
-    .limit(1);
-  if (dupName && dupName.length > 0) {
-    return { error: `A vendor named "${parsed.data.name}" already exists (${dupName[0].vendor_code}).` };
+  const { data: dupName } = await supabase.rpc("vendor_name_taken", { p_name: parsed.data.name, p_exclude_id: null });
+  if (typeof dupName === "string") {
+    return { error: `A vendor named "${parsed.data.name}" already exists (${dupName}).` };
   }
 
   const { data: vendorCode, error: codeError } = await supabase.rpc("get_next_vendor_code");
@@ -68,7 +64,10 @@ export async function createVendor(_prev: ActionState, formData: FormData): Prom
     phone: parsed.data.phone || null,
     email: parsed.data.email || null,
   });
-  if (error) return { error: friendlyDbError(error) };
+  if (error) {
+    if (error.code === "23505") return { error: `A vendor named "${parsed.data.name}" already exists.` };
+    return { error: friendlyDbError(error) };
+  }
 
   revalidatePath("/vendors");
   // Redirects back to the list (not the new vendor's detail page) — the
@@ -99,27 +98,33 @@ export async function updateVendor(
   // existing vendor — the same rule bulk upload already applies. App-level
   // only, like the other duplicate-name checks (Item, MFR, Equipment, Dead
   // Stock).
-  const { data: dupName } = await supabase
-    .from("vendors")
-    .select("vendor_code")
-    .ilike("name", escapeLike(parsed.data.name))
-    .neq("id", id)
-    .limit(1);
-  if (dupName && dupName.length > 0) {
-    return { error: `A vendor named "${parsed.data.name}" already exists (${dupName[0].vendor_code}).` };
+  // SCAN-P2-03 / P10-04: compared after squeezing repeated spaces, ignoring case and a trailing
+  // full stop; the database refuses the same cleaned name too (two saves at the same moment).
+  const { data: dupName } = await supabase.rpc("vendor_name_taken", { p_name: parsed.data.name, p_exclude_id: id });
+  if (typeof dupName === "string") {
+    return { error: `A vendor named "${parsed.data.name}" already exists (${dupName}).` };
   }
 
-  const { error } = await supabase
-    .from("vendors")
-    .update({
-      name: parsed.data.name,
-      address: parsed.data.address || null,
-      mobile: parsed.data.mobile || null,
-      phone: parsed.data.phone || null,
-      email: parsed.data.email || null,
-    })
-    .eq("id", id);
-  if (error) return { error: friendlyDbError(error) };
+  // SCAN-P10-03: only save if the record is still as it was when this form was opened.
+  const loadedAt = readLoadedAt(formData);
+  const { data: saved, error } = await applyLoadedAt(
+    supabase
+      .from("vendors")
+      .update({
+        name: parsed.data.name,
+        address: parsed.data.address || null,
+        mobile: parsed.data.mobile || null,
+        phone: parsed.data.phone || null,
+        email: parsed.data.email || null,
+      })
+      .eq("id", id),
+    loadedAt
+  ).select("id");
+  if (error) {
+    if (error.code === "23505") return { error: `A vendor named "${parsed.data.name}" already exists.` };
+    return { error: friendlyDbError(error) };
+  }
+  if (!saved || saved.length === 0) return { error: loadedAt === undefined ? "Vendor not found." : STALE_MESSAGE };
 
   revalidatePath("/vendors");
   revalidatePath(`/vendors/${id}`);

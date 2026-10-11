@@ -30,17 +30,21 @@ export default async function ItemDetailPage({
   if (!user) redirect("/login");
 
   const supabase = await createClient();
-  const [{ data: item }, { data: itemTypes }, { data: balance }, { data: status }] = await Promise.all([
+  const [{ data: item }, { data: itemTypes }, { data: balance }, { data: status }, { data: hasRecords }, { count: recipeCount }] = await Promise.all([
     supabase
       .from("items")
       .select(
-        "id, item_code, name, botanical_alias, category, item_type_id, unit, low_stock_threshold, barcode, active"
+        "id, item_code, name, botanical_alias, category, item_type_id, unit, low_stock_threshold, barcode, active, updated_at"
       )
       .eq("id", id)
       .maybeSingle(),
     supabase.from("item_types").select("id, description").eq("active", true).order("description", { ascending: true }),
     supabase.from("stock_balance").select("on_hand").eq("item_id", id).maybeSingle(),
     supabase.from("item_stock_status").select("usable").eq("item_id", id).maybeSingle(),
+    // SCAN-P2-01: the category is fixed once the item has records (database rule, migration 0115).
+    supabase.rpc("item_has_records", { p_item_id: id }),
+    // SCAN-P2-02: shown beside the Active tick.
+    supabase.from("mfr_lines").select("id", { count: "exact", head: true }).eq("item_id", id),
   ]);
 
   if (!item) notFound();
@@ -92,7 +96,14 @@ export default async function ItemDetailPage({
               <ReadOnlyDetails item={item} />
             ) : (
               <div className="flex flex-col gap-6">
-                <EditItemForm id={item.id} itemTypes={itemTypes ?? []} item={item} />
+                <EditItemForm
+                  id={item.id}
+                  itemTypes={itemTypes ?? []}
+                  item={item}
+                  categoryLocked={hasRecords === true}
+                  onHand={onHand}
+                  recipeLines={recipeCount ?? 0}
+                />
                 {isSystemAdmin && <DeleteItemForm id={item.id} name={item.name} />}
               </div>
             )}

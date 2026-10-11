@@ -21,7 +21,12 @@ export type TemplateLine = { seq: number; test: string; specification: string };
 // generating and printing are deliberately two different moments.
 // Ravi (3 Oct 2026, date review row 8): the four date lines come straight from the
 // QC record and the batch, so they are shown but cannot be typed over.
-const LOCKED_DATE_LABELS = new Set(["analysis date", "reporting date", "mfg. date", "best before dt"]);
+// SCAN-P4-08 (Ravi, 12 Oct 2026): every other header line (batch, product, AR number,
+// quantities, vendor, challan) is filled in from the batch and cannot be typed over either;
+// the server rebuilds the header from the record and refuses a difference. Only the Sampled
+// Qty wording stays editable.
+const EDITABLE_HEADER_LABELS = new Set(["sampled qty"]);
+const isLocked = (label: string) => !EDITABLE_HEADER_LABELS.has(label.trim().toLowerCase());
 
 export function GenerateCoaForm({
   subjectType,
@@ -70,9 +75,9 @@ export function GenerateCoaForm({
                 id={`header_${i}`}
                 value={f.value}
                 onChange={(e) => updateHeader(i, e.target.value)}
-                readOnly={LOCKED_DATE_LABELS.has(f.label.trim().toLowerCase())}
-                className={LOCKED_DATE_LABELS.has(f.label.trim().toLowerCase()) ? "bg-black/[0.04] text-muted" : undefined}
-                required
+                readOnly={isLocked(f.label)}
+                className={isLocked(f.label) ? "bg-black/[0.04] text-muted" : undefined}
+                required={!isLocked(f.label)}
               />
             </Field>
           ))}

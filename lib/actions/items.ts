@@ -6,9 +6,10 @@ import { canWrite } from "@/lib/constants/roles";
 import { UNITS } from "@/lib/constants/units";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { escapeLike } from "@/lib/utils";
 import { friendlyDbError } from "@/lib/db-errors";
 import { parseCoaTemplateLines } from "@/lib/coa-template-lines";
+import { STALE_MESSAGE, applyLoadedAt, readLoadedAt } from "@/lib/stale-check";
+import { validBarcode, BARCODE_RULE } from "@/lib/name-rules";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -21,6 +22,14 @@ export type ActionState = { error?: string; success?: string } | undefined;
 // (including ones created before this change), it just can't create new
 // ones or promote a raw/packaging item into one.
 const CREATABLE_CATEGORIES = ["raw", "packaging"] as const;
+
+// SCAN-P10-04: the database also refuses a second item with the same cleaned name (two saves
+// at the same moment can pass the check below); say so in plain words.
+function duplicateItemMessage(dbMessage: string, name: string): string {
+  if (dbMessage.includes("barcode")) return "This barcode is already in use.";
+  if (dbMessage.includes("items_name_norm")) return `"${name}" already exists as an item.`;
+  return "That item code already exists.";
+}
 
 function numOrNull(formData: FormData, key: string): number | null | { error: string } {
   const raw = String(formData.get(key) ?? "").trim();
@@ -39,6 +48,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   const barcode = String(formData.get("barcode") || "").trim() || null;
 
   if (!name) return { error: "Name is required." };
+  if (barcode && !validBarcode(barcode)) return { error: BARCODE_RULE };
   if (!CREATABLE_CATEGORIES.includes(category as (typeof CREATABLE_CATEGORIES)[number])) {
     return {
       error:
@@ -74,8 +84,9 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   // two items can't silently share a name. Ravi (13 Sept 2026, via
   // AskUserQuestion): "add duplicate blocking on ... Item Name ... for both
   // bulk upload and the regular one-at-a-time forms."
-  const { data: dupItem } = await supabase.from("items").select("id").ilike("name", escapeLike(name)).limit(1);
-  if (dupItem && dupItem.length > 0) return { error: `"${name}" already exists as an item.` };
+  // SCAN-P2-03: compared after squeezing repeated spaces, ignoring case and a trailing full stop.
+  const { data: dupItem } = await supabase.rpc("item_name_taken", { p_name: name, p_exclude_id: null });
+  if (dupItem === true) return { error: `"${name}" already exists as an item.` };
 
   const { data: itemCode, error: codeError } = await supabase.rpc("get_next_item_code", {
     p_category: category,
@@ -107,7 +118,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
 
   if (error) {
     if (error.code === "23505") {
-      return { error: error.message.includes("barcode") ? "This barcode is already in use." : "That item code already exists." };
+      return { error: duplicateItemMessage(error.message, name) };
     }
     return { error: friendlyDbError(error) };
   }
@@ -153,6 +164,7 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   const submittedCategory = String(formData.get("category") || "");
 
   if (!name) return { error: "Name is required." };
+  if (barcode && !validBarcode(barcode)) return { error: BARCODE_RULE };
   // 30 Sept 2026 (Ravi): Item Type is mandatory for a Raw Material.
   if (submittedCategory === "raw" && !item_type_id) {
     return { error: "Item type is required for a Raw Material — pick one from the list." };
@@ -182,13 +194,8 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   // Same case-insensitive duplicate-name check as createItem() above, self-
   // excluded so saving an item without changing its name doesn't collide
   // with itself.
-  const { data: dupItem } = await supabase
-    .from("items")
-    .select("id")
-    .ilike("name", escapeLike(name))
-    .neq("id", id)
-    .limit(1);
-  if (dupItem && dupItem.length > 0) return { error: `"${name}" already exists as an item.` };
+  const { data: dupItem } = await supabase.rpc("item_name_taken", { p_name: name, p_exclude_id: id });
+  if (dupItem === true) return { error: `"${name}" already exists as an item.` };
 
   // default_qc_qty / default_stability_qty / default_rnd_qty /
   // default_sample_unit are deliberately NOT in this update object (2 Sept
@@ -226,13 +233,16 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     return { error: "Category must be Raw Material or Packaging." };
   }
 
-  const { error } = await supabase.from("items").update(update).eq("id", id);
+  // SCAN-P10-03: only save if the record is still as it was when this form was opened.
+  const loadedAt = readLoadedAt(formData);
+  const { data: saved, error } = await applyLoadedAt(supabase.from("items").update(update).eq("id", id), loadedAt).select("id");
   if (error) {
     if (error.code === "23505") {
-      return { error: error.message.includes("barcode") ? "This barcode is already in use." : "Duplicate value." };
+      return { error: duplicateItemMessage(error.message, name) };
     }
     return { error: friendlyDbError(error) };
   }
+  if (!saved || saved.length === 0) return { error: loadedAt === undefined ? "Item not found." : STALE_MESSAGE };
 
   revalidatePath("/items");
   revalidatePath(`/items/${id}`);

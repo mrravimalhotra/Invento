@@ -42,6 +42,7 @@
 // Purchase Type category, is rejected with a row error asking for a more
 // specific name rather than silently guessing which one was meant.
 
+import { normName } from "@/lib/name-rules";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -180,7 +181,7 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
   // pattern as Vendor Master's name dedup below. Ravi (13 Sept 2026, via
   // AskUserQuestion): "add duplicate blocking on Item Name ... for both
   // bulk upload and the regular one-at-a-time forms."
-  const existingItemNames = new Set((existingItemRows ?? []).map((it) => it.name.trim().toLowerCase()));
+  const existingItemNames = new Set((existingItemRows ?? []).map((it) => normName(it.name)));
 
   type Parsed = {
     name: string;
@@ -211,7 +212,7 @@ export async function bulkUploadItems(_prev: BulkUploadState, formData: FormData
       rowErrors.push(`Row ${r}: Name is required.`);
       return;
     }
-    const nameKey = name.toLowerCase();
+    const nameKey = normName(name);
     if (seenItemNames.has(nameKey)) {
       rowErrors.push(`Row ${r}: "${name}" is repeated on row ${seenItemNames.get(nameKey)} of this file.`);
       return;
@@ -357,7 +358,7 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
   // should collide too. Ravi (13 Sept 2026): "make sure there is
   // validation so it is not allowed to add duplicate Vendors."
   const { data: existingVendors } = await fetchAllRows((from, to) => supabase.from("vendors").select("name").order("id", { ascending: true }).range(from, to));
-  const existingNames = new Set((existingVendors ?? []).map((v) => v.name.trim().toLowerCase()));
+  const existingNames = new Set((existingVendors ?? []).map((v) => normName(v.name)));
 
   type Parsed = { name: string; address: string | null; mobile: string | null; phone: string | null; email: string | null };
   const rowErrors: string[] = [];
@@ -380,7 +381,7 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
       rowErrors.push(`Row ${r} ("${name}"): "${emailRaw}" isn't a valid email address.`);
       return;
     }
-    const nameKey = name.toLowerCase();
+    const nameKey = normName(name);
     if (seenNames.has(nameKey)) {
       rowErrors.push(`Row ${r}: "${name}" is repeated on row ${seenNames.get(nameKey)} of this file.`);
       return;
@@ -432,7 +433,7 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
   // case-insensitively against every existing item type, active or not,
   // since the constraint itself doesn't care about active status either.
   const { data: existingTypes } = await fetchAllRows((from, to) => supabase.from("item_types").select("description").order("id", { ascending: true }).range(from, to));
-  const existingDescriptions = new Set((existingTypes ?? []).map((t) => t.description.trim().toLowerCase()));
+  const existingDescriptions = new Set((existingTypes ?? []).map((t) => normName(t.description)));
 
   const rowErrors: string[] = [];
   const descriptions: string[] = [];
@@ -445,7 +446,7 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
       rowErrors.push(`Row ${r}: Description is required.`);
       return;
     }
-    const key = description.toLowerCase();
+    const key = normName(description);
     if (seen.has(key)) {
       rowErrors.push(`Row ${r}: "${description}" is repeated on row ${seen.get(key)} of this file.`);
       return;
@@ -601,7 +602,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   // are expressed, and is already handled by the grouping itself). Ravi
   // (13 Sept 2026, via AskUserQuestion): "add duplicate blocking on ... MFR
   // Name ... for both bulk upload and the regular one-at-a-time forms."
-  const existingMfrNames = new Set((existingMfrRows ?? []).map((m) => m.name.trim().toLowerCase()));
+  const existingMfrNames = new Set((existingMfrRows ?? []).map((m) => normName(m.name)));
 
   const rowErrors: string[] = [];
   // Groups keyed by exact (trimmed) MFR Name text — repeating the same
@@ -682,10 +683,11 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
     }
     const newLine: MfrLinePayload = { item_id: lineMatches[0].id, quantity: lineQty, unit: lineUnit };
 
-    const key = name.trim();
+    // SCAN-P2-09: group by the cleaned name, so "Ashwa Churna" and "ashwa  churna" are one MFR.
+    const key = normName(name);
     const existing = groups.get(key);
     if (!existing) {
-      if (existingMfrNames.has(key.toLowerCase())) {
+      if (existingMfrNames.has(key)) {
         rowErrors.push(`Recipe sheet, row ${r}: "${name}" already exists as an MFR.`);
         return;
       }
@@ -693,7 +695,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
         firstRow: r,
         firstProcedureRow: null,
         def: {
-          name: key,
+          name: name.trim(),
           batch_size_qty: batchQty,
           batch_size_unit: batchUnit,
           item_type_id,
@@ -744,7 +746,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
       rowErrors.push(`Manufacturing Procedure sheet, row ${r}: MFR Name is required.`);
       return;
     }
-    const key = name.trim();
+    const key = normName(name);
     const existing = groups.get(key);
     if (!existing) {
       rowErrors.push(
@@ -1111,8 +1113,8 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
     let gst_pct: number | null = null;
     if (gstPctRaw) {
       const n = Number(gstPctRaw);
-      if (Number.isNaN(n) || n < 0) {
-        rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): GST % must be a number ≥ 0.`);
+      if (Number.isNaN(n) || n < 0 || n > 100) {
+        rowErrors.push(`Row ${r} (Invoice "${invoiceNumberRaw}"): GST % must be a number from 0 to 100.`);
         return;
       }
       gst_pct = n;

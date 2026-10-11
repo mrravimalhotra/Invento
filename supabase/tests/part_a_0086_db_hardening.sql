@@ -169,10 +169,10 @@ select t_fail('quality_checker cannot bulk-create MFRs', $q$select * from public
 
 \echo '===== 0086 A11: pairing categories ====='
 reset role;
-insert into items (id,item_code,name,category,unit) values
- ('00000000-0000-0000-0000-0000000000c7','RM-T0002','Other raw','raw','kg'),
- ('00000000-0000-0000-0000-0000000000c8','FP-TEST','Some FP','processed','kg'),
- ('00000000-0000-0000-0000-0000000000c9','PKG-TEST','Some packaged','packaged_fp','nos');
+insert into items (id,item_code,name,category,unit,item_type_id) values
+ ('00000000-0000-0000-0000-0000000000c7','RM-T0002','Other raw','raw','kg','00000000-0000-0000-0000-0000000000c1'),
+ ('00000000-0000-0000-0000-0000000000c8','FP-TEST','Some FP','processed','kg',null),
+ ('00000000-0000-0000-0000-0000000000c9','PKG-TEST','Some packaged','packaged_fp','nos',null);
 select t_fail('FP paired to a raw item as packaged', $q$update items set packaged_item_id='00000000-0000-0000-0000-0000000000c7' where id='00000000-0000-0000-0000-0000000000c8'$q$, 'Packaged Finished Product');
 select t_fail('raw item given a packaged pointer', $q$update items set packaged_item_id='00000000-0000-0000-0000-0000000000c9' where id='00000000-0000-0000-0000-0000000000c7'$q$, 'Packaged Finished Product');
 select t_fail('FP production stock pointing at a packaged item', $q$update items set production_rm_item_id='00000000-0000-0000-0000-0000000000c9' where id='00000000-0000-0000-0000-0000000000c8'$q$, 'Raw Material');

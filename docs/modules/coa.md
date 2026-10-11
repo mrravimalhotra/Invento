@@ -9,6 +9,7 @@ Environmental Control are separate modules, not built here).
 > - An issued COA keeps a copy of the company details (name, address, licence) as issued (`company_snapshot`, 0112), so a reprint never changes.
 > - Printed COAs use the finished product's short batch number; the header and remarks wording can be edited when issuing.
 > - Edit rights for a template follow the item or MFR (System Admin, Inventory Manager, MFR Manager for items; System Admin, MFR Manager for MFRs).
+> - A certificate is saved only if its header matches the batch and QC record (rebuilt on the server by `lib/coa-draft.ts`) and its tests and specifications match the COA template; only Sampled Qty, the results and the remarks come from the form (SCAN-P4-08, 12 Oct 2026).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 

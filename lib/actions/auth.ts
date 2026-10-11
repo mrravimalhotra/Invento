@@ -2,9 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { ACCOUNT_DISABLED_MESSAGE, PASSWORD_MIN_LENGTH, safeRedirectPath } from "@/lib/constants/auth";
-import { friendlyDbError } from "@/lib/db-errors";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -133,24 +131,4 @@ export async function changeOwnPassword(prev: ActionState, formData: FormData): 
     return { error: "Your current password is not correct." };
   }
   return updatePassword(prev, formData);
-}
-
-export async function updateProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const fullName = String(formData.get("fullName") || "").trim();
-  if (!fullName) return { error: "Name is required." };
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ full_name: fullName })
-    .eq("id", user.id);
-  if (error) return { error: friendlyDbError(error) };
-
-  revalidatePath("/profile");
-  return { success: "Profile updated." };
 }

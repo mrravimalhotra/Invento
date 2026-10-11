@@ -8,6 +8,7 @@ the #1 gap gets closed) and §4.13.
 > - The last System Admin can never be removed or disabled, and a System Admin cannot remove their own System Admin role or disable their own account.
 > - **Automatic sign-out** (12 Oct 2026, SCAN-P1-02, migration 0113): a card on this page sets the idle period for everyone except System Admin (0 = off, otherwise 5 to 480 minutes, default 60), stored in `company_settings.idle_timeout_minutes` and changed only through `set_idle_timeout()`. See the section at the end.
 - Role writes are enforced by the database (`user_roles` policy), not only by this screen. The "Maker/checker" and unrestricted-screen descriptions in the history below are earlier states.
+> - Display names are changed only by the System Administrator (**Change name** on each row; `set_display_name`, migration 0115, SCAN-P2-12): at most 100 characters, unique ignoring capitals and extra spaces. My Profile shows the name but no longer edits it; adding a user checks the name too.
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 

@@ -89,12 +89,16 @@ export async function createUserAccount(
 
   if (!EMAIL_RE.test(email) || email.length > 254) return { error: "Enter a valid email address." };
   if (!fullName) return { error: "Full name is required." };
-  if (fullName.length > 200) return { error: "Full name must be 200 characters or fewer." };
+  if (fullName.length > 100) return { error: "Full name must be 100 characters or fewer." };
   const passwordError = validateTemporaryPassword(tempPassword);
   if (passwordError) return { error: passwordError };
   // A role-less account can sign in but do nothing useful, and would still be
   // able to read shared data — require at least one role up front.
   if (roles.length === 0) return { error: "Select at least one role for the new user." };
+
+  // SCAN-P2-12: no two people share a name (ignoring capitals and repeated spaces).
+  const { data: nameTaken } = await (await createClient()).rpc("display_name_taken", { p_name: fullName, p_exclude_id: null });
+  if (nameTaken === true) return { error: `Another user already has the name "${fullName}". Use a name that tells them apart.` };
 
   const adminClient = createAdminClient();
   const { data: created, error: createError } = await adminClient.auth.admin.createUser({
@@ -316,4 +320,24 @@ export async function setIdleTimeout(_prev: AdminUserActionState, formData: Form
       ? `Saved. People are signed out after ${minutes} minutes without activity (System Admins are not).`
       : "Saved. Automatic sign-out is switched off.",
   };
+}
+
+// SCAN-P2-12 (Ravi, 12 Oct 2026): display names are changed only by the System Administrator.
+// The name appears on QC decisions, certificates and the audit trail, so a user can no longer
+// rename themselves. Also enforced by set_display_name() and a trigger on profiles.
+export async function renameUser(userId: string, _prev: AdminUserActionState, formData: FormData): Promise<AdminUserActionState> {
+  const user = await getCurrentUser();
+  if (!user?.roles.includes("system_admin")) return { error: "Only the System Administrator can change a display name." };
+
+  const name = String(formData.get("fullName") ?? "").trim().replace(/\s+/g, " ");
+  if (!name) return { error: "Enter a name." };
+  if (name.length > 100) return { error: "A name can be at most 100 characters." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_display_name", { p_user_id: userId, p_name: name });
+  if (error) return { error: friendlyDbError(error, "Could not save the name.") };
+
+  revalidatePath("/user-roles");
+  revalidatePath("/", "layout");
+  return { success: `Name changed to "${name}".` };
 }

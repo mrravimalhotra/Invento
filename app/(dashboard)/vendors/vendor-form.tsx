@@ -14,6 +14,7 @@ type Vendor = {
   mobile: string | null;
   phone: string | null;
   email: string | null;
+  updated_at?: string | null;
 };
 
 // Lives inline on the /vendors list page (see page.tsx) — no separate /new
@@ -65,6 +66,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
     <form action={formAction} className="grid gap-4">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
+      {vendor.updated_at !== undefined && <input type="hidden" name="loaded_at" value={vendor.updated_at ?? ""} />}
       <Field label="Vendor code">
         <Input value={vendor.vendor_code} readOnly disabled />
       </Field>

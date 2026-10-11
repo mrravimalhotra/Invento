@@ -5,8 +5,9 @@ create or replace function public.t_check(p_label text, p_cond boolean) returns 
 grant execute on function public.t_ok(text,text), public.t_fail(text,text,text), public.t_check(text,boolean) to authenticated, anon;
 insert into auth.users (id,email) values ('00000000-0000-0000-0000-0000000000a1','a@t'),('00000000-0000-0000-0000-0000000000b1','b@t');
 insert into user_roles values ('00000000-0000-0000-0000-0000000000a1','system_admin'),('00000000-0000-0000-0000-0000000000b1','inventory_manager');
-insert into items (id, item_code, name, category, unit) values
- ('00000000-0000-0000-0000-00000000c001','RM-T1','Raw one','raw','kg'),('00000000-0000-0000-0000-00000000c002','RM-T2','Raw two','raw','kg');
+insert into item_types (id, description) values ('00000000-0000-0000-0000-00000000f0a1','Test type');
+insert into items (id, item_code, name, category, unit, item_type_id) values
+ ('00000000-0000-0000-0000-00000000c001','RM-T1','Raw one','raw','kg','00000000-0000-0000-0000-00000000f0a1'),('00000000-0000-0000-0000-00000000c002','RM-T2','Raw two','raw','kg','00000000-0000-0000-0000-00000000f0a1');
 
 -- 0096 re-keyed this function (per item / per MFR instead of per Item Type); the original
 -- failure it guarded against was the function being absent from the live database.

@@ -11,6 +11,7 @@ simplification).
 > - A raw-material item can carry one COA template (optional at creation, needed before a COA is issued).
 > - Write access: System Admin, Inventory Manager, MFR Manager; delete is admin-only. The list shows inactive items too, with an Active column; pickers offer active items only.
 > - The item page shows batches, FP use and "Available for FP production" (usable stock only).
+> - Database rules (migration 0115, 12 Oct 2026): category is fixed once the item has records (`item_has_records`) and never moves to or from Finished Product; an item with stock on hand cannot be made inactive; a Raw material must have an item type; item names are unique after cleaning (`norm_name`: capitals, repeated spaces, trailing full stop) among raw and packaging items; barcode is 3 to 40 plain characters. Saving checks that nobody else changed the item since the form was opened (`loaded_at`, SCAN-P10-03).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 
