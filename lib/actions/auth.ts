@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { createAdminClient, isAdminClientConfigured } from "@/lib/supabase/admin";
 import { ACCOUNT_DISABLED_MESSAGE, PASSWORD_MIN_LENGTH, safeRedirectPath } from "@/lib/constants/auth";
 
 export type ActionState = { error?: string; success?: string } | undefined;
@@ -26,6 +27,46 @@ function signInErrorMessage(code: string | undefined): string {
   }
 }
 
+// SCAN-P1-16 (migration 0117): sign-ins, sign-outs and failed sign-ins go to the
+// Audit Log. Best effort on purpose: a problem recording one must never stop
+// anyone signing in or out.
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
+
+async function recordOwnAccountEvent(
+  supabase: ServerClient,
+  userId: string | null | undefined,
+  event: "sign_in" | "sign_out" | "password_changed_by_user",
+) {
+  if (!userId) return;
+  try {
+    await supabase.rpc("audit_account_action", { p_user_id: userId, p_event: event });
+  } catch (e) {
+    console.error("recordOwnAccountEvent:", event, e);
+  }
+}
+
+async function recordSignOut(supabase: ServerClient) {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    await recordOwnAccountEvent(supabase, user?.id, "sign_out");
+  } catch (e) {
+    console.error("recordSignOut:", e);
+  }
+}
+
+// A failed sign-in has no signed-in person, so it is written with the server key
+// (the public key cannot call this). Only the e-mail typed is kept, never the password.
+async function recordFailedSignIn(email: string) {
+  if (!isAdminClientConfigured()) return;
+  try {
+    await createAdminClient().rpc("audit_sign_in_failed", { p_email: email });
+  } catch (e) {
+    console.error("recordFailedSignIn:", e);
+  }
+}
+
 export async function signIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
@@ -35,8 +76,12 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
   if (!email || !password) return { error: "Email and password are required." };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: signInErrorMessage(error.code) };
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    await recordFailedSignIn(email);
+    return { error: signInErrorMessage(error.code) };
+  }
+  await recordOwnAccountEvent(supabase, data.user?.id, "sign_in");
 
   redirect(next);
 }
@@ -49,6 +94,7 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
 
 export async function signOut() {
   const supabase = await createClient();
+  await recordSignOut(supabase);
   await supabase.auth.signOut();
   redirect("/login");
 }
@@ -57,6 +103,7 @@ export async function signOut() {
 // Same as signOut, and the sign-in page says why.
 export async function signOutIdle() {
   const supabase = await createClient();
+  await recordSignOut(supabase);
   await supabase.auth.signOut();
   redirect("/login?idle=1");
 }
@@ -106,6 +153,13 @@ export async function updatePassword(_prev: ActionState, formData: FormData): Pr
     console.error("updatePassword:", error.code, error.message);
     return { error: "Couldn't change your password. Please try again." };
   }
+
+  // SCAN-P1-16: the Profile form and the reset page now leave a trace too
+  // (the forced first-sign-in change already did).
+  const {
+    data: { user: changedUser },
+  } = await supabase.auth.getUser();
+  await recordOwnAccountEvent(supabase, changedUser?.id, "password_changed_by_user");
 
   return { success: "Password updated." };
 }

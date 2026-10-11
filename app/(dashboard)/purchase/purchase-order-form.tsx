@@ -2,8 +2,16 @@
 
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useEffect, useState } from "react";
-import { deletePurchaseOrder, submitPurchaseOrder, reopenPurchaseOrder, type ActionState } from "@/lib/actions/purchase";
+import {
+  deletePurchaseOrder,
+  submitPurchaseOrder,
+  reopenPurchaseOrder,
+  updatePurchaseOrderHeader,
+  type ActionState,
+} from "@/lib/actions/purchase";
 import { Button } from "@/components/ui/button";
+import { Field, Input, Select } from "@/components/ui/form";
+import { todayIst } from "@/lib/utils";
 
 // The "new purchase order" header form itself now lives in
 // new-purchase-order-form.tsx, not here — it needs to render
@@ -109,6 +117,83 @@ export function ReopenPurchaseOrderForm({ id }: { id: string }) {
         </Button>
         <Button type="button" variant="secondary" onClick={() => setConfirming(false)} disabled={pending}>
           Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+
+// SCAN-P3-02: fix a typo in the invoice number / date / received-on (and the vendor while the
+// order has no lines) without deleting the order. Draft or reopened orders only.
+export type VendorChoice = { id: string; vendor_code: string; name: string };
+
+export function EditInvoiceDetailsForm({
+  id,
+  vendorId,
+  vendors,
+  invoiceNumber,
+  invoiceDate,
+  receivedOn,
+  loadedAt,
+  hasLines,
+}: {
+  id: string;
+  vendorId: string | null;
+  vendors: VendorChoice[];
+  invoiceNumber: string;
+  invoiceDate: string;
+  receivedOn: string | null;
+  loadedAt?: string | null;
+  hasLines: boolean;
+}) {
+  const boundAction = updatePurchaseOrderHeader.bind(null, id);
+  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
+        Edit invoice details
+      </Button>
+    );
+  }
+
+  return (
+    <form action={formAction} className="grid w-full gap-4 rounded border border-border p-4">
+      {state?.error && <p className="text-sm text-red">{state.error}</p>}
+      {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
+      {loadedAt !== undefined && <input type="hidden" name="loaded_at" value={loadedAt ?? ""} />}
+      {!hasLines ? (
+        <Field label="Vendor" htmlFor="edit_vendor_id" required>
+          <Select id="edit_vendor_id" name="vendor_id" defaultValue={vendorId ?? ""} required>
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.vendor_code} — {v.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : (
+        <p className="text-xs text-muted">The vendor can&apos;t be changed once the order has lines.</p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Invoice number" htmlFor="edit_invoice_number" required>
+          <Input id="edit_invoice_number" name="invoice_number" defaultValue={invoiceNumber} required />
+        </Field>
+        <Field label="Invoice date" htmlFor="edit_invoice_date" required>
+          <Input id="edit_invoice_date" name="invoice_date" type="date" max={todayIst()} defaultValue={invoiceDate} required />
+        </Field>
+        <Field label="Received on" htmlFor="edit_received_on" required hint="Printed as Date of Receipt on the RM label.">
+          <Input id="edit_received_on" name="received_on" type="date" max={todayIst()} defaultValue={receivedOn ?? todayIst()} required />
+        </Field>
+      </div>
+      <div className="flex gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save invoice details"}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
+          Close
         </Button>
       </div>
     </form>

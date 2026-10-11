@@ -1,6 +1,6 @@
 "use server";
 
-import { firstLimitError, quantityLimitError, unitPriceLimitError } from "@/lib/limits";
+import { NAME_MAX, firstLimitError, quantityLimitError, textLimitError, unitPriceLimitError } from "@/lib/limits";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -10,6 +10,7 @@ import { canWrite } from "@/lib/constants/roles";
 import { convertUnit } from "@/lib/constants/units";
 import { escapeLike, todayIst } from "@/lib/utils";
 import { friendlyDbError } from "@/lib/db-errors";
+import { STALE_MESSAGE, applyLoadedAt, readLoadedAt } from "@/lib/stale-check";
 import { futureDateError } from "@/lib/date-rules";
 
 export type ActionState = { error?: string; success?: string } | undefined;
@@ -75,6 +76,11 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
 
   const supabase = await createClient();
 
+  // SCAN-P2-04: a vendor made inactive is not offered on new orders; the action says so too.
+  const { data: vendorRow } = await supabase.from("vendors").select("active").eq("id", parsed.data.vendor_id).maybeSingle();
+  if (!vendorRow) return { error: "That vendor no longer exists. Pick another vendor." };
+  if (vendorRow.active === false) return { error: "That vendor is inactive. Pick an active vendor, or tick Active on the vendor first." };
+
   // purchase_orders has no DB-level unique constraint on (vendor_id,
   // invoice_number) — checked here, case-insensitively on the invoice
   // number, scoped to this vendor only (not globally): different vendors
@@ -139,6 +145,99 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
       vendor: created.vendor,
     },
   };
+}
+
+// SCAN-P3-02: correct the invoice details of an order that is still a draft (a reopened order
+// is a draft again). Invoice number, invoice date and "received on" can always be corrected;
+// the vendor only while the order has no lines, because lines and their batch numbers belong
+// to the order. A submitted order stays locked: reopen it first (System Admin).
+export async function updatePurchaseOrderHeader(
+  id: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { data: current, error: curError } = await supabase
+    .from("purchase_orders")
+    .select("id, vendor_id, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (curError) return { error: friendlyDbError(curError) };
+  if (!current) return { error: "Purchase order not found." };
+  if (current.status !== "draft") {
+    return { error: "Can't edit — this purchase order has been submitted. Reopen it first." };
+  }
+
+  const { count: lineCount, error: countError } = await supabase
+    .from("purchase_lines")
+    .select("id", { count: "exact", head: true })
+    .eq("purchase_order_id", id);
+  if (countError) return { error: friendlyDbError(countError) };
+
+  // The vendor field is only on the form while there are no lines; without it the vendor is kept.
+  const vendorField = String(formData.get("vendor_id") || "");
+  const vendorId = vendorField || (current.vendor_id as string);
+  const vendorChanged = vendorId !== current.vendor_id;
+  if (vendorChanged && (lineCount ?? 0) > 0) {
+    return { error: "The vendor can't be changed once the order has lines. Delete the lines first, or start a new order." };
+  }
+
+  const parsed = poSchema.safeParse({
+    vendor_id: vendorId,
+    invoice_number: String(formData.get("invoice_number") || ""),
+    invoice_date: String(formData.get("invoice_date") || ""),
+    received_on: String(formData.get("received_on") || ""),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const invoiceDateError = futureDateError(parsed.data.invoice_date, "Invoice date");
+  if (invoiceDateError) return { error: invoiceDateError };
+  const receivedOn = parsed.data.received_on || todayIst();
+  const receivedOnError = futureDateError(receivedOn, "Received on");
+  if (receivedOnError) return { error: receivedOnError };
+  const numberTooLong = textLimitError("Invoice number", parsed.data.invoice_number, NAME_MAX);
+  if (numberTooLong) return { error: numberTooLong };
+
+  if (vendorChanged) {
+    const { data: vendorRow } = await supabase.from("vendors").select("active").eq("id", vendorId).maybeSingle();
+    if (!vendorRow) return { error: "That vendor no longer exists. Pick another vendor." };
+    if (vendorRow.active === false) return { error: "That vendor is inactive. Pick an active vendor." };
+  }
+
+  // Same per-vendor duplicate-invoice rule as creating an order, leaving this order out.
+  const { data: dupPo } = await supabase
+    .from("purchase_orders")
+    .select("id")
+    .eq("vendor_id", vendorId)
+    .ilike("invoice_number", escapeLike(parsed.data.invoice_number))
+    .neq("id", id)
+    .limit(1);
+  if (dupPo && dupPo.length > 0) return { error: `Invoice "${parsed.data.invoice_number}" already exists for this vendor.` };
+
+  const loadedAt = readLoadedAt(formData);
+  const { data: saved, error } = await applyLoadedAt(
+    supabase
+      .from("purchase_orders")
+      .update({
+        vendor_id: vendorId,
+        invoice_number: parsed.data.invoice_number,
+        invoice_date: parsed.data.invoice_date,
+        received_on: receivedOn,
+      })
+      .eq("id", id)
+      .eq("status", "draft"),
+    loadedAt,
+  ).select("id");
+  if (error) return { error: friendlyDbError(error) };
+  if (!saved || saved.length === 0) {
+    return { error: loadedAt === undefined ? "Purchase order not found, or it was submitted meanwhile." : STALE_MESSAGE };
+  }
+
+  revalidatePath(`/purchase/${id}`);
+  revalidatePath("/purchase");
+  return { success: "Invoice details updated." };
 }
 
 // ------------------------------------------------------------

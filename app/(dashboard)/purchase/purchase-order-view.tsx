@@ -3,7 +3,13 @@ import { PageHeader } from "@/components/ui/page-header";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { MONEY_RULE_TEXT, sumMoney } from "@/lib/money";
 import type { RawItemOption } from "./purchase-line-form";
-import { DeletePurchaseOrderForm, SubmitPurchaseOrderForm, ReopenPurchaseOrderForm } from "./purchase-order-form";
+import {
+  DeletePurchaseOrderForm,
+  EditInvoiceDetailsForm,
+  SubmitPurchaseOrderForm,
+  ReopenPurchaseOrderForm,
+  type VendorChoice,
+} from "./purchase-order-form";
 import { PurchaseLinesSection } from "./[id]/purchase-lines-section";
 import type { LineRow } from "./[id]/purchase-lines-table";
 import { purchaseLineTotal } from "./[id]/line-financials";
@@ -19,6 +25,7 @@ export type PurchaseOrderHeader = {
   status: "draft" | "submitted";
   submitted_at: string | null;
   reopened_at: string | null;
+  updated_at?: string | null;
   vendor: { id: string; vendor_code: string; name: string; address?: string | null; mobile?: string | null } | null;
 };
 
@@ -40,6 +47,7 @@ export function PurchaseOrderView({
   canEdit,
   isSystemAdmin,
   historyLink,
+  vendors,
 }: {
   po: PurchaseOrderHeader;
   lineRows: LineRow[];
@@ -47,6 +55,8 @@ export function PurchaseOrderView({
   canEdit: boolean;
   isSystemAdmin: boolean;
   historyLink?: React.ReactNode;
+  // SCAN-P3-02: given only by the order's own page; without it the Edit invoice details button is not shown.
+  vendors?: VendorChoice[];
 }) {
   const isDraft = po.status === "draft";
   // FB-0018: lines are only addable/editable/deletable while the PO is
@@ -92,6 +102,18 @@ export function PurchaseOrderView({
       </div>
 
       <div className="mb-6 flex flex-wrap items-start justify-end gap-3">
+        {canEdit && isDraft && vendors && (
+          <EditInvoiceDetailsForm
+            id={po.id}
+            vendorId={po.vendor?.id ?? null}
+            vendors={vendors}
+            invoiceNumber={po.invoice_number}
+            invoiceDate={po.invoice_date}
+            receivedOn={po.received_on ?? null}
+            loadedAt={po.updated_at}
+            hasLines={lineRows.length > 0}
+          />
+        )}
         {canEdit && isDraft && lineRows.length > 0 && <SubmitPurchaseOrderForm id={po.id} />}
         {isSystemAdmin && !isDraft && <ReopenPurchaseOrderForm id={po.id} />}
         {isSystemAdmin && <DeletePurchaseOrderForm id={po.id} poNumber={po.po_number} />}

@@ -4,7 +4,7 @@ Cross-reference: `docs/DESIGN.md` §4.3.
 
 > **Current behaviour (read this first; the sections below are a dated history).**
 > - Vendor Master (`/vendors`): the list and the Add form share one page, and the next code (`V-0001` style) is previewed. Fields: name (required), address, mobile, phone and email (checked when given).
-> - Written by System Admin and Inventory Manager; **delete is System Admin only**; there is no deactivate. The vendor's address and mobile show on New Purchase Order and on the order. Opening-stock rows without a vendor use the system vendor `V-OPENING`.
+> - Written by System Admin and Inventory Manager; **delete is System Admin only**. Untick **Active** on the vendor to stop using it (SCAN-P2-04): it is no longer offered on new purchase orders (the screen, the order action and the bulk upload all check), earlier orders and history stay, and the list shows it as Inactive under "Show inactive". The vendor's address and mobile show on New Purchase Order and on the order. Opening-stock rows without a vendor use the system vendor `V-OPENING`.
 > - Vendor names are unique after cleaning (capitals, repeated spaces, trailing full stop), in the database too (migration 0115); an edit is refused with "Someone else changed this record" if another person saved first (SCAN-P10-03).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 

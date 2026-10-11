@@ -13,7 +13,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
 
   const { data: vendor } = await supabase
     .from("vendors")
-    .select("id, vendor_code, name, address, mobile, phone, email, updated_at")
+    .select("id, vendor_code, name, address, mobile, phone, email, active, updated_at")
     .eq("id", id)
     .maybeSingle();
 

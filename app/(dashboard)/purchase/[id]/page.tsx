@@ -20,7 +20,7 @@ export default async function PurchaseOrderDetailPage({
   const { data: poRaw } = await supabase
     .from("purchase_orders")
     .select(
-      "id, po_number, invoice_number, invoice_date, received_on, created_at, status, submitted_at, reopened_at, vendor:vendors(id, vendor_code, name, address, mobile)"
+      "id, po_number, invoice_number, invoice_date, received_on, created_at, updated_at, status, submitted_at, reopened_at, vendor:vendors(id, vendor_code, name, address, mobile)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -34,6 +34,7 @@ export default async function PurchaseOrderDetailPage({
     invoice_date: string;
     received_on: string | null;
     created_at: string;
+    updated_at: string | null;
     status: "draft" | "submitted";
     submitted_at: string | null;
     reopened_at: string | null;
@@ -68,6 +69,22 @@ export default async function PurchaseOrderDetailPage({
 
   const lineRows = (lines ?? []) as unknown as LineRow[];
   const canEdit = canWrite(user?.roles ?? [], "purchase");
+
+  // SCAN-P3-02: the vendor choices for "Edit invoice details" (active ones, plus the order's own).
+  let vendorChoices: { id: string; vendor_code: string; name: string }[] | undefined;
+  if (canEdit && po.status === "draft") {
+    const { data: vendorRows } = await fetchAllRows((from, to) =>
+      supabase
+        .from("vendors")
+        .select("id, vendor_code, name, active")
+        .order("name")
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
+    vendorChoices = ((vendorRows ?? []) as { id: string; vendor_code: string; name: string; active: boolean }[])
+      .filter((v) => v.active || v.id === po.vendor?.id)
+      .map(({ id: vid, vendor_code, name }) => ({ id: vid, vendor_code, name }));
+  }
   const isSystemAdmin = (user?.roles ?? []).includes("system_admin");
 
   return (
@@ -78,6 +95,7 @@ export default async function PurchaseOrderDetailPage({
         rawItems={(rawItems ?? []) as RawItemOption[]}
         canEdit={canEdit}
         isSystemAdmin={isSystemAdmin}
+        vendors={vendorChoices}
         historyLink={<AuditHistoryLink recordId={po.id} roles={user?.roles ?? []} />}
       />
     </div>

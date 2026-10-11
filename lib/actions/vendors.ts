@@ -117,6 +117,9 @@ export async function updateVendor(
         mobile: parsed.data.mobile || null,
         phone: parsed.data.phone || null,
         email: parsed.data.email || null,
+        // SCAN-P2-04: a vendor can be stopped (inactive vendors are not offered on new
+        // purchase orders) without erasing its history.
+        active: formData.get("active") === "on",
       })
       .eq("id", id),
     loadedAt

@@ -3,7 +3,7 @@
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
 import { createVendor, updateVendor, deleteVendor, type ActionState } from "@/lib/actions/vendors";
-import { Field, Input } from "@/components/ui/form";
+import { Checkbox, Field, Input } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 
 type Vendor = {
@@ -14,6 +14,7 @@ type Vendor = {
   mobile: string | null;
   phone: string | null;
   email: string | null;
+  active?: boolean;
   updated_at?: string | null;
 };
 
@@ -87,6 +88,13 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
       <Field label="Email" htmlFor="email">
         <Input id="email" name="email" type="email" defaultValue={vendor.email ?? ""} />
       </Field>
+      <div className="grid gap-1">
+        <Checkbox label="Active" name="active" defaultChecked={vendor.active ?? true} />
+        <p className="text-xs text-muted">
+          Untick to stop using this vendor. It is no longer offered on new purchase orders; earlier orders and
+          history are kept. Orders still in draft keep working.
+        </p>
+      </div>
       <div className="flex gap-3">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save changes"}

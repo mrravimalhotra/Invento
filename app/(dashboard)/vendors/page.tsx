@@ -19,7 +19,7 @@ export default async function VendorsPage({
 
   const [{ data, error }, nextVendorCode] = await Promise.all([
     fetchAllRows((from, to) =>
-      supabase.from("vendors").select("id, vendor_code, name, mobile, phone, email").eq("active", true).order("vendor_code")
+      supabase.from("vendors").select("id, vendor_code, name, mobile, phone, email, active").order("vendor_code")
         .order("id", { ascending: true })
         .range(from, to)
     ),

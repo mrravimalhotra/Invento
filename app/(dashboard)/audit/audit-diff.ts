@@ -81,6 +81,11 @@ const ACCOUNT_EVENT_LABELS: Record<string, string> = {
   password_changed_by_user: "Password changed by the user",
   account_disabled_by_admin: "Account disabled by System Admin",
   account_enabled_by_admin: "Account re-enabled by System Admin",
+  // SCAN-P1-16 (0117)
+  sign_in: "Signed in",
+  sign_out: "Signed out",
+  sign_in_failed: "Failed sign-in attempt",
+  sign_in_failed_suppressed: "More failed sign-in attempts this hour were not recorded",
 };
 
 export type AuditLogRow = {

@@ -263,6 +263,7 @@ Items you create here are what Purchase, QC, Inventory Ledger, MFR, and Packagin
 **How to edit a vendor**
 1. Click the vendor's name or code in the list to open its detail page.
 2. Update any field and save — the change is confirmed inline on the same page.
+3. To stop using a vendor (for example one that failed an audit or stopped trading), untick **Active** and save. The vendor is no longer offered on new purchase orders, but every earlier order and its history stay. On the list, tick **Show inactive** to see these vendors; tick **Active** again to bring one back.
 3. System Admins also see a Delete button here, which asks for confirmation before permanently removing the vendor.
 
 **Fields you'll be asked for**
@@ -359,6 +360,8 @@ This register is independent of Inventory Ledger — it doesn't pull from or pus
 4. Enter the unit price and GST %, then save the line. There is no expiry date to enter here: the expiry date is set by the QC Reviewer when the batch is approved in Quality Control. Repeat for each item on the invoice, or use bulk upload for many lines at once. While the order is still a Draft, you can edit or delete any line.
    - If the quantity is 10 times or more the last purchase of the same item, a red note appears under the form and **Add line** stays disabled until you tick "Yes, this quantity is correct". It is only a check for an extra zero; a genuinely large order saves as normal.
    - The app also refuses absurd values: a quantity above 1,000,000 kg or ltr (1,000,000,000 g or ml, 100,000,000 for nos and other counts), a unit price above ₹10,000,000, a name over 200 characters, or a long note over 2,000 characters. The message says which one to correct.
+
+**Correcting invoice details:** on a Draft order (or one that was reopened), click **Edit invoice details** to fix the invoice number, invoice date or received-on date. The vendor can be changed only while the order has no lines. A submitted order stays locked; ask a System Admin to reopen it first.
 
 **How to submit a purchase order so stock becomes available**
 1. Once every line on the order is correct, click **Final Submit** on the order's detail page. This is a whole-order action — you can't submit just one line at a time.
@@ -586,6 +589,8 @@ This module is self-contained — it doesn't read or affect data from Purchase, 
 3. Scan the list — each row shows When, Table, the affected Record, the Action, who made the change and how, and a short summary naming the fields that changed (for example "quantity 10 → 12"). Click a column heading to sort the page.
 4. Click **View** on a row to open its detail page: a full before/after comparison with field names in words, and people, items, vendors, batches and recipes shown by name instead of by code.
 5. The list shows 200 changes at a time, newest first; use **Older** and **Newer** at the bottom to move through them.
+
+**Sign-ins:** choose Table → **User Account** to see who signed in and out, failed sign-in attempts (the e-mail typed, never the password) and passwords changed by the user. A run of failed attempts on one account is worth a look. After 20 failed attempts for one e-mail in an hour (or 200 in all), the log adds one line saying more were not recorded.
 
 **History on a record's own page:** the Item, Purchase Order, QC record, MFR and Finished Product batch pages show a **History** button (System Admin and Super Auditor only) that opens the Audit Log for that one record.
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { isLegacyCode } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
+import { InactiveTag } from "@/components/ui/inactive-tag";
 
 export type VendorRow = {
   id: string;
@@ -12,6 +13,7 @@ export type VendorRow = {
   mobile: string | null;
   phone: string | null;
   email: string | null;
+  active?: boolean;
 };
 
 export function VendorsTable({ rows }: { rows: VendorRow[] }) {
@@ -24,9 +26,12 @@ export function VendorsTable({ rows }: { rows: VendorRow[] }) {
     {
       header: "Name",
       accessor: (r) => (
-        <Link href={`/vendors/${r.id}`} className="font-medium text-brand-dark hover:underline">
-          {r.name}
-        </Link>
+        <>
+          <Link href={`/vendors/${r.id}`} className="font-medium text-brand-dark hover:underline">
+            {r.name}
+          </Link>
+          <InactiveTag show={r.active === false} />
+        </>
       ),
       searchValue: (r) => r.name,
     },
@@ -45,6 +50,7 @@ export function VendorsTable({ rows }: { rows: VendorRow[] }) {
       { header: "Mobile", value: (r) => r.mobile ?? "" },
       { header: "Phone", value: (r) => r.phone ?? "" },
       { header: "Email", value: (r) => r.email ?? "" },
+      { header: "Status", value: (r) => (r.active === false ? "Inactive" : "Active") },
     ],
   };
 
@@ -55,6 +61,7 @@ export function VendorsTable({ rows }: { rows: VendorRow[] }) {
       emptyLabel="No vendors yet."
       searchPlaceholder="Search vendors…"
       isLegacy={(r) => isLegacyCode(r.vendor_code)}
+      isInactive={(r) => r.active === false}
       exportConfig={exportConfig}
     />
   );
