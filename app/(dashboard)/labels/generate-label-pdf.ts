@@ -114,7 +114,8 @@ const RM_VALUE_SIZE_PT = 11;
 // stopping at this floor, well before wrapping to a second line would
 // risk colliding with the field below it (only ~7mm of vertical gap
 // between lines).
-const RM_MIN_VALUE_SIZE_PT = 7;
+// SCAN-P4-15: floor lowered from 7 to 6 pt so a name of about 50 characters fits instead of ending in "…".
+const RM_MIN_VALUE_SIZE_PT = 6;
 // Right-hand safety margin, symmetric with RM_LEFT_PAD_MM.
 const RM_RIGHT_PAD_MM = 2.0;
 
@@ -319,7 +320,7 @@ export const FPIP_RIGHT_PAD_MM = 2.0;
 // reproduced as a real offset rather than dropped.
 export const FPIP_INDENT_MM = 12.7;
 export const FPIP_FONT_SIZE_PT = 11;
-const FPIP_MIN_VALUE_SIZE_PT = 7;
+const FPIP_MIN_VALUE_SIZE_PT = 6; // SCAN-P4-15 (was 7)
 // Baseline of the first line (company name) and the uniform line-to-line
 // pitch, both in mm from the top of a cell — least-squares fit across all
 // 19 measured lines (10 from the Finished Product reference, 9 from
@@ -552,7 +553,7 @@ export const UT_CELL_HEIGHT_MM = 67.17;
 export const UT_FONT_SIZE_PT = 11;
 export const UT_LEFT_PAD_MM = 2.0;
 const UT_RIGHT_PAD_MM = 2.0;
-const UT_MIN_VALUE_SIZE_PT = 7;
+const UT_MIN_VALUE_SIZE_PT = 6; // SCAN-P4-15 (was 7)
 // The Mfg. Lic. line sits well right of the field lines below it — in the
 // reference this comes from a mix of a paragraph indent and literal
 // leading spaces baked into the run text; reproduced here as a single
