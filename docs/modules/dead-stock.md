@@ -60,3 +60,7 @@ signed-in user.
 - No dedicated "resolution" workflow (a formal review/approval step for
   applying a rejection) — `resolution_date` is a plain field, not a
   sign-off chain like BMR's Prepared/Checked/Approved.
+
+## Figures check and list columns (11 Oct 2026, SCAN-P8-02)
+
+The list and Excel now include Rejected qty, Rejected value, Resolution date and Remark, plus a **Check** column. The Add and Edit forms warn (never block) when Rejected qty is more than Qty, Balance qty is not Qty minus Rejected qty, or Balance value is not Balance qty x depreciated value per unit. Balance stays typed by hand.

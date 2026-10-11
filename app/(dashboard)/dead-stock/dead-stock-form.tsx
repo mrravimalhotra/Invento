@@ -1,7 +1,7 @@
 "use client";
 
 import { useFlashActionState } from "@/lib/use-flash-action";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createDeadStockItem,
   updateDeadStockItem,
@@ -11,6 +11,22 @@ import {
 import { Field, Input, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { todayIst } from "@/lib/utils";
+import { deadStockWarnings, figuresFromForm } from "@/lib/dead-stock-check";
+
+// SCAN-P8-02: a warning, never a block, when the hand-typed figures do not add up.
+function FigureWarnings({ warnings }: { warnings: string[] }) {
+  if (warnings.length === 0) return null;
+  return (
+    <div className="rounded-md border border-amber/40 bg-amber-bg px-3 py-2 text-sm text-amber">
+      <p className="font-medium">These figures do not add up (you can still save):</p>
+      <ul className="mt-1 list-disc pl-5">
+        {warnings.map((w) => (
+          <li key={w}>{w}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 type DeadStockItem = {
   id: string;
@@ -36,9 +52,10 @@ type DeadStockItem = {
 // see the note in 0035_dead_stock_register.sql for why.
 export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createDeadStockItem, undefined);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   return (
-    <form action={formAction} className="grid gap-4">
+    <form action={formAction} className="grid gap-4" onChange={(e) => setWarnings(deadStockWarnings(figuresFromForm(e.currentTarget)))}>
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       <Field label="Asset code" hint="Auto-generated — assigned exactly when you save.">
         <Input value={nextAssetCode} readOnly disabled />
@@ -84,6 +101,7 @@ export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
       <Field label="Remark" htmlFor="remark">
         <Input id="remark" name="remark" />
       </Field>
+      <FigureWarnings warnings={warnings} />
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save asset"}
       </Button>
@@ -94,9 +112,15 @@ export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
 export function EditDeadStockForm({ item }: { item: DeadStockItem }) {
   const boundAction = updateDeadStockItem.bind(null, item.id);
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  // show any problem already in the saved figures when the page opens
+  useEffect(() => {
+    if (formRef.current) setWarnings(deadStockWarnings(figuresFromForm(formRef.current)));
+  }, []);
 
   return (
-    <form action={formAction} className="grid gap-4">
+    <form ref={formRef} action={formAction} className="grid gap-4" onChange={(e) => setWarnings(deadStockWarnings(figuresFromForm(e.currentTarget)))}>
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       {state?.success && <p className="text-sm text-brand-dark">{state.success}</p>}
       <Field label="Asset code">
@@ -175,6 +199,7 @@ export function EditDeadStockForm({ item }: { item: DeadStockItem }) {
       <Field label="Remark" htmlFor="remark">
         <Input id="remark" name="remark" defaultValue={item.remark ?? ""} />
       </Field>
+      <FigureWarnings warnings={warnings} />
       <Checkbox label="Active" name="active" defaultChecked={item.active} />
       <div className="flex gap-3">
         <Button type="submit" disabled={pending}>
