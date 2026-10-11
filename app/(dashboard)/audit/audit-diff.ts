@@ -159,7 +159,37 @@ export function summarizeChange(row: Pick<AuditLogRow, "action" | "old_data" | "
     const statusPart = `status: ${String(statusChange.oldValue ?? "—")} → ${String(statusChange.newValue ?? "—")}`;
     return rest > 0 ? `${statusPart} (+${rest} more field${rest === 1 ? "" : "s"})` : statusPart;
   }
-  return `${changed.length} field${changed.length === 1 ? "" : "s"} changed`;
+  return namedFields(changed);
+}
+
+// SCAN-P8-12: name the changed fields instead of only counting them. The two
+// stamps the database adds on every update (updated_at, updated_by) are left
+// out unless they are all that changed, so the useful fields come first.
+const STAMP_FIELDS = new Set(["updated_at", "updated_by"]);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function fieldLabel(key: string): string {
+  return key.replace(/_id$/, "").replace(/_/g, " ");
+}
+
+function shortValue(v: unknown): string | null {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "object") return null;
+  const text = String(v);
+  if (UUID_PATTERN.test(text) || text.length > 20) return null;
+  return text;
+}
+
+export function namedFields(changed: { key: string; oldValue: unknown; newValue: unknown }[]): string {
+  const meaningful = changed.filter((c) => !STAMP_FIELDS.has(c.key));
+  const list = meaningful.length > 0 ? meaningful : changed;
+  const parts = list.slice(0, 3).map((c) => {
+    const before = shortValue(c.oldValue);
+    const after = shortValue(c.newValue);
+    return before !== null && after !== null ? `${fieldLabel(c.key)} ${before} → ${after}` : fieldLabel(c.key);
+  });
+  const rest = list.length - parts.length;
+  return rest > 0 ? `${parts.join(", ")} (+${rest} more)` : parts.join(", ");
 }
 
 export function displayValue(v: unknown): string {

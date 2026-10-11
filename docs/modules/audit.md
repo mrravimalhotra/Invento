@@ -153,3 +153,7 @@ about 1 KB per audit row including indexes.
   `select pg_size_pretty(pg_total_relation_size('public.audit_log'));`
 - No CSV/PDF export on the list page yet, unlike most of this app's other
   list/report screens.
+
+## What changed names the fields (11 Oct 2026, SCAN-P8-12)
+
+The "What changed" column (and the Excel file and detail page heading) now names up to three changed fields, with before and after values when they are short, for example "quantity 10 → 12, unit kg → g (+2 more)". The two stamps the database adds on every update (updated at, updated by) are left out unless nothing else changed. Status changes keep their own wording. Resolving ids to names and Before/After columns in Excel are not done yet.
