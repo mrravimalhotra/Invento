@@ -1,70 +1,32 @@
-"use client";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { ResetPasswordForm } from "./reset-form";
 
-import { useFlashActionState } from "@/lib/use-flash-action";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { updatePassword, type ActionState } from "@/lib/actions/auth";
-import { Field, PasswordInput } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
-import { PASSWORD_MIN_LENGTH } from "@/lib/constants/auth";
+// SCAN-P1-01: the new-password form only makes sense with a session from the
+// e-mailed link (see app/auth/confirm/route.ts). Without one, say so plainly
+// instead of letting the person type a password that cannot be saved.
+export default async function ResetPasswordPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function ResetPasswordPage() {
-  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(updatePassword, undefined);
-  const router = useRouter();
-  const [clientError, setClientError] = useState<string | undefined>();
-  const passwordRef = useRef<HTMLInputElement>(null);
-  const confirmRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (state?.success) {
-      const t = setTimeout(() => router.push("/"), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [state?.success, router]);
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    if (passwordRef.current?.value !== confirmRef.current?.value) {
-      e.preventDefault();
-      setClientError("Passwords do not match.");
-      return;
-    }
-    setClientError(undefined);
+  if (!user) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">This reset link can&apos;t be used</h2>
+        <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">
+          The link has expired, was already used, or was opened in a different browser than the one that asked for it.
+        </p>
+        <p className="text-sm text-muted">
+          Ask for a new link, or ask your System Administrator to reset your password.
+        </p>
+        <Link href="/forgot-password" className="text-sm font-medium text-brand hover:underline">
+          Request a new reset link
+        </Link>
+      </div>
+    );
   }
 
-  const error = clientError ?? state?.error;
-
-  return (
-    <form action={formAction} onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Set a new password</h2>
-      {error && <p className="rounded-md bg-red-bg px-3 py-2 text-sm text-red">{error}</p>}
-      {state?.success && (
-        <p className="rounded-md bg-brand-light px-3 py-2 text-sm text-brand-dark">
-          {state.success} Redirecting…
-        </p>
-      )}
-      <Field label="New password" htmlFor="password" required hint={`At least ${PASSWORD_MIN_LENGTH} characters.`}>
-        <PasswordInput
-          id="password"
-          name="password"
-          autoComplete="new-password"
-          minLength={PASSWORD_MIN_LENGTH}
-          required
-          ref={passwordRef}
-        />
-      </Field>
-      <Field label="Confirm new password" htmlFor="confirmPassword" required>
-        <PasswordInput
-          id="confirmPassword"
-          name="confirmPassword"
-          autoComplete="new-password"
-          minLength={PASSWORD_MIN_LENGTH}
-          required
-          ref={confirmRef}
-        />
-      </Field>
-      <Button type="submit" disabled={pending} className="w-full">
-        {pending ? "Saving…" : "Save password"}
-      </Button>
-    </form>
-  );
+  return <ResetPasswordForm />;
 }

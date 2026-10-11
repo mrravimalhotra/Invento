@@ -85,9 +85,14 @@ settings matter:
    `http://localhost:3000` for local dev (change to your real domain once
    deployed — this is what password-reset emails link back to).
 2. **Authentication → URL Configuration → Redirect URLs**: add
-   `http://localhost:3000/reset-password` (and your production equivalent
-   later, e.g. `https://invento.yourdomain.com/reset-password`) — this is
-   the page `requestPasswordReset` in `lib/actions/auth.ts` sends people to.
+   `http://localhost:3000/auth/confirm` (and your production equivalent
+   later, e.g. `https://invento.yourdomain.com/auth/confirm`) — this is
+   the page `requestPasswordReset` in `lib/actions/auth.ts` sends people to;
+   it signs the person in for the password step and opens `/reset-password`.
+   Also edit **Authentication → Email Templates → Reset Password** so the link
+   reads `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
+   (works from any browser; the default link works only in the browser that
+   asked for the reset).
 3. **Authentication → Providers → Email**: on by default, that's all this
    app uses (no Google/OAuth wired up, unlike a stray UI reference in the
    old baseline — this build only does email+password). Decide whether you
@@ -148,7 +153,7 @@ Next.js app). Whichever you use:
   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` (this one becomes
   your real production URL).
 - Update Supabase **Authentication → URL Configuration** (step 5) to your
-  production domain, and add its `/reset-password` path to Redirect URLs —
+  production domain, and add its `/auth/confirm` path to Redirect URLs —
   keep the localhost ones too if you'll still develop locally afterward.
 - Also set `SUPABASE_SERVICE_ROLE_KEY` there as a plain server-side
   variable (no `NEXT_PUBLIC_` prefix; on Vercel, mark it *Sensitive*). The

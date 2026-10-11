@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { forcedPasswordChangeRedirect, isAccountDisabled, mustChangePassword } from "@/lib/constants/auth";
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/confirm"];
 
 // Carry any session-refresh cookies staged by the Supabase client onto a
 // redirect response, so a redirect never silently drops a token refresh.

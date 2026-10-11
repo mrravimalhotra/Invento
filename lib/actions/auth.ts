@@ -67,7 +67,9 @@ export async function requestPasswordReset(_prev: ActionState, formData: FormDat
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/reset-password`,
+    // SCAN-P1-01: the link lands on /auth/confirm, which signs the person in
+    // for the password step and then opens /reset-password.
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/auth/confirm`,
   });
   // Same reply whatever went wrong, so this form can't reveal which emails
   // have accounts (SEC-09).
