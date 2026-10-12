@@ -29,9 +29,9 @@ select t_ok('QC round 1', $q$insert into quality_checks (id,ar_number,purchase_l
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
 select t_fail('reopen refused as soon as QC has a record (round 1 under way)', $q$select reopen_purchase_order('00000000-0000-0000-0000-0000000000d1')$q$, 'QC has started on batch B1');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',false);
-select t_ok('QC round 1 approved', $q$update quality_checks set status='checker_approved', checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id='00000000-0000-0000-0000-0000000000f1'$q$);
+select t_ok('QC round 1 approved', $q$update quality_checks set status='checker_approved', checker_comments='Meets spec', checker_results='[{"seq":1,"test":"Assay","specification":"NLT 98%","result":"99%"}]'::jsonb, checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id='00000000-0000-0000-0000-0000000000f1'$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',false);
-select t_ok('QC round 2 approved', $q$update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365, expiry_date=current_date+400 where id='00000000-0000-0000-0000-0000000000f1'$q$);
+select t_ok('QC round 2 approved', $q$update quality_checks set status='approved', review_comments='Meets spec', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365, expiry_date=current_date+400 where id='00000000-0000-0000-0000-0000000000f1'$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
 select t_fail('reopen refused for an approved batch', $q$select reopen_purchase_order('00000000-0000-0000-0000-0000000000d1')$q$, 'Analytical Report No.');
 select t_check('the order is still submitted and the stock unchanged (94)', (select status from purchase_orders where id='00000000-0000-0000-0000-0000000000d1') = 'submitted' and t_oh('00000000-0000-0000-0000-0000000000c3') = 94);

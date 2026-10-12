@@ -37,11 +37,13 @@ set role authenticated;
 select set_config('request.jwt.claim.role','authenticated',false);
 
 \echo '===== approve M and N only (O stays un-reviewed)'
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',false);
 select t_ok('QC M + N round 1', $q$
   insert into quality_checks (id,ar_number,purchase_line_id,item_id,sample_qty,sample_unit) values ('00000000-0000-0000-0000-0000000000f2',get_next_ar_number(),'00000000-0000-0000-0000-0000000000e2','00000000-0000-0000-0000-0000000000c3',0.1,'kg'),('00000000-0000-0000-0000-0000000000f3',get_next_ar_number(),'00000000-0000-0000-0000-0000000000e3','00000000-0000-0000-0000-0000000000c3',0.1,'kg');
-  update quality_checks set status='checker_approved', checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id in ('00000000-0000-0000-0000-0000000000f2','00000000-0000-0000-0000-0000000000f3')$q$);
+  update quality_checks set status='checker_approved', checker_comments='Meets spec', checker_results='[{"seq":1,"test":"Assay","specification":"NLT 98%","result":"99%"}]'::jsonb, checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id in ('00000000-0000-0000-0000-0000000000f2','00000000-0000-0000-0000-0000000000f3')$q$);
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',false);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',false);
-select t_ok('QC M + N approved', $q$update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id in ('00000000-0000-0000-0000-0000000000f2','00000000-0000-0000-0000-0000000000f3')$q$);
+select t_ok('QC M + N approved', $q$update quality_checks set status='approved', review_comments='Meets spec', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id in ('00000000-0000-0000-0000-0000000000f2','00000000-0000-0000-0000-0000000000f3')$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a3',false);
 select t_ok('MFR approved (2 kg Raw A)', $q$select create_mfr_definition('Test MFR', 10, 'kg', '00000000-0000-0000-0000-0000000000c1', '[{"item_id":"00000000-0000-0000-0000-0000000000c3","quantity":2,"unit":"kg"}]'::jsonb, 'domestic'); select approve_mfr_definition((select id from mfr_definitions where name='Test MFR'))$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',false);
@@ -70,9 +72,9 @@ select t_check('nothing was taken from N', (select live_remaining_qty from purch
 
 \echo '===== approve O: now O blocks M and N'
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',false);
-select t_ok('QC O round 1', $q$insert into quality_checks (id,ar_number,purchase_line_id,item_id,sample_qty,sample_unit) values ('00000000-0000-0000-0000-0000000000f1',get_next_ar_number(),'00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000c3',0.1,'kg'); update quality_checks set status='checker_approved', checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id='00000000-0000-0000-0000-0000000000f1'$q$);
+select t_ok('QC O round 1', $q$insert into quality_checks (id,ar_number,purchase_line_id,item_id,sample_qty,sample_unit) values ('00000000-0000-0000-0000-0000000000f1',get_next_ar_number(),'00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000c3',0.1,'kg'); update quality_checks set status='checker_approved', checker_comments='Meets spec', checker_results='[{"seq":1,"test":"Assay","specification":"NLT 98%","result":"99%"}]'::jsonb, checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id='00000000-0000-0000-0000-0000000000f1'$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',false);
-select t_ok('QC O approved', $q$update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id='00000000-0000-0000-0000-0000000000f1'$q$);
+select t_ok('QC O approved', $q$update quality_checks set status='approved', review_comments='Meets spec', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id='00000000-0000-0000-0000-0000000000f1'$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',false);
 select t_ok('start draft 2', $q$select t_fp('00000000-0000-0000-0000-0000000000b2')$q$);
 select t_fail('M refused while O has stock', $q$select t_comp('00000000-0000-0000-0000-0000000000b2','00000000-0000-0000-0000-0000000000e2',2)$q$, 'Batch O of RM-T0001 Raw A');
@@ -97,11 +99,13 @@ update purchase_lines set created_at = now() - interval '2 days' where id='00000
 update purchase_lines set created_at = now() - interval '1 day'  where id='00000000-0000-0000-0000-0000000000e5';
 set role authenticated;
 select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',false);
 select t_ok('QC round 1 for B1 and B2', $q$
   insert into quality_checks (id,ar_number,purchase_line_id,item_id,sample_qty,sample_unit) values ('00000000-0000-0000-0000-0000000000f4',get_next_ar_number(),'00000000-0000-0000-0000-0000000000e4','00000000-0000-0000-0000-0000000000c4',0.1,'kg'),('00000000-0000-0000-0000-0000000000f5',get_next_ar_number(),'00000000-0000-0000-0000-0000000000e5','00000000-0000-0000-0000-0000000000c4',0.1,'kg');
-  update quality_checks set status='checker_approved', checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id in ('00000000-0000-0000-0000-0000000000f4','00000000-0000-0000-0000-0000000000f5')$q$);
+  update quality_checks set status='checker_approved', checker_comments='Meets spec', checker_results='[{"seq":1,"test":"Assay","specification":"NLT 98%","result":"99%"}]'::jsonb, checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id in ('00000000-0000-0000-0000-0000000000f4','00000000-0000-0000-0000-0000000000f5')$q$);
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',false);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',false);
-select t_ok('QC approved B1 and B2', $q$update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id in ('00000000-0000-0000-0000-0000000000f4','00000000-0000-0000-0000-0000000000f5')$q$);
+select t_ok('QC approved B1 and B2', $q$update quality_checks set status='approved', review_comments='Meets spec', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id in ('00000000-0000-0000-0000-0000000000f4','00000000-0000-0000-0000-0000000000f5')$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',false);
 select t_ok('components sent newest-first (B2 3 kg, all of B1 = 4.7 kg) are saved oldest-first and accepted', $q$
   select create_finished_product_batch(

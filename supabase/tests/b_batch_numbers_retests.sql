@@ -28,9 +28,9 @@ declare v_line uuid; v_qc uuid := gen_random_uuid(); begin
  select id into v_line from purchase_lines where batch_number = p_batch;
  perform set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',false);
  insert into quality_checks (id,ar_number,purchase_line_id,item_id,sample_qty,sample_unit) values (v_qc,get_next_ar_number(),v_line,'00000000-0000-0000-0000-0000000000c3',0.5,'kg');
- update quality_checks set status='checker_approved', checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id=v_qc;
+ update quality_checks set status='checker_approved', checker_comments='Meets spec', checker_results='[{"seq":1,"test":"Assay","specification":"NLT 98%","result":"99%"}]'::jsonb, checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id=v_qc;
  perform set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',false);
- update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=0 where id=v_qc;
+ update quality_checks set status='approved', review_comments='Meets spec', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=0 where id=v_qc;
 end $$;
 grant execute on function public.t_approve(text) to authenticated;
 set role authenticated;
@@ -69,7 +69,7 @@ select t_check('-04: 2 kg from reserve, stock untouched (4.5), reserve left 3', 
   and (select stability_reserve_left from purchase_line_qc where batch_number='RM-T0001-04/'||to_char(now(),'YY')) = 3);
 select t_fail('a second retest while one is open is refused', $q$select start_retest((select id from purchase_lines where batch_number='RM-T0001-04/'||to_char(now(),'YY')), null, 1, 'kg')$q$, 'not due for retest');
 -- approve that retest (period 0 → due again)
-select t_ok('approve the retest of -04 (due again today)', $q$select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',true); update quality_checks set status='checker_approved', checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where is_retest and purchase_line_id=(select id from purchase_lines where batch_number='RM-T0001-04/'||to_char(now(),'YY')) and status='submitted'; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',true); update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=0 where is_retest and purchase_line_id=(select id from purchase_lines where batch_number='RM-T0001-04/'||to_char(now(),'YY')) and status='checker_approved'$q$);
+select t_ok('approve the retest of -04 (due again today)', $q$select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',true); update quality_checks set status='checker_approved', checker_comments='Meets spec', checker_results='[{"seq":1,"test":"Assay","specification":"NLT 98%","result":"99%"}]'::jsonb, checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where is_retest and purchase_line_id=(select id from purchase_lines where batch_number='RM-T0001-04/'||to_char(now(),'YY')) and status='submitted'; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',true); update quality_checks set status='approved', review_comments='Meets spec', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=0 where is_retest and purchase_line_id=(select id from purchase_lines where batch_number='RM-T0001-04/'||to_char(now(),'YY')) and status='checker_approved'$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',false);
 select t_fail('retest needing more than reserve + stock is refused', $q$select start_retest((select id from purchase_lines where batch_number='RM-T0001-04/'||to_char(now(),'YY')), null, 9, 'kg')$q$, 'not enough for a 9 kg sample');
 select t_ok('retest -04 with 4 kg (3 reserve + 1 stock)', $q$select start_retest((select id from purchase_lines where batch_number='RM-T0001-04/'||to_char(now(),'YY')), null, 4, 'kg')$q$);

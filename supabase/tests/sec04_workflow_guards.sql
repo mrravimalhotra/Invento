@@ -69,9 +69,9 @@ select t_check('draft PO and its line are gone', not exists (select 1 from purch
 
 \echo '===== QC release of the RM batch (checker, then reviewer) ====='
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',false);
-select t_ok('QC assign + Round 1', $q$insert into quality_checks (id,ar_number,purchase_line_id,item_id,sample_qty,sample_unit,created_by) values ('00000000-0000-0000-0000-0000000000f1',public.get_next_ar_number(),'00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000c3',0.5,'kg','00000000-0000-0000-0000-0000000000a4'); update quality_checks set status='checker_approved', checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id='00000000-0000-0000-0000-0000000000f1'$q$);
+select t_ok('QC assign + Round 1', $q$insert into quality_checks (id,ar_number,purchase_line_id,item_id,sample_qty,sample_unit,created_by) values ('00000000-0000-0000-0000-0000000000f1',public.get_next_ar_number(),'00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000c3',0.5,'kg','00000000-0000-0000-0000-0000000000a4'); update quality_checks set status='checker_approved', checker_comments='Meets spec', checker_results='[{"seq":1,"test":"Assay","specification":"NLT 98%","result":"99%"}]'::jsonb, checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id='00000000-0000-0000-0000-0000000000f1'$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',false);
-select t_ok('QC Round 2 approve', $q$update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id='00000000-0000-0000-0000-0000000000f1'$q$);
+select t_ok('QC Round 2 approve', $q$update quality_checks set status='approved', review_comments='Meets spec', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id='00000000-0000-0000-0000-0000000000f1'$q$);
 
 \echo '===== MFR (as mfr_manager) ====='
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a3',false);
@@ -107,9 +107,9 @@ select t_ok('Submit to QC: AR + complete_awaiting_qc -> submitted_to_qc', $q$ins
 select t_fail('submitted_to_qc -> approved directly', $q$update finished_product_batches set status='approved' where id='00000000-0000-0000-0000-0000000000b1'$q$, 'QC review');
 select t_fail('edit batch yield while submitted_to_qc', $q$update finished_product_batches set batch_yield=50 where id='00000000-0000-0000-0000-0000000000b1'$q$, 'can no longer be edited');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a4',false);
-select t_ok('FP QC Round 1', $q$update quality_checks set status='checker_approved', checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id='00000000-0000-0000-0000-0000000000f2'$q$);
+select t_ok('FP QC Round 1', $q$update quality_checks set status='checker_approved', checker_comments='Meets spec', checker_results='[{"seq":1,"test":"Assay","specification":"NLT 98%","result":"99%"}]'::jsonb, checker_by='00000000-0000-0000-0000-0000000000a4', checker_at=now() where id='00000000-0000-0000-0000-0000000000f2'$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a5',false);
-select t_ok('FP QC Round 2 approve (trigger approves the batch)', $q$update quality_checks set status='approved', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id='00000000-0000-0000-0000-0000000000f2'$q$);
+select t_ok('FP QC Round 2 approve (trigger approves the batch)', $q$update quality_checks set status='approved', review_comments='Meets spec', reviewed_by='00000000-0000-0000-0000-0000000000a5', reviewed_at=now(), retest_period_days=365 where id='00000000-0000-0000-0000-0000000000f2'$q$);
 select t_check('FP batch is approved', (select status='approved' from finished_product_batches where id='00000000-0000-0000-0000-0000000000b1'));
 select t_check('fp_yield ledger push exists', exists (select 1 from inventory_ledger where reference_type='fp_yield' and reference_id='00000000-0000-0000-0000-0000000000b1'));
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
