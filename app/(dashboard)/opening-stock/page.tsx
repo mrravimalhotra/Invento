@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
+import { fetchByIdChunks } from "@/lib/supabase/fetch-all";
+import { LoadWarning } from "@/components/ui/load-warning";
 import { OPENING_KINDS } from "@/lib/opening-stock/columns";
 import { OpeningEntry } from "./opening-entry";
 import { OpenCloseButton, UndoButton } from "./admin-controls";
@@ -17,11 +19,17 @@ export default async function OpeningStockPage() {
   const canLoad = roles.length > 0;
 
   const supabase = await createClient();
-  const [{ data: settings }, { data: loads }] = await Promise.all([
+  const [{ data: settings }, { data: loads, error: loadsError }] = await Promise.all([
     supabase.from("opening_stock_settings").select("is_open, closed_at, reopened_at").maybeSingle(),
-    supabase.from("opening_loads").select("id, load_no, kind, row_count, summary, created_at")
+    supabase.from("opening_loads").select("id, load_no, kind, row_count, summary, created_at, created_by")
       .order("created_at", { ascending: false }).order("id", { ascending: false }).limit(200),
   ]);
+  // Who loaded each load (the database stamps created_by); names read in one go.
+  const { data: people, error: peopleError } = await fetchByIdChunks<{ id: string; full_name: string | null }>(
+    [...new Set((loads ?? []).map((l) => l.created_by as string | null).filter((x): x is string => !!x))],
+    (chunk) => supabase.from("profiles").select("id, full_name").in("id", chunk),
+  );
+  const nameById = new Map(people.map((p) => [p.id, p.full_name]));
   const isOpen = settings?.is_open ?? true;
   const rowsByKind = new Map<string, number>();
   for (const l of loads ?? []) rowsByKind.set(l.kind, (rowsByKind.get(l.kind) ?? 0) + l.row_count);
@@ -70,6 +78,7 @@ export default async function OpeningStockPage() {
         <Card>
           <CardHeader title="Loads" />
           <CardBody>
+            <LoadWarning errors={[loadsError, peopleError]} what="the Loads list" />
             {(loads ?? []).length === 0 ? (
               <p className="text-sm text-muted">Nothing loaded yet.</p>
             ) : (
@@ -82,6 +91,7 @@ export default async function OpeningStockPage() {
                       <th className="py-2 pr-4">Rows</th>
                       <th className="py-2 pr-4">QC status</th>
                       <th className="py-2 pr-4">Loaded</th>
+                      <th className="py-2 pr-4">Loaded by</th>
                       {isAdmin && <th className="py-2" />}
                     </tr>
                   </thead>
@@ -102,6 +112,7 @@ export default async function OpeningStockPage() {
                                 : "—"}
                           </td>
                           <td className="py-2 pr-4">{formatDateTime(l.created_at)}</td>
+                          <td className="py-2 pr-4">{(l.created_by && nameById.get(l.created_by)) || "—"}</td>
                           {isAdmin && <td className="py-2">{isOpen && <UndoButton loadId={l.id} loadNo={l.load_no} />}</td>}
                         </tr>
                       );

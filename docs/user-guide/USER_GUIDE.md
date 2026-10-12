@@ -865,6 +865,8 @@ Each upload writes into exactly the same tables and goes through exactly the sam
 3. For Raw Material and Packaging, the check also shows a short summary for each item: how many batches and the total quantity it will load. Compare it with your stock sheet before you load.
 4. When the check says the file is fine, click "Load N rows". All rows are loaded together or not at all, and the load gets a number (OPN-0001, OPN-0002, …).
 
+The **Loads** table at the bottom of the page lists every load with its number, type, rows, QC status counts, the date and time, and **who loaded it**.
+
 **How to type the rows in**
 1. Open the card and click the **Type it in** tab. Each batch (or lot) is one row card. Pick the item from the list (typing narrows it); the unit fills in from the item and can be changed.
 2. For Raw Material, choose the QC status first. Only the fields that status needs are shown: an Approved batch asks for the old AR number, QC approval date, retest date and retests already done; a Rejected batch asks for the old AR number and approval date; a Pending QC batch asks for neither.

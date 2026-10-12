@@ -79,3 +79,6 @@ Ravi asked for a way to enter opening stock on screen as well as by Excel. Each 
 - `submitOpeningRows` (`lib/actions/opening-stock.ts`) takes the rows as one string per column in `OPENING_COLUMNS` order, drops empty rows, builds the same `ParsedSheet` an Excel file gives and calls the shared `runOpening` (same `validateOpeningSheet`, same `load_opening_stock` / `load_opening_finished_product`, same all-or-nothing, same OPN number). Only the wording differs ("Fix the rows", limit per load). "Row N" in a message is the row's number on the page; the form shows each message inside its row.
 - The result panel (`result-panel.tsx`) is shared by both tabs. Changing any row hides the last check, so Load always follows a check of what is on screen.
 - No migration. Checked: type check, lint, build and a browser run of all three kinds (check with errors, fix, check, load).
+
+## Loaded by (12 Oct 2026)
+The Loads table has a **Loaded by** column (full name from `opening_loads.created_by`, which the database stamps; no migration). The uploaded Excel file is not kept (Ravi chose to show who loaded only). Ravi also decided that every role, including the read-only Super Auditor, may load while loading is open (SCAN-P1-11 accepted by design).
