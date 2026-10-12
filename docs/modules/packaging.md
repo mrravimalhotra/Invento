@@ -565,3 +565,7 @@ Department **Production** now uses the same lines table (up to 30 lines): **Fini
 - **A Finished Product batch can be on one line only.** A repeat is refused live ("Line 2: Batch FP-00004-01/26 · Yashtimadhu Oil is already on line 1. A batch can be issued to Production only once per issue.") with a red outline on that batch box, Add line / Save disabled, and the database refuses the same case with the same sentence. (Store and R&D still allow one batch on several lines.)
 - **R&D qty is optional** (empty = 0). QC and Stability quantity and Sample unit stay mandatory. This replaces the 29 Sept rule for R&D quantity only.
 - QC + Stability + R&D (converted to the product's unit) cannot exceed the quantity to convert; a line cannot take more than the batch has left. Both show as plain red text under the line, with the box to fix outlined in red, exactly like the Store/R&D table.
+
+## Batches that cannot be packed (12 Oct 2026, migration 0120)
+
+`fp_batch_block_reason()`: an Approved batch that has expired, is past its retest date or has a retest in progress is refused by the packaging trigger and by `resolveFpBatch`, and is left off `fp_batch_packing_options`. The issue-date rule uses the batch's FIRST approval date (a retest does not move it). Bulk left also subtracts retest samples taken from the bulk.

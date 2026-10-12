@@ -52,6 +52,8 @@ export const FP_COLUMNS: ColumnDef[] = [
   { header: "Pack size", required: false, hint: "Required when packs are in stock, e.g. 100 ml or 0.5 kg. A bare number uses the product's unit" },
   { header: "Old AR No", required: true, hint: "The Analytical Report number from the old records, as written there" },
   { header: "QC approval date", required: true, hint: "Not in the future and not before the manufacture date. Every batch loaded here is Approved" },
+  { header: "Retest date", required: false, hint: "Optional. After the QC approval date and not after the expiry date. Blank means the batch is not due for a retest" },
+  { header: "Retests already done", required: false, numeric: true, hint: "0 to 3. Counts toward the 3-retest limit. Blank means 0" },
 ];
 
 export const OPENING_COLUMNS: Record<OpeningKind, ColumnDef[]> = { raw: RM_COLUMNS, packaging: PKG_COLUMNS, finished: FP_COLUMNS };
@@ -62,7 +64,7 @@ export const OPENING_EXAMPLES: Record<OpeningKind, string[][]> = {
     ["RM-001", "AB-2305", "40", "kg", "02-05-2026", "30-04-2029", "Pending QC", "", "", "", "", "", "", ""],
   ],
   packaging: [["PKG-001", "5000", "nos", "10-04-2026", "L-77", "V-0001", "3.5", "18"]],
-  finished: [["FP-00001", "B-1042", "05-02-2026", "04-02-2028", "12.5", "300", "100 ml", "AR/24-25/310", "12-02-2026"]],
+  finished: [["FP-00001", "B-1042", "05-02-2026", "04-02-2028", "12.5", "300", "100 ml", "AR/24-25/310", "12-02-2026", "12-08-2026", "0"]],
 };
 
 export const QC_STATUS_WORDS: Record<string, "approved" | "pending" | "rejected"> = {

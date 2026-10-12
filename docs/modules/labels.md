@@ -537,3 +537,7 @@ RM labels print the order's **Received on** date. Orders without one (older or b
 ## Best Before prints the exact date (12 Oct 2026, SCAN-P4-13)
 
 The finished product label's Best Before is the exact expiry date QC approved (dd-mm-yyyy), not a month. Month of Manufacture still prints month and year.
+
+## Finished product labels skip blocked batches (12 Oct 2026, migration 0120)
+
+The Finished Product label search leaves out batches that are expired, past their retest date or being retested (`fp_batch_block_reasons()`). Best Before uses the newest approval's expiry date.

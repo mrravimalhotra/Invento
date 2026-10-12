@@ -70,13 +70,16 @@ export default async function FinishedProductDetailPage({
       .from("quality_checks")
       // created_at added for the Finish Product Intimation Slip's "Date"
       // field below — the date this batch was actually submitted to QC.
-      .select("id, ar_number, status, reviewed_at, review_comments, created_at")
+      .select("id, ar_number, status, reviewed_at, review_comments, created_at, is_retest, retest_date, expiry_date")
       .eq("finished_product_batch_id", id)
       .order("created_at", { ascending: false })
-      .limit(1),
+      .limit(10),
   ]);
 
   const latestQc = qcRows?.[0] ?? null;
+  // The intimation slip keeps the date the batch first went to QC; a retest does not change it.
+  const firstQc = qcRows && qcRows.length > 0 ? qcRows[qcRows.length - 1] : null;
+  const earlierQcs = (qcRows ?? []).slice(1);
   const displayStatus = resolveDisplayStatus(batch.status, latestQc);
   const canEdit = canWrite(user?.roles ?? [], "finished_product");
   const mfr = batch.mfr_definitions as unknown as {
@@ -420,7 +423,7 @@ export default async function FinishedProductDetailPage({
                     batchQty={batch.batch_yield}
                     unit={batch.unit}
                     qcSampleQty={batch.qc_sample_qty}
-                    submittedAt={latestQc.created_at}
+                    submittedAt={firstQc?.created_at ?? latestQc.created_at}
                   />
                 </p>
               </div>
@@ -428,6 +431,23 @@ export default async function FinishedProductDetailPage({
                 <div className="sm:col-span-3">
                   <span className="text-muted">Comments</span>
                   <p className="mt-1">{latestQc.review_comments}</p>
+                </div>
+              )}
+              {(latestQc.is_retest || earlierQcs.length > 0) && (
+                <div className="sm:col-span-3">
+                  <span className="text-muted">QC records of this batch (newest first)</span>
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {(qcRows ?? []).map((q, i, all) => (
+                      <li key={q.id}>
+                        <Link href={`/qc/${q.id}`} className="font-medium underline">
+                          {q.ar_number}
+                        </Link>{" "}
+                        · {q.is_retest ? `Retest ${all.length - i - 1}` : "First QC"} · {q.status.replace(/_/g, " ")}
+                        {q.reviewed_at ? ` · reviewed ${formatDate(q.reviewed_at)}` : ""}
+                        {q.status === "approved" && q.retest_date ? ` · next retest ${formatDate(q.retest_date)}` : ""}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </CardBody>

@@ -11,6 +11,7 @@ const INTRO: Record<OpeningKind, string[]> = {
     "Opening stock: Finished Product — one row per batch in stock on the day the old records stop. Fill it from the physical stock count sheet. Every batch loaded here is already QC Approved.",
     "Enter the bulk still unpacked in Bulk quantity unpacked, and the packs already packed in Packs in stock with their Pack size (for example 100 ml). Either or both may be filled; a batch needs at least one. The batch's total yield is the bulk plus the bulk that went into the packs.",
     "Old AR No is the Analytical Report number from the old records, written exactly as there. Numbers that look like ones this app makes (ARFP-0001/26, ARRM-0001/26) are refused, and so are batch numbers like FP-00001-01/26 or PR-01/26.",
+    "Retest date and Retests already done are optional. A finished product follows the same retest cycle as raw material: a retest at most every 180 days and at most 3 retests. Retests already done (0 to 3) counts toward the limit of 3. The retest date must be after the QC approval date and not after the expiry date; leave it blank when the batch is not due for a retest, and when all 3 retests are done.",
     "The packs are recorded as one Store packaging issue per batch, so they appear in the Packaging list. The finished product must have a packaged item, which is created when its MFR is approved.",
   ],
   raw: [

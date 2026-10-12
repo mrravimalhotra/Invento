@@ -42,16 +42,19 @@ export function QcReviewerForm({
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [today] = useState(() => todayIst());
-  const nextRetest = (() => {
+  const nextRetestIso = (() => {
     const days = Number(retestPeriodDays);
     if (!Number.isInteger(days) || days <= 0) return null;
     const d = new Date(`${today}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() + days);
-    return formatDate(d.toISOString().slice(0, 10));
+    return d.toISOString().slice(0, 10);
   })();
+  const nextRetest = nextRetestIso ? formatDate(nextRetestIso) : null;
+  // SCAN-P4-04: the retest date can never fall after the expiry date.
+  const retestAfterExpiry = !isFinalRetest && !!nextRetestIso && !!expiryDate && nextRetestIso > expiryDate;
   const resultsMissing = !!round1Results && values.some((v) => !v.trim());
   const approveBlocked =
-    status === "approved" && (!expiryDate || (!isFinalRetest && !retestPeriodDays) || resultsMissing);
+    status === "approved" && (!expiryDate || (!isFinalRetest && !retestPeriodDays) || retestAfterExpiry || resultsMissing);
   const reasonShort = reason.trim().length < MIN_REASON_CHARS;
   const rejecting = status === "rejected";
   const edited = !!round1Results && values.some((v, i) => v.trim() !== round1Results[i].result.trim());
@@ -134,7 +137,7 @@ export function QcReviewerForm({
           required={status === "approved"}
           hint={
             maxRetestDays
-              ? `Set to ${maxRetestDays} days (6 months), the longest allowed for a raw material; change it if needed.${nextRetest ? ` Next retest date: ${nextRetest}.` : ""}`
+              ? `Set to ${maxRetestDays} days (6 months), the longest allowed; change it if needed.${nextRetest ? ` Next retest date: ${nextRetest}.` : ""}`
               : nextRetest
                 ? `Next retest date: ${nextRetest}.`
                 : undefined
@@ -151,6 +154,11 @@ export function QcReviewerForm({
             value={retestPeriodDays}
             onChange={(e) => setRetestPeriodDays(e.target.value)}
           />
+          {retestAfterExpiry && (
+            <p className="mt-1 text-xs text-red">
+              The retest date ({nextRetest}) would fall after the expiry date. Enter a shorter retest period.
+            </p>
+          )}
         </Field>
       )}
 

@@ -77,6 +77,11 @@ export default async function RejectedMaterialsPage() {
   ]);
 
   const fpRows = fp.data ?? [];
+  // SCAN-P4-04: bulk still held = yield less every sample (retest samples too) and what packaging took.
+  const { data: bulkRows } = fpRows.length
+    ? await supabase.rpc("fp_bulk_left_many", { p_ids: fpRows.map((r) => r.id) })
+    : { data: [] as { batch_id: string; bulk_left: number | string }[] };
+  const bulkLeft = new Map(((bulkRows ?? []) as { batch_id: string; bulk_left: number | string }[]).map((r) => [r.batch_id, n(r.bulk_left)]));
   const rmRows = rm.data ?? [];
 
   const itemIds = Array.from(
@@ -148,7 +153,7 @@ export default async function RejectedMaterialsPage() {
         qcQty: qc,
         stabilityQty: st,
         rndQty: rd,
-        heldQty: Math.max(total - qc - st - rd, 0),
+        heldQty: bulkLeft.get(r.id) ?? Math.max(total - qc - st - rd, 0),
         unit: r.unit,
       };
     }),

@@ -314,6 +314,26 @@ function validateFinishedSheet(sheet: ParsedSheet, ctx: OpeningContext): Opening
     if (appr && appr > ctx.today) bad("QC approval date cannot be in the future.");
     if (appr && mfg && appr < mfg) bad("QC approval date cannot be before the manufacture date.");
 
+    // SCAN-P4-04: the retest cycle carried over (optional).
+    let retest: string | null = null;
+    const retestText = get("Retest date");
+    if (retestText) {
+      retest = parseUploadDate(retestText);
+      if (!retest) bad(`Retest date "${retestText}" is not a date — ${DATE_FORMAT_HINT}.`);
+      else if (appr && retest <= appr) bad("Retest date must be after the QC approval date.");
+      else if (exp && retest > exp) bad("Retest date cannot be after the expiry date.");
+    }
+    let retestsDone = 0;
+    const doneText = get("Retests already done");
+    if (doneText) {
+      const v = Number(doneText.replace(/,/g, ""));
+      if (!Number.isInteger(v) || v < 0 || v > MAX_RM_RETESTS) bad(`Retests already done must be a whole number from 0 to ${MAX_RM_RETESTS}.`);
+      else retestsDone = v;
+    }
+    if (retest && retestsDone >= MAX_RM_RETESTS) {
+      bad(`${MAX_RM_RETESTS} retests are already done, so no further retest date applies. Leave the Retest date blank.`);
+    }
+
     const ar = get("Old AR No");
     if (!ar) bad("Old AR No is required.");
     else if (APP_AR.test(ar)) bad(`Old AR No "${ar}" looks like a number made by this app. Use the number from the old records.`);
@@ -351,6 +371,8 @@ function validateFinishedSheet(sheet: ParsedSheet, ctx: OpeningContext): Opening
         pack_size_unit: size?.unit ?? null,
         old_ar: ar,
         approval_date: appr,
+        retest_date: retest,
+        retests_done: retestsDone,
       });
     }
   });

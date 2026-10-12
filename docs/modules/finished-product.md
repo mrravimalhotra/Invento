@@ -1318,3 +1318,7 @@ Completing a batch shows the yield as a percentage of the batch size. The allowe
 ## After completion card (11 Oct 2026, SCAN-P5-14)
 
 From "Completed – awaiting QC" onward the batch page has an "After completion" card: the QC, Stability and R&D samples taken, the bulk packed (what packaging issues used, converted to the batch unit), the bulk remaining (yield less samples less packed, never below zero, the same rule as the Ageing report) and the list of packing runs for this batch (code, issue date, department, pack size, unit count, bulk used). Read only. Rule in `lib/fp-after-completion.ts`.
+
+## Retest of a finished product batch (12 Oct 2026, migration 0120, SCAN-P4-04)
+
+A batch whose retest date has arrived is retested like raw material (see `docs/modules/qc.md`, "Finished product retest"). The QC record card on the batch page now lists every QC record (First QC, Retest 1, 2, 3) and the next retest date; the Intimation Slip date stays the first submission to QC. While a retest is open, after the retest date or after expiry the batch cannot be packed or labelled. Samples taken from the bulk for retests (`retest_sample_qty`) reduce the bulk left.

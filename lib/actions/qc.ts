@@ -10,6 +10,7 @@ import { MAX_RM_RETEST_DAYS, MAX_RM_RETESTS } from "@/lib/constants/qc-rules";
 import { countRetestsDone } from "@/lib/qc-retests";
 import { beforeDateError } from "@/lib/date-rules";
 import { formatDate, todayIst } from "@/lib/utils";
+import { addDaysToDate } from "@/lib/dashboard-series";
 import { loadQcTemplate } from "@/lib/qc-template";
 import {
   checkResultsAgainstTemplate,
@@ -250,27 +251,32 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
     if (resultsDiffer(checked.lines, round1)) reviewerResults = checked.lines;
   }
 
-  // FB-0061 (Ravi, 3 Oct 2026): a raw-material retest period is at most 180 days.
-  const isRawMaterial = !!(existing.purchase_line_id || existing.production_batch_id);
-  if (isRawMaterial && retestPeriodDays !== null && retestPeriodDays > MAX_RM_RETEST_DAYS) {
-    return { error: `Retest period for a raw material can be at most ${MAX_RM_RETEST_DAYS} days (6 months).` };
+  // FB-0061 (Ravi, 3 Oct 2026): a retest period is at most 180 days. Finished product
+  // follows the same retest cycle as raw material (12 Oct 2026, SCAN-P4-04).
+  if (retestPeriodDays !== null && retestPeriodDays > MAX_RM_RETEST_DAYS) {
+    return { error: `Retest period can be at most ${MAX_RM_RETEST_DAYS} days (6 months).` };
   }
-  // FB-0061: the last allowed retest of a raw material has no further retest
-  // period (the material is used until its Expiry date); every other approval needs one.
+  // FB-0061: the last allowed retest has no further retest period (the batch is used
+  // until its Expiry date); every other approval needs one.
   let finalRetest = false;
-  if (isRawMaterial && existing.is_retest) {
+  if (existing.is_retest) {
     const retestsDone = await countRetestsDone(supabase, {
       purchaseLineId: existing.purchase_line_id,
       productionBatchId: existing.production_batch_id,
+      finishedProductBatchId: existing.finished_product_batch_id,
     });
     finalRetest = retestsDone >= MAX_RM_RETESTS;
   }
   // SCAN-P4-03 (Ravi, 12 Oct 2026): a retest never extends the manufacturer's
   // expiry date. The new expiry can be the same date or earlier, not later than
   // the expiry the batch was last approved with.
-  if (status === "approved" && isRawMaterial && existing.is_retest) {
-    const col = existing.purchase_line_id ? "purchase_line_id" : "production_batch_id";
-    const batchId = (existing.purchase_line_id ?? existing.production_batch_id) as string;
+  if (status === "approved" && existing.is_retest) {
+    const col = existing.purchase_line_id
+      ? "purchase_line_id"
+      : existing.production_batch_id
+        ? "production_batch_id"
+        : "finished_product_batch_id";
+    const batchId = (existing.purchase_line_id ?? existing.production_batch_id ?? existing.finished_product_batch_id) as string;
     const { data: prev } = await supabase
       .from("quality_checks")
       .select("expiry_date")
@@ -292,6 +298,16 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
     }
     if (!finalRetest && !retestPeriodRaw) {
       return { error: "Retest period (days) is required to approve a batch." };
+    }
+    // SCAN-P4-04 / LW-01 (Ravi, 12 Oct 2026): the retest date can never fall after the
+    // expiry date, for raw material and finished product. The database enforces it too.
+    if (retestPeriodDays !== null) {
+      const retestOn = addDaysToDate(todayIst(), retestPeriodDays);
+      if (retestOn > expiryRaw) {
+        return {
+          error: `The retest date (${formatDate(retestOn)}) would fall after the expiry date (${formatDate(expiryRaw)}). Enter a shorter retest period.`,
+        };
+      }
     }
   }
   // Two-round distinctness (20 Sept 2026, retiring the old maker/checker
@@ -398,6 +414,16 @@ export async function startRetestQualityCheck(
   return startRetest({ purchaseLineId, productionBatchId: null }, formData);
 }
 
+// SCAN-P4-04 (12 Oct 2026): the same retest for a finished product batch. The sample
+// comes from the batch's stability sample first, then from its bulk (start_fp_retest(), 0120).
+export async function startFpRetestQualityCheck(
+  finishedProductBatchId: string,
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  return startRetest({ purchaseLineId: null, productionBatchId: null, finishedProductBatchId }, formData);
+}
+
 // ACC-10 / ACC-16 (29 Sept 2026): a retest takes the sample size entered on
 // the "Due for retest" card, drawn from the batch's stability reserve first
 // and only the rest from its remaining stock — start_retest() (0080) does
@@ -405,7 +431,7 @@ export async function startRetestQualityCheck(
 // always recorded the FULL stability reserve as its sample (which never went
 // down), and a batch with no reserve could never be retested at all.
 async function startRetest(
-  batch: { purchaseLineId: string | null; productionBatchId: string | null },
+  batch: { purchaseLineId: string | null; productionBatchId: string | null; finishedProductBatchId?: string | null },
   formData: FormData
 ): Promise<ActionState> {
   const user = await getCurrentUser();
@@ -422,12 +448,18 @@ async function startRetest(
   if (retestsDone >= MAX_RM_RETESTS) {
     return { error: `This batch has already been retested ${MAX_RM_RETESTS} times, which is the maximum.` };
   }
-  const { data: qcId, error } = await supabase.rpc("start_retest", {
-    p_purchase_line_id: batch.purchaseLineId,
-    p_production_batch_id: batch.productionBatchId,
-    p_sample_qty: sampleQty,
-    p_sample_unit: sampleUnit,
-  });
+  const { data: qcId, error } = batch.finishedProductBatchId
+    ? await supabase.rpc("start_fp_retest", {
+        p_batch_id: batch.finishedProductBatchId,
+        p_sample_qty: sampleQty,
+        p_sample_unit: sampleUnit,
+      })
+    : await supabase.rpc("start_retest", {
+        p_purchase_line_id: batch.purchaseLineId,
+        p_production_batch_id: batch.productionBatchId,
+        p_sample_qty: sampleQty,
+        p_sample_unit: sampleUnit,
+      });
   if (error) {
     if (error.code === "23505") {
       // one-open-QC-per-batch unique index (0025 / 0068)

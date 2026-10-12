@@ -76,20 +76,24 @@ export default async function QualityCheckDetailPage({
       : null) ??
     record.production_issue_batches?.batch_number ??
     "—";
-  // FB-0058 / FB-0061 (3 Oct 2026): a raw-material batch is retested at most 3
+  // FB-0058 / FB-0061 (3 Oct 2026): a batch (raw material or finished product) is retested at most 3
   // times. On the 3rd retest the Reviewer sets only the Expiry date; the batch is
   // then usable until that date. A retest also starts from the previous expiry.
-  const isRawMaterialQc = !!(record.purchase_line_id || record.production_batch_id);
   let isFinalRetest = false;
   let suggestedExpiry = record.expiry_date;
   // SCAN-P4-03: a retest cannot set a later expiry than the batch was last approved with.
   let maxExpiry: string | undefined;
-  if (record.status === "checker_approved" && isRawMaterialQc && record.is_retest) {
-    const col = record.purchase_line_id ? "purchase_line_id" : "production_batch_id";
-    const batchId = (record.purchase_line_id ?? record.production_batch_id) as string;
+  if (record.status === "checker_approved" && record.is_retest) {
+    const col = record.purchase_line_id
+      ? "purchase_line_id"
+      : record.production_batch_id
+        ? "production_batch_id"
+        : "finished_product_batch_id";
+    const batchId = (record.purchase_line_id ?? record.production_batch_id ?? record.finished_product_batch_id) as string;
     const retestsDone = await countRetestsDone(supabase, {
       purchaseLineId: record.purchase_line_id,
       productionBatchId: record.production_batch_id,
+      finishedProductBatchId: record.finished_product_batch_id,
     });
     isFinalRetest = retestsDone >= MAX_RM_RETESTS;
     const { data: prev } = await supabase
@@ -276,8 +280,8 @@ export default async function QualityCheckDetailPage({
               <QcReviewerForm
                 id={record.id}
                 round1Results={record.checker_results}
-                maxRetestDays={isRawMaterialQc ? MAX_RM_RETEST_DAYS : undefined}
-                defaultRetestDays={isRawMaterialQc ? MAX_RM_RETEST_DAYS : undefined}
+                maxRetestDays={MAX_RM_RETEST_DAYS}
+                defaultRetestDays={MAX_RM_RETEST_DAYS}
                 isFinalRetest={isFinalRetest}
                 defaultExpiry={suggestedExpiry ?? ""}
                 maxExpiry={maxExpiry}

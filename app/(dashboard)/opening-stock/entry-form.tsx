@@ -341,6 +341,8 @@ function RowCard({
               })}
             {text("Old AR No", "Old AR No", { required: true, hint: "From the old records", placeholder: "AR/24-25/310" })}
             {date("QC approval date", "QC approval date", { required: true, noFuture: true, hint: "Every batch loaded here is Approved" })}
+            {date("Retest date", "Retest date", { hint: "Optional. After the QC approval date, not after the expiry date" })}
+            {number("Retests already done", "Retests already done", { max: 3, step: "1", hint: "0 to 3. Blank means 0" })}
           </>
         )}
       </div>

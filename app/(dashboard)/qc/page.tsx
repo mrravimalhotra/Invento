@@ -11,6 +11,7 @@ import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { LoadWarning } from "@/components/ui/load-warning";
 import { getOpeningLineIds } from "@/lib/opening-stock/legacy-lines";
 import { DueForRetest, type DueForRetestLine } from "./due-for-retest";
+import { FpDueForRetest, type FpDueForRetestLine } from "./fp-due-for-retest";
 import { AwaitingQc, type AwaitingQcLine } from "./awaiting-qc";
 import { AwaitingFpQc, type AwaitingFpQcLine } from "./awaiting-fp-qc";
 import { AwaitingProductionQc, type AwaitingProductionQcLine } from "./awaiting-production-qc";
@@ -28,7 +29,7 @@ export default async function QcListPage() {
   const user = await getCurrentUser();
   const supabase = await createClient();
 
-  const [{ data, error: listError }, awaitingLines, awaitingFpLines, dueLines, awaitingProductionLines, productionDueLines, inProgress] = await Promise.all([
+  const [{ data, error: listError }, awaitingLines, awaitingFpLines, dueLines, awaitingProductionLines, productionDueLines, inProgress, fpDueLines] = await Promise.all([
     // FB-0027 (12 Sept 2026): a Finished Product's QC record never gets an
     // `item_id` (submitFinishedProductToQc() only sets
     // finished_product_batch_id — see lib/actions/finished-product.ts), so
@@ -53,6 +54,7 @@ export default async function QcListPage() {
     getAwaitingProductionQcLines(supabase),
     getProductionDueForRetestLines(supabase),
     getFpInProgress(supabase),
+    getFpDueForRetestLines(supabase),
   ]);
 
   const rows = (data ?? []) as unknown as QcListRow[];
@@ -80,6 +82,8 @@ export default async function QcListPage() {
       <AwaitingFpQc lines={awaitingFpLines} canSubmit={canWrite(user?.roles ?? [], "finished_product")} />
 
       <DueForRetest lines={dueLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
+
+      <FpDueForRetest lines={fpDueLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
 
       <AwaitingProductionQc lines={awaitingProductionLines} canStart={canWrite(user?.roles ?? [], "qc_assign")} />
 
@@ -247,6 +251,21 @@ async function getAwaitingProductionQcLines(
   );
 
   return lines.sort((x, y) => y.created_at.localeCompare(x.created_at));
+}
+
+// Finished product batches whose retest date has arrived (view fp_due_for_retest, 0120).
+async function getFpDueForRetestLines(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<FpDueForRetestLine[]> {
+  const { data } = await fetchAllRows<FpDueForRetestLine>((from, to) =>
+    supabase
+      .from("fp_due_for_retest")
+      .select("batch_id, item_code, item_name, batch_label, unit, qc_sample_qty, stability_reserve_left, bulk_left, retest_date, expiry_date, is_legacy")
+      .order("retest_date", { ascending: true })
+      .order("batch_id", { ascending: true })
+      .range(from, to)
+  );
+  return data;
 }
 
 // Production equivalent of getDueForRetestLines above.

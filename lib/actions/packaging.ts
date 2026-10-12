@@ -146,7 +146,7 @@ async function resolveFpBatch(
   fpBatchId: string,
   issueDate: string,
 ): Promise<ResolvedBatch | { error: string }> {
-  const [{ data: fpBatch }, { data: latestQcRow }, { data: batchRow }] = await Promise.all([
+  const [{ data: fpBatch }, { data: latestQcRow }, { data: batchRow }, { data: firstApproval }] = await Promise.all([
     supabase.from("finished_product_batches").select("status").eq("id", fpBatchId).maybeSingle(),
     supabase
       .from("quality_checks")
@@ -156,8 +156,20 @@ async function resolveFpBatch(
       .limit(1)
       .maybeSingle(),
     supabase.from("finished_product_batches").select("mfr_definition_id").eq("id", fpBatchId).maybeSingle(),
+    // The first approval: a retest later in the batch's life does not move this date.
+    supabase
+      .from("quality_checks")
+      .select("reviewed_at")
+      .eq("finished_product_batch_id", fpBatchId)
+      .eq("status", "approved")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ]);
   if (!fpBatch) return { error: "Finished product batch not found." };
+  // SCAN-P4-04 (12 Oct 2026): expired, past its retest date, or a retest in progress.
+  const { data: blockReason } = await supabase.rpc("fp_batch_block_reason", { p_batch: fpBatchId });
+  if (blockReason) return { error: blockReason as string };
   if (resolveDisplayStatus(fpBatch.status, latestQcRow) !== "approved") {
     return {
       error: "Packaging can only be issued against an Approved finished product batch.",
@@ -165,7 +177,7 @@ async function resolveFpBatch(
   }
   // Date rule (Ravi, 3 Oct 2026): nothing is issued from a batch before the
   // day QC approved it.
-  const approvalDateError = beforeDateError(issueDate, istDay(latestQcRow?.reviewed_at), "Issue date", "the QC approval date of this batch");
+  const approvalDateError = beforeDateError(issueDate, istDay(firstApproval?.reviewed_at ?? latestQcRow?.reviewed_at), "Issue date", "the QC approval date of this batch");
   if (approvalDateError) return { error: approvalDateError };
   const { data: mfrDef } = batchRow
     ? await supabase

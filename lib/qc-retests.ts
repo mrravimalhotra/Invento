@@ -1,15 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Retests a raw-material batch has had so far: the retest records made in the
+// Retests a batch (raw material or finished product) has had so far: the retest records made in the
 // app plus the retests already done before it was loaded as opening stock
 // (quality_checks.legacy_retests_done, migration 0100). Both count toward the
 // limit of 3 (FB-0061).
 export async function countRetestsDone(
   supabase: SupabaseClient,
-  batch: { purchaseLineId?: string | null; productionBatchId?: string | null }
+  batch: { purchaseLineId?: string | null; productionBatchId?: string | null; finishedProductBatchId?: string | null }
 ): Promise<number> {
-  const col = batch.purchaseLineId ? "purchase_line_id" : "production_batch_id";
-  const id = (batch.purchaseLineId ?? batch.productionBatchId) as string | null | undefined;
+  const col = batch.purchaseLineId
+    ? "purchase_line_id"
+    : batch.productionBatchId
+      ? "production_batch_id"
+      : "finished_product_batch_id";
+  const id = (batch.purchaseLineId ?? batch.productionBatchId ?? batch.finishedProductBatchId) as string | null | undefined;
   if (!id) return 0;
   const [{ count }, { data: legacy }] = await Promise.all([
     supabase.from("quality_checks").select("id", { count: "exact", head: true }).eq(col, id).eq("is_retest", true),

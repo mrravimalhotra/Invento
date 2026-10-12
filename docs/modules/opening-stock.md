@@ -82,3 +82,7 @@ Ravi asked for a way to enter opening stock on screen as well as by Excel. Each 
 
 ## Loaded by (12 Oct 2026)
 The Loads table has a **Loaded by** column (full name from `opening_loads.created_by`, which the database stamps; no migration). The uploaded Excel file is not kept (Ravi chose to show who loaded only). Ravi also decided that every role, including the read-only Super Auditor, may load while loading is open (SCAN-P1-11 accepted by design).
+
+## Finished product: Retest date and Retests already done (12 Oct 2026, migration 0120)
+
+Two optional columns on the Finished Product template and entry form. Retest date: after the QC approval date, not after the expiry date; blank means the batch is not due for a retest. Retests already done: 0 to 3, kept in `quality_checks.legacy_retests_done` and counted toward the limit of 3; with 3 done the retest date must be blank. `load_opening_finished_product()` checks the same rules as a backstop.

@@ -116,7 +116,15 @@ async function searchFp(supabase: Db, term: string): Promise<LabelSearchResult> 
     return { rm: [], fp: [], more: false, error: "The batches could not be loaded. Try again." };
   }
   const all = (data ?? []) as unknown as FpBatchFetch[];
-  const batches = all.slice(0, LABEL_RESULT_LIMIT);
+  const shown = all.slice(0, LABEL_RESULT_LIMIT);
+
+  // SCAN-P4-04 (12 Oct 2026): a batch that has expired, is past its retest date or has a
+  // retest in progress is not labelled until it is retested and approved again.
+  const { data: blocked } = shown.length
+    ? await supabase.rpc("fp_batch_block_reasons", { p_ids: shown.map((b) => b.id) })
+    : { data: [] as { batch_id: string }[] };
+  const blockedIds = new Set(((blocked ?? []) as { batch_id: string }[]).map((r) => r.batch_id));
+  const batches = shown.filter((b) => !blockedIds.has(b.id));
 
   // FB-0058: the Best Before date is the Expiry date the QC Reviewer set when approving the batch.
   const { data: qcExpiry } = await fetchByIdChunks<{ finished_product_batch_id: string; expiry_date: string | null }>(
@@ -128,6 +136,8 @@ async function searchFp(supabase: Db, term: string): Promise<LabelSearchResult> 
         .eq("status", "approved")
         .not("expiry_date", "is", null)
         .in("finished_product_batch_id", chunk)
+        // a retested batch has several approvals: the newest one's expiry wins in the map below
+        .order("created_at", { ascending: true })
   );
   const expiryById = new Map(qcExpiry.map((x) => [x.finished_product_batch_id, x.expiry_date]));
 

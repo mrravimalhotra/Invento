@@ -206,17 +206,24 @@ async function getFpExpiries(supabase: Supabase, from: string, to: string): Prom
     expiry_date: string;
     finished_product_batches: FpEmbed | null;
   };
-  const { data } = await fetchAllRows<ExpiryRow>((f, t) =>
+  // SCAN-P4-04: a retested batch has several approved records; only its newest one counts
+  // (view fp_latest_approvals, 0120).
+  const { data: latest } = await fetchAllRows<{ quality_check_id: string }>((f, t) =>
+    supabase
+      .from("fp_latest_approvals")
+      .select("quality_check_id")
+      .gte("expiry_date", from)
+      .lte("expiry_date", to)
+      .order("quality_check_id", { ascending: true })
+      .range(f, t)
+  );
+  const latestIds = (latest ?? []).map((c) => c.quality_check_id);
+  if (latestIds.length === 0) return [];
+  const { data } = await fetchByIdChunks<ExpiryRow>(latestIds, (chunk) =>
     supabase
       .from("quality_checks")
       .select("id, ar_number, expiry_date, finished_product_batches(batch_number, short_batch_no, active, is_legacy, mfr_definitions(items(item_code, name)))")
-      .eq("status", "approved")
-      .not("finished_product_batch_id", "is", null)
-      .gte("expiry_date", from)
-      .lte("expiry_date", to)
-      .order("expiry_date", { ascending: true })
-      .order("id", { ascending: true })
-      .range(f, t)
+      .in("id", chunk)
       .returns<ExpiryRow[]>()
   );
   return (data ?? [])

@@ -8,6 +8,7 @@ DESIGN.md cross-reference: §4.5 (schema), §7.1 (sampling deduction),
 > - Two rounds by two different people: Round 1 QC Checker, Round 2 QC Reviewer (System Admin exempt from the same-person rule). (Before 0119 a Round 1 rejection was final.) Both decisions only save while the record is still in the state the page showed. The sections "Maker/checker segregation of duties (17 Sept 2026)" further down are **superseded** by the two-round review.
 > - Round 2 approval needs an **Expiry date** (not before today) and, except on the last retest, a **Retest period**. Raw material: period pre-filled at 180 days (the maximum), at most **3 retests**; the 3rd retest takes only the Expiry date. The sample quantity is pre-filled on New AR; the expiry is not (the older "Expiry date manual entry removed" section is superseded by 0098).
 > - A retest cannot set a later expiry than the batch was last approved with, and an expired batch is not retested (0112).
+> - Finished product has the same retest cycle (0120, SCAN-P4-04): 180 days, 3 retests, last retest takes only an expiry date, `start_fp_retest()`, the **Finished product due for retest** card. A retest period may never run past the expiry date, for every batch type (Round 2 message and trigger `trg_qc_retest_within_expiry`).
 > - Analytical Report No. format: `ARRM-0001/26` (raw material) and `ARFP-0001/26` (finished product); older `AR-001-DDMMYYYY` numbers are unchanged.
 > - Start Retest draws a real sample (stability reserve first, then stock). Legacy (opening-stock) batches carry a Legacy tag and count earlier retests.
 > - `/qc` shows cards for finished product batches in progress, Awaiting QC, Due for retest and Finished Product Awaiting QC; the Dashboard shows in-progress batches and retest/expiry alerts for the next 90 days.
@@ -750,3 +751,15 @@ A finished product batch whose yield was outside the MFR range shows an amber "Y
 ## Expired material is not retested; a retest never extends the expiry (12 Oct 2026, migration 0112, SCAN-P4-03)
 
 `start_retest()` refuses an expired batch ("expired on dd-mm-yyyy, so it can't be retested"), and expired batches are left off the Due for retest cards (they show on Ageing and Stock Position). At Round 2 of a retest the Expiry date cannot be later than the expiry the batch was last approved with: the date box has that date as its maximum and the save is refused with the same message if it is bypassed.
+
+## Finished product retest (12 Oct 2026, migration 0120, SCAN-P4-04)
+
+Ravi: "QC and Retest of Finished product will have same retest cycles as of Raw material."
+
+- A finished product batch can have several QC records: the first, and one retest each time its retest date arrives (at most 3, counting `legacy_retests_done` for opening stock). The old one-record-per-batch rule (`quality_checks_fp_batch_unique`) became a "one open record at a time" index (`quality_checks_fp_batch_pending_unique`).
+- `start_fp_retest(batch, qty, unit)`: the batch must be Approved with its retest date arrived and not expired. The sample comes from the stability sample first (`fp_stability_reserve_left()`), then from the bulk (`finished_product_batches.retest_sample_qty` plus a ledger pull, reason "Retest sample"). Not enough bulk: refused with the figures. New ARFP number. The `/qc` card **Finished product due for retest** (view `fp_due_for_retest`) starts it.
+- Approving a retest does not post the yield again; it only keeps the batch Approved with the new retest date and expiry. Rejecting one marks the bulk Rejected and pulls the bulk still in stock out of On hand (`qc_rejected`, reason "Retest rejected"); packs already made stay as recorded. Voiding the rejection puts the batch back to Approved and returns the bulk.
+- Bulk left everywhere is yield − QC − stability − R&D − retest samples − packaged (`fp_bulk_left()`): packaging check, packing list, Ageing, Rejected Materials, Stock Integrity Check S7.
+- Round 2 rules apply to finished product too: period at most 180 days, last retest has only an expiry date, a retest never extends the expiry, and the retest date can never fall after the expiry date (also for raw material).
+- Blocking: `fp_batch_block_reason()` refuses packing (database trigger and `resolveFpBatch`) and leaves the batch out of Finished Product label search when it is expired, past its retest date or has a retest open. Packs recorded by an opening stock load are exempt.
+- The batch page lists all QC records; the Intimation Slip keeps the date of the first QC submission. Dashboard expiry alerts use `fp_latest_approvals` (newest approval per batch).
