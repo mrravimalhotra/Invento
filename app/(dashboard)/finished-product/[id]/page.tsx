@@ -176,7 +176,7 @@ export default async function FinishedProductDetailPage({
         action={
           <div className="flex items-center gap-2">
             <AuditHistoryLink recordId={batch.id} roles={user?.roles ?? []} />
-            {batch.is_legacy && <LegacyTag />}
+            {batch.is_legacy && <LegacyTag show />}
             <Badge status={displayStatus}>{fpStatusLabel(displayStatus)}</Badge>
           </div>
         }

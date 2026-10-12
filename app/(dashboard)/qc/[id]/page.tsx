@@ -167,7 +167,7 @@ export default async function QualityCheckDetailPage({
         action={
           <div className="flex items-center gap-2">
             <AuditHistoryLink recordId={record.id} roles={user?.roles ?? []} />
-            {record.is_legacy && <LegacyTag />}
+            {record.is_legacy && <LegacyTag show />}
             {record.is_retest && <Badge status="pending">Retest</Badge>}
             <Badge status={record.status}>{qcRecordStatusLabel(record.status)}</Badge>
           </div>
