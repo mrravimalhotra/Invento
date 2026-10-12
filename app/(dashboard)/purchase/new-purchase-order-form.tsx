@@ -58,7 +58,9 @@ export function PurchaseOrderForm({
   }, [state]);
 
   if (state?.success) {
-    return <PurchaseOrderView po={state.po} lineRows={[]} rawItems={items} canEdit isSystemAdmin={isSystemAdmin} />;
+    // "Edit invoice details" is offered here too (an order just created has no lines, so the vendor can be changed).
+    const vendorChoices = vendors.map(({ id, vendor_code, name }) => ({ id, vendor_code, name }));
+    return <PurchaseOrderView po={state.po} lineRows={[]} rawItems={items} vendors={vendorChoices} canEdit isSystemAdmin={isSystemAdmin} />;
   }
 
   return (

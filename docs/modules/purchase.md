@@ -12,7 +12,7 @@ Cross-reference: `docs/DESIGN.md` §4.4 (schema), §7.1 (workflow spec).
 > - Excel upload needs the sample quantities, Unit Price and GST % on every line.
 > - GST % is 0 to 100 on the form, the upload and the database (migration 0115, SCAN-P2-09).
 > - Quantity, unit price and text have ceilings (migration 0116, SCAN-P10-05): quantity per unit (kg/ltr 1,000,000; g/ml 1,000,000,000; mg 1e12; nos and others 100,000,000), unit price 10,000,000, names 200 characters, longer texts 2,000 (steps 5,000). The forms, the upload and the database all refuse above them. Separately, a quantity 10 times or more the last purchase of the same item (same unit) shows a red note and needs a tick before **Add line** / **Save changes** is enabled; it never blocks. Limits live in `lib/limits.ts` and `qty_limit()`; keep them in step.
-> - **Edit invoice details** (SCAN-P3-02) on a draft or reopened order corrects the invoice number, invoice date and received-on date; the vendor too, only while the order has no lines. Same duplicate-invoice and no-future-date rules as creating an order; a submitted order stays locked. An inactive vendor cannot be picked.
+> - **Edit invoice details** (SCAN-P3-02) on a draft or reopened order corrects the invoice number, invoice date and received-on date; the vendor too, only while the order has no lines. Same duplicate-invoice and no-future-date rules as creating an order; a submitted order stays locked. An inactive vendor cannot be picked. The button is also offered on the New purchase order screen straight after the order is created (12 Oct 2026).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 
 

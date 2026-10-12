@@ -4,6 +4,7 @@ import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadWarning } from "@/components/ui/load-warning";
 import { Card, CardBody, StatCard } from "@/components/ui/card";
 import { RegisterTable, type RegisterRow } from "./register-table";
 
@@ -35,7 +36,7 @@ export default async function CoaTemplateRegisterPage({
   if (!user) redirect("/login");
   const supabase = await createClient();
 
-  const { data } = await fetchAllRows((from, to) =>
+  const { data, error } = await fetchAllRows((from, to) =>
     supabase
       .from("coa_template_register")
       .select("subject_type, subject_id, code, name, item_type, active, template_id, tests, revisions, last_changed_at, last_changed_by, mfr_code")
@@ -46,7 +47,7 @@ export default async function CoaTemplateRegisterPage({
   const all = data ?? [];
 
   const whoIds = all.map((r) => r.last_changed_by).filter((x): x is string => !!x);
-  const { data: profiles } = await fetchByIdChunks<{ id: string; full_name: string | null }>(whoIds, (chunk) =>
+  const { data: profiles, error: profilesError } = await fetchByIdChunks<{ id: string; full_name: string | null }>(whoIds, (chunk) =>
     supabase.from("profiles").select("id, full_name").in("id", chunk)
   );
   const nameById = new Map(profiles.map((p) => [p.id, p.full_name]));
@@ -80,6 +81,7 @@ export default async function CoaTemplateRegisterPage({
         }
       />
 
+      <LoadWarning errors={[error, profilesError]} what="the COA template register" />
       <div className="mb-5 grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Active raw materials with a template"

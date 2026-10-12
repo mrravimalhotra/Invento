@@ -259,7 +259,7 @@ Left as before: SOP/STP effective date (a future date is allowed) and every syst
 
 ## Group 3 clean-ups (11 Oct 2026)
 
-- **Load warning** (SCAN-P7-17): lists and the Dashboard show a red "Some of the data could not be loaded" banner (`components/ui/load-warning.tsx`) when a database read fails, instead of a short or empty list. Added to the Dashboard, Reports, Items, QC, Finished Product, MFR, COA, Packaging and Labels. The raw error is only logged on the server.
+- **Load warning** (SCAN-P7-17): lists and the Dashboard show a red "Some of the data could not be loaded" banner (`components/ui/load-warning.tsx`) when a database read fails, instead of a short or empty list. Added to the Dashboard, Reports, Items, QC, Finished Product, MFR, COA, Packaging and Labels, and (12 Oct 2026) Item Types, SOP / STP Documents, the COA Template Register, Rejected Materials and the QC-status lookups of the RM Report. The raw error is only logged on the server.
 - **Empty lists** (SCAN-P7-20): when a search or filter removes every row the table says "No rows match" with a Clear search and filters button (not "none yet"); the footer always shows the row count ("N rows", "N of M" when filtered).
 - **Tiny quantities** (SCAN-P7-21): an amount below 0.0005 shows as "< 0.001" (a tiny negative as it is), never "0" or "-0".
 - **Low stock card** (SCAN-P7-10): header shows the count; items are listed worst first with units; more than 8 shows a link to Stock Position.
@@ -273,3 +273,6 @@ Left as before: SOP/STP effective date (a future date is allowed) and every syst
 - **Helper functions.** `_item_stock_unit` and `check_sufficient_stock` refuse a signed-in account that has no role ("Not allowed."). `stability_reserve_left` and `_unit_factor` are only closed to the anonymous role. Not added: limiting `_item_stock_unit` to people who can edit items, because QC approval of a finished product batch (a QC Reviewer) legitimately sets a blank unit.
 - **Idle sign-out** and the **current password** on Profile: see `docs/modules/user-roles.md` and `docs/modules/shell.md` "Profile". Changing the password from Profile asks for the current one (`changeOwnPassword`); the reset page and the forced first-sign-in change are unchanged.
 - Test: suite `sa113` (44 checks). In suites, helper functions created by the suite must be granted to `anon` if the suite runs statements as `anon`.
+
+## Sidebar links do not prefetch (12 Oct 2026)
+The sidebar links carry `prefetch={false}`. Before, every link asked the server for its page as soon as it was on screen (about 25 requests per page load, each with a sign-in check), a burst on the small database. A click now fetches the page then, behind the page's loading screen.

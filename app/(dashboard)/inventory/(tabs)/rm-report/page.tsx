@@ -8,6 +8,7 @@ import { RmReportExport, type RmReportExportRow } from "./rm-report-export";
 import { RmReportTable } from "./rm-report-table";
 
 import { friendlyDbError } from "@/lib/db-errors";
+import { LoadWarning } from "@/components/ui/load-warning";
 type PurchaseLineRow = {
   id: string;
   batch_number: string;
@@ -84,7 +85,7 @@ export default async function RmReportPage() {
   const lineIds = (data ?? []).map((r) => r.id);
   // ACC-08: fetched in chunks — thousands of ids in one request is too long
   // a URL, and a failed lookup showed every batch as "QC Pending".
-  const { data: statusRows } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }>(
+  const { data: statusRows, error: statusError } = await fetchByIdChunks<{ purchase_line_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }>(
     lineIds,
     (chunk) => supabase.from("purchase_batch_status").select("purchase_line_id, qc_status, retest_date, expiry_date").in("purchase_line_id", chunk)
   );
@@ -108,7 +109,7 @@ export default async function RmReportPage() {
         items: { name: string; item_code: string } | null;
       }[]>()
   );
-  const { data: prodStatusRows } = await fetchByIdChunks<{ production_batch_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }>(
+  const { data: prodStatusRows, error: prodStatusError } = await fetchByIdChunks<{ production_batch_id: string; qc_status: string; retest_date: string | null; expiry_date: string | null }>(
     (prodBatches ?? []).map((b) => b.id),
     (chunk) => supabase.from("production_batch_status").select("production_batch_id, qc_status, retest_date, expiry_date").in("production_batch_id", chunk)
   );
@@ -167,6 +168,7 @@ export default async function RmReportPage() {
         </div>
       </div>
       {(error || prodError) && <p className="p-4 text-sm text-red">{friendlyDbError((error ?? prodError)!, "Couldn't load this list.")}</p>}
+      <div className="px-4 pt-4"><LoadWarning errors={[statusError, prodStatusError]} what="the QC status of the batches" /></div>
       <RmReportTable rows={rows} asOf={asOf} />
       {rows.length > 0 && (
         <div className="flex justify-end border-t border-border px-4 py-2.5 text-sm font-semibold">

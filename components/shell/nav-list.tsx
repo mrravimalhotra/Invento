@@ -28,6 +28,10 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    // Without this every sidebar link asks the server for its page as soon as it is
+                    // on screen: about 25 requests, each with a sign-in check and database reads,
+                    // on every page load. Pages have a loading screen, so a click still answers at once.
+                    prefetch={false}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
                     className={cn(

@@ -49,6 +49,7 @@ export type CreatePurchaseOrderState =
         invoice_date: string;
         received_on: string | null;
         created_at: string;
+        updated_at: string;
         status: "draft";
         submitted_at: null;
         reopened_at: null;
@@ -114,7 +115,7 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
       invoice_date: parsed.data.invoice_date,
       received_on: receivedOn,
     })
-    .select("id, po_number, invoice_number, invoice_date, received_on, created_at, vendor:vendors(id, vendor_code, name, address, mobile)")
+    .select("id, po_number, invoice_number, invoice_date, received_on, created_at, updated_at, vendor:vendors(id, vendor_code, name, address, mobile)")
     .single();
   if (error) return { error: friendlyDbError(error) };
 
@@ -127,6 +128,7 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
     invoice_date: string;
     received_on: string | null;
     created_at: string;
+    updated_at: string;
     vendor: { id: string; vendor_code: string; name: string } | null;
   };
 
@@ -139,6 +141,7 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
       invoice_date: created.invoice_date,
       received_on: created.received_on,
       created_at: created.created_at,
+      updated_at: created.updated_at,
       status: "draft",
       submitted_at: null,
       reopened_at: null,

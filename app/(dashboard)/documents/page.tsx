@@ -3,6 +3,7 @@ import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadWarning } from "@/components/ui/load-warning";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { DocumentsTable, type DocumentRow } from "./documents-table";
@@ -14,7 +15,7 @@ export default async function DocumentsPage({
 }) {
   const { created } = await searchParams;
   const [user, supabase] = await Promise.all([getCurrentUser(), createClient()]);
-  const { data } = await fetchAllRows((from, to) =>
+  const { data, error } = await fetchAllRows((from, to) =>
     supabase
       .from("documents")
       .select("id, doc_type, title, revision_number, file_url, effective_date, active")
@@ -39,6 +40,7 @@ export default async function DocumentsPage({
           New document has been successfully added.
         </p>
       )}
+      <LoadWarning errors={[error]} what="SOP / STP Documents" />
       <Card>
         <DocumentsTable rows={rows} />
       </Card>

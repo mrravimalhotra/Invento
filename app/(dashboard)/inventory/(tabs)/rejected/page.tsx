@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
+import { LoadWarning } from "@/components/ui/load-warning";
+import { friendlyDbError } from "@/lib/db-errors";
 import { fetchAllRows, fetchByIdChunks } from "@/lib/supabase/fetch-all";
 import { fpBatchBoth } from "@/lib/utils";
 import { RejectedTable, type RejectedRow } from "./rejected-table";
@@ -83,7 +85,7 @@ export default async function RejectedMaterialsPage() {
       ...fpRows.map((r) => r.mfr_definitions?.finished_product_item_id).filter((v): v is string => !!v),
     ])
   );
-  const [{ data: items }, { data: qcs }] = await Promise.all([
+  const [{ data: items, error: itemsError }, { data: qcs, error: qcsError }] = await Promise.all([
     fetchByIdChunks<ItemRow>(itemIds, (chunk) => supabase.from("items").select("id, item_code, name").in("id", chunk)),
     fetchByIdChunks<QcRow>(
       fpRows.map((r) => r.id),
@@ -156,7 +158,8 @@ export default async function RejectedMaterialsPage() {
 
   return (
     <Card>
-      {err && <p className="p-4 text-sm text-red">{err.message}</p>}
+      {err && <p className="p-4 text-sm text-red">{friendlyDbError(err, "Couldn't load this list.")}</p>}
+      <div className="px-4 pt-4"><LoadWarning errors={[itemsError, qcsError]} what="Rejected Materials" /></div>
       <p className="border-b border-border px-4 py-3 text-sm text-muted">
         Batches QC has rejected, with the samples taken from each. Rejected raw material is not counted in On hand.
       </p>
