@@ -27,6 +27,7 @@ Read is open to any signed-in user.
   columns Item Code / Name / Category / Type / Unit / Stock on hand (joined
   from the `stock_balance` view by `item_id`, "—" when the item has no
   ledger rows yet) / Low stock badge (`on_hand < low_stock_threshold`) /
+  COA template (Defined / Missing + Add link: raw material by `coa_templates.item_id`, finished product by the MFR that makes it, `mfr_definitions.finished_product_item_id`; "No MFR" or a dash otherwise; Add opens `#coa-template` on the item or MFR page) /
   Active. A category filter (All / Raw material / Packaging / Finished
   product) is implemented as tab links (`?category=`), server-rendered, not
   blocking core CRUD. "New item" button shown only when `canWrite(user.roles,

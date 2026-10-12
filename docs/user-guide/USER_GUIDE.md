@@ -225,6 +225,8 @@ Every item in Item Master can be tagged with one item type, and several bulk-upl
 
 **What it's for:** This is the master list of every raw material and packaging item Atharva stocks — names, codes, units, barcodes, and current stock levels. It's the foundation that Purchase, Inventory Ledger, QC, and Manufacturing all build on. Finished Product items are not created here — those come automatically from the MFR screen instead.
 
+**COA template column:** the list shows, for every raw material and finished product, whether its Certificate of Analysis template is **Defined** or **Missing**. A Missing row has an **Add** link that opens the item's page (raw material) or the MFR's page (finished product) at the template card. A finished product with no MFR shows "No MFR"; packaging shows a dash (no COA). A certificate cannot be issued for a batch until its template exists. You can sort by the column, and the Excel download includes it.
+
 **How to add a new item**
 1. Go to Item Master and click "New item."
 2. Choose a Category: Raw material or Packaging (Finished Product items can't be created from here — they're generated automatically when someone sets up an MFR recipe).

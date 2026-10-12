@@ -27,7 +27,13 @@ export type ItemRow = {
   /** Low stock: raw material on usable stock, others on hand (lib/low-stock.ts). */
   low: boolean;
   created_at: string;
+  /** COA template: defined, missing, finished product with no MFR, or not applicable (packaging). */
+  coa: "defined" | "missing" | "no_mfr" | "none";
+  /** Where the template is added: the item's or the MFR's page. */
+  coaHref: string | null;
 };
+
+const COA_TEXT = { defined: "Defined", missing: "Missing", no_mfr: "No MFR", none: "" } as const;
 
 export function ItemsTable({ rows }: { rows: ItemRow[] }) {
   const columns: Column<ItemRow>[] = [
@@ -54,6 +60,27 @@ export function ItemsTable({ rows }: { rows: ItemRow[] }) {
         r.low ? <Badge status="rejected">Low</Badge> : null,
     },
     {
+      header: "COA template",
+      accessor: (r) =>
+        r.coa === "none" ? (
+          <span className="text-muted">—</span>
+        ) : r.coa === "defined" ? (
+          <Badge status="approved">Defined</Badge>
+        ) : r.coa === "no_mfr" ? (
+          <span className="text-muted" title="This finished product has no MFR, so there is nowhere to hold a COA template.">No MFR</span>
+        ) : (
+          <span className="inline-flex items-center gap-2">
+            <Badge status="rejected">Missing</Badge>
+            {r.coaHref && (
+              <Link href={r.coaHref} prefetch={false} className="text-brand hover:underline">
+                Add
+              </Link>
+            )}
+          </span>
+        ),
+      searchValue: (r) => (r.coa === "none" ? "" : `COA ${COA_TEXT[r.coa]}`),
+    },
+    {
       header: "Status",
       accessor: (r) => <Badge status={r.active ? "approved" : "not_submitted"}>{r.active ? "Active" : "Inactive"}</Badge>,
     },
@@ -77,6 +104,7 @@ export function ItemsTable({ rows }: { rows: ItemRow[] }) {
       { header: "Stock on hand", type: "number", decimals: 3, value: (r) => (r.hasBalance ? r.on_hand : null) },
       { header: "Low-stock threshold", type: "number", decimals: 3, value: (r) => (r.low_stock_threshold != null ? Number(r.low_stock_threshold) : null) },
       { header: "Low stock", value: (r) => (r.low ? "Low" : "") },
+      { header: "COA template", value: (r) => (r.coa === "none" ? "Not applicable" : COA_TEXT[r.coa]) },
       { header: "Status", value: (r) => (r.active ? "Active" : "Inactive") },
       { header: "Created", type: "date", value: (r) => r.created_at },
     ],

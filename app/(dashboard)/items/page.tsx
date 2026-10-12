@@ -25,6 +25,8 @@ type ItemQueryRow = {
 
 type BalanceQueryRow = { item_id: string; on_hand: string | number };
 type UsableQueryRow = { item_id: string; usable: string | number };
+type CoaTemplateQueryRow = { item_id: string | null; mfr_definition_id: string | null };
+type MfrLinkQueryRow = { id: string; finished_product_item_id: string | null };
 
 export default async function ItemsPage({
   searchParams,
@@ -49,7 +51,7 @@ export default async function ItemsPage({
   // list page that must show *every* row return more than the cap.
   // fetchAllRows pages both queries in max-rows-sized `.range()` windows
   // until each is exhausted, same fix already shipped for Stock Position.
-  const [{ data: itemsData, error: itemsError }, { data: balances, error: balancesError }, { data: usables, error: usablesError }] = await Promise.all([
+  const [{ data: itemsData, error: itemsError }, { data: balances, error: balancesError }, { data: usables, error: usablesError }, { data: coaTemplates, error: coaError }, { data: mfrLinks, error: mfrError }] = await Promise.all([
     fetchAllRows<ItemQueryRow>((from, to) => {
       let query = supabase
         .from("items")
@@ -77,15 +79,52 @@ export default async function ItemsPage({
         .range(from, to)
         .returns<UsableQueryRow[]>()
     ),
+    // COA template status: a raw material has its own template; a finished product has the
+    // template of the MFR that makes it (mfr_definitions.finished_product_item_id).
+    fetchAllRows<CoaTemplateQueryRow>((from, to) =>
+      supabase
+        .from("coa_templates")
+        .select("item_id, mfr_definition_id")
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<CoaTemplateQueryRow[]>()
+    ),
+    fetchAllRows<MfrLinkQueryRow>((from, to) =>
+      supabase
+        .from("mfr_definitions")
+        .select("id, finished_product_item_id")
+        .not("finished_product_item_id", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<MfrLinkQueryRow[]>()
+    ),
   ]);
 
   const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
   const usableMap = new Map((usables ?? []).map((u) => [u.item_id, Number(u.usable)]));
 
+  const templateItemIds = new Set((coaTemplates ?? []).map((t) => t.item_id).filter((x): x is string => !!x));
+  const templateMfrIds = new Set((coaTemplates ?? []).map((t) => t.mfr_definition_id).filter((x): x is string => !!x));
+  const mfrByItem = new Map((mfrLinks ?? []).map((m) => [m.finished_product_item_id as string, m.id]));
+
+  // "none": no COA for this kind of item; "no_mfr": a finished product with no MFR to hold a template.
+  const coaFor = (it: ItemQueryRow): Pick<ItemRow, "coa" | "coaHref"> => {
+    if (it.category === "raw") {
+      return { coa: templateItemIds.has(it.id) ? "defined" : "missing", coaHref: `/items/${it.id}#coa-template` };
+    }
+    if (it.category === "processed") {
+      const mfrId = mfrByItem.get(it.id);
+      if (!mfrId) return { coa: "no_mfr", coaHref: null };
+      return { coa: templateMfrIds.has(mfrId) ? "defined" : "missing", coaHref: `/mfr/${mfrId}#coa-template` };
+    }
+    return { coa: "none", coaHref: null };
+  };
+
   const rows: ItemRow[] = (itemsData ?? []).map((it) => ({
     ...it,
     // Supabase types this as an array in TS but the FK is many-to-one; take the first.
     item_types: Array.isArray(it.item_types) ? it.item_types[0] ?? null : it.item_types,
+    ...coaFor(it),
     on_hand: balanceMap.get(it.id) ?? 0,
     hasBalance: balanceMap.has(it.id),
     low: lowStockCheck({
@@ -114,7 +153,7 @@ export default async function ItemsPage({
         description="Raw materials, finished products, and packaging materials."
         action={canCreate ? <LinkButton href="/items/new">New item</LinkButton> : undefined}
       />
-      <LoadWarning errors={[itemsError, balancesError, usablesError]} what="the item list" />
+      <LoadWarning errors={[itemsError, balancesError, usablesError, coaError, mfrError]} what="the item list" />
       <div className="mb-4 flex gap-1.5">
         {tabs.map((t) => (
           <Link

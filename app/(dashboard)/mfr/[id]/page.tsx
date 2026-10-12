@@ -349,7 +349,7 @@ export default async function MfrDetailPage({
             COA is not part of the MFR — it is tracked and reported
             separately (COA → COA Template Register) and, like the
             procedure, stays editable after approval. */}
-        <Card>
+        <Card className="scroll-mt-4" id="coa-template">
           <CardHeader title="Certificate of Analysis template" />
           <CardBody>
             <CoaTemplateCard

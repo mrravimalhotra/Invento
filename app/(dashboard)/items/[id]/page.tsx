@@ -120,7 +120,7 @@ export default async function ItemDetailPage({
         </Card>
 
         {coaTemplate && (
-          <Card className="lg:col-span-3">
+          <Card className="scroll-mt-4 lg:col-span-3" id="coa-template">
             <CardHeader title="Certificate of Analysis template" />
             <CardBody>
               <CoaTemplateCard
