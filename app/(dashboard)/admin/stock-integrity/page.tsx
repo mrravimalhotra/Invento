@@ -20,6 +20,65 @@ const LEDGER_NOTE_ROWS = 2_000_000;
 
 type CheckRow = { code: string; title: string; problems: number; sample: Record<string, unknown>[] | null };
 
+// What each check compares and what a difference means, in plain words (Ravi, 12 Oct 2026:
+// "This error does not give enough information on what is the issue"). The difference rows
+// themselves carry a sentence in their "problem" column (migration 0118).
+const EXPLAIN: Record<string, { compares: string; means: string }> = {
+  S1: {
+    compares: "The item's On hand figure against the parts that make it up on the Stock Position tab (received, used, wasted, issued and so on).",
+    means: "A kind of stock movement is counted in the total but not in any part, or the other way round.",
+  },
+  S2: {
+    compares: "For each submitted purchase batch, the quantity left on the batch against what the ledger shows for it.",
+    means: "A receipt, sample, use, write-off or rejection changed one of the two but not the other.",
+  },
+  S3: {
+    compares: "For raw material issued by Production, the quantity left on the batch against what the ledger shows for it.",
+    means: "A use or write-off changed the batch or the ledger, but not both.",
+  },
+  S4: {
+    compares: "Looks for any item or batch with less than zero in stock.",
+    means: "More stock was taken out than was ever recorded as in.",
+  },
+  S5: {
+    compares: "Purchase lines that are not submitted (still Draft, or reopened) against the ledger.",
+    means: "Stock for a line that is not submitted is still in the ledger, so it is counted as usable.",
+  },
+  S6: {
+    compares: "Each ledger row against its item: the unit it is written in, and the item of the batch it points to.",
+    means: "The row has no unit written on it, or a different unit from the item, or it points to a batch of another item. The quantity may still be right; the unit label is what is missing or different.",
+  },
+  S7: {
+    compares: "For finished products, the ledger On hand against the bulk left on the product's approved batches.",
+    means: "Bulk was packed, sampled or yielded in one place but not the other.",
+  },
+  S8: {
+    compares: "Looks for a batch number used twice for the same item.",
+    means: "Two batches share a number, so a label, certificate or trace could point to the wrong one.",
+  },
+  S9: {
+    compares: "Each submitted purchase line has its receipt in the ledger, no receipt exists for a line that is not submitted, and every QC record points to a batch.",
+    means: "A receipt is missing or left behind, or a QC record has lost its batch.",
+  },
+};
+
+// Column order in a difference row: the sentence first, then who and which batch, then figures.
+const COLUMN_ORDER = [
+  "problem", "item_code", "item_name", "batch_number", "purchase_batch", "finished_product_batch", "po_number",
+  "status", "event_date", "event_type", "reference_type", "reference", "quantity", "issued_quantity", "on_hand",
+  "parts_total", "batch_remaining", "ledger_net", "difference", "ledger_on_hand", "batch_bulk", "purchase_net",
+  "times_used", "id",
+];
+
+function orderedColumns(row: Record<string, unknown>): string[] {
+  const keys = Object.keys(row);
+  const rank = (k: string) => {
+    const i = COLUMN_ORDER.indexOf(k);
+    return i === -1 ? COLUMN_ORDER.length : i;
+  };
+  return keys.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
 function cell(v: unknown): string {
   if (v === null || v === undefined) return "—";
   if (typeof v === "object") return JSON.stringify(v);
@@ -92,12 +151,24 @@ async function Results() {
                   {c.problems === 0 ? "OK" : `${c.problems.toLocaleString("en-IN")} found`}
                 </span>
               </div>
+              {c.problems > 0 && EXPLAIN[c.code] && (
+                <div className="flex flex-col gap-1 text-xs text-muted">
+                  <p>
+                    <span className="font-medium text-foreground">What it compares: </span>
+                    {EXPLAIN[c.code].compares}
+                  </p>
+                  <p>
+                    <span className="font-medium text-foreground">What a difference means: </span>
+                    {EXPLAIN[c.code].means}
+                  </p>
+                </div>
+              )}
               {c.problems > 0 && c.sample && c.sample.length > 0 && (
                 <div className="overflow-x-auto rounded-md border border-border">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-black/5 text-muted">
                       <tr>
-                        {Object.keys(c.sample[0]).map((k) => (
+                        {orderedColumns(c.sample[0]).map((k) => (
                           <th key={k} className="px-2 py-1 font-medium">
                             {k.replace(/_/g, " ")}
                           </th>
@@ -107,8 +178,8 @@ async function Results() {
                     <tbody>
                       {c.sample.map((row, i) => (
                         <tr key={i} className="border-t border-border">
-                          {Object.keys(c.sample![0]).map((k) => (
-                            <td key={k} className="px-2 py-1 font-mono">
+                          {orderedColumns(c.sample![0]).map((k) => (
+                            <td key={k} className={k === "problem" ? "px-2 py-1" : "px-2 py-1 font-mono"}>
                               {cell(row[k])}
                             </td>
                           ))}

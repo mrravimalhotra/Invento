@@ -924,7 +924,7 @@ Running this clears out data across nearly every module at once — Item Master,
 
 **How to use it**
 1. Open Admin → Stock Integrity Check. The checks run every time the page opens; reload to run them again.
-2. A green banner means every check passed. A red banner lists how many differences were found; each failing check shows the first 20 rows.
+2. A green banner means every check passed. A red banner lists how many differences were found. Each failing check says what it compares and what a difference means, and shows the first 20 rows. Every row starts with a sentence saying what is wrong, then the item, batch numbers, date and figures involved.
 3. If anything fails, do not correct stock by hand. Note the rows and tell the developer.
 
 The page also shows the number of rows in the inventory ledger. The stock reports read the whole ledger, so they slow down as it grows; the page warns when it approaches 3 million rows, which is when a closing-balance table should be planned.
