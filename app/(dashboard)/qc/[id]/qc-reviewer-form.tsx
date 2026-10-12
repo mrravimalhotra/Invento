@@ -11,6 +11,8 @@ import { Field, Textarea, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { DecisionChoice } from "@/components/ui/decision-choice";
 import { formatDate, todayIst } from "@/lib/utils";
+import { MIN_REASON_CHARS, type QcResultLine } from "@/lib/qc-results";
+import { ResultsGrid } from "./results-grid";
 
 export function QcReviewerForm({
   id,
@@ -19,8 +21,11 @@ export function QcReviewerForm({
   isFinalRetest = false,
   defaultExpiry = "",
   maxExpiry,
+  round1Results,
 }: {
   id: string;
+  // Round 1's results (null on a record decided before results were recorded: typed on the certificate).
+  round1Results: QcResultLine[] | null;
   maxRetestDays?: number;
   defaultRetestDays?: number;
   isFinalRetest?: boolean;
@@ -33,6 +38,9 @@ export function QcReviewerForm({
   const [status, setStatus] = useState<"approved" | "rejected" | "">("");
   const [retestPeriodDays, setRetestPeriodDays] = useState(!isFinalRetest && defaultRetestDays ? String(defaultRetestDays) : "");
   const [expiryDate, setExpiryDate] = useState(defaultExpiry);
+  const [values, setValues] = useState<string[]>(() => (round1Results ?? []).map((l) => l.result));
+  const [reason, setReason] = useState("");
+  const [confirming, setConfirming] = useState(false);
   const [today] = useState(() => todayIst());
   const nextRetest = (() => {
     const days = Number(retestPeriodDays);
@@ -41,17 +49,39 @@ export function QcReviewerForm({
     d.setUTCDate(d.getUTCDate() + days);
     return formatDate(d.toISOString().slice(0, 10));
   })();
-  const approveBlocked = status === "approved" && (!expiryDate || (!isFinalRetest && !retestPeriodDays));
+  const resultsMissing = !!round1Results && values.some((v) => !v.trim());
+  const approveBlocked =
+    status === "approved" && (!expiryDate || (!isFinalRetest && !retestPeriodDays) || resultsMissing);
+  const reasonShort = reason.trim().length < MIN_REASON_CHARS;
+  const rejecting = status === "rejected";
+  const edited = !!round1Results && values.some((v, i) => v.trim() !== round1Results[i].result.trim());
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
 
+      {round1Results && (
+        <Field
+          label="Test results"
+          hint="These are the Quality Checker's results. Leave them as they are to keep them; if you change any, your results become final and go on the Certificate of Analysis. Both versions are kept for audit."
+        >
+          <ResultsGrid
+            lines={round1Results.map(({ seq, test, specification }) => ({ seq, test, specification }))}
+            values={values}
+            onChange={setValues}
+            round1={round1Results}
+          />
+        </Field>
+      )}
+
       <Field label="Decision" required>
         <DecisionChoice
           name="status"
           value={status}
-          onChange={setStatus}
+          onChange={(v) => {
+            setStatus(v);
+            setConfirming(false);
+          }}
           options={[
             { value: "approved", label: "Approved", tone: "approve" },
             { value: "rejected", label: "Rejected", tone: "reject" },
@@ -59,8 +89,21 @@ export function QcReviewerForm({
         />
       </Field>
 
-      <Field label="Comments" htmlFor="review_comments">
-        <Textarea id="review_comments" name="review_comments" rows={3} />
+      <Field
+        label="Reason"
+        htmlFor="review_comments"
+        required
+        hint={`Required for either decision (at least ${MIN_REASON_CHARS} characters).${edited ? " Say why you changed the results." : ""}`}
+      >
+        <Textarea
+          id="review_comments"
+          name="review_comments"
+          rows={3}
+          required
+          minLength={MIN_REASON_CHARS}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
       </Field>
 
       <Field label="Expiry date" htmlFor="expiry_date" required={status === "approved"}>
@@ -113,14 +156,34 @@ export function QcReviewerForm({
 
       <p className="text-xs text-muted">
         This is the final decision — approving adds the batch to inventory; either choice is final and this
-        record can no longer be edited.
+        record can no longer be edited. (A rejection can later be voided by a QC Reviewer or System Admin with a written reason.)
       </p>
 
-      <div>
-        <Button type="submit" disabled={pending || !status || approveBlocked}>
-          {pending ? "Saving…" : "Save decision"}
-        </Button>
-      </div>
+      {confirming && rejecting ? (
+        <div className="flex flex-col gap-3 rounded-md border border-red bg-red-bg px-3 py-3 text-sm">
+          <p className="text-red">Reject this batch? It moves out of stock. A QC Reviewer or System Admin can void the rejection later with a written reason.</p>
+          <div className="flex gap-2">
+            <Button type="submit" variant="danger" disabled={pending}>
+              {pending ? "Saving…" : "Yes, reject the batch"}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : rejecting ? (
+        <div>
+          <Button type="button" disabled={reasonShort} onClick={() => setConfirming(true)}>
+            Save decision
+          </Button>
+        </div>
+      ) : (
+        <div>
+          <Button type="submit" disabled={pending || !status || approveBlocked || reasonShort}>
+            {pending ? "Saving…" : "Save decision"}
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

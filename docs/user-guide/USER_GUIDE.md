@@ -471,11 +471,17 @@ The ledger's Event column shows **Stock In** when stock is added (receipts, batc
 3. Submit. This gives the batch an Assign Record (AR) with an **Analytical Report No.** (for example ARRM-0001/26 for raw material, ARFP-0001/26 for finished product), and its status becomes "Submitted" — ready for the first review round.
 
 **How to review and approve or reject a batch**
-1. **Round 1 (Quality Checker):** Open the AR. With the batch still "Submitted," you'll see the Round 1 form — choose **Approved** or **Rejected**, add comments, and submit.
-   - If **Rejected**, the batch is done — it's rejected, final, and no second round happens.
-   - If **Approved**, the status changes to **"Approved – Awaiting Review"** and the AR moves into the QC Reviewer's queue for Round 2. Round 1's decision now shows read-only at the top of the page from here on.
-2. **Round 2 (QC Reviewer):** Open the same AR. Choose **Approved** or **Rejected**, add comments, and if approving, you must also enter the **Expiry date** and a **Retest Period (days)** — how many days until this batch needs to be sampled and tested again. For a raw material the retest period is filled in as 180 days (6 months), the longest allowed, and you can shorten it. Submit.
-3. Once Round 2 is decided, the record is final — both rounds' decisions are shown read-only and nothing more can change. Only a batch that clears **both** rounds as Approved has its stock made available for making finished product.
+1. **Round 1 (Quality Checker):** Open the AR. With the batch still "Submitted," you'll see the Round 1 form.
+   - For a raw material bought from a vendor and for a finished product, the form lists the tests on the item's (or the MFR's) **COA template**. Type the **result** of every test. If the item has no COA template yet, the page says so and links to where it is added; until then you cannot approve (you can still reject).
+   - Choose **Approved** or **Rejected** and give a **reason** (at least 3 characters). A reason is needed for either decision and is kept for audit.
+   - If **Approved**, the status changes to **"Approved – Awaiting Review"** and the AR moves into the QC Reviewer's queue. Round 1's decision and results show read-only from here on.
+   - If **Rejected**, you are only **proposing** the rejection (you are asked to confirm first). The status becomes **"Rejection proposed"** and the batch stays in stock until a QC Reviewer decides.
+2. **Round 2 (QC Reviewer):** Open the same AR.
+   - On an **approved** Round 1 you see the Quality Checker's results next to boxes for the final results. Leave them as they are to keep Round 1's results; **if you change any, your results are final** and go on the Certificate of Analysis (changed results are highlighted, and both versions are kept for audit). Choose **Approved** or **Rejected**, give a reason (at least 3 characters; say why if you changed results), and if approving also enter the **Expiry date** and a **Retest Period (days)**. For a raw material the retest period is filled in as 180 days (6 months), the longest allowed, and you can shorten it. A rejection asks you to confirm.
+   - On a **proposed rejection** you either **Confirm the rejection** (the batch is then rejected and leaves stock) or **Send it back** to the Quality Checker with a reason (the AR returns to Awaiting QC and Round 1 starts again; the earlier decision stays in the history).
+3. Once Round 2 is decided, the record is final — both rounds' decisions and both sets of results are shown read-only, with the **Decision history** below. Only a batch that clears **both** rounds as Approved has its stock made available for making finished product.
+4. **Voiding a rejection:** a QC Reviewer or System Admin can open a rejected AR and use **Void this rejection** with a written reason. The AR returns to Awaiting QC, the stock comes back on hand, and a finished product batch returns to "Submitted to QC". It is not possible once wastage has been written off against the batch.
+5. The **Certificate of Analysis** takes its results from QC (the Reviewer's if he edited any, otherwise the Quality Checker's) and shows them locked. A record that was decided before results were recorded keeps typing them on the certificate.
 
 **Fields you'll be asked for**
 - **Sample Quantity / Unit** — pre-filled from what was reserved on the purchase line; usually you just confirm it.

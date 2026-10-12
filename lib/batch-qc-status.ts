@@ -35,7 +35,7 @@ export function computeBatchQcState(
     return retestDate && retestDate <= today ? "awaiting_retest" : "approved";
   }
   if (qcStatus === "rejected") return "rejected";
-  // 'submitted', 'checker_approved' (two-round review, 20 Sept 2026 — see
+  // 'submitted', 'checker_approved', 'checker_rejected' (two-round review, 20 Sept 2026 — see
   // docs/modules/qc.md), or 'not_submitted' (or missing/unknown) — all
   // three read as "hasn't fully cleared QC yet," same as before this
   // pass; the batch only becomes usable once Round 2 (QC Reviewer) clears
@@ -51,5 +51,7 @@ export function computeBatchQcState(
 // (qc-table.tsx, the QC Register report).
 export function qcRecordStatusLabel(status: string): string {
   if (status === "checker_approved") return "Approved - Awaiting Review";
+  // 0119: a Quality Checker's rejection waits for the QC Reviewer to confirm or send it back.
+  if (status === "checker_rejected") return "Rejection proposed";
   return status.replace(/_/g, " ");
 }

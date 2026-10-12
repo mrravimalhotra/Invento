@@ -10,6 +10,14 @@ import { MAX_RM_RETEST_DAYS, MAX_RM_RETESTS } from "@/lib/constants/qc-rules";
 import { countRetestsDone } from "@/lib/qc-retests";
 import { beforeDateError } from "@/lib/date-rules";
 import { formatDate, todayIst } from "@/lib/utils";
+import { loadQcTemplate } from "@/lib/qc-template";
+import {
+  checkResultsAgainstTemplate,
+  parseResultLines,
+  reasonError,
+  resultsDiffer,
+  type QcResultLine,
+} from "@/lib/qc-results";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -111,11 +119,11 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
 // actions are final/one-way for their own round, same "can't be re-edited
 // once decided" posture the old single-step action had.
 
-// Round 1 — "QC Checker": submitted -> checker_approved/rejected. No
-// retest period here — the batch isn't actually usable yet even on
-// approval (Round 2 still has to clear it), so asking for a retest period
-// this early would be premature; it's collected at Round 2 instead, right
-// when it starts to matter.
+// Round 1 — "QC Checker": submitted -> checker_approved, or checker_rejected ("Rejection
+// proposed": the QC Reviewer confirms it or sends it back). Every decision needs a written
+// reason (0119). On a raw material or finished product, approving also needs the result of
+// every test on the COA template; a rejection needs only the reason (results are kept if
+// typed). No retest period here — it is collected at Round 2, when it starts to matter.
 // SCAN-P10-02: shown when two people decide the same record at the same moment.
 const ALREADY_DECIDED = "Someone else has just made this decision. Refresh the page to see the result.";
 
@@ -124,15 +132,17 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
   if (!canWrite(user?.roles ?? [], "qc_review_round1")) return { error: "Not authorized." };
 
   const status = String(formData.get("status") || "");
-  if (status !== "checker_approved" && status !== "rejected") {
+  if (status !== "checker_approved" && status !== "checker_rejected") {
     return { error: "Choose Approved or Rejected." };
   }
   const checkerComments = String(formData.get("checker_comments") || "").trim();
+  const reasonProblem = reasonError(checkerComments, "A reason");
+  if (reasonProblem) return { error: reasonProblem };
 
   const supabase = await createClient();
   const { data: existing, error: existingError } = await supabase
     .from("quality_checks")
-    .select("status")
+    .select("status, purchase_line_id, finished_product_batch_id")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) return { error: "Record not found." };
@@ -140,11 +150,35 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
     return { error: "This record has already had its first QC decision and cannot be changed." };
   }
 
+  // Results: the COA template's tests, with the checker's result for each.
+  const template = await loadQcTemplate(supabase, existing);
+  let checkerResults: QcResultLine[] | null = null;
+  if (template.needsResults) {
+    const submitted = parseResultLines(String(formData.get("results") || "[]"));
+    if (submitted === null) return { error: "Could not read the test results. Reload the page and try again." };
+    if (status === "checker_approved") {
+      if (template.lines.length === 0) {
+        return {
+          error: "This item has no COA template yet. Add it first (Item Master for a raw material, the MFR page for a finished product); you can still reject without one.",
+        };
+      }
+      const checked = checkResultsAgainstTemplate(submitted, template.lines, true);
+      if (!checked.ok) return { error: checked.error };
+      checkerResults = checked.lines;
+    } else if (template.lines.length > 0 && submitted.some((l) => l.result)) {
+      // A rejection keeps whatever was typed, complete or not.
+      const checked = checkResultsAgainstTemplate(submitted, template.lines, false);
+      if (!checked.ok) return { error: checked.error };
+      checkerResults = checked.lines;
+    }
+  }
+
   const { data: updated, error } = await supabase
     .from("quality_checks")
     .update({
       status,
-      checker_comments: checkerComments || null,
+      checker_comments: checkerComments,
+      checker_results: checkerResults,
       checker_by: user!.id,
       checker_at: new Date().toISOString(),
     })
@@ -158,15 +192,14 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
 
   revalidatePath("/qc");
   revalidatePath(`/qc/${id}`);
-  redirect(`/qc/${id}?saved=${status === "rejected" ? "qc_round1_rejected" : "qc_round1_approved"}`);
+  redirect(`/qc/${id}?saved=${status === "checker_rejected" ? "qc_round1_rejected" : "qc_round1_approved"}`);
 }
 
-// Round 2 — "QC Reviewer": checker_approved -> approved/rejected. This is
-// the decision that actually clears the batch into inventory (on
-// approve) — retest period stays mandatory-on-approve here, same rule the
-// old single-step action had (Ravi, 14 Sept 2026: "make retest period
-// entry mandatory," approve-only, since a rejected batch is never
-// retested).
+// Round 2 — "QC Reviewer": the final decision, from checker_approved (approve or reject) or
+// checker_rejected (confirm the rejection; to refuse it, use sendBackQcRejection). A written
+// reason is required either way. The Reviewer may edit the results: if he changes any, his
+// list is stored as reviewer_results and is final (the certificate uses it); if he changes
+// none, Round 1's results stand. Retest period stays mandatory on approve (Ravi, 14 Sept 2026).
 export async function reviewQcRound2(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!canWrite(user?.roles ?? [], "qc_review_round2")) return { error: "Not authorized." };
@@ -177,6 +210,8 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   }
 
   const reviewComments = String(formData.get("review_comments") || "").trim();
+  const reasonProblem = reasonError(reviewComments, "A reason");
+  if (reasonProblem) return { error: reasonProblem };
   const retestPeriodRaw = formData.get("retest_period_days");
   const retestPeriodDays = retestPeriodRaw ? Number(retestPeriodRaw) : null;
   if (retestPeriodRaw && (retestPeriodDays === null || !Number.isFinite(retestPeriodDays) || retestPeriodDays <= 0)) {
@@ -193,13 +228,28 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   const supabase = await createClient();
   const { data: existing, error: existingError } = await supabase
     .from("quality_checks")
-    .select("status, checker_by, purchase_line_id, production_batch_id, is_retest")
+    .select("status, checker_by, checker_results, purchase_line_id, production_batch_id, finished_product_batch_id, is_retest")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) return { error: "Record not found." };
-  if (existing.status !== "checker_approved") {
+  if (existing.status !== "checker_approved" && existing.status !== "checker_rejected") {
     return { error: "This record isn't awaiting a final QC Reviewer decision." };
   }
+  if (existing.status === "checker_rejected" && status === "approved") {
+    return { error: "A proposed rejection cannot be approved. Confirm the rejection, or send it back to the Quality Checker." };
+  }
+
+  // Results: unchanged from Round 1 means no change; any edit makes the Reviewer's list final.
+  let reviewerResults: QcResultLine[] | null = null;
+  const round1 = (existing.checker_results ?? null) as QcResultLine[] | null;
+  if (round1 && existing.status === "checker_approved") {
+    const submitted = parseResultLines(String(formData.get("results") || "[]"));
+    if (submitted === null) return { error: "Could not read the test results. Reload the page and try again." };
+    const checked = checkResultsAgainstTemplate(submitted, round1, status === "approved");
+    if (!checked.ok) return { error: checked.error };
+    if (resultsDiffer(checked.lines, round1)) reviewerResults = checked.lines;
+  }
+
   // FB-0061 (Ravi, 3 Oct 2026): a raw-material retest period is at most 180 days.
   const isRawMaterial = !!(existing.purchase_line_id || existing.production_batch_id);
   if (isRawMaterial && retestPeriodDays !== null && retestPeriodDays > MAX_RM_RETEST_DAYS) {
@@ -247,7 +297,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   // Two-round distinctness (20 Sept 2026, retiring the old maker/checker
   // created_by check): the QC Reviewer must differ from whoever made the
   // Round 1 (QC Checker) decision — System Admin exempt. This is the
-  // friendly, early version; 0054_qc_two_round_review.sql's trigger is
+  // friendly, early version; the trigger trg_qc_enforce_review_stages is
   // the real backstop that can't be bypassed even if this check is ever
   // skipped by a bug here.
   const isSameAsChecker = existing.checker_by != null && existing.checker_by === user!.id;
@@ -260,7 +310,8 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
     .from("quality_checks")
     .update({
       status,
-      review_comments: reviewComments || null,
+      review_comments: reviewComments,
+      reviewer_results: reviewerResults,
       retest_period_days: status === "approved" ? retestPeriodDays : null,
       expiry_date: status === "approved" ? expiryRaw : null,
       reviewed_by: user!.id,
@@ -268,7 +319,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
     })
     .eq("id", id)
     // SCAN-P10-02: only while still waiting for the final decision.
-    .eq("status", "checker_approved")
+    .eq("status", existing.status)
     .select("id");
   if (error) return { error: friendlyDbError(error) };
   if (!updated || updated.length === 0) return { error: ALREADY_DECIDED };
@@ -276,6 +327,61 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   revalidatePath("/qc");
   revalidatePath(`/qc/${id}`);
   redirect(`/qc/${id}?saved=${status === "rejected" ? "qc_round2_rejected" : "qc_round2_approved"}`);
+}
+
+// SCAN-P4-01 (Ravi, 12 Oct 2026): the QC Reviewer refuses a proposed rejection. The record
+// goes back to Awaiting QC for the Quality Checker to decide again; Round 1 stays in the
+// decision history.
+export async function sendBackQcRejection(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "qc_review_round2")) return { error: "Not authorized." };
+  const reason = String(formData.get("returned_reason") || "").trim();
+  const reasonProblem = reasonError(reason, "A reason");
+  if (reasonProblem) return { error: reasonProblem };
+
+  const supabase = await createClient();
+  const { data: updated, error } = await supabase
+    .from("quality_checks")
+    .update({ status: "submitted", returned_reason: reason })
+    .eq("id", id)
+    .eq("status", "checker_rejected")
+    .select("id");
+  if (error) return { error: friendlyDbError(error) };
+  if (!updated || updated.length === 0) return { error: ALREADY_DECIDED };
+
+  revalidatePath("/qc");
+  revalidatePath(`/qc/${id}`);
+  redirect(`/qc/${id}?saved=qc_sent_back`);
+}
+
+// SCAN-P4-01: a final rejection can be voided by a QC Reviewer or System Admin with a written
+// reason. The record returns to Awaiting QC and the stock returns to On hand (database trigger);
+// refused once wastage has been written off against the batch.
+export async function voidQcRejection(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!canWrite(user?.roles ?? [], "qc_void_rejection")) return { error: "Not authorized." };
+  const reason = String(formData.get("void_reason") || "").trim();
+  const reasonProblem = reasonError(reason, "A reason");
+  if (reasonProblem) return { error: reasonProblem };
+
+  const supabase = await createClient();
+  const { data: updated, error } = await supabase
+    .from("quality_checks")
+    .update({ status: "submitted", void_reason: reason })
+    .eq("id", id)
+    .eq("status", "rejected")
+    .select("id");
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "This batch already has another open QC record, so this rejection cannot be voided." };
+    }
+    return { error: friendlyDbError(error) };
+  }
+  if (!updated || updated.length === 0) return { error: "This record is no longer rejected. Refresh the page." };
+
+  revalidatePath("/qc");
+  revalidatePath(`/qc/${id}`);
+  redirect(`/qc/${id}?saved=qc_voided`);
 }
 
 // Retest workflow (Part B) — once an approved batch's QC-computed

@@ -148,8 +148,10 @@ export default async function DashboardPage() {
     rejected: { all: 0, nonLegacy: 0 },
   };
   for (const r of (qcRows ?? []) as { status: string; total: number | string; non_legacy: number | string }[]) {
-    if (r.status in qc) {
-      qc[r.status as keyof QcStatusCounts] = { all: Number(r.total), nonLegacy: Number(r.non_legacy) };
+    // A proposed rejection (0119) is still waiting for the QC Reviewer, like an approval.
+    const key = (r.status === "checker_rejected" ? "checker_approved" : r.status) as keyof QcStatusCounts;
+    if (key in qc) {
+      qc[key] = { all: qc[key].all + Number(r.total), nonLegacy: qc[key].nonLegacy + Number(r.non_legacy) };
     }
   }
 

@@ -4,6 +4,7 @@ DESIGN.md cross-reference: §4.12 (COA part only — Line Clearance and
 Environmental Control are separate modules, not built here).
 
 > **Current behaviour (read this first; the sections below are a dated history).**
+> - **Results come from QC (0119).** When QC recorded test results (`quality_checks.checker_results`, `reviewer_results`), the certificate form shows the final results locked (the Reviewer's list if he edited any, otherwise Round 1's) and `generateCoaCertificate` refuses a different value; if the template changed since QC, the results are typed as before. Records decided before 0119 type their results on the certificate.
 > - A COA is issued for a batch's **current approval** only (latest approved QC record, raw material not past its retest date); the database refuses any other. Sampled Qty comes from that AR's own sample.
 > - COA templates (tests and specifications) belong to one **raw-material item or one finished-product MFR** (0096); the earlier per-Item-Type template (`/coa/templates/[itemTypeId]`) is **superseded**. A template is needed before issuing, every save is kept in its history, and `/coa/templates` is the COA Template Register (Excel and PDF). Bulk upload of templates is by item or MFR code.
 > - An issued COA keeps a copy of the company details (name, address, licence) as issued (`company_snapshot`, 0112), so a reprint never changes.

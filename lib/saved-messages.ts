@@ -8,9 +8,12 @@
 export const SAVED_MESSAGES = {
   qc_round1_approved:
     "Decision saved: Approved. This Analytical Report now goes to a QC Reviewer for the final decision.",
-  qc_round1_rejected: "Decision saved: Rejected. The batch is rejected and this record can no longer be edited.",
+  qc_round1_rejected:
+    "Decision saved: Rejection proposed. A QC Reviewer will confirm it or send it back; the batch stays on hand until then.",
   qc_round2_approved: "Final decision saved: Approved. The retest date has been set.",
   qc_round2_rejected: "Final decision saved: Rejected. The batch is rejected.",
+  qc_sent_back: "Proposed rejection sent back. The record is awaiting a new first decision from a Quality Checker.",
+  qc_voided: "Rejection voided. The record is awaiting QC again and the stock is back on hand.",
   po_submitted: "Purchase order submitted — inventory has been updated.",
   fp_draft_created: "Draft batch created. Confirm it with Create Batch within 30 minutes, or cancel it.",
   fp_confirmed: "Batch created — now in process.",

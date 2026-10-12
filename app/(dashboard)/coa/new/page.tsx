@@ -11,6 +11,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { SubjectBatchPicker, type BatchOption } from "./subject-batch-picker";
 import { GenerateCoaForm, type TemplateLine } from "./generate-coa-form";
 import type { HeaderField } from "@/lib/actions/coa";
+import { finalResults, type QcResultLine } from "@/lib/qc-results";
 
 type Subject = "raw_material" | "finished_product";
 
@@ -31,6 +32,9 @@ export default async function NewCoaPage({
   const batches: BatchOption[] = subject ? await fetchBatchOptions(supabase, subject) : [];
 
   let templateLines: TemplateLine[] | null = null;
+  // 0119: the results QC recorded for this batch, when they match the template's tests.
+  let qcResults: QcResultLine[] | null = null;
+  let qcResultsStale = false;
   let headerFields: HeaderField[] | null = null;
   let noTemplateFor: { label: string; href: string; thing: string } | null = null;
   // Ravi (22 Sept 2026): picking Finished Product + a batch silently showed
@@ -77,6 +81,19 @@ export default async function NewCoaPage({
           .sort((a, b) => a.seq - b.seq)
           .map((l) => ({ seq: l.seq, test: l.test, specification: l.specification }));
         headerFields = resolved.headerFields;
+        const { data: qcRow } = await supabase
+          .from("quality_checks")
+          .select("checker_results, reviewer_results")
+          .eq("id", qualityCheckId)
+          .maybeSingle<{ checker_results: QcResultLine[] | null; reviewer_results: QcResultLine[] | null }>();
+        const fromQc = qcRow ? finalResults(qcRow) : null;
+        if (fromQc) {
+          const same =
+            fromQc.length === templateLines.length &&
+            fromQc.every((l, i) => Number(l.seq) === templateLines![i].seq && l.test === templateLines![i].test && l.specification === templateLines![i].specification);
+          if (same) qcResults = fromQc;
+          else qcResultsStale = true;
+        }
       }
     }
   }
@@ -125,6 +142,8 @@ export default async function NewCoaPage({
               qualityCheckId={qualityCheckId}
               initialHeaderFields={headerFields}
               templateLines={templateLines}
+              qcResults={qcResults}
+              qcResultsStale={qcResultsStale}
               // Ravi (22 Sept 2026): the sample certificates' closing line reads
               // "complies/Not complies as per IHS" (a template the QC person
               // edits per certificate — the slash isn't a typo, it's "delete

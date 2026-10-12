@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
 import { fetchCompany } from "@/lib/company-server";
 import { resolveRawMaterial, resolveFinishedProduct } from "@/lib/coa-draft";
+import { finalResults, type QcResultLine } from "@/lib/qc-results";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -78,13 +79,15 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   // (0096_coa_template_per_item.sql).
   const { data: qc, error: qcError } = await supabase
     .from("quality_checks")
-    .select("id, status, purchase_line_id, finished_product_batch_id, purchase_lines(item_id), finished_product_batches(mfr_definition_id)")
+    .select("id, status, purchase_line_id, finished_product_batch_id, checker_results, reviewer_results, purchase_lines(item_id), finished_product_batches(mfr_definition_id)")
     .eq("id", qualityCheckId)
     .maybeSingle<{
       id: string;
       status: string;
       purchase_line_id: string | null;
       finished_product_batch_id: string | null;
+      checker_results: QcResultLine[] | null;
+      reviewer_results: QcResultLine[] | null;
       purchase_lines: { item_id: string } | null;
       finished_product_batches: { mfr_definition_id: string } | null;
     }>();
@@ -157,6 +160,22 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
     }
     if (String(r.result ?? "").length > 500) {
       return { error: `The result for "${t.test}" must be 500 characters or fewer.` };
+    }
+  }
+  // 0119 (Ravi, 12 Oct 2026): when QC recorded test results, the certificate carries QC's
+  // final results (the QC Reviewer's if he edited any, otherwise the Quality Checker's);
+  // nothing typed here can replace them. A record with no QC results, or results taken
+  // against an earlier version of the template, keeps typing them here as before.
+  const qcFinal = finalResults(qc);
+  const qcMatchesTemplate =
+    !!qcFinal &&
+    qcFinal.length === templateLines.length &&
+    qcFinal.every((l, i) => Number(l.seq) === templateLines[i].seq && l.test === templateLines[i].test && l.specification === templateLines[i].specification);
+  if (qcMatchesTemplate && qcFinal) {
+    for (let i = 0; i < templateLines.length; i++) {
+      if (String(resultLines[i].result ?? "").trim() !== String(qcFinal[i].result ?? "").trim()) {
+        return { error: `The result for "${templateLines[i].test}" comes from the QC record and cannot be changed here. Reload the page and try again.` };
+      }
     }
   }
   // Store exactly what was checked, in the template's own order, not what the browser sent.

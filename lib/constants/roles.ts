@@ -34,6 +34,8 @@ export const MODULE_WRITE_ROLES = {
   // 0054_qc_two_round_review.sql.
   qc_review_round1: ["system_admin", "quality_checker"],
   qc_review_round2: ["system_admin", "qc_reviewer"],
+  // SCAN-P4-01 (12 Oct 2026): voiding a final rejection (0119).
+  qc_void_rejection: ["system_admin", "qc_reviewer"],
   // Mirrors record_wastage()'s own has_any_role check in 0002_transactions.sql —
   // the only write this module owns (everything else in inventory_ledger is
   // written by triggers, not by this module's UI).

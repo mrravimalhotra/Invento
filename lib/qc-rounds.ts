@@ -22,12 +22,12 @@ export function qcRoundOutcomes(r: QcRoundFields): { round1: RoundOutcome; round
 
   let round1: RoundOutcome;
   if (!round1Recorded) round1 = "not_recorded";
-  else if (r.status === "rejected" && !round2Happened) round1 = "rejected";
+  else if (r.status === "checker_rejected" || (r.status === "rejected" && !round2Happened)) round1 = "rejected";
   else round1 = "approved";
 
   let round2: RoundOutcome;
   if (round2Happened) round2 = r.status === "approved" ? "approved" : "rejected";
-  else if (r.status === "checker_approved") round2 = "pending";
+  else if (r.status === "checker_approved" || r.status === "checker_rejected") round2 = "pending";
   else round2 = "not_reached";
 
   return { round1, round2 };

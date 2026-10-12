@@ -5,6 +5,7 @@ import { useState } from "react";
 import { generateCoaCertificate, type ActionState, type HeaderField } from "@/lib/actions/coa";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
+import type { QcResultLine } from "@/lib/qc-results";
 
 export type TemplateLine = { seq: number; test: string; specification: string };
 
@@ -33,17 +34,23 @@ export function GenerateCoaForm({
   qualityCheckId,
   initialHeaderFields,
   templateLines,
+  qcResults,
+  qcResultsStale,
   defaultRemarks,
 }: {
   subjectType: "raw_material" | "finished_product";
   qualityCheckId: string;
   initialHeaderFields: HeaderField[];
   templateLines: TemplateLine[];
+  /** The final results QC recorded (Reviewer's if he edited any, else Round 1's); shown locked. */
+  qcResults: QcResultLine[] | null;
+  /** QC recorded results against an earlier version of the template: they are typed here instead. */
+  qcResultsStale: boolean;
   defaultRemarks: string;
 }) {
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(generateCoaCertificate, undefined);
   const [headerFields, setHeaderFields] = useState<HeaderField[]>(initialHeaderFields);
-  const [results, setResults] = useState<string[]>(templateLines.map(() => ""));
+  const [results, setResults] = useState<string[]>(templateLines.map((_, i) => qcResults?.[i]?.result ?? ""));
   const [remarks, setRemarks] = useState(defaultRemarks);
 
   function updateHeader(i: number, value: string) {
@@ -86,6 +93,18 @@ export function GenerateCoaForm({
 
       <div>
         <h3 className="mb-2 text-sm font-semibold">Test results</h3>
+        {qcResults && (
+          <p className="mb-2 text-sm text-muted">
+            These are the results QC recorded for this batch (the QC Reviewer&apos;s if he edited any, otherwise the Quality
+            Checker&apos;s). They are locked here; both versions are kept on the QC record.
+          </p>
+        )}
+        {qcResultsStale && (
+          <p className="mb-2 rounded-md border border-amber bg-amber-bg px-3 py-2 text-sm text-amber">
+            QC recorded results against an earlier version of this COA template, so they cannot be carried over. Type the
+            results below.
+          </p>
+        )}
         <div className="rounded-md border border-border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -107,6 +126,8 @@ export function GenerateCoaForm({
                       value={results[i]}
                       onChange={(e) => updateResult(i, e.target.value)}
                       placeholder="Enter result…"
+                      readOnly={!!qcResults}
+                      className={qcResults ? "bg-black/[0.04] text-muted" : undefined}
                       required
                     />
                   </td>
