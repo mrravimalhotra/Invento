@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Workflow } from "lucide-react";
 
 // Static, downloadable end-to-end user guide (Ravi, 22 Sept 2026: "Create
 // an end-to-end use guide and crate a link in app for user to download
@@ -12,12 +12,16 @@ import { Download, FileText } from "lucide-react";
 // unlike most modules it isn't gated by MODULE_WRITE_ROLES: every
 // signed-in user can view and download it, the same "informational, not
 // gated" pattern Reports and Audit Log's nav entry already use.
+// The process map (Ravi, 12 Oct 2026: "make both available in the app under
+// user guide") is a second card: the page /process-map.html is the source and
+// /process-map.pdf is generated from it by scripts/build-process-map-pdf.py.
+// Both are static files in /public; the sign-in check in proxy.ts covers them.
 export default function UserGuidePage() {
   return (
     <div>
       <PageHeader
         title="User Guide"
-        description="An end-to-end guide to using Invento — getting started, how data flows through the app, and a walkthrough of every module."
+        description="An end-to-end guide to using Invento — getting started, how data flows through the app, and a walkthrough of every module — and the process map that draws each flow."
       />
       <div className="grid max-w-2xl gap-6">
         <Card>
@@ -37,7 +41,7 @@ export default function UserGuidePage() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <a
                 href="/user-guide.pdf"
                 download
@@ -53,6 +57,45 @@ export default function UserGuidePage() {
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-white px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/5"
               >
                 Open in new tab
+              </a>
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="Invento Process Map" />
+          <CardBody className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <Workflow className="mt-0.5 h-8 w-8 shrink-0 text-brand" />
+              <div className="text-sm text-muted">
+                <p>
+                  A set of diagrams showing how raw material, packaging material and finished product
+                  move through the app: purchasing and samples, two-round Quality Control, Certificates
+                  of Analysis, making a batch, packing and issue, opening stock and the stock views. It
+                  also lists the statuses, the documents each step produces, the rules the database
+                  enforces, and the questions still open before go-live.
+                </p>
+                <p className="mt-2">
+                  Open it to read on screen, or download the PDF to print or share.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href="/process-map.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
+              >
+                <Workflow className="h-4 w-4" />
+                Open Process Map
+              </a>
+              <a
+                href="/process-map.pdf"
+                download
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-white px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/5"
+              >
+                <Download className="h-4 w-4" />
+                Download Process Map (PDF)
               </a>
             </div>
           </CardBody>
