@@ -39,7 +39,7 @@ export default async function EquipmentPage({
     <div>
       <PageHeader
         title="Instrument / Equipment Master"
-        description="Instruments and equipment by room and section. Equipment code is generated automatically on create. Seeded from the December 2023 room-wise register; calibration status starts blank for every entry since no historical calibration data exists."
+        description="Instruments and equipment by room and section. Equipment code is generated automatically on create. Calibration status shows once a calibration date is recorded."
       />
 
       {createdRow && (

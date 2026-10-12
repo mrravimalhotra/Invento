@@ -30,11 +30,7 @@ export default async function UserRolesPage() {
       <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber/30 bg-amber-bg px-4 py-3 text-sm text-amber">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          This is now database-enforced — even a direct API call from a non-admin account is
-          rejected, not just this screen. The <code className="font-mono">user_roles</code> table&apos;s
-          Row Level Security policy requires the caller to already hold System Admin before any
-          write is accepted, so this screen can no longer be used to self-escalate the way the old
-          baseline&apos;s unrestricted version could.
+          Only a System Admin can change roles. The database refuses any role change from another account, even one made outside this screen.
         </p>
       </div>
 

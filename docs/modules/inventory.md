@@ -1099,3 +1099,5 @@ the Ledger for that item and the same From and To dates.
 
 - **Stock Statement labels (migration 0111, SCAN-P3-12):** new column **Opening load** (stock loaded through Opening Stock is no longer under Purchased); the part of a rejected batch handed back on write-off is taken off **Rejected** instead of showing as Other in; the filter note says inactive items are included if they had movement. Test suite `sl111`.
 - **Batch Trace notices (SCAN-P3-13):** a message when the search shows only the newest 25 matches of a type, when a trace reaches 1,000 lines, or when it reaches its 6-level limit.
+
+> 12 Oct 2026 (live walk LW-02, LW-04): the Ageing intro line prints dates as dd-mm-yyyy; the RM Report explains PQTY, SQTY and QTY in a note under the title.

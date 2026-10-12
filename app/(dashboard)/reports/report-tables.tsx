@@ -158,6 +158,7 @@ export type FpRow = {
   batch_number: string;
   short_batch_no: string | null;
   target_qty: number | string | null;
+  unit?: string | null;
   actual_yield_pct: number | string | null;
   status: string;
   finish_date: string | null;
@@ -183,8 +184,8 @@ export function FpRegisterReport({ rows }: { rows: FpRow[] }) {
     { header: "Status", cell: (r) => <Badge status={r.status}>{fpStatusLabel(r.status)}</Badge>, pdfValue: (r) => fpStatusLabel(r.status) },
     {
       header: "Target Qty",
-      cell: (r) => formatQty(r.target_qty),
-      pdfValue: (r) => formatQty(r.target_qty),
+      cell: (r) => `${formatQty(r.target_qty)}${r.unit ? ` ${r.unit}` : ""}`,
+      pdfValue: (r) => `${formatQty(r.target_qty)}${r.unit ? ` ${r.unit}` : ""}`,
       xl: { type: "number", decimals: 3, value: (r) => (r.target_qty === null ? null : Number(r.target_qty)) },
     },
     {

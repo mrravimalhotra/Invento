@@ -20,7 +20,7 @@ export function FeedbackAdminRow({ row }: { row: FeedbackRow }) {
             {row.ticket_number}
           </span>
           <span className="font-semibold text-foreground">{row.page_label}</span>
-          <span className="font-mono">{row.url_path}</span>
+          <span className="font-mono" title={row.url_path}>{row.url_path.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, (m) => `${m.slice(0, 8)}…`)}</span>
           <span>·</span>
           <span>
             Submitted by <span className="text-foreground">{row.submitted_by_name}</span>

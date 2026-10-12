@@ -427,3 +427,5 @@ Ravi: finished-product rows must show the **Finished Product code** (FP-00001), 
 ## Company details as issued (12 Oct 2026, migration 0112, SCAN-P2-13)
 
 An issued Certificate of Analysis keeps a copy of the company name, address and licence label and number (`coa_records.company_snapshot`), and its PDF prints that copy, so a reprint after a licence renewal or address change still shows what was issued. Certificates issued before 0112 have no copy and print the current details. Other documents (reports, labels, slips, Word files) still print the current details; the Company Details screen says so.
+
+> 12 Oct 2026 (live walk LW-05): the certificate list names a finished product certificate by its product (from the MFR); search and Excel use the same text.

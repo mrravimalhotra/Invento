@@ -18,8 +18,14 @@ export type CoaRow = {
     items: { item_code: string; name: string } | null;
     purchase_lines: { batch_number: string } | null;
   } | null;
-  finished_product_batches: { batch_number: string; short_batch_no: string | null } | null;
+  finished_product_batches: { batch_number: string; short_batch_no: string | null; mfr_definitions?: { name: string } | null } | null;
 };
+
+function coaItemLabel(r: CoaRow) {
+  const item = r.quality_checks?.items;
+  if (item) return `${item.item_code} — ${item.name}`;
+  return r.finished_product_batches?.mfr_definitions?.name ?? "";
+}
 
 export function CoaTable({ rows }: { rows: CoaRow[] }) {
   const columns: Column<CoaRow>[] = [
@@ -40,8 +46,9 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
     },
     {
       header: "Item",
-      accessor: (r) => (r.quality_checks?.items ? `${r.quality_checks.items.item_code} — ${r.quality_checks.items.name}` : "—"),
-      searchValue: (r) => r.quality_checks?.items?.name ?? "",
+      // LW-05: a finished product certificate names the product (from its MFR).
+      accessor: (r) => coaItemLabel(r) || "—",
+      searchValue: (r) => coaItemLabel(r),
     },
     {
       header: "Batch",
@@ -85,7 +92,7 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
       { header: "AR Number", value: (r) => r.quality_checks?.ar_number ?? "" },
       {
         header: "Item",
-        value: (r) => (r.quality_checks?.items ? `${r.quality_checks.items.item_code} — ${r.quality_checks.items.name}` : ""),
+        value: (r) => coaItemLabel(r),
       },
       {
         header: "Batch",

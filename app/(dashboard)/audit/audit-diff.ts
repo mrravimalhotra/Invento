@@ -8,10 +8,14 @@
 // reference proxy at build time, not the real value (confirmed by
 // `next build` failing on exactly that — "AUDIT_TABLE_OPTIONS.map is not
 // a function" — when the detail page imported it from audit-filters.tsx).
+import { QC_EVENT_LABELS } from "@/lib/qc-results";
+
 export const AUDIT_TABLE_OPTIONS: { value: string; label: string }[] = [
   // Every audited table (0072_complete_audit_trail.sql), grouped roughly by
   // module. The first four were the only ones audited before 0072.
   { value: "quality_checks", label: "QC Decision" },
+  // LW-07: the round-by-round QC history written by 0119.
+  { value: "qc_decision_history", label: "QC Decision History" },
   { value: "finished_product_batches", label: "Finished Product Batch" },
   { value: "purchase_orders", label: "Purchase Order" },
   { value: "mfr_definitions", label: "MFR Definition" },
@@ -130,6 +134,10 @@ const LABEL_FIELDS = [
 export function recordLabel(row: Pick<AuditLogRow, "table_name" | "row_id" | "old_data" | "new_data" | "action">) {
   if (row.action === "truncate") return "All rows";
   const data = currentData(row);
+  // LW-07: a QC history row has no number of its own; it is named by what happened.
+  if (row.table_name === "qc_decision_history" && typeof data.event === "string") {
+    return QC_EVENT_LABELS[data.event] ?? data.event;
+  }
   for (const field of LABEL_FIELDS) {
     const v = data[field];
     if (typeof v === "string" && v.trim() !== "") return v;

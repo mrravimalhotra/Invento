@@ -173,3 +173,5 @@ The QC Register has a **Type** column and shows the production batch for product
 ## RM Stock Report (11 Oct 2026)
 
 The RM Stock Report has a **Usable Now** column and its Low stock flag compares the threshold with usable stock (SCAN-P3-10).
+
+> 12 Oct 2026 (live walk LW-06): the Finished Product register shows Target Qty with its unit (30 ltr) on screen and in the PDF; Excel keeps the number.

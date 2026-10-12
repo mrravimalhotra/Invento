@@ -86,7 +86,7 @@ export default async function ReportsPage() {
     fetchAllRows<unknown>((from, to) =>
       supabase
         .from("finished_product_batches")
-        .select("id, batch_number, short_batch_no, target_qty, actual_yield_pct, status, finish_date, is_legacy, mfr:mfr_definitions(name)")
+        .select("id, batch_number, short_batch_no, target_qty, unit, actual_yield_pct, status, finish_date, is_legacy, mfr:mfr_definitions(name)")
         .order("created_at", { ascending: false })
         .order("id", { ascending: true }) // ACC-07: unique tiebreaker so pages never overlap or skip
         .range(from, to)

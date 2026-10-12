@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { addDaysToDate } from "@/lib/dashboard-series";
 import { friendlyDbError } from "@/lib/db-errors";
-import { todayIst } from "@/lib/utils";
+import { todayIst, formatDate } from "@/lib/utils";
 import { bucketFor } from "@/lib/ageing";
 import { AgeingView, type AgeingRow } from "./ageing-view";
 
@@ -71,7 +71,7 @@ export default async function AgeingPage({ searchParams }: { searchParams: Promi
       {res.error && <p className="border-b border-border p-4 text-sm text-red">{friendlyDbError(res.error)}</p>}
       <p className="border-b border-border px-4 py-3 text-sm text-muted">
         Approved batches by the earlier of their retest and expiry dates. Raw material shows what is still in stock; finished
-        product shows bulk not yet packed or sampled. Today is {today}; next 90 days end {addDaysToDate(today, 90)}.
+        product shows bulk not yet packed or sampled. Today is {formatDate(today)}; next 90 days end {formatDate(addDaysToDate(today, 90))}.
       </p>
       <AgeingView rows={rows} initialBucket={bucket} />
     </Card>

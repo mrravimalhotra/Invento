@@ -162,6 +162,7 @@ export default async function RmReportPage() {
         <p className="max-w-2xl text-sm text-muted">
           Current stock of each raw material batch, as of today ({formatDate(asOf)}). Rejected batches are not listed
           (see Rejected Materials). For stock on a past date use the Stock Statement.
+          PQTY is the quantity purchased, SQTY the samples taken (QC, stability and R&amp;D) and QTY the stock left.
         </p>
         <div>
           <RmReportExport asOf={asOf} rows={rows} />
