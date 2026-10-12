@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
 import { OPENING_KINDS } from "@/lib/opening-stock/columns";
-import { OpeningUploadForm } from "./upload-form";
+import { OpeningEntry } from "./opening-entry";
 import { OpenCloseButton, UndoButton } from "./admin-controls";
 
 // Opening stock (Ravi, 3 Oct 2026, FB-0054 / B4). Every role may load while
@@ -59,7 +59,7 @@ export default async function OpeningStockPage() {
                     : "One row per batch, already QC Approved with its old AR number. Enter the bulk still unpacked and the packs already packed (with pack size); the packs appear as one Store packaging issue per batch."}
               </p>
               {canLoad && isOpen ? (
-                <OpeningUploadForm kind={k.key} templateHref={`/api/opening-stock/template/${k.key}`} />
+                <OpeningEntry kind={k.key} templateHref={`/api/opening-stock/template/${k.key}`} />
               ) : (
                 <p className="text-sm text-muted">{isOpen ? "You need a role to load opening stock." : "Loading is closed."}</p>
               )}

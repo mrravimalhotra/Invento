@@ -5,7 +5,7 @@ finished product before go-live. Part 1 (migration 0100) covers raw material and
 product, packed and bulk.
 
 > **Current behaviour (read this first; the sections below are a dated history).**
-> - `/opening-stock` (Admin) loads the physical stock count before go-live from an Excel sheet: raw material and packaging (with a required Unit column, converted to the item's own unit), and finished product (packed and bulk). Each load is all or nothing and is listed as `OPN-0001…`.
+> - `/opening-stock` (Admin) loads the physical stock count before go-live from an Excel sheet or by typing the rows in on the page (12 Oct 2026, see "Typed-in entry" below): raw material and packaging (with a required Unit column, converted to the item's own unit), and finished product (packed and bulk). Each load is all or nothing and is listed as `OPN-0001…`.
 > - Raw material rows are Approved, Pending QC or Rejected; old batch numbers and AR numbers are kept as typed (numbers that look app-made are refused). Loaded batches carry the **Legacy** tag.
 > - Loading is open to all roles during testing; the System Admin closes it by hand and can re-open it or undo a load that nothing has used yet (audited). No cut-off date is stored.
 > - Where a later section below disagrees with an earlier one, the later one is right.
@@ -71,3 +71,11 @@ batch pickers (text "(Legacy)"). Lists built on the `purchase_line_qc` view find
 ## Unit column and summary (11 Oct 2026, SCAN-P2-10)
 
 Raw material and packaging sheets have a required **Unit** column after the quantity. The quantity is converted to the item's own unit (250 g into a kg item loads 0.25 kg); a unit that cannot be converted, or a blank one, is refused. The Reference sheet shows each item's name and own unit. After **Check**, the screen lists what the file will load per item (batches and total quantity in the item's unit). Sheets downloaded before this change have no Unit column and are refused: download the template again.
+
+
+## Typed-in entry (12 Oct 2026)
+Ravi asked for a way to enter opening stock on screen as well as by Excel. Each kind card on `/opening-stock` now has two tabs, Upload Excel and Type it in (`opening-entry.tsx`).
+- `entry-form.tsx` shows one card per row with the same fields as the sheet; item and vendor are pick lists (`loadOpeningChoices(kind)` reads active items of the right kind, with their unit, and active vendors when the form is first opened; finished product lists only products that have an MFR). Picking an item fills its unit. For raw material the fields shown follow the QC status and the ones that no longer apply are cleared.
+- `submitOpeningRows` (`lib/actions/opening-stock.ts`) takes the rows as one string per column in `OPENING_COLUMNS` order, drops empty rows, builds the same `ParsedSheet` an Excel file gives and calls the shared `runOpening` (same `validateOpeningSheet`, same `load_opening_stock` / `load_opening_finished_product`, same all-or-nothing, same OPN number). Only the wording differs ("Fix the rows", limit per load). "Row N" in a message is the row's number on the page; the form shows each message inside its row.
+- The result panel (`result-panel.tsx`) is shared by both tabs. Changing any row hides the last check, so Load always follows a check of what is on screen.
+- No migration. Checked: type check, lint, build and a browser run of all three kinds (check with errors, fix, check, load).

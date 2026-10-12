@@ -857,11 +857,20 @@ Each upload writes into exactly the same tables and goes through exactly the sam
 
 **What it's for:** Before go-live, the stock already on the shelves is loaded from the physical stock count sheet, so the app starts with the right quantities. Raw material, packaging and finished product (packed and bulk) are loaded here. The System Administrator closes loading by hand after the agreed cut-off date. The app keeps no cut-off date of its own.
 
-**How to load**
+**Two ways to enter the stock.** Each card has two tabs: **Upload Excel** and **Type it in**. Both end in the same checks and the same all-or-nothing load, so use whichever suits the amount of stock.
+
+**How to load from an Excel file**
 1. Open the card for Raw Material, Packaging or Finished Product and click "Download template". Fill one row per batch (or lot) from the stock count sheet.
 2. Choose the file and click "Check file". Every problem is listed with its Excel row number. Nothing is loaded while any problem remains.
 3. For Raw Material and Packaging, the check also shows a short summary for each item: how many batches and the total quantity it will load. Compare it with your stock sheet before you load.
 4. When the check says the file is fine, click "Load N rows". All rows are loaded together or not at all, and the load gets a number (OPN-0001, OPN-0002, …).
+
+**How to type the rows in**
+1. Open the card and click the **Type it in** tab. Each batch (or lot) is one row card. Pick the item from the list (typing narrows it); the unit fills in from the item and can be changed.
+2. For Raw Material, choose the QC status first. Only the fields that status needs are shown: an Approved batch asks for the old AR number, QC approval date, retest date and retests already done; a Rejected batch asks for the old AR number and approval date; a Pending QC batch asks for neither.
+3. Use **Add row** for the next batch, **Duplicate** to copy a row (the batch number and AR number are left empty, because those cannot repeat) and **Remove** to drop one. Empty rows are ignored.
+4. Click **Check rows**. Problems appear inside the row they belong to, with nothing loaded. When the rows are fine, click **Load N rows**. Changing anything after a check hides the Load button until you check again.
+5. Up to 500 rows can be loaded at once. After a load the page clears so the next group can be typed.
 
 **Unit column (Raw Material and Packaging).** Every row must say which unit its quantity is counted in. If that is a different unit from the one the item is kept in but of the same kind (for example g for an item kept in kg), the quantity is converted for you; if it cannot be converted, the row is refused. An older file without the Unit column is refused, so download the current template.
 
