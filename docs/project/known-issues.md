@@ -535,3 +535,12 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - [x] A before-delete trigger on `mfr_definitions` refuses any delete of an approved MFR with "MFR … is approved, so it cannot be deleted. Deactivate it instead." It holds for every path, not only the app's. A draft MFR can still be deleted.
 - [x] MFR page: the Delete button shows only on a draft (System Administrator); Deactivate stays for approved MFRs. **Confirmed on screen by Ravi, 18 Oct 2026: no Delete button on an approved MFR.**
 - [x] Suite md123 (8 checks); sec04, a0085 and a0086 now expect the refusal instead of the delete. 42 suites OK; unit tests 30/30; build clean.
+
+## Pass 93 — Migration 0124: function access hardening (18 Oct 2026, `402266c`)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: "Lock only what no screen uses"); applied by the Supabase GitHub integration.
+
+- [x] Every trigger function lost EXECUTE for public, anon and authenticated (Supabase advisor: 24 anon-callable, most of the 74 signed-in-callable). Triggers still fire: PostgreSQL checks the right only when a trigger is created.
+- [x] `can_manage_coa_template`, `check_sufficient_stock` and `stability_reserve_left` are database-only: no screen, policy, view or invoker function calls them (checked against the code and the live catalog); their callers (`upsert_coa_template`, the packaging triggers, `start_retest`) run as the owner.
+- [x] Every public function has `search_path = public, extensions` (advisor: 48 without), the path API sessions already use.
+- [x] The migration checks all three outcomes itself. Suite sh124 (6 checks, including every function the app calls still open); sa113 updated for the closed helper. 43 suites OK, unit tests 30/30.
+- Purge left unchanged (Ravi: needed for the testing cycle; C8 at go-live).
