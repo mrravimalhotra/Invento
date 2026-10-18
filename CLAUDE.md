@@ -16,7 +16,7 @@ pharma (GMP) SME. Not live: all data is test data. Deployed by pushing `main` (V
   `components/ui/*` (`saved-banner`, `decision-choice`, `combobox`, `data-table`, `form`).
 - Every action must end with a visible message: forms use `useFlashActionState` (not `useActionState`); actions that redirect use `?saved=<key>` (`lib/saved-messages.ts`, shown by `FlashHost` in the dashboard layout).
 - Heavy libraries (jspdf, docx, exceljs) are imported on click, not at page load — keep it that way.
-- Database: `supabase/migrations/NNNN_name.sql` (next number = highest + 1). The latest definition of a function
+- Database: `supabase/migrations/NNNN_name.sql` (next number = highest + 1). Merging to `main` applies it to the live database (GitHub Actions `db-migrate.yml`; see `supabase/README.md`), so never paste a migration into the SQL Editor. The latest definition of a function
   or policy wins. Workflow guards are triggers (`_is_direct_client_write()`); RPCs that bypass RLS are SECURITY DEFINER.
 - Deprecated (do not touch unless asked): BMR (`bmr_*` tables, `/admin/bmr-deprecated`).
 

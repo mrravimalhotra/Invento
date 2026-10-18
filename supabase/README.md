@@ -39,6 +39,26 @@ It joins the migrations in the order that works on an empty project. One quirk i
 handles: `0064_fix_bulk_create_mfr_definitions_replay.sql` must run straight after
 `0052`, not in its own numbered slot.
 
+## How migrations reach the live database
+
+GitHub Actions does it (`.github/workflows/db-migrate.yml`). On a pull request that adds a
+migration it does a dry run and lists what a merge would apply; on a push to `main` it runs
+`supabase db push`, which applies every file in `migrations/` that is not yet recorded in
+`supabase_migrations.schema_migrations`, in file-name order, and records it. Do not paste
+new migrations into the SQL Editor any more: a hand-run file is not recorded, so the
+workflow would run it a second time.
+
+- Needs the repository secret `SUPABASE_DB_URL` (GitHub → Settings → Secrets and variables →
+  Actions): Supabase → Connect → **Session pooler** string, password filled in. Not the
+  direct connection (IPv6 only, GitHub runners cannot reach it) and not the transaction pooler.
+- Supabase's own GitHub integration (Project Settings → Integrations → GitHub → Deploy to
+  production) stays **off**, so only one thing applies migrations.
+- History before the switch: 0001-0007 were recorded by the CLI; 0008-0120 were run by hand
+  and recorded once with `scripts/db/mark-migrations-applied.sql`.
+- A brand-new project is still built with `fresh-install.sql` (the 0064 ordering quirk
+  above breaks a plain `db push` from empty); afterwards mark every migration version
+  as applied, the same way the history script does.
+
 ## Data is not in these files
 
 These scripts rebuild the **structure**. Rows (items, purchases, ledger, QC, …) live only
