@@ -2,8 +2,8 @@
 --
 -- Migrations 0008-0120 were pasted into the SQL Editor by hand, so Supabase's
 -- migration history (supabase_migrations.schema_migrations) stops at 0007.
--- From now on GitHub Actions applies new migrations with `supabase db push`,
--- which runs every file missing from that history. Without this script it
+-- From now on Supabase's GitHub integration applies new migrations on push to main;
+-- it runs every file missing from that history. Without this script it
 -- would re-run 0008-0120 on a database that already has them.
 --
 -- This only adds history rows; it does not touch any table in public.

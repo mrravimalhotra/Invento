@@ -41,23 +41,22 @@ handles: `0064_fix_bulk_create_mfr_definitions_replay.sql` must run straight aft
 
 ## How migrations reach the live database
 
-GitHub Actions does it (`.github/workflows/db-migrate.yml`). On a pull request that adds a
-migration it does a dry run and lists what a merge would apply; on a push to `main` it runs
-`supabase db push`, which applies every file in `migrations/` that is not yet recorded in
-`supabase_migrations.schema_migrations`, in file-name order, and records it. Do not paste
-new migrations into the SQL Editor any more: a hand-run file is not recorded, so the
-workflow would run it a second time.
+Supabase's GitHub integration applies them (Project Settings → Integrations → GitHub:
+working directory `.`, production branch `main`, **Deploy to production on**). On every push
+to `main` it runs each file in `migrations/` that is not yet recorded in
+`supabase_migrations.schema_migrations`, in file-name order, and records it. Check what has
+been applied, and any failure, under Supabase → Database → Migrations. A failed migration is
+fixed with a **new** migration, never by editing the old one.
 
-- Needs the repository secret `SUPABASE_DB_URL` (GitHub → Settings → Secrets and variables →
-  Actions): Supabase → Connect → **Session pooler** string, password filled in. Not the
-  direct connection (IPv6 only, GitHub runners cannot reach it) and not the transaction pooler.
-- Supabase's own GitHub integration (Project Settings → Integrations → GitHub → Deploy to
-  production) stays **off**, so only one thing applies migrations.
-- History before the switch: 0001-0007 were recorded by the CLI; 0008-0120 were run by hand
-  and recorded once with `scripts/db/mark-migrations-applied.sql`.
+- Never paste a migration into the SQL Editor: a hand-run file is not recorded, so the
+  integration runs it again and fails on it, and every later migration waits behind it.
+- History before the switch: 0001-0007 were recorded by the integration; 0008-0120 were run
+  by hand and recorded once with `scripts/db/mark-migrations-applied.sql`.
+- Claude never connects to the live database and never asks for its password, connection
+  string or service-role key. SQL that cannot be a migration is handed to the owner to paste.
 - A brand-new project is still built with `fresh-install.sql` (the 0064 ordering quirk
-  above breaks a plain `db push` from empty); afterwards mark every migration version
-  as applied, the same way the history script does.
+  above breaks applying the files one by one from empty); afterwards mark every migration
+  version as applied, the same way the history script does.
 
 ## Data is not in these files
 
