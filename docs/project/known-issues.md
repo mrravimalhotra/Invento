@@ -527,4 +527,11 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - [x] `allocateFifo()` moved from `finished-product/new/compose/page.tsx` to `lib/fifo.ts` (no change in behaviour) so it can be tested; `Allocation` is defined once there.
 - [x] `tsconfig.json` leaves `docs/` out: the archived scan scripts there broke `npx tsc --noEmit`.
 - [x] **Live checks, data side (read-only):** evidence written into E10, E12, E20, E22, E27, E28, E29, E31, E32, E33, E36, E37, E40, E47, E53, E55, E57, E60, E61, E67 and E68 of the master list. What each still needs on screen is unchanged.
-- Finding for Ravi (no change made): an approved MFR that no batch has used can be deleted by the System Administrator, and its finished product item stays behind. It happened twice (MFR-0001 on 28 Sept, MFR-0006 on 7 Oct, each deleted within a minute of approval), leaving FP-00001 and FP-00005 with no MFR. For GMP, an approved master record is usually retired (Deactivate), not deleted. Decision needed: refuse delete once approved, or keep as is.
+- Finding for Ravi (no change made): an approved MFR that no batch has used can be deleted by the System Administrator, and its finished product item stays behind. It happened twice (MFR-0001 on 28 Sept, MFR-0006 on 7 Oct, each deleted within a minute of approval), leaving FP-00001 and FP-00005 with no MFR. For GMP, an approved master record is usually retired (Deactivate), not deleted. **Decided by Ravi 18 Oct 2026: refuse delete once approved (Deactivate only); built as migration 0123 (Pass 92).** FP-00001 and FP-00005 stay as old test data.
+
+## Pass 92 — Migration 0123: an approved MFR cannot be deleted (18 Oct 2026, `0eb9369`)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: "Refuse delete once an MFR is approved (Deactivate only)"); applied by the Supabase GitHub integration.
+
+- [x] A before-delete trigger on `mfr_definitions` refuses any delete of an approved MFR with "MFR … is approved, so it cannot be deleted. Deactivate it instead." It holds for every path, not only the app's. A draft MFR can still be deleted.
+- [x] MFR page: the Delete button shows only on a draft (System Administrator); Deactivate stays for approved MFRs.
+- [x] Suite md123 (8 checks); sec04, a0085 and a0086 now expect the refusal instead of the delete. 42 suites OK; unit tests 30/30; build clean.
