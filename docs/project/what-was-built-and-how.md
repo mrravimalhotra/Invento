@@ -8,7 +8,7 @@ Inventory, quality control (QC) and manufacturing software for **Atharva Nature 
 
 - **Not live.** Every record in the app is test data; real data is expected 1 to 3 months after 29 Sept 2026. Go-live work is tracked in `claude/go-live-readiness-log.md`.
 - **Live address:** https://invento-atharva.vercel.app. **Code:** GitHub `mrravimalhotra/Invento`, branch `main`. Vercel deploys `main` on every push.
-- **Size today (18 Oct 2026):** 120 migrations, about 41,000 lines of TypeScript, 39 database test suites, 25 module notes, a 39-page User Guide PDF and a process map.
+- **Size today (18 Oct 2026):** 121 migrations, about 41,000 lines of TypeScript, 40 database test suites, 25 module notes, a 39-page User Guide PDF and a process map.
 
 ## 2. Technology
 
@@ -73,11 +73,11 @@ Six fixed roles, defined in `lib/constants/roles.ts` and mirrored by database po
 ## 6. How a change is built and tested
 
 1. Branch from `origin/main` in the cloud clone. Stage files by name.
-2. `npx tsc --noEmit`, `npx eslint <files>`, `scripts/dev/run-tests.sh` (39 suites, about 7 seconds on a local Postgres) compared with `supabase/tests/expected.txt`, then `next build`.
+2. `npx tsc --noEmit`, `npx eslint <files>`, `scripts/dev/run-tests.sh` (40 suites, about 7 seconds on a local Postgres) compared with `supabase/tests/expected.txt`, then `next build`.
 3. A migration ships with its SQL, a regression suite `supabase/tests/part_*.sql` (helpers `t_ok`, `t_fail`, `t_check`), an expected line, a regenerated `supabase/fresh-install.sql` (`node scripts/build-fresh-install.mjs`) and a line in `docs/modules/`.
-4. `git format-patch` writes one patch; the patch and any SQL are delivered into `C:\MyApps\Invento\invento-v2`.
-5. Ravi runs the SQL in the Supabase SQL Editor first, then `git am`, `git push origin main`, deletes the files and sends a screenshot.
-6. Close-out: `git fetch`, content diff against the delivered branch, then update the deployment log, the known-issues log, the open-items master list and the memory file.
+4. Push the branch, then fast-forward `main` (`git push origin <branch>:main`, `docs/GIT-WORKFLOW.md`). Vercel deploys `main`; Supabase's GitHub integration applies any new migration. (Until 18 Oct 2026: a patch applied with `git am` by Ravi after he ran the SQL by hand.)
+5. Confirm a migration in `supabase_migrations.schema_migrations` through the Supabase connector (read-only queries only).
+6. Close-out: update the deployment log, the known-issues log, the open-items master list and the `docs/project` copies.
 
 Testing facts worth knowing: `quality_checks.retest_date` is recomputed by a trigger from `reviewed_at` plus the period, so tests backdate `reviewed_at`; packaging inserts in tests run as the owner because of row-level security; the suite runner needs a new suite added to both its `FILE` map and its `ORDER` array.
 

@@ -484,3 +484,14 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - Known caveat: a finished product batch whose retest was rejected (bulk taken out of On hand) can appear in INV-S8 until someone looks at it.
 - Not yet done: run `live-data-checks.sql` on the live database, block by block, before go-live (go-live log G10).
 - Lesson: scripts kept outside the repository go stale unnoticed. The README tells the next author to fix a block in the same change whenever a migration renames or drops a column.
+
+## Pass 88 — Delivery by push, migrations applied by the Supabase GitHub integration (18 Oct 2026, `0602487`, `811527a`, `b5ea6d0`, migration 0121)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude; 0121 applied by Supabase and confirmed on the live database.
+
+- [x] **Found:** Supabase's migration history stopped at 0007. Migrations 0008 to 0120 had been run by hand in the SQL Editor, which records nothing, so the GitHub integration (Deploy to production on `main`) had been stuck on 0008 since then.
+- [x] **Fixed:** `scripts/db/mark-migrations-applied.sql` (run once by Ravi: 120 rows, newest 0120) records 0008 to 0120; it refuses to run unless 0120's changes exist.
+- [x] **Proved end to end:** migration 0121 (a description on the `public` schema only) was pushed to `main` and applied by the integration within about two minutes (121 rows, newest 0121). Suite mp121; 40 suites OK.
+- [x] **New delivery method:** Claude pushes the session branch and fast-forwards `main` (`docs/GIT-WORKFLOW.md`); no patches; Ravi runs no SQL. Claude has a Supabase connector with write tools blocked and uses Execute SQL for read-only queries only.
+- [x] Documents updated: handoff, deployment log, working agreement, what was built, open items, readiness rating, `supabase/README.md`, `CLAUDE.md`.
+- Still open: the skill `invento-patch-delivery` (claude.ai settings) still describes patches; Ravi to update or retire it. LW-11 moves to migration 0122.
+- Lesson: never run a migration by hand once an automatic deployer is connected; the deployer's history and the database drift apart silently.

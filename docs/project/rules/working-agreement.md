@@ -11,7 +11,7 @@ This applies especially to:
 - Anything requiring Ravi to take an action outside the session (running SQL migrations in Supabase, pushing git commits from his machine, applying patches). Call these out as their own explicit step, with the full literal directory and commands, and wait for his confirmation before moving on.
 - Multi-step fixes or features that touch several files or need both a code change and a manual action (for example a database migration plus a code deploy).
 
-His local clone lives at `C:\MyApps\Invento\invento-v2` on his machine (device name "ravipc"), connected folder `C:\MyApps\Invento`. The repo is `mrravimalhotra/Invento` on GitHub. The cloud sandbox's git proxy cannot push to it (403, outside the session's authorised repos), so fixes are delivered as patches (git format-patch, SendUserFile, device_commit_files, then git am in that clone) and Ravi pushes manually from his own machine.
+His local clone lives at `C:\MyApps\Invento\invento-v2` on his machine (device name "ravipc"), connected folder `C:\MyApps\Invento`. The repo is `mrravimalhotra/Invento` on GitHub. Since 18 Oct 2026 the cloud session pushes to it directly and fast-forwards `main` (`docs/GIT-WORKFLOW.md`); Supabase's GitHub integration applies migrations from `main`, so Ravi no longer runs SQL, applies patches or pushes. (Before that the sandbox could not push, and fixes were delivered as patches applied with `git am`.)
 
 Stated 30 Aug 2026, in the context of the feedback-ticket-number feature (which needed a manual Supabase migration step before the code push).
 

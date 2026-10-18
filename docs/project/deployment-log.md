@@ -15,30 +15,36 @@ Older history: `claude/deployment-archive.md` (search it, don't read it whole). 
 
 | | Value | Verified |
 |---|---|---|
-| GitHub `main` (live on Vercel) | `b54da87` — read-only SQL checks under `scripts/sql` (no migration), after `de1c60f` — User Guide and Process Map refresh (no migration), after `f6a87d7` — project documents under `docs/project` (no migration), after `93de17e` — finished product retest, same cycle as raw material (migration 0120), after `b9edc35` — live walk fixes (no migration), after `9ca548a` — Legacy tag fix (no migration), after `8d2c7a3` — QC results by round, mandatory reasons, proposed rejection, void and decision history (migration 0119; three commits, last is the User Guide PDF), after `91c41ab` — Item Master COA template column (no migration), after `72af8e4` — Opening Stock Loads table shows who loaded (no migration), after `e9dba65` — quick wins (sidebar prefetch off, more failed-read banners, Edit invoice details on a new order; no migration), after `445fe1c` — Opening Stock rows can be typed in on the page (no migration), after `20fb5c0` — Stock Integrity Check explains each difference (migration 0118), after `1823c89` — guide and process map refresh, both on the User Guide page (no migration; Ravi pushed 12 Oct 2026, content identical to `guide-group13`), after `7900604` — accounts group (sign-in log, vendor Active tick, editable invoice details; migration 0117), after `d4dd1b4` — limits group |
-| Latest migration run in Supabase | `0120_finished_product_retest.sql` | Ravi screenshot, 12 Oct 2026: "Success. No rows returned" |
+| GitHub `main` (live on Vercel) | `b5ea6d0` — migration 0121 pipeline check, after `811527a` — Git workflow document, after `0602487` — migrations applied by the Supabase GitHub integration (no migration), after `dff89f5` — project documents completed (no migration), after `b54da87` — read-only SQL checks under `scripts/sql` (no migration), after `de1c60f` — User Guide and Process Map refresh (no migration), after `f6a87d7` — project documents under `docs/project` (no migration), after `93de17e` — finished product retest, same cycle as raw material (migration 0120), after `b9edc35` — live walk fixes (no migration), after `9ca548a` — Legacy tag fix (no migration), after `8d2c7a3` — QC results by round, mandatory reasons, proposed rejection, void and decision history (migration 0119; three commits, last is the User Guide PDF), after `91c41ab` — Item Master COA template column (no migration), after `72af8e4` — Opening Stock Loads table shows who loaded (no migration), after `e9dba65` — quick wins (sidebar prefetch off, more failed-read banners, Edit invoice details on a new order; no migration), after `445fe1c` — Opening Stock rows can be typed in on the page (no migration), after `20fb5c0` — Stock Integrity Check explains each difference (migration 0118), after `1823c89` — guide and process map refresh, both on the User Guide page (no migration; Ravi pushed 12 Oct 2026, content identical to `guide-group13`), after `7900604` — accounts group (sign-in log, vendor Active tick, editable invoice details; migration 0117), after `d4dd1b4` — limits group |
+| Latest migration run in Supabase | `0121_migration_pipeline_check.sql` | Applied by the Supabase GitHub integration on push to `main`, 18 Oct 2026; Claude checked `schema_migrations` (121 rows, newest 0121) through the Supabase connector |
 | Pending (delivered, not yet applied) | Nothing | — |
-| Next migration number | `0121` | Corrected 18 Oct 2026 (0120 is already run) |
+| Next migration number | `0122` | 18 Oct 2026 (0121 is live) |
 
 ## How deliveries work (and how to verify)
 
-1. Claude builds on a branch from `origin/main`, generates `git format-patch`, and writes
-   the patch straight into `C:\MyApps\Invento\invento-v2` (linked computer).
-2. Ravi runs `git am <patch>` and `git push origin main`. A patch that contains a
-   migration creates it in `supabase\migrations` automatically — never copy the
-   migration there separately (it would make `git am` fail with "already exists").
-3. Ravi runs the migration in the Supabase SQL Editor and sends a screenshot.
-4. Claude verifies with `git fetch origin main` + a content diff against the delivered
-   commit (commit hashes differ because `git am` re-authors — compare content, not
-   hashes), then adds a row below and updates **Current state**.
+1. Claude builds on the session branch from `origin/main` and runs the checks (tsc, eslint,
+   `scripts/dev/run-tests.sh`, `next build`). A migration ships with its suite, expected line
+   and regenerated `supabase/fresh-install.sql`.
+2. Claude pushes the branch, then fast-forwards `main`: `git push origin <branch>:main`
+   (`docs/GIT-WORKFLOW.md`). Vercel deploys `main`; Supabase's GitHub integration applies any
+   new file in `supabase/migrations` (Deploy to production on, branch `main`).
+3. Claude verifies on the live database through the Supabase connector (read-only queries
+   only): `supabase_migrations.schema_migrations` shows the new version, and the change is there.
+4. Claude adds a row below and updates **Current state**. Ravi does not paste SQL, apply
+   patches or push. Never run a migration by hand in the SQL Editor: it is not recorded, so
+   the integration would run it again (see `supabase/README.md`).
 
-A code-only patch is live once pushed (Vercel deploys `main`). A patch with a migration
-is live only when **both** the push and the SQL run are confirmed.
+Until 18 Oct 2026 deliveries were patches (`git format-patch`, `git am` on Ravi's machine,
+SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivered that way.
 
 ## Delivery log (newest first; rows from before 28 Sept are in `claude/deployment-archive.md`)
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
+| 2026-10-18 | this commit | Project documents updated to the new delivery method (handoff, deployment log, working agreement, what was built, open items, readiness rating, known issues Pass 88) | None | ✅ | n/a | Pushed by Claude |
+| 2026-10-18 | `b5ea6d0` | Migration 0121 pipeline check: sets a description on the `public` schema only, to prove push-to-main applies migrations | `0121_migration_pipeline_check` | ✅ | ✅ | Pushed by Claude. Applied by the Supabase GitHub integration within about two minutes; Claude confirmed 121 rows, newest 0121, and the schema description. Suite mp121 1/1; 40 suites OK |
+| 2026-10-18 | `811527a` | `docs/GIT-WORKFLOW.md` and a `CLAUDE.md` rule: push the session branch, then fast-forward `main` (Ravi: use this method to push and merge) | None | ✅ | n/a | First push to `main` by Claude |
+| 2026-10-18 | `0602487` | Migrations applied by Supabase's GitHub integration (Ravi's choice, same as his other project); `scripts/db/mark-migrations-applied.sql` records 0008 to 0120, which were run by hand; `supabase/README.md` and `CLAUDE.md` describe the flow (an earlier commit `bd3508d` with a GitHub Actions workflow was replaced by this one) | None | ✅ | n/a | Ravi ran the history script in the SQL Editor: 120 rows, newest 0120 |
 | 2026-10-18 | `b54da87` | Read-only SQL scripts checked into the repository (Ravi: add relevant scripts to repo): `scripts/sql/live-data-checks.sql` (97 SELECT-only blocks: scan checks P1 to P10 plus the stock, QC, production and packaging invariants, updated for migration 0120) and `scripts/sql/README.md`; pointer in `CLAUDE.md`. The one-off cleanup, the 13 Sept backup and the bug-reproduction scripts were deliberately left out. | None | 18 Oct 2026 | n/a | Parsed against a fresh install (97 of 97 blocks run); not yet run on live data. Patch `sqlscripts25.patch`; `git fetch` showed `origin/main` identical to the delivered branch. |
 | 2026-10-18 | `de1c60f` | User Guide and Process Map refreshed to the app at 93de17e (Ravi: update the user guide and process map and check into repo): RM Report has no date box and its columns are explained; retest block and First QC / Retest list in Packaging and Finished Product; QC Decision History in Audit Log; Process Map gains the QC results, reasons and proposed-rejection note, the Rejection proposed status, the finished product retest note, corrected rules and GL-17, GL-20; PDFs rebuilt (guide 47 pages, map 24) | none | ✅ | n/a | Docs and PDFs only; patch `guiderefresh24`; applied with `git am` and pushed `f6a87d7..de1c60f`. Not yet looked at on the live User Guide page. |
 | 2026-10-18 | `f6a87d7` | Project documents checked into `docs/project/` (Ravi: all these files to be checked in to repo): handoff, what was built and how, open-items summary and master list, known issues, deployment log, readiness rating, go-live readiness log, best-practices guide, README; `CLAUDE.md` points to the folder | none | ✅ | n/a | Docs only; patch `projectdocs23`; pushed `93de17e..f6a87d7`. The repo copies are snapshots of the 18 Oct project documents; refresh them with the next delivery. |
@@ -124,7 +130,7 @@ is live only when **both** the push and the SQL run are confirmed.
 | 2026-09-29 | `7ddd34c` | Purchase Register shows submitted, active lines only; Unit column added (screen + PDF); blank Re-Test Date column removed (ACC-35; Ravi: Option A, exclude drafts) | — | ✅ | n/a | Code only. tsc/eslint/build clean. File service returned 500 on SendUserFile; delivered via device_commit_files from the outputs folder. Ravi screenshot 29 Sept: push `112def4..7ddd34c`. |
 
 
-## Migration register (all 119 live; 0001–0081 are in `claude/deployment-archive.md`)
+## Migration register (all 121 live; 0001–0081 are in `claude/deployment-archive.md`)
 
 | Migration | Added in commit | Date | Supabase | Evidence |
 |---|---|---|---|---|
@@ -162,11 +168,14 @@ is live only when **both** the push and the SQL run are confirmed.
 | `0113_anonymous_lockdown_and_idle_timeout` | `d435ea1` | 2026-10-12 | ✅ Live | Ravi screenshot 12 Oct: Success |
 | `0119_qc_results_reasons_rejection` | `8d2c7a3` | 2026-10-12 | ✅ Live | Ravi screenshot 12 Oct: Success |
 | `0120_finished_product_retest` | `93de17e` | 2026-10-12 | ✅ Live | Ravi screenshot 12 Oct: Success |
+| `0121_migration_pipeline_check` | `b5ea6d0` | 2026-10-18 | ✅ Live | Applied by the Supabase GitHub integration; checked by Claude in `schema_migrations` |
 
 ## Supabase / hosting configuration changes (not in git)
 
 | Date | Change | Where | By |
 |---|---|---|---|
+| 2026-10-18 | Migration history fixed: 0008 to 0120 recorded in `supabase_migrations.schema_migrations` (`scripts/db/mark-migrations-applied.sql`); the GitHub integration (Deploy to production, branch `main`, working directory `.`) now applies new migrations | Supabase → SQL Editor; Project Settings → Integrations → GitHub | Ravi |
+| 2026-10-18 | Supabase connector added for Claude: write tools blocked except Execute SQL (always allowed; Claude runs read-only queries only) | claude.ai → Connectors → Supabase | Ravi |
 | 2026-09-28 | Minimum password length set to **10** (matches app, SEC-09) | Supabase → Authentication → Providers → Email | Ravi |
 | 2026-09-28 | "Allow new users to sign up" turned **off** | Supabase → Authentication → Sign In / Providers | Ravi |
 | 2026-10-11 | **B4 reset-link settings still to do by Ravi**: Redirect URLs allow-list `https://invento-atharva.vercel.app/auth/confirm`; Reset password e-mail template link `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` | Supabase → Authentication → URL Configuration / Email Templates | Ravi (not yet confirmed) |

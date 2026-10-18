@@ -4,7 +4,7 @@ Read this first in a new session. It replaces `claude/session-handoff-2026-10-12
 
 ## 0. If you only have five minutes
 
-1. `main` = `b54da87`, live on Vercel (code last changed at `93de17e`; later commits are documents and scripts only). Migrations run in Supabase up to **0120**; the next is **0121**. Nothing is pending or undelivered.
+1. `main` = `b5ea6d0` or later, live on Vercel (code last changed at `93de17e`; later commits are documents, scripts and the 0121 pipeline check). Migrations run in Supabase up to **0121**; the next is **0122**. Nothing is pending or undelivered. **Since 18 Oct 2026 Claude pushes to `main` itself and Supabase applies migrations from `main`** (section 3); patches are no longer used.
 2. Read, in this order: this file, `claude/deployment-log.md` (Current state block only), `claude/open-items-summary-2026-10-18.md`.
 3. Ravi's pending answer: **"go"** for a read-only phone-width walk of the app (section 8), or "go" on the corrections group, once he has run live check E70.
 4. End every reply to him with exactly **one** recommended next step.
@@ -21,23 +21,24 @@ Read this first in a new session. It replaces `claude/session-handoff-2026-10-12
 |---|---|
 | The repository | Cloud clone was at `/home/claude/invento-app` (branch from `origin/main`). If it is gone: clone `mrravimalhotra/Invento` through the session's GitHub connection (`gh api` works for the REST API), or stage the repo files from `C:\MyApps\Invento\invento-v2` with the device tools. Then `npm ci`. |
 | Project map and commands | The repo's `CLAUDE.md` (31 lines) and `AGENTS.md`. Read them instead of exploring. |
-| Database tests | `scripts/dev/run-tests.sh [suite...]` needs a local Postgres. Check `which psql pg_ctl postgres`; install with the system package manager if missing. Output must match `supabase/tests/expected.txt` (39 lines; latest `fr120 67 0`). |
+| Database tests | `scripts/dev/run-tests.sh [suite...]` needs a local Postgres. Check `which psql pg_ctl postgres`; install with the system package manager if missing. Output must match `supabase/tests/expected.txt` (40 lines; latest `mp121 1 0`). |
 | Skill | `anthropic-skills:invento-patch-delivery` holds the delivery workflow. Load it before building or delivering anything. |
 | Memory | `/projects/01a03e97-a48e-741d-aa6d-66b350bb0f21/areas/invento.md` (decisions and status), plus `.../preferences.md`. Read before fix or deploy work; append new decisions. |
 | Project docs | The Invento project holds about 70 documents under `claude/`. Search with `project_search`; read only the section you need. |
-| Ravi's computer | Linked folder `C:\MyApps\Invento\invento-v2`. Deliver patches there with `SendUserFile` then `device_commit_files`. |
+| Ravi's computer | Linked folder `C:\MyApps\Invento\invento-v2`. Not used for delivery any more (patches retired 18 Oct 2026); his clone catches up with `git pull`. |
+| Supabase | Claude's Supabase connector (project `zsmsdssfdtwpkonaaahp`): write tools blocked; Execute SQL allowed, used for read-only queries only (checking a migration applied, `scripts/sql/live-data-checks.sql`, data for live checks). Never write to live data from a session. |
 | Live site | https://invento-atharva.vercel.app. Read-only walks use his signed-in Chrome. **Never create accounts or type passwords.** |
 
 ## 3. Rules Ravi works by (standing)
 
 - Build on a branch from `origin/main`. Stage files by name, never `git add -A`. No destructive git commands unless he asks.
-- Run `npx tsc --noEmit`, `npx eslint <files>`, the database suites and `next build` before delivering. Deliver one `git format-patch` file, plus the migration SQL if any.
-- Order Ravi follows: (1) run the SQL in the Supabase SQL Editor, (2) in PowerShell from `C:\MyApps\Invento\invento-v2`: `git am .\<patch>`, (3) `git push origin main`, (4) `Remove-Item` the patch and SQL files, (5) send a screenshot. Never copy the migration into `supabase\migrations` by hand; `git am` creates it.
-- After he confirms: `git fetch` and `git diff --quiet <branch> origin/main` (compare content, not hashes, because `git am` re-authors); then update `claude/deployment-log.md`, `claude/known-issues.md` (next pass number), `claude/open-items-master-list.md`, and append to the memory file.
+- Run `npx tsc --noEmit`, `npx eslint <files>`, the database suites and `next build` before delivering.
+- Deliver by pushing (`docs/GIT-WORKFLOW.md`): push the session branch, then `git push origin <branch>:main`. Vercel deploys `main`; Supabase's GitHub integration applies new files in `supabase/migrations`. Ravi does not paste SQL, apply patches or push. Never run a migration by hand in the SQL Editor (it is not recorded, so the integration would run it again).
+- After the push: confirm a migration in `supabase_migrations.schema_migrations` through the Supabase connector (read-only), then update `claude/deployment-log.md`, `claude/known-issues.md` (next pass number), `claude/open-items-master-list.md`, and the `docs/project` copies. The skill `invento-patch-delivery` still describes patches; where it differs, this section wins.
 - Ask product decisions with the multiple-choice tool and always include a **Park it** option. Record the answer.
 - Do not touch **FB-0038 and FB-0036**. Deprecated BMR, Line Clearance and Environmental Control stay untouched. Printed identity: "Atharva Nature Healthcare Pvt. Ltd." and "PD/AYU/111".
 - Keep tool output short. Do not read whole project docs. Replies: one or two sentences on the outcome, no step recaps.
-- The sandbox cannot push. If a "Stop hook" complains about an unpushed branch, answer briefly: Ravi applies patches with `git am`.
+- The session can push. A "Stop hook" about an unpushed branch means something is not pushed yet: push it.
 - Decisions on record that must not be re-asked: SEC-02 accepted by design; SEC-05, SEC-08, SEC-11, SEC-13 no action; ACC-11 parked; ACC-41 no action; packaging is Pack only; MFA undecided; C14 tests/CI deferred; C15 CSP enforcement on hold; C16 summary table not needed until about 5 million ledger rows; C17 Reports/Item Master paging and C18 loose SQL scripts on hold; 13 direct-API findings accepted as risk (11 Oct); all roles may load opening stock; System Admin exempt from the different-person QC rule.
 
 ## 4. What was done in the last stretch (12 to 18 Oct 2026)
@@ -55,11 +56,11 @@ Read this first in a new session. It replaces `claude/session-handoff-2026-10-12
 
 | | Value |
 |---|---|
-| GitHub `main` | `b54da87` (last code change `93de17e`) |
-| Supabase migrations run | up to `0120_finished_product_retest.sql` |
+| GitHub `main` | `b5ea6d0` or later (last code change `93de17e`) |
+| Supabase migrations run | up to `0121_migration_pipeline_check.sql` (applied by the GitHub integration) |
 | Pending delivery | none |
-| Next migration number | `0121` |
-| Database test suites | 39, all expected lines pass |
+| Next migration number | `0122` |
+| Database test suites | 40, all expected lines pass |
 | Cloud clone | local branch `fpretest22` may show "ahead 1, behind 1" against `origin/main`; that is only the re-authored hash. Start new work with `git fetch origin && git checkout -B <new-branch> origin/main`. |
 
 ## 6. Waiting on Ravi
@@ -75,7 +76,7 @@ Read this first in a new session. It replaces `claude/session-handoff-2026-10-12
 
 1. Ravi runs E70 and sends a screenshot (or asks for the SQL line).
 2. Mobile: the phone-width walk (section 8), then two patches. No SQL.
-3. Corrections group (void and correct paths): needs migration 0121 or later. Ask the decision questions first.
+3. Corrections group (void and correct paths): needs migration 0122 or later. Ask the decision questions first.
 4. LW-11 fix (small migration): confirm RM-00004-02/26 in the ledger before changing the check.
 5. Go-live preparation (section 9) when Ravi sets a date.
 6. Remaining scan decisions in groups of four, each with a Park option.
@@ -116,7 +117,7 @@ Register and ten-step checklist: `claude/go-live-readiness-log.md`. Plan for env
 | `claude/what-was-built-and-how.md` | What exists and how it was built |
 | `claude/open-items-summary-2026-10-18.md` | Short list of everything still open |
 | `claude/open-items-master-list.md` | Full register (open, parked, closed, tickets, decisions) |
-| `claude/known-issues.md`, `known-issues-archive.md` | Pass-by-pass findings and fixes (latest Pass 85) |
+| `claude/known-issues.md`, `known-issues-archive.md` | Pass-by-pass findings and fixes (latest Pass 88) |
 | `claude/deployment-log.md`, `deployment-archive.md` | What is live, migrations, delivery rows |
 | `claude/production-readiness-rating-2026-10-18.md` | Ratings by category |
 | `claude/go-live-readiness-log.md` | Go-live register G1 to G11 and switch-over checklist |
@@ -153,4 +154,4 @@ Known caveat: a finished product batch whose retest was rejected (bulk taken out
 
 ## 14. Starter prompt for the new session
 
-> You are continuing work on Invento for Ravi (Atharva Nature Healthcare Pvt. Ltd.). Load the skill `anthropic-skills:invento-patch-delivery`. Read, in this order, from the Invento project: `claude/handoff-cloud-session-2026-10-18.md`, the "Current state" block of `claude/deployment-log.md`, and `claude/open-items-summary-2026-10-18.md`. Read the memory file `areas/invento.md` for this project. Set up the repository from `origin/main` (see section 2 of the handoff). `main` is `b54da87` (last code change `93de17e`); migrations are run up to 0120; nothing is pending. Do not start building until Ravi tells you what he wants; his likely next messages are the result of live check E70, or "go" for the mobile phone-width walk or the corrections group. Follow the standing rules in section 3 and end every reply with exactly one recommended next step.
+> You are continuing work on Invento for Ravi (Atharva Nature Healthcare Pvt. Ltd.). Load the skill `anthropic-skills:invento-patch-delivery`. Read, in this order, from the Invento project: `claude/handoff-cloud-session-2026-10-18.md`, the "Current state" block of `claude/deployment-log.md`, and `claude/open-items-summary-2026-10-18.md`. Read the memory file `areas/invento.md` for this project. Set up the repository from `origin/main` (see section 2 of the handoff). `main` is `b5ea6d0` or later (last code change `93de17e`); migrations are run up to 0121 (next 0122); nothing is pending. Deliver by pushing to `main` as in section 3 (no patches). Do not start building until Ravi tells you what he wants; his likely next messages are the result of live check E70, or "go" for the mobile phone-width walk or the corrections group. Follow the standing rules in section 3 and end every reply with exactly one recommended next step.
