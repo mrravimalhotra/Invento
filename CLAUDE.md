@@ -27,6 +27,7 @@ pharma (GMP) SME. Not live: all data is test data. Deployed by pushing `main` (V
 - After adding or changing a migration: `node scripts/build-fresh-install.mjs` and commit `supabase/fresh-install.sql`.
 
 ## Rules of the road
+- Delivery workflow: skill `invento-delivery` (`.claude/skills/`). The account skill `invento-patch-delivery` (patches, SQL by hand) is retired.
 - Git (`docs/GIT-WORKFLOW.md`): develop on the session branch, run the checks before every commit, keep `git status` clean, push the branch and then `git push origin <branch>:main`. No pull request unless the owner asks. Never force-push.
 - Stage files by name (`git add <paths>`); never `git add -A` (it once committed test output files).
 - A migration ships with: the SQL, a test suite, `fresh-install.sql`, and (if user-visible) a line in `docs/modules/`.
