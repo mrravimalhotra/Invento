@@ -39,7 +39,7 @@ Invento = Next.js 16 + Supabase inventory/QC/manufacturing app for an Ayurvedic 
 - End every reply with exactly one recommended next step.
 - Test data may be left in place.
 - A stop-hook message about an unpushed branch means something is not pushed: push it.
-- Decisions on record: SEC-02 accepted by design; SEC-05/08/11/13 no action; ACC-11 parked; ACC-41 no action; packaging is Pack only; MFA undecided; C14 tests/CI deferred to go-live (G4); C15 CSP enforce on hold; C16 stock summary table not needed until about 5M ledger rows; C17 Reports/Item Master paging on hold; 13 direct-API findings accepted as risk; all roles may load opening stock; System Admin exempt from the different-person QC rule; go-live items G1 to G11 handled with the move to Pro plans.
+- Decisions on record: SEC-02 accepted by design; SEC-05/08/11/13 no action; ACC-11 parked; ACC-41 no action; packaging is Pack only; MFA undecided; C14 tests/CI deferred to go-live (G4); C15 CSP enforce on hold; C16 stock summary table not needed until about 5M ledger rows; C17 Reports/Item Master paging on hold; 13 direct-API findings accepted as risk; all roles may load opening stock; System Admin exempt from the different-person QC rule; go-live items G1 to G11 handled with the move to Pro plans. Purge button stays for the testing cycle; guard it at go-live (C8, 18 Oct 2026).
 
 ## Token rules
 - Keep tool output short (`| tail`, `| cut -c1-200`). Read only the needed section of a project document.
