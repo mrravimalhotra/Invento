@@ -4,7 +4,7 @@ Read this first in a new session. It replaces `claude/session-handoff-2026-10-12
 
 ## 0. If you only have five minutes
 
-1. `main` = `93de17e`, live on Vercel. Migrations run in Supabase up to **0120**; the next is **0121**. Nothing is pending or undelivered.
+1. `main` = `b54da87`, live on Vercel (code last changed at `93de17e`; later commits are documents and scripts only). Migrations run in Supabase up to **0120**; the next is **0121**. Nothing is pending or undelivered.
 2. Read, in this order: this file, `claude/deployment-log.md` (Current state block only), `claude/open-items-summary-2026-10-18.md`.
 3. Ravi's pending answer: **"go"** for a read-only phone-width walk of the app (section 8), or "go" on the corrections group, once he has run live check E70.
 4. End every reply to him with exactly **one** recommended next step.
@@ -55,7 +55,7 @@ Read this first in a new session. It replaces `claude/session-handoff-2026-10-12
 
 | | Value |
 |---|---|
-| GitHub `main` | `93de17e` |
+| GitHub `main` | `b54da87` (last code change `93de17e`) |
 | Supabase migrations run | up to `0120_finished_product_retest.sql` |
 | Pending delivery | none |
 | Next migration number | `0121` |
@@ -66,6 +66,7 @@ Read this first in a new session. It replaces `claude/session-handoff-2026-10-12
 
 - **Live checks E62 to E70** (E70 first). For E70 he needs a finished product batch whose retest date has arrived; offer the SQL line that moves a batch's approval back, or Opening Stock with a past retest date.
 - **Decisions:** B45 (invoice date versus received date per output), P6-04 (production raw material QC), P4-09 (void certificates), LW-11 (S9 false alarm), MFA, P9-01 (deviations and CAPA: paper or app).
+- **Before go-live:** run `scripts/sql/live-data-checks.sql` on the live database, one block at a time (section 12; go-live log G10).
 - **Quick win:** Vercel Function Region to Tokyo (hnd1) and redeploy.
 - **"Go"** on the corrections group (P4-09, P6-01, P5-04, P8-01).
 - **Parked by him:** B10 (backups; now go-live), P3-07, P3-14, P8-06, P7-16, P10-08.
@@ -125,8 +126,31 @@ Register and ten-step checklist: `claude/go-live-readiness-log.md`. Plan for env
 | `claude/fp-retest-plan.md` | Finished product retest design |
 | `claude/environments-plan.md`, `opening-stock-plan.md`, `date-validation-review.md` | Plans |
 | `claude/working-agreement.md`, `large-task-ground-rules.md` | How to work with Ravi |
+| `scripts/sql/README.md`, `scripts/sql/live-data-checks.sql` (repository) | Read-only data and invariant checks (section 12) |
+| `docs/project/` (repository) | Copies of the documents above, so the repository carries the full story (section 13) |
 | `claude/session-handoff-2026-10-12.md` | Earlier handoff (history) |
 
-## 12. Starter prompt for the new session
+## 12. SQL scripts (checked in 18 Oct 2026, `b54da87`)
 
-> You are continuing work on Invento for Ravi (Atharva Nature Healthcare Pvt. Ltd.). Load the skill `anthropic-skills:invento-patch-delivery`. Read, in this order, from the Invento project: `claude/handoff-cloud-session-2026-10-18.md`, the "Current state" block of `claude/deployment-log.md`, and `claude/open-items-summary-2026-10-18.md`. Read the memory file `areas/invento.md` for this project. Set up the repository from `origin/main` (see section 2 of the handoff). `main` is `93de17e`; migrations are run up to 0120; nothing is pending. Do not start building until Ravi tells you what he wants; his likely next messages are the result of live check E70, or "go" for the mobile phone-width walk or the corrections group. Follow the standing rules in section 3 and end every reply with exactly one recommended next step.
+| Script | Where | Status |
+|---|---|---|
+| `live-data-checks.sql` | `scripts/sql/` in the repository | **Kept.** 97 read-only SELECT blocks. Part 1: P1 to P10 blocks, one family per scan phase (privileges, constraints, data shapes, figures, limits). Part 2: invariants INV-S1..S10 (stock), INV-Q1..Q10 (QC), INV-P1..P10 (production), INV-K1..K11 (packaging); these return rows only when something is wrong. Run one block at a time in the Supabase SQL Editor. Updated for migration 0120 (`retest_sample_qty`, retest QC records) and parsed against a fresh install. Not yet run on live data. |
+| `scan-data-checks.sql`, `scan-invariants-stock/qc/production/packaging.sql` | Claude project only | Superseded: merged into `live-data-checks.sql`. |
+| `scan-evidence-p1.sql` to `p10.sql`, and the concurrency scripts | `docs/project/archive/scan-sql/` and the Claude project | Historical bug reproductions for findings that are now fixed. Not for the live database. |
+| `audit-impact-check.sql` | `docs/project/archive/` and the Claude project | One-off impact check for the 28 Sept accuracy audit. Refers to `packaging_issues.transaction_type`, dropped in migration 0079, so it no longer runs. Historical. |
+| `task_f_live_test_cleanup.sql` | Claude project only | Destructive one-off with hard-coded ids; already run on 3 Sept 2026. Do not reuse. |
+| `backup-before-purge-2026-09-13.sql` | Claude project only | Pre-purge data dump script (13 Sept 2026). Kept out of the repository because it copies every table. |
+
+Rules for the next author: a migration that renames or drops a column must also fix any block in `live-data-checks.sql` that uses it, in the same change. To test, build a database from `supabase/fresh-install.sql` (as `scripts/dev/run-tests.sh` does) and run each block; an error means a broken reference. An empty database returns no rows, so this does not test the results themselves.
+
+Known caveat: a finished product batch whose retest was rejected (bulk taken out of On hand) may appear in INV-S8 until it is looked at.
+
+## 13. What is in the repository (18 Oct 2026)
+
+- `docs/project/`: the documents listed in section 11 as snapshots, plus `scan/` (full-app scan plan, method, inventory, findings P0 to P11, findings by group, progress), `plans/` (finished product retest, live walk, environments, opening stock, date validation, scope changes, earlier handoff) and `rules/` (working agreement, large-task ground rules). Its README says which file is which.
+- Not copied (still only in the Claude project because they are long, closed history): `known-issues-archive.md` (passes 1 to 52), `deployment-archive.md`, `bug-fix-prompts.md`, the audit and review documents of Aug and Sept 2026, and the older design notes. The README lists them by name.
+- The Claude project copies stay the working versions; refresh the repository copies when a delivery is closed out.
+
+## 14. Starter prompt for the new session
+
+> You are continuing work on Invento for Ravi (Atharva Nature Healthcare Pvt. Ltd.). Load the skill `anthropic-skills:invento-patch-delivery`. Read, in this order, from the Invento project: `claude/handoff-cloud-session-2026-10-18.md`, the "Current state" block of `claude/deployment-log.md`, and `claude/open-items-summary-2026-10-18.md`. Read the memory file `areas/invento.md` for this project. Set up the repository from `origin/main` (see section 2 of the handoff). `main` is `b54da87` (last code change `93de17e`); migrations are run up to 0120; nothing is pending. Do not start building until Ravi tells you what he wants; his likely next messages are the result of live check E70, or "go" for the mobile phone-width walk or the corrections group. Follow the standing rules in section 3 and end every reply with exactly one recommended next step.

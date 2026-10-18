@@ -93,7 +93,7 @@ Testing facts worth knowing: `quality_checks.retest_date` is recomputed by a tri
 | 10 to 11 Oct | Full-app scan: 11 phases, 140 findings, ranked into 17 fix bundles; accepted-risk decision for direct API use |
 | 11 to 12 Oct | Fix groups 1 to 5, documentation clean-up, security, reliability, data integrity, convenience, PDF, limits and accounts groups |
 | 12 Oct | Sign-in log, opening stock typed in, quick wins, QC results and rejection control, live walk and its fixes, finished product retest (`93de17e`, migration 0120) |
-| 17 to 18 Oct | Best-practices guide for Next.js + Supabase, production-readiness rating, go-live readiness log, mobile plan, this handoff |
+| 17 to 18 Oct | Best-practices guide for Next.js + Supabase, production-readiness rating, go-live readiness log, mobile plan, this handoff, project documents and read-only SQL checks checked into the repository (`f6a87d7`, `de1c60f`, `b54da87`) |
 
 ## 8. Scan results at a glance
 

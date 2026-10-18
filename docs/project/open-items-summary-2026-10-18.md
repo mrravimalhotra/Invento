@@ -8,7 +8,7 @@ Short form of `claude/open-items-master-list.md` (the full register, with every 
 |---|---|---|
 | 1A | To fix, no decision needed | 0 |
 | 1B | Open, needs Ravi's decision or scoping | 34 |
-| 1C | Parked or on hold by Ravi | 18 |
+| 1C | Parked or on hold by Ravi | 17 |
 | 1D | Accepted by design, no action, deprecated | 42 |
 | 1E | Waiting on Ravi: live checks | 55 |
 | 1F | Scan findings open | 36 (0 High, 12 Medium, 24 Low); 86 fixed, 14 accepted, 3 set aside |
@@ -81,7 +81,7 @@ E1 to E16, E20, E22, E26 (partly), E27 (partly), E28 to E70 as listed in Part 1E
 - **C15** (A22 / SEC-10 (rest)) Full content-security policy still report-only. On hold, Ravi, 29 Sept. Framing is already blocked; only the script policy reports.
 - **C16** (A15 / PERF-01) Stock views recompute the whole ledger on every read. Measured 29 Sept 2026 on a 400,000-row ledger: `stock_balance` 53 ms, `item_position` 100 ms, one item 1–5 ms. A…
 - **C17** (A19 / PERF-05) Reports and Item Master send every row to the browser. On hold, Ravi, 29 Sept 2026: "will take decision later". Scan P7 (11 Oct 2026, SCAN-P7-02, duplicate): measured on a…
-- **C18** (Housekeeping) Loose SQL scripts live only in the Claude project, not in GitHub. On hold, Ravi, 29 Sept 2026. `audit-impact-check.sql`, `task_f_live_test_cleanup.sql` and…
+- **C18** (Housekeeping) CLOSED 18 Oct 2026 (`b54da87`): the read-only SQL checks are in `scripts/sql/` (see Pass 87). Left out on purpose: the cleanup, backup and bug-reproduction scripts. Still to do: run `live-data-checks.sql` on the live database before go-live.
 - **C19** (Mobile) Phone fit of the main screens (Dashboard, Purchase, QC, Inventory Ledger: wide tables and forms…. Parked, Ravi, 30 Sept 2026. Menu (E17) and install (E18) are done.
 
 ## F. Scan findings still open (36)

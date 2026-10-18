@@ -465,3 +465,22 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - [x] Fixed a stale line in the deployment log: next migration number is 0121, not 0120.
 - Still open (unchanged): LW-11 (needs migration 0121), B45, P6-04, P4-09, MFA, live checks E62 to E70.
 
+## Pass 86 — User Guide and Process Map refresh, project documents in the repository (18 Oct 2026, `de1c60f`, no migration)
+**Deploy status: live 18 Oct 2026** (docs and PDFs only). Pushed `93de17e..f6a87d7` (project documents) and `f6a87d7..de1c60f` (guide and map).
+
+- [x] Project documents now live in `docs/project/` in the repository, with a README and a pointer in `CLAUDE.md`. They are snapshots of the Claude project copies.
+- [x] User Guide stale text fixed: the Inventory tab is "RM Report" with no date box (the guide still described an As On Date box); PQTY, SQTY and QTY explained; retest block in Packaging and Finished Product; QC Decision History in the Audit Log; version line 18 October 2026. PDF 47 pages.
+- [x] Process Map stale text fixed: Round 1 "reject ends the record" (now a proposal); RM Report box; COA question GL-20 (header is locked, results come from QC); QC statuses gain Rejection proposed; finished product retest note; rules for packing, labels and retest limits. PDF 24 pages.
+- Not checked yet: the live User Guide page serving the new PDFs (Ravi to open Overview, User Guide after the Vercel deploy).
+- Lesson: a user-guide refresh should be repeated after any change to a screen's wording or a tab name; the stale RM Report line survived since bug-fix group 2 (11 Oct) because the guide was refreshed for features, not re-read for removals.
+
+## Pass 87 — SQL scripts in the repository, project documents completed in the repository (18 Oct 2026, `b54da87`, no migration)
+**Deploy status: live 18 Oct 2026** (scripts and documents only). Pushed `de1c60f..b54da87`.
+
+- [x] **C18 closed.** `scripts/sql/live-data-checks.sql` (97 read-only blocks) and `scripts/sql/README.md` are in the repository; `CLAUDE.md` points to them. The file merges the old `scan-data-checks.sql` with the four `scan-invariants-*.sql` files.
+- [x] **Checks brought up to date for migration 0120** (they had gone stale): `retest_sample_qty` is now in the bulk-left formulas (INV-S8, K3, K11, P8); retest QC records no longer look like anomalies (INV-P4, INV-Q2); INV-Q3 covers finished product batches.
+- [x] **Tested:** all 97 blocks run against an empty database built from `fresh-install.sql` (this proves every column exists; it does not test results on real data).
+- Deliberately not in the repository: `task_f_live_test_cleanup.sql` (destructive, hard-coded ids, already run), `backup-before-purge-2026-09-13.sql` (data dump), `scan-evidence-p*.sql` (reproductions of findings that are fixed), `audit-impact-check.sql` (one-off check for the 28 Sept audit; refers to a column dropped in 0079). They stay in the Claude project; the evidence and audit-impact scripts are also copied into `docs/project/archive/` for the record.
+- Known caveat: a finished product batch whose retest was rejected (bulk taken out of On hand) can appear in INV-S8 until someone looks at it.
+- Not yet done: run `live-data-checks.sql` on the live database, block by block, before go-live (go-live log G10).
+- Lesson: scripts kept outside the repository go stale unnoticed. The README tells the next author to fix a block in the same change whenever a migration renames or drops a column.
