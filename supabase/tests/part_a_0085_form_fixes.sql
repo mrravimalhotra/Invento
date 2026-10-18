@@ -90,7 +90,7 @@ select t_ok('deactivate / reactivate approved MFR', $q$update mfr_definitions se
 select t_ok('edit procedure of approved MFR via RPC', $q$select public.update_mfr_procedure((select id from mfr_definitions where name='Test MFR'), 'Intro', 95, 90, '[{"stage":"Mixing","operation":"Stir"}]'::jsonb)$q$);
 select t_ok('create + approve a second MFR', $q$select public.create_mfr_definition('Test MFR 2', 5, 'ltr', '00000000-0000-0000-0000-0000000000c1', '[{"item_id":"00000000-0000-0000-0000-0000000000c3","quantity":1,"unit":"kg"}]'::jsonb, 'domestic'); select public.approve_mfr_definition((select id from mfr_definitions where name='Test MFR 2'))$q$);
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',false);
-select t_ok('admin deletes an approved MFR (cascade to its lines)', $q$delete from mfr_definitions where name='Test MFR 2'$q$);
+select t_fail('admin cannot delete an approved MFR (0123: Deactivate only)', $q$delete from mfr_definitions where name='Test MFR 2'$q$, 'cannot be deleted');
 select t_check('its recipe lines are gone', not exists (select 1 from mfr_lines l left join mfr_definitions d on d.id = l.mfr_definition_id where d.id is null));
 
 \echo '===== FINISHED PRODUCT (as inventory_manager) ====='

@@ -31,8 +31,7 @@ export function DeleteMfrForm({ id, code, name }: { id: string; code: string; na
   return (
     <form action={formAction} className="flex flex-col gap-3 rounded border border-red/30 p-3">
       <p className="text-sm">
-        Delete <strong>{code} · {name}</strong>? This removes all recipe versions and can&apos;t be undone. The
-        linked Finished Product item is not deleted — it stays in Item Master.
+        Delete <strong>{code} · {name}</strong>? This removes the draft recipe and can&apos;t be undone.
       </p>
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       <div className="flex gap-2">

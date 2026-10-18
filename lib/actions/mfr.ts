@@ -258,11 +258,10 @@ export async function updateMfrProcedure(id: string, _prev: ActionState, formDat
 // 0011_mfr_delete_policy.sql. mfr_lines for this definition (all versions)
 // are removed automatically — mfr_lines.mfr_definition_id is `on delete
 // cascade` (0001_init.sql) — so no separate cleanup step is needed here,
-// unlike createMfrDefinition()'s manual multi-insert rollback. The linked
-// Finished Product item (finished_product_item_id) is deliberately left
-// alone: deleting the recipe doesn't delete the item it produces — that's
-// still an independent Item Master record, deletable on its own (subject
-// to its own FK checks) via deleteItem().
+// unlike createMfrDefinition()'s manual multi-insert rollback. Only a draft
+// (unapproved) MFR can be deleted: since 0123 the database refuses to delete
+// an approved one (P0001, shown as written) — Deactivate retires it instead.
+// A draft has no Finished Product item yet (it is created on approval).
 export async function deleteMfrDefinition(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user?.roles?.includes("system_admin")) return { error: "Only System Admin can delete MFR records." };

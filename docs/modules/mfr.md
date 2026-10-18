@@ -7,6 +7,7 @@ map), §8 (UI system — SignatureBlock reuse).
 > - An MFR is the recipe for one finished product: code `MFR-0001` (older ones `F-0001`), batch size, recipe lines (raw material only), a **Manufacturing Procedure** and an optional **COA template**. Write access: System Admin and MFR Manager.
 > - **One recipe per MFR, no versions** (version stays 1). The recipe can be edited only **before approval**; approval locks the header and the recipe (database guard, 0070). To change an approved recipe, deactivate it and create a new MFR.
 > - Approving creates the linked Finished Product item (and its packaged item); a Finished Product item cannot be created from Item Master.
+> - **An approved MFR cannot be deleted** (migration 0123, Ravi, 18 Oct 2026): Deactivate is the only way to retire it, so its finished product item never loses its recipe. A draft MFR can still be deleted by the System Administrator; the Delete button shows only on a draft.
 > - The procedure stays editable after approval. "Print MFR" downloads a .docx; the older report page (`/mfr/[id]/report`) still works by URL.
 > - Delete is admin-only; deactivate/reactivate hides or shows an MFR in pickers.
 > - Only an Approved, active MFR can be used to start a finished product batch.

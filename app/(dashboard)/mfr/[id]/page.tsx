@@ -222,7 +222,8 @@ export default async function MfrDetailPage({
               </div>
               {canEdit && <ToggleMfrActiveForm id={id} active={def.active} />}
             </div>
-            {isSystemAdmin && (
+            {/* 0123 (Ravi, 18 Oct 2026): an approved MFR is retired with Deactivate, never deleted. */}
+            {isSystemAdmin && !def.approved_by && (
               <div className="flex justify-end sm:col-span-2 border-t border-border pt-3">
                 <DeleteMfrForm id={id} code={def.code} name={def.name} />
               </div>
