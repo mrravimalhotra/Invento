@@ -562,3 +562,12 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - E10 (`/feedback` admin Save, 12 Sept): no cause in the current code; the admin Save returns "Saved." with no redirect, the #418 error matches the ledger date bug fixed the same day (L-4), and 26 tickets have been saved since. Close after one screen Save.
 - No unit test: the app has no browser test setup for components (deferred with CI to go-live). Checks: type-check, lint, build, unit tests.
 - [x] **Confirmed live by Ravi, 18 Oct 2026:** two notes in a row both appear; Save on /feedback works, so E10 is closed.
+
+## Pass 96 — P8-01: equipment calibration status worked out from the dates (18 Oct 2026, `4c95666`, migration 0125)
+**Deploy status: live 18 Oct 2026.** Ravi approved the mockup and chose "Next due required"; pushed to `main` by Claude; applied by the Supabase GitHub integration.
+
+- [x] The only choice is Needs calibration / Not applicable; Next due is required for Needs calibration (screen, bulk upload and database).
+- [x] Status computed in `lib/calibration.ts`: Calibrated (green), Due in N days within 30 (amber), Overdue by N days (red). Shown on the Equipment list, its Excel file (with both dates), the record page for people who cannot edit, and a new Dashboard card "Equipment calibration overdue or due in the next 30 days".
+- [x] 0125: old Calibrated / Due became Needs calibration (blank became Needs calibration when a Next due date was on file, else Not applicable); NOT VALID checks for the status values, Next due required, Next due after Last calibration and a whole quantity; a trigger refuses a Last calibration in the future (India date). The live database had no equipment, so nothing was converted there.
+- [x] Suite eq125 (11 checks); 4 unit tests; des02 and sb now count only their own equipment row (the migration's own conversion is audited). 44 suites, 34 unit tests, build clean.
+- Live check (E71): Equipment → New: Calibration shows Needs calibration / Not applicable; save Needs calibration without Next due → refused; with a Next due 10 days ahead → list shows "Due in 10 days" in amber and the Dashboard card lists it; a past Next due shows "Overdue by N days" in red.

@@ -5,7 +5,7 @@ Read this first. It sits on top of `handoff-cloud-session-2026-10-18.md` (the de
 ## 0. If you only have five minutes
 
 1. `main` = `1efc968` or later, live on Vercel. Last change to app code is still `93de17e` (finished product retest); everything after is documents, scripts, the delivery skill and migration 0121.
-2. Supabase has migrations **0001 to 0124** applied and recorded (0122 = Stock Integrity Check S9, LW-11; 0123 = approved MFR cannot be deleted; 0124 = function access hardening). The next migration is **0125**.
+2. Supabase has migrations **0001 to 0125** applied and recorded (0122 = Stock Integrity Check S9, LW-11; 0123 = approved MFR cannot be deleted; 0124 = function access hardening; 0125 = equipment calibration from dates). The next migration is **0126**.
 3. **Delivery changed today.** Claude pushes to `main` itself; Vercel deploys and Supabase's GitHub integration applies migrations. No patches, no `git am`, no SQL pasted by Ravi. Proven end to end with 0121.
 4. Claude can read the live database through the Supabase connector (read-only queries only).
 5. Nothing is pending. Do not start building until Ravi says what he wants. End every reply with exactly one recommended next step.
@@ -33,7 +33,7 @@ Read this first. It sits on top of `handoff-cloud-session-2026-10-18.md` (the de
    If main moved: `git merge origin/main` into the branch, re-run checks, push again. Never force-push.
 5. Confirm a migration (usually live within two minutes):
    `select max(version), count(*) from supabase_migrations.schema_migrations;` plus one query that shows the change itself.
-6. Close out: row in `docs/project/deployment-log.md` (and Current state, migration register), next pass in `docs/project/known-issues.md` (next is **Pass 96**), `docs/project/open-items-master-list.md` and the summary if counts change. Commit and push.
+6. Close out: row in `docs/project/deployment-log.md` (and Current state, migration register), next pass in `docs/project/known-issues.md` (next is **Pass 97**), `docs/project/open-items-master-list.md` and the summary if counts change. Commit and push.
 
 **Never run or ask Ravi to run a migration in the SQL Editor.** It is not recorded in `schema_migrations`, so the integration runs it again and stalls. This is what happened from 0008 to 0120 (section 4).
 
@@ -66,8 +66,8 @@ SQL that is not a migration (a one-off data fix, a dashboard setting) is given t
 | | Value |
 |---|---|
 | GitHub `main` | `1efc968` or later (last app code change `93de17e`) |
-| Supabase migrations | 0001 to 0124, recorded in `supabase_migrations.schema_migrations` |
-| Next migration | `0125` |
+| Supabase migrations | 0001 to 0125, recorded in `supabase_migrations.schema_migrations` |
+| Next migration | `0126` |
 | Database suites | 40, all expected lines pass |
 | Pending delivery | none |
 | Supabase GitHub integration | Working directory `.`, production branch `main`, Deploy to production on |
@@ -102,4 +102,4 @@ SQL that is not a migration (a one-off data fix, a dashboard setting) is given t
 
 ## 9. Starter prompt for the next session
 
-> You are continuing work on Invento for Ravi (Atharva Nature Healthcare Pvt. Ltd., licence "PD/AYU/111"), a Next.js 16 + Supabase inventory, QC and manufacturing app. Load the skill `invento-delivery`. Read `docs/project/handoff-2026-10-18-push-delivery.md` first, then the "Current state" block of `docs/project/deployment-log.md` and `docs/project/open-items-summary-2026-10-18.md`. `main` is `1efc968` or later; migrations 0001 to 0124 are live; the next is 0125. Deliver by pushing the session branch and fast-forwarding `main` (Vercel deploys, Supabase applies migrations); confirm migrations through the Supabase connector with read-only queries. Never write to live data, never create accounts or type passwords, never ask Ravi to run a migration by hand. Do not start building until Ravi says what he wants, and end every reply with exactly one recommended next step.
+> You are continuing work on Invento for Ravi (Atharva Nature Healthcare Pvt. Ltd., licence "PD/AYU/111"), a Next.js 16 + Supabase inventory, QC and manufacturing app. Load the skill `invento-delivery`. Read `docs/project/handoff-2026-10-18-push-delivery.md` first, then the "Current state" block of `docs/project/deployment-log.md` and `docs/project/open-items-summary-2026-10-18.md`. `main` is `1efc968` or later; migrations 0001 to 0125 are live; the next is 0126. Deliver by pushing the session branch and fast-forwarding `main` (Vercel deploys, Supabase applies migrations); confirm migrations through the Supabase connector with read-only queries. Never write to live data, never create accounts or type passwords, never ask Ravi to run a migration by hand. Do not start building until Ravi says what he wants, and end every reply with exactly one recommended next step.
