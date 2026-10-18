@@ -533,5 +533,5 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 **Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: "Refuse delete once an MFR is approved (Deactivate only)"); applied by the Supabase GitHub integration.
 
 - [x] A before-delete trigger on `mfr_definitions` refuses any delete of an approved MFR with "MFR … is approved, so it cannot be deleted. Deactivate it instead." It holds for every path, not only the app's. A draft MFR can still be deleted.
-- [x] MFR page: the Delete button shows only on a draft (System Administrator); Deactivate stays for approved MFRs.
+- [x] MFR page: the Delete button shows only on a draft (System Administrator); Deactivate stays for approved MFRs. **Confirmed on screen by Ravi, 18 Oct 2026: no Delete button on an approved MFR.**
 - [x] Suite md123 (8 checks); sec04, a0085 and a0086 now expect the refusal instead of the delete. 42 suites OK; unit tests 30/30; build clean.
