@@ -51,8 +51,8 @@ export function DraftActionsPanel({ batchId, createdAt, canEdit }: { batchId: st
     // zero — router.refresh() re-runs the Server Component, which re-runs
     // expire_stale_fp_drafts() and re-renders with whatever status this
     // batch actually has afterward (cancelled, in almost every case).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expired]);
+    // `router` is stable, so listing it does not add runs.
+  }, [expired, router]);
 
   const confirmBound = confirmFinishedProductBatch.bind(null, batchId);
   const [confirmState, confirmAction, confirmPending] = useFlashActionState<ActionState, FormData>(confirmBound, undefined);

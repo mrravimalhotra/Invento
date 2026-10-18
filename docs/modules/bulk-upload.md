@@ -6,6 +6,7 @@ for Item Master, Vendor, Purchase, etc, with a standard downloadable
 Excel template per module. Scoped via `AskUserQuestion` before any code
 was written:
 
+> - **Code layout (18 Oct 2026):** one Server Action file per module in `lib/actions/bulk-upload/` (items, vendors, item-types, mfr, purchase, equipment, dead-stock, coa-templates); shared helpers (`loadSheetOrError`, `cell`, `matchUnit`, `nextCodes`, `parseOptionalDate`, `BulkUploadState`) in `lib/bulk-upload/server.ts`. Behaviour unchanged.
 > **Current behaviour (read this first; the sections below are a dated history).**
 > - `/bulk-upload` (Admin) has one Excel template per module: Item Master, Vendor Master, Item Type Master, MFR (Recipe and Manufacturing Procedure on two sheets), Purchase, Equipment, Dead Stock and COA Templates (by item or MFR code). Each template has Instructions, a data sheet with one example row, and (mostly) a Reference sheet.
 > - **All or nothing per file**: if any row fails, nothing is imported and every problem is listed with its row number. Codes are always generated; a code column in the file is ignored.
@@ -99,7 +100,7 @@ Manufacturing Procedure split into two sheets" below) — joined to each
 other by the same MFR Name grouping key rather than living in one flat
 sheet together.
 
-## Validation and import (`lib/actions/bulk-upload.ts`)
+## Validation and import (`lib/actions/bulk-upload/` (one file per module))
 1. `canWrite(user.roles, module)` — same gate as that module's own
    create screen.
 2. Parse the data sheet(s) (`lib/bulk-upload/parse.ts`, via `exceljs`);
@@ -334,7 +335,7 @@ Item Name/Quantity/Unit cells. That's exactly the wrinkle Ravi's "only
 required columns should be part of each of these" targets.
 
 **What changed** (`lib/bulk-upload/schemas.ts`, `lib/bulk-upload/
-templates.ts`, `lib/actions/bulk-upload.ts`, `lib/bulk-upload/parse.ts`):
+templates.ts`, `lib/actions/bulk-upload/` (one file per module), `lib/bulk-upload/parse.ts`):
 
 - `MFR_COLUMNS` (one flat list) is replaced by `MFR_RECIPE_COLUMNS` (the
   Recipe sheet: MFR Name, Batch Size Qty, Batch Size Unit, Item Type,

@@ -1,15 +1,22 @@
 "use client";
 
-import { lineMoney } from "@/lib/money";
 import { useFlashActionState } from "@/lib/use-flash-action";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import { createPurchaseLine, updatePurchaseLine, previewBatchNumber, type ActionState } from "@/lib/actions/purchase";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { UNITS, compatibleUnits, convertUnit, entryUnitsFor } from "@/lib/constants/units";
-import { formatNumber, isLegacyCode, formatQty } from "@/lib/utils";
+import { isLegacyCode, formatQty } from "@/lib/utils";
 import type { LineRow } from "./[id]/purchase-lines-table";
-import { BigQuantityNotice, isMuchLargerThanLast, useLastPurchase } from "./big-quantity-notice";
+import {
+  MoneySummary,
+  PriceFields,
+  QuantityField,
+  SampleQtyFields,
+  SamplingNotes,
+  useBigQuantityCheck,
+  useLineFigures,
+} from "./purchase-line-parts";
 
 export type RawItemOption = {
   id: string;
@@ -164,30 +171,8 @@ export function PurchaseLineForm({
     if (!compatibleUnits(newUnit).some((u) => u === sampleUnit)) setSampleUnit(newUnit);
   }
 
-  const qty = Number(quantity) || 0;
-  const last = useLastPurchase(itemId);
-  const bigVsLast = isMuchLargerThanLast(qty, unit, last);
-  const bigKey = `${itemId}|${quantity}|${unit}`;
-  const [confirmedKey, setConfirmedKey] = useState("");
-  const bigConfirmed = confirmedKey === bigKey;
-  const needsBigConfirm = bigVsLast && !bigConfirmed;
-  const price = Number(unitPrice) || 0;
-  const gst = Number(gstPct) || 0;
-  // SCAN-P10-06: the same paisa rounding as the order page and the downloads.
-  const money = lineMoney({ quantity: qty, unit_price: price, gst_pct: gst });
-  const baseAmount = money.itemTotalExclGst;
-  const gstAmount = money.gstAmount;
-  const priceInclGst = money.priceInclGst;
-  const lineTotal = money.lineTotal;
-  const sampleUnitDiffers = !!sampleUnit && !!unit && sampleUnit !== unit;
-  const qcConverted = convertUnit(Number(qcQty) || 0, sampleUnit || unit, unit) ?? (Number(qcQty) || 0);
-  const stabilityConverted = convertUnit(Number(stabilityQty) || 0, sampleUnit || unit, unit) ?? (Number(stabilityQty) || 0);
-  const rndConverted = convertUnit(Number(rndQty) || 0, sampleUnit || unit, unit) ?? (Number(rndQty) || 0);
-  const remainingPreview = qty - qcConverted - stabilityConverted - rndConverted;
-  // DES-11: the server and database refuse samples above the quantity; the
-  // form now says so before the button is pressed (tiny tolerance so a
-  // unit-conversion rounding error is not reported as over-sampling).
-  const overSampled = isRaw && remainingPreview < -1e-9;
+  const figures = useLineFigures({ quantity, unit, sampleUnit, qcQty, stabilityQty, rndQty, unitPrice, gstPct, isRaw });
+  const { needsBigConfirm, notice: bigNotice } = useBigQuantityCheck(itemId, undefined, figures.qty, unit, `${itemId}|${quantity}|${unit}`);
 
   return (
     <form ref={formRef} action={formAction} className="grid gap-4">
@@ -261,157 +246,31 @@ export function PurchaseLineForm({
       </div>
 
       <div className={`grid gap-4 ${isRaw ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
-        <Field label="Quantity received" htmlFor="quantity" required>
-          <Input
-            id="quantity"
-            name="quantity"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
-        </Field>
+        <QuantityField value={quantity} onChange={setQuantity} />
         {isRaw && (
-          <>
-        {/* Ravi (15 Sept 2026): "make QC, Stability & R&D Sample
-            mandatory along with sample unit" — required now, but 0
-            stays a valid, explicitly-entered value (see
-            lib/actions/purchase.ts's matching comment for why: plenty
-            of items legitimately need no sample, especially since Item
-            Master stopped capturing sample-qty defaults on 2 Sept
-            2026). Pre-filled to "0" the moment an item is picked
-            (handleItemChange below), so in practice this only blocks
-            someone from clearing the field to blank and submitting. */}
-        <Field
-          label="QC qty"
-          htmlFor="qc_qty"
-          required
-          hint={sampleUnitDiffers ? `= ${formatQty(qcConverted)} ${unit}` : undefined}
-        >
-          <Input
-            id="qc_qty"
-            name="qc_qty"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={qcQty}
-            onChange={(e) => setQcQty(e.target.value)}
+          <SampleQtyFields
+            figures={figures}
+            unit={unit}
+            qcQty={qcQty}
+            setQcQty={setQcQty}
+            stabilityQty={stabilityQty}
+            setStabilityQty={setStabilityQty}
+            rndQty={rndQty}
+            setRndQty={setRndQty}
           />
-        </Field>
-        <Field
-          label="Stability qty"
-          htmlFor="stability_qty"
-          required
-          hint={sampleUnitDiffers ? `= ${formatQty(stabilityConverted)} ${unit}` : undefined}
-        >
-          <Input
-            id="stability_qty"
-            name="stability_qty"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={stabilityQty}
-            onChange={(e) => setStabilityQty(e.target.value)}
-          />
-        </Field>
-        <Field
-          label="R&D qty"
-          htmlFor="rnd_qty"
-          required
-          hint={sampleUnitDiffers ? `= ${formatQty(rndConverted)} ${unit}` : undefined}
-        >
-          <Input
-            id="rnd_qty"
-            name="rnd_qty"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={rndQty}
-            onChange={(e) => setRndQty(e.target.value)}
-          />
-        </Field>
-          </>
         )}
       </div>
 
-      {isRaw && sampleUnitDiffers && (
-        <p className="-mt-2 text-xs text-muted">
-          QC / Stability / R&amp;D quantities above are in <strong>{sampleUnit}</strong> — converted to <strong>{unit}</strong>{" "}
-          automatically when you save.
-        </p>
-      )}
+      <SamplingNotes figures={figures} isRaw={isRaw} unit={unit} sampleUnit={sampleUnit} />
 
-      {isRaw && (
-        <p className="-mt-2 text-xs text-muted">
-          Remaining after sampling (available for production):{" "}
-          <strong className="text-foreground">
-            {formatQty(remainingPreview)} {unit}
-          </strong>
-        </p>
-      )}
-      {overSampled && (
-        <p role="alert" className="-mt-2 text-sm text-red">
-          QC + Stability + R&amp;D samples ({formatQty(qcConverted + stabilityConverted + rndConverted)} {unit}) are more
-          than the quantity received ({formatQty(qty)} {unit}). Reduce a sample quantity to continue.
-        </p>
-      )}
+      {bigNotice}
 
-      {bigVsLast && last && (
-        <BigQuantityNotice last={last} confirmed={bigConfirmed} onConfirmedChange={(v) => setConfirmedKey(v ? bigKey : "")} />
-      )}
+      <PriceFields unitPrice={unitPrice} setUnitPrice={setUnitPrice} gstPct={gstPct} setGstPct={setGstPct} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Unit Price (₹)" htmlFor="unit_price" required>
-          <Input
-            id="unit_price"
-            name="unit_price"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={unitPrice}
-            onChange={(e) => setUnitPrice(e.target.value)}
-          />
-        </Field>
-        <Field label="GST %" htmlFor="gst_pct" required>
-          <Input
-            id="gst_pct"
-            name="gst_pct"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={gstPct}
-            onChange={(e) => setGstPct(e.target.value)}
-          />
-        </Field>
-      </div>
-
-      {/* Ravi (15 Sept 2026): "Reorder amounts in this order (Rate inc
-          GST, Items Total Excl GST, GST Amount, Total Cost - do not
-          change labels)" — order only, every label below is unchanged. */}
-      <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-4">
-        <span>
-          Rate incl. GST(₹): <strong>{formatNumber(priceInclGst)}</strong>
-        </span>
-        <span>
-          Item Total Excl GST (₹): <strong>{formatNumber(baseAmount)}</strong>
-        </span>
-        <span>
-          GST amount(₹): <strong>{formatNumber(gstAmount)}</strong>
-        </span>
-        <span>
-          Total Cost (₹): <strong>{formatNumber(lineTotal)}</strong>
-        </span>
-      </div>
+      <MoneySummary figures={figures} />
 
       <div>
-        <Button type="submit" disabled={pending || overSampled || needsBigConfirm}>
+        <Button type="submit" disabled={pending || figures.overSampled || needsBigConfirm}>
           {pending ? "Adding…" : "Add line"}
         </Button>
       </div>
@@ -442,35 +301,15 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
   const [unitPrice, setUnitPrice] = useState(line.unit_price ?? "");
   const [gstPct, setGstPct] = useState(line.gst_pct ?? "");
 
-  useEffect(() => {
-    if (state?.success) onDone();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+  // Reacts to each new save result only; onDone is read at that moment (a new
+  // onDone from the parent does not re-run it).
+  const onResult = useEffectEvent((result: ActionState) => {
+    if (result?.success) onDone();
+  });
+  useEffect(() => onResult(state), [state]);
 
-  const qty = Number(quantity) || 0;
-  const last = useLastPurchase(line.item_id, line.id);
-  const bigVsLast = isMuchLargerThanLast(qty, unit, last);
-  const bigKey = `${line.id}|${quantity}|${unit}`;
-  const [confirmedKey, setConfirmedKey] = useState("");
-  const bigConfirmed = confirmedKey === bigKey;
-  const needsBigConfirm = bigVsLast && !bigConfirmed;
-  const price = Number(unitPrice) || 0;
-  const gst = Number(gstPct) || 0;
-  // SCAN-P10-06: the same paisa rounding as the order page and the downloads.
-  const money = lineMoney({ quantity: qty, unit_price: price, gst_pct: gst });
-  const baseAmount = money.itemTotalExclGst;
-  const gstAmount = money.gstAmount;
-  const priceInclGst = money.priceInclGst;
-  const lineTotal = money.lineTotal;
-  const sampleUnitDiffers = sampleUnit !== unit;
-  const qcConverted = convertUnit(Number(qcQty) || 0, sampleUnit, unit) ?? (Number(qcQty) || 0);
-  const stabilityConverted = convertUnit(Number(stabilityQty) || 0, sampleUnit, unit) ?? (Number(stabilityQty) || 0);
-  const rndConverted = convertUnit(Number(rndQty) || 0, sampleUnit, unit) ?? (Number(rndQty) || 0);
-  const remainingPreview = qty - qcConverted - stabilityConverted - rndConverted;
-  // DES-11: the server and database refuse samples above the quantity; the
-  // form now says so before the button is pressed (tiny tolerance so a
-  // unit-conversion rounding error is not reported as over-sampling).
-  const overSampled = isRaw && remainingPreview < -1e-9;
+  const figures = useLineFigures({ quantity, unit, sampleUnit, qcQty, stabilityQty, rndQty, unitPrice, gstPct, isRaw });
+  const { needsBigConfirm, notice: bigNotice } = useBigQuantityCheck(line.item_id, line.id, figures.qty, unit, `${line.id}|${quantity}|${unit}`);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -505,135 +344,31 @@ export function EditPurchaseLineForm({ line, onDone }: { line: LineRow; onDone: 
       </div>
 
       <div className={`grid gap-4 ${isRaw ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
-        <Field label="Quantity received" htmlFor="quantity" required>
-          <Input
-            id="quantity"
-            name="quantity"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
-        </Field>
+        <QuantityField value={quantity} onChange={setQuantity} />
         {isRaw && (
-          <>
-        <Field label="QC qty" htmlFor="qc_qty" required hint={sampleUnitDiffers ? `= ${formatQty(qcConverted)} ${unit}` : undefined}>
-          <Input
-            id="qc_qty"
-            name="qc_qty"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={qcQty}
-            onChange={(e) => setQcQty(e.target.value)}
+          <SampleQtyFields
+            figures={figures}
+            unit={unit}
+            qcQty={qcQty}
+            setQcQty={setQcQty}
+            stabilityQty={stabilityQty}
+            setStabilityQty={setStabilityQty}
+            rndQty={rndQty}
+            setRndQty={setRndQty}
           />
-        </Field>
-        <Field
-          label="Stability qty"
-          htmlFor="stability_qty"
-          required
-          hint={sampleUnitDiffers ? `= ${formatQty(stabilityConverted)} ${unit}` : undefined}
-        >
-          <Input
-            id="stability_qty"
-            name="stability_qty"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={stabilityQty}
-            onChange={(e) => setStabilityQty(e.target.value)}
-          />
-        </Field>
-        <Field label="R&D qty" htmlFor="rnd_qty" required hint={sampleUnitDiffers ? `= ${formatQty(rndConverted)} ${unit}` : undefined}>
-          <Input
-            id="rnd_qty"
-            name="rnd_qty"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={rndQty}
-            onChange={(e) => setRndQty(e.target.value)}
-          />
-        </Field>
-          </>
         )}
       </div>
 
-      {isRaw && sampleUnitDiffers && (
-        <p className="-mt-2 text-xs text-muted">
-          QC / Stability / R&amp;D quantities above are in <strong>{sampleUnit}</strong> — converted to <strong>{unit}</strong>{" "}
-          automatically when you save.
-        </p>
-      )}
+      <SamplingNotes figures={figures} isRaw={isRaw} unit={unit} sampleUnit={sampleUnit} />
 
-      {isRaw && (
-        <p className="-mt-2 text-xs text-muted">
-          Remaining after sampling (available for production):{" "}
-          <strong className="text-foreground">
-            {formatQty(remainingPreview)} {unit}
-          </strong>
-        </p>
-      )}
-      {overSampled && (
-        <p role="alert" className="-mt-2 text-sm text-red">
-          QC + Stability + R&amp;D samples ({formatQty(qcConverted + stabilityConverted + rndConverted)} {unit}) are more
-          than the quantity received ({formatQty(qty)} {unit}). Reduce a sample quantity to continue.
-        </p>
-      )}
+      {bigNotice}
 
-      {bigVsLast && last && (
-        <BigQuantityNotice last={last} confirmed={bigConfirmed} onConfirmedChange={(v) => setConfirmedKey(v ? bigKey : "")} />
-      )}
+      <PriceFields unitPrice={unitPrice} setUnitPrice={setUnitPrice} gstPct={gstPct} setGstPct={setGstPct} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Unit Price (₹)" htmlFor="unit_price" required>
-          <Input
-            id="unit_price"
-            name="unit_price"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={unitPrice}
-            onChange={(e) => setUnitPrice(e.target.value)}
-          />
-        </Field>
-        <Field label="GST %" htmlFor="gst_pct" required>
-          <Input
-            id="gst_pct"
-            name="gst_pct"
-            type="number"
-            step="any"
-            min="0"
-            required
-            value={gstPct}
-            onChange={(e) => setGstPct(e.target.value)}
-          />
-        </Field>
-      </div>
-
-      <div className="grid gap-1 rounded-md border border-border bg-black/[0.02] p-3 text-sm sm:grid-cols-4">
-        <span>
-          Rate incl. GST(₹): <strong>{formatNumber(priceInclGst)}</strong>
-        </span>
-        <span>
-          Item Total Excl GST (₹): <strong>{formatNumber(baseAmount)}</strong>
-        </span>
-        <span>
-          GST amount(₹): <strong>{formatNumber(gstAmount)}</strong>
-        </span>
-        <span>
-          Total Cost (₹): <strong>{formatNumber(lineTotal)}</strong>
-        </span>
-      </div>
+      <MoneySummary figures={figures} />
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={pending || overSampled || needsBigConfirm}>
+        <Button type="submit" disabled={pending || figures.overSampled || needsBigConfirm}>
           {pending ? "Saving…" : "Save changes"}
         </Button>
         <Button type="button" variant="secondary" onClick={onDone} disabled={pending}>

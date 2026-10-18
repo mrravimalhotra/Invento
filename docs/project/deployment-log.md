@@ -41,6 +41,7 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
+| 2026-10-18 | this commit | Code quality pass, no behaviour change (Ravi: fix all code quality issues): bulk upload split by module, shared purchase line parts, shared QC retest card and rejection pieces, shared inventory batch columns, useEffectEvent instead of 6 suppressions (known issues Pass 97) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-18 | `4c95666` | P8-01 equipment calibration (Ravi approved the mockup; Next due required): status computed from Next due on the list, Excel, record page and a Dashboard card; Needs calibration / Not applicable; bulk upload follows; suite eq125, 4 unit tests | `0125_equipment_calibration_from_dates` | ✅ | ✅ | Pushed by Claude; applied by the Supabase GitHub integration |
 | 2026-10-18 | `7cf1989` | Feedback widget: the page's list refreshes after every submitted note, not only the first (known issues Pass 95) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-18 | `3356f25` | Code quality cleanup, no behaviour change (Ravi: go): lint ignores `_` parameters, unused code removed (`lib/supabase/client.ts`, `fpEligibleForLabel`, `ITEM_CATEGORIES`, a stale suppression); known issues Pass 94 | None | ✅ | n/a | Pushed by Claude; no database change |

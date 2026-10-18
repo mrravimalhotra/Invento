@@ -79,7 +79,7 @@ explicit go-ahead, or lower urgency than the indexes above:
   the right UX.
 - **Bulk upload does one sequential round trip per row for code
   generation.** `bulkUploadItems`/`bulkUploadVendors`/`bulkUploadEquipment`/
-  `bulkUploadDeadStock` (`lib/actions/bulk-upload.ts`) each call
+  `bulkUploadDeadStock` (`lib/actions/bulk-upload/` (one file per module)) each call
   `get_next_*_code()` once per parsed row before the batched insert — up to
   500 sequential round trips for a full 500-row file. MFR and Purchase bulk
   upload already avoid this via a single RPC per file; worth copying that

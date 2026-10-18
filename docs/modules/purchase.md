@@ -882,7 +882,7 @@ R&D qty and sample unit made mandatory" above (15 Sept 2026): both
 blank QC/Stability/R&D qty field on a Raw Material line, while still
 accepting an explicitly-entered `0`. That 15 Sept pass never touched the
 bulk-upload path, though — `bulkUploadPurchase()`
-(`lib/actions/bulk-upload.ts`) still had the exact silent-default bug the
+(`lib/actions/bulk-upload/` (one file per module)) still had the exact silent-default bug the
 UI fix was built to close: `Number(qcQtyRaw || "0")` treated a genuinely
 blank cell and an explicit `"0"` identically, so a Raw Material row could
 be imported with no QC/Stability/R&D sample ever having been consciously
@@ -897,7 +897,7 @@ actual `NULL` in these columns; the real gap was entirely at the
 application layer, where a blank cell was silently treated as "deliberate
 zero" rather than being rejected the way the UI already rejects it.
 
-**Fix (`lib/actions/bulk-upload.ts`, `bulkUploadPurchase()`)**: for a Raw
+**Fix (`lib/actions/bulk-upload/` (one file per module), `bulkUploadPurchase()`)**: for a Raw
 Material row, `QC Qty` / `Stability Qty` / `R&D Qty` are now each checked
 for blank *before* the `|| "0"` fallback runs (same ordering the UI fix
 uses) — a blank cell is rejected with a row-level error naming the exact

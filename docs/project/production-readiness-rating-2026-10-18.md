@@ -16,7 +16,7 @@ Ratings out of 10, based on the open-items master list (as of 12 Oct 2026, plus 
 | Mobile | 6 | Menu, install to home screen, 40 px targets, pinned first column done. Wide tables and forms parked (C19). The E58 phone changes are not confirmed on a real phone | Four-step plan in the handoff document, section 8 |
 | Testing | 7.5 (was 6.5) | Database suites are excellent (41). Since 18 Oct: 30 unit tests of the app's own rules (`npm test`: FIFO, units, money, limits, QC states, ageing, dates, error messages); `live-data-checks.sql` and the Stock Integrity Check run on the live database after each delivery; the data side of 20 live checks confirmed. Still: no screen tests, nothing runs on a push (CI deferred to go-live) | Workflow on staging push (G4), clear the live checks |
 | Documentation | 9 | User Guide, process map, 25 module notes, deployment and issue logs, decisions list, handoffs | Keep current |
-| Maintainability | 7.5 | One rule in one place, a regression test per past bug, shared helpers. Cost: dense migration history and a long open-items list | Retire closed history to archives |
+| Maintainability | 8 (was 7.5; code quality pass 18 Oct: duplication 1.9% → 1.0%, largest file 1,625 → 779 lines, lint 0, 6 hook suppressions replaced by useEffectEvent) | One rule in one place, a regression test per past bug, shared helpers. Cost: dense migration history and a long open-items list | Retire closed history to archives |
 
 ## Go-live blockers (in order)
 

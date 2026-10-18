@@ -1,12 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { LegacyTag } from "@/components/ui/legacy-tag";
 import { cn, formatDate, formatQty, isLegacyCode } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
+import { batchIdentityColumns } from "../batch-columns";
 
 import type { AgeingBucket } from "@/lib/ageing";
 
@@ -63,41 +62,7 @@ export function AgeingView({ rows, initialBucket }: { rows: AgeingRow[]; initial
   const shown = bucket === "all" ? rows : rows.filter((r) => r.bucket === bucket);
 
   const columns: Column<AgeingRow>[] = [
-    {
-      header: "Type",
-      accessor: (r) => <span className="text-xs">{KIND_LABEL[r.kind]}</span>,
-      searchValue: (r) => KIND_LABEL[r.kind],
-    },
-    {
-      header: "Item",
-      accessor: (r) => {
-        const body = (
-          <>
-            <div className="font-medium">{r.itemName}</div>
-            <div className="text-xs text-muted">{r.itemCode}</div>
-          </>
-        );
-        return r.itemId ? (
-          <Link href={`/inventory/items/${r.itemId}`} className="block hover:underline">
-            {body}
-          </Link>
-        ) : (
-          <div>{body}</div>
-        );
-      },
-      searchValue: (r) => `${r.itemName} ${r.itemCode}`,
-    },
-    {
-      header: "Batch",
-      accessor: (r) => (
-        <span className="whitespace-nowrap">
-          {r.batch}
-          <LegacyTag show={r.isLegacy} />
-        </span>
-      ),
-      searchValue: (r) => r.batch,
-    },
-    { header: "AR No.", accessor: (r) => r.arNumber ?? "—", searchValue: (r) => r.arNumber ?? "" },
+    ...batchIdentityColumns<AgeingRow["kind"], AgeingRow>(KIND_LABEL),
     {
       header: "In stock",
       accessor: (r) => (r.remaining === null ? "—" : <span className="whitespace-nowrap">{formatQty(r.remaining)} {r.unit}</span>),

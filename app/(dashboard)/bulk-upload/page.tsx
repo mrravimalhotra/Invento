@@ -3,18 +3,16 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { BulkUploadForm } from "./upload-form";
-import {
-  bulkUploadItems,
-  bulkUploadVendors,
-  bulkUploadItemTypes,
-  bulkUploadMfr,
-  bulkUploadPurchase,
-  bulkUploadEquipment,
-  bulkUploadDeadStock,
-  bulkUploadCoaTemplates,
-} from "@/lib/actions/bulk-upload";
+import { bulkUploadItems } from "@/lib/actions/bulk-upload/items";
+import { bulkUploadVendors } from "@/lib/actions/bulk-upload/vendors";
+import { bulkUploadItemTypes } from "@/lib/actions/bulk-upload/item-types";
+import { bulkUploadMfr } from "@/lib/actions/bulk-upload/mfr";
+import { bulkUploadPurchase } from "@/lib/actions/bulk-upload/purchase";
+import { bulkUploadEquipment } from "@/lib/actions/bulk-upload/equipment";
+import { bulkUploadDeadStock } from "@/lib/actions/bulk-upload/dead-stock";
+import { bulkUploadCoaTemplates } from "@/lib/actions/bulk-upload/coa-templates";
 import { BULK_UPLOAD_MODULE_META, type BulkUploadModuleKey } from "@/lib/bulk-upload/schemas";
-import type { BulkUploadState } from "@/lib/actions/bulk-upload";
+import type { BulkUploadState } from "@/lib/bulk-upload/server";
 
 // Ravi (13 Sept 2026): "create a link in admin panel to upload data...
 // as bulk upload" for Item Master, Vendor, Item Type, MFR (Purchase

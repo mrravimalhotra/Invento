@@ -1,7 +1,7 @@
 "use client";
 
 import { useFlashActionState } from "@/lib/use-flash-action";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronDown, MessageSquarePlus, Pencil, Trash2 } from "lucide-react";
 import {
@@ -69,17 +69,19 @@ function PageFeedbackInner({
     });
   }
 
+  // useEffectEvent: the effects below re-run only when their trigger changes,
+  // not whenever refresh() is re-created on a render.
+  const refreshEvent = useEffectEvent(refresh);
+
   useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refreshEvent();
   }, [pagePath]);
 
   // Depend on the whole result: the success text is the same on every submit,
   // so watching only the text refreshed the list after the first note but not
   // after the next ones (18 Oct 2026).
   useEffect(() => {
-    if (state?.success) refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (state?.success) refreshEvent();
   }, [state]);
 
   return (
@@ -167,20 +169,20 @@ function FeedbackItem({
     undefined
   );
 
+  const changedEvent = useEffectEvent(onChanged);
+
   useEffect(() => {
     if (updateState?.success) {
       // Bounded, one-shot reaction to a just-completed save — not a
       // synchronization loop (same pattern as purchase-line-form.tsx).
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setMode("view");
-      onChanged();
+      changedEvent();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateState]);
 
   useEffect(() => {
-    if (deleteState?.success) onChanged();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (deleteState?.success) changedEvent();
   }, [deleteState]);
 
   const canEditOrDelete = item.status === "new" && item.submitted_by === currentUserId;

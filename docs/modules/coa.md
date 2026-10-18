@@ -295,7 +295,7 @@ identifier since item types have no code of their own in this app.
   types that **don't already have a template** (a second reference column
   lists the ones excluded, so it's visible why); the Item Type column's
   dropdown is sourced from that filtered list.
-- `bulkUploadCoaTemplates()` (`lib/actions/bulk-upload.ts`) — validates
+- `bulkUploadCoaTemplates()` (`lib/actions/bulk-upload/` (one file per module)) — validates
   every row (Item Type resolves to exactly one active item type, same
   name-ambiguity handling as Purchase's Vendor/Item Name and MFR's Line
   Item Name; Test/Specification both required), groups by resolved
@@ -358,7 +358,7 @@ actually affected his live database.
   `"coa-templates"` added to `BULK_UPLOAD_MODULES`/`BULK_UPLOAD_MODULE_META`/
   `MODULE_COLUMNS`.
 - `lib/bulk-upload/templates.ts` — `buildCoaTemplatesWorkbook()`.
-- `lib/actions/bulk-upload.ts` — `bulkUploadCoaTemplates()`.
+- `lib/actions/bulk-upload/` (one file per module) — `bulkUploadCoaTemplates()`.
 - `app/(dashboard)/bulk-upload/page.tsx` — new module card.
 
 ## Default remarks wording (22 Sept 2026)

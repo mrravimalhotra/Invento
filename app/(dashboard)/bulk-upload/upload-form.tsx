@@ -4,7 +4,7 @@ import { useFlashActionState } from "@/lib/use-flash-action";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MAX_UPLOAD_FILE_BYTES, uploadFileTooBigMessage } from "@/lib/bulk-upload/limits";
-import type { BulkUploadState } from "@/lib/actions/bulk-upload";
+import type { BulkUploadState } from "@/lib/bulk-upload/server";
 
 type Action = (prev: BulkUploadState, formData: FormData) => Promise<BulkUploadState>;
 

@@ -40,7 +40,7 @@ Name is expected to repeat (several identical "Wooden Barrels" rows, each
 tagged with its own distinct Asset ID, is the normal shape of the real
 seed data) — `createEquipment()`/`updateEquipment()`
 (`lib/actions/equipment.ts`) and `bulkUploadEquipment()`
-(`lib/actions/bulk-upload.ts`) both check Asset ID for a case-insensitive
+(`lib/actions/bulk-upload/` (one file per module)) both check Asset ID for a case-insensitive
 duplicate (only when one is actually supplied — it's optional, and a
 blank Asset ID never collides with another blank one), and no longer
 check Name at all. App-level only, no DB constraint — same as every

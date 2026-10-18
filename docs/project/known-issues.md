@@ -571,3 +571,14 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - [x] 0125: old Calibrated / Due became Needs calibration (blank became Needs calibration when a Next due date was on file, else Not applicable); NOT VALID checks for the status values, Next due required, Next due after Last calibration and a whole quantity; a trigger refuses a Last calibration in the future (India date). The live database had no equipment, so nothing was converted there.
 - [x] Suite eq125 (11 checks); 4 unit tests; des02 and sb now count only their own equipment row (the migration's own conversion is audited). 44 suites, 34 unit tests, build clean.
 - Live check (E71): Equipment → New: Calibration shows Needs calibration / Not applicable; save Needs calibration without Next due → refused; with a Next due 10 days ahead → list shows "Due in 10 days" in amber and the Dashboard card lists it; a past Next due shows "Overdue by N days" in red.
+
+## Pass 97 — Code quality pass, no behaviour change (18 Oct 2026)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: fix all code quality issues without impacting functionality or performance).
+
+- [x] `lib/actions/bulk-upload.ts` (1,625 lines) split into one Server Action file per module under `lib/actions/bulk-upload/` plus shared helpers in `lib/bulk-upload/server.ts`. A line-by-line comparison proved every code line moved unchanged.
+- [x] Purchase Add line / Edit line forms share their sample quantities, sampling notes, price and GST fields, money summary and figures (`purchase-line-parts.tsx`): 646 → 378 lines in the form file.
+- [x] The three QC "due for retest" cards share one card and row (`qc/retest-card.tsx`); the QC rejection forms share the reason field and the two-step confirm; the Rejected, Samples and Ageing tables share the Type / Item / Batch / AR No. columns.
+- [x] Six suppressed React "missing dependency" warnings replaced by React 19.2 `useEffectEvent` (feedback widget, Edit purchase line, draft batch countdown). 13 suppressions remain, each justified in place.
+- Result: duplication 1.9% → 1.0% of lines, largest file 1,625 → 779 lines, lint 0 problems, type-check 0 errors; build, 34 unit tests and 44 database suites pass. No database change, no new package.
+- Kept on purpose: the two label sheet previews (pixel-exact to their PDFs), the long linear bulk-upload functions (validate then save, no screen tests to guard a deeper split), and the history comments (decision record).
+- Live check: one save on each touched screen: Purchase add a line and edit it; QC page retest cards (if any due) and a rejection; Inventory → Rejected Materials, Retained Samples, Expiry & Retest Ageing open and search; Bulk Upload one small file of any module; Feedback note.

@@ -1,15 +1,10 @@
 "use client";
 
-import { useFlashActionState } from "@/lib/use-flash-action";
-
-import { startFpRetestQualityCheck, type ActionState } from "@/lib/actions/qc";
-import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/form";
-import { compatibleUnits } from "@/lib/constants/units";
+import { startFpRetestQualityCheck } from "@/lib/actions/qc";
 import { LegacyTag } from "@/components/ui/legacy-tag";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { formatDate, formatQty, isLegacyCode } from "@/lib/utils";
 import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
+import { RetestCard, RetestRow, suggestedSample } from "./retest-card";
 
 export type FpDueForRetestLine = {
   batch_id: string;
@@ -38,71 +33,39 @@ export function FpDueForRetest({ lines, canStart }: { lines: FpDueForRetestLine[
   if (visible.length === 0) return null;
 
   return (
-    <Card className="mb-4 border-amber/40">
-      <CardHeader title="Finished product due for retest" />
-      <CardBody className="flex flex-col gap-3">
-        <p className="text-xs text-muted">
+    <RetestCard
+      title="Finished product due for retest"
+      intro={
+        <>
           Retest date has arrived on these approved finished product batches. Enter the retest sample: it comes from the
           batch&apos;s stability sample first, then from its bulk. Until the retest is approved the batch cannot be packed or labelled.
-        </p>
-        <div className="flex flex-col gap-2">
-          {visible.map((line) => (
-            <FpDueForRetestRow key={line.batch_id} line={line} canStart={canStart} />
-          ))}
-        </div>
-      </CardBody>
-    </Card>
-  );
-}
-
-function FpDueForRetestRow({ line, canStart }: { line: FpDueForRetestLine; canStart: boolean }) {
-  const boundAction = startFpRetestQualityCheck.bind(null, line.batch_id);
-  const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
-  const reserveLeft = Number(line.stability_reserve_left ?? 0);
-  const bulkLeft = Number(line.bulk_left ?? 0);
-  const defaultSample = Number(line.qc_sample_qty ?? 0) > 0 ? String(line.qc_sample_qty) : "";
-
-  return (
-    <form
-      action={formAction}
-      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber/30 bg-amber-bg/40 px-3 py-2 text-sm"
+        </>
+      }
     >
-      <div>
-        <p className="font-medium">
-          {line.item_code ? `${line.item_code} — ${line.item_name ?? ""}` : (line.item_name ?? "—")} · {line.batch_label}
-          <LegacyTag show={line.is_legacy} />
-        </p>
-        <p className="text-xs text-muted">
-          Stability sample left: {formatQty(reserveLeft)} {line.unit} · Bulk left: {formatQty(bulkLeft)} {line.unit}
-          {line.retest_date ? ` · Retest date ${formatDate(line.retest_date)}` : ""}
-          {line.expiry_date ? ` · Expires ${formatDate(line.expiry_date)}` : ""}
-        </p>
-        {state?.error && <p className="mt-1 text-xs text-red">{state.error}</p>}
-      </div>
-      {canStart && (
-        <div className="flex items-center gap-2">
-          <Input
-            name="sample_qty"
-            type="number"
-            step="any"
-            min="0"
-            required
-            defaultValue={defaultSample}
-            aria-label={`Retest sample quantity for ${line.batch_label}`}
-            className="w-24"
-          />
-          <Select name="sample_unit" defaultValue={line.unit} aria-label="Sample unit" className="w-20">
-            {compatibleUnits(line.unit).map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="secondary" size="sm" disabled={pending}>
-            {pending ? "Starting…" : "Start Retest"}
-          </Button>
-        </div>
-      )}
-    </form>
+      {visible.map((line) => (
+        <RetestRow
+          key={line.batch_id}
+          action={startFpRetestQualityCheck.bind(null, line.batch_id)}
+          heading={
+            <>
+              {line.item_code ? `${line.item_code} — ${line.item_name ?? ""}` : (line.item_name ?? "—")} · {line.batch_label}
+              <LegacyTag show={line.is_legacy} />
+            </>
+          }
+          details={
+            <>
+              Stability sample left: {formatQty(Number(line.stability_reserve_left ?? 0))} {line.unit} · Bulk left:{" "}
+              {formatQty(Number(line.bulk_left ?? 0))} {line.unit}
+              {line.retest_date ? ` · Retest date ${formatDate(line.retest_date)}` : ""}
+              {line.expiry_date ? ` · Expires ${formatDate(line.expiry_date)}` : ""}
+            </>
+          }
+          batchLabel={line.batch_label}
+          unit={line.unit}
+          defaultSample={suggestedSample(line.qc_sample_qty)}
+          canStart={canStart}
+        />
+      ))}
+    </RetestCard>
   );
 }

@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { formatQty, formatDate, isLegacyCode } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
+import { batchIdentityColumns } from "../batch-columns";
 
 export type RejectedKind = "raw" | "production_raw" | "finished";
 
@@ -37,45 +36,7 @@ export type RejectedRow = {
 
 export function RejectedTable({ rows }: { rows: RejectedRow[] }) {
   const columns: Column<RejectedRow>[] = [
-    {
-      header: "Type",
-      accessor: (r) => <span className="text-xs">{REJECTED_KIND_LABELS[r.kind]}</span>,
-      searchValue: (r) => REJECTED_KIND_LABELS[r.kind],
-    },
-    {
-      header: "Item",
-      accessor: (r) => {
-        const body = (
-          <>
-            <div className="font-medium">{r.itemName}</div>
-            <div className="text-xs text-muted">{r.itemCode}</div>
-          </>
-        );
-        return r.itemId ? (
-          <Link href={`/inventory/items/${r.itemId}`} className="block hover:underline">
-            {body}
-          </Link>
-        ) : (
-          <div>{body}</div>
-        );
-      },
-      searchValue: (r) => `${r.itemName} ${r.itemCode}`,
-    },
-    {
-      header: "Batch",
-      accessor: (r) => (
-        <span className="whitespace-nowrap">
-          {r.batch}
-          <LegacyTag show={r.isLegacy} />
-        </span>
-      ),
-      searchValue: (r) => r.batch,
-    },
-    {
-      header: "AR No.",
-      accessor: (r) => r.arNumber ?? "—",
-      searchValue: (r) => r.arNumber ?? "",
-    },
+    ...batchIdentityColumns<RejectedKind, RejectedRow>(REJECTED_KIND_LABELS),
     {
       header: "Rejected on",
       accessor: (r) => (r.rejectedAt ? <span className="whitespace-nowrap">{formatDate(r.rejectedAt)}</span> : "—"),
