@@ -561,4 +561,4 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - The other three suppressions are harmless (load on page open; Edit/Delete closing and refreshing).
 - E10 (`/feedback` admin Save, 12 Sept): no cause in the current code; the admin Save returns "Saved." with no redirect, the #418 error matches the ledger date bug fixed the same day (L-4), and 26 tickets have been saved since. Close after one screen Save.
 - No unit test: the app has no browser test setup for components (deferred with CI to go-live). Checks: type-check, lint, build, unit tests.
-- Live check: on any page, open Feedback & change log, submit two short notes one after the other; both appear in the list straight away.
+- [x] **Confirmed live by Ravi, 18 Oct 2026:** two notes in a row both appear; Save on /feedback works, so E10 is closed.
