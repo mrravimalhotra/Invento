@@ -495,3 +495,20 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - [x] Documents updated: handoff, deployment log, working agreement, what was built, open items, readiness rating, `supabase/README.md`, `CLAUDE.md`.
 - Still open: the skill `invento-patch-delivery` (claude.ai settings) still describes patches; Ravi to update or retire it. LW-11 moves to migration 0122.
 - Lesson: never run a migration by hand once an automatic deployer is connected; the deployer's history and the database drift apart silently.
+
+## Pass 89 — Database checks run read-only on the live database (18 Oct 2026, documents only)
+**Nothing in the database was changed.** Claude ran every block of `scripts/sql/live-data-checks.sql` (97 blocks, SELECT only) and the open live-check queries through the Supabase connector. Migrations: 121 recorded, newest 0121.
+
+- [x] **Invariants (rows mean something is wrong):** INV-S1 to S9, INV-Q2, Q4 to Q7, Q9, Q10, INV-P1 to P4, P6 to P8, P10 and INV-K1 to K6, K8 to K11 return no rows. Stock, production and packaging figures agree with the ledger.
+- [x] **LW-11 confirmed a false alarm** (INV-S10 / Stock Integrity Check S9): RM-00004-02/26 on PO-0032 has a receipt of 100 kg (12-10-2026 17:45) and its reversal at the reopen (18:49), samples returned too; net 0. Fix stays migration 0122, waiting on Ravi. Until then the Stock Integrity Check shows 8 of 9 passed (E56, E62).
+- [x] **E8 audit log:** 1,032 kB (745 rows); database 19 MB of the 500 MB free plan.
+- [x] **E70:** no finished product batch is due for retest yet (earliest 05-01-2027) and none has been retested; E9: no production raw material retest yet. Both stay open.
+- Old test data the checks flag (made before the rule that now stops it; no action unless Ravi wants it cleaned before go-live):
+  - INV-Q1: 12 approved QC records with no expiry date (AR-001 to AR-014, 28 Sept to 3 Oct, before 0098 made expiry required).
+  - INV-Q3: 4 approved records whose retest date is after the expiry date (ARRM-0001/26, 0002/26, 0003/26, 0009/26; before LW-01's rule in 93de17e).
+  - INV-Q8 / P7-E: RM-013 Musta batch RM-013-01/26 expired 07-10-2026 with 3.15 kg still in stock.
+  - INV-P5: FP-00002-02/26 (in process) started 27-09-2026, a day before its MFR was approved (before the A24 date rule).
+  - P3-B: PO-0003 was reopened on 30 Sept with an approved QC record (before the E53 guard in 0112).
+  - P2-C: RM-00003 Dink has no Item type (before E20). P2-E: vendor V-0006 has no phone, mobile or e-mail; V-0004 has its address in the mobile field.
+- Informational: INV-P9: four components of FP-00003-01/26 and one of FP-00004-01/26 carry binary-fraction tails (for example 0.6958000000000002); screens round them. INV-K7: PKG-0002 is missing from the series. P1-F: every QC record was decided by one person in both rounds (the System Administrator, allowed; INV-Q5 is clean). P1-A: the anonymous role can still execute 41 trigger functions; trigger functions cannot be called directly, so no exposure, but the expected list was 4 helpers. P1-D: schemas `backup_20260913_1116` (25 tables, pre-purge copy) and `legacy` (31 tables) are still there; drop the backup before go-live (B10). P2-K: no opening stock load has been made on the live database yet (E33, E34, E35, E63, E65 untested).
+- Not run: P9-B and P9-C (column lists for the paper-form comparison) and P7-D (30-day ledger summary): reference output, nothing to judge.

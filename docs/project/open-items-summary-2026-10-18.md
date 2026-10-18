@@ -17,7 +17,7 @@ Short form of `claude/open-items-master-list.md` (the full register, with every 
 
 1. **Live check E70** (finished product retest, 7 steps). Ask Claude for the SQL line that moves one batch's approval back so it falls due.
 2. **"Go" on the corrections group**: P4-09 (void or replace a certificate), P6-01 (void a packaging issue), P5-04 (correct or close a finished product batch), P8-01 (equipment calibration status).
-3. **Decisions:** B45 (invoice date or received date, per output), P6-04 (production raw material QC), LW-11 (S9 false alarm; needs migration 0122; confirm RM-00004-02/26 in the ledger first), MFA (B3), P9-01 (paper or app for deviations and CAPA).
+3. **Decisions:** B45 (invoice date or received date, per output), P6-04 (production raw material QC), LW-11 (S9 false alarm; needs migration 0122; ledger confirmed 18 Oct 2026: S9 is a false alarm, net 0), MFA (B3), P9-01 (paper or app for deviations and CAPA).
 4. **Quick wins:** Vercel Function Region to Tokyo (hnd1) and redeploy now; Mumbai (ap-south-1 plus bom1) when the production project is created (reminder on record).
 5. **Mobile:** say "go" for the read-only phone-width walk, then the two fix patches (see the handoff, section 8).
 6. **Go-live register** (`claude/go-live-readiness-log.md`): G1 to G11, deferred to go-live with the move to Supabase Pro and Vercel Pro.
@@ -81,7 +81,7 @@ E1 to E16, E20, E22, E26 (partly), E27 (partly), E28 to E70 as listed in Part 1E
 - **C15** (A22 / SEC-10 (rest)) Full content-security policy still report-only. On hold, Ravi, 29 Sept. Framing is already blocked; only the script policy reports.
 - **C16** (A15 / PERF-01) Stock views recompute the whole ledger on every read. Measured 29 Sept 2026 on a 400,000-row ledger: `stock_balance` 53 ms, `item_position` 100 ms, one item 1–5 ms. A…
 - **C17** (A19 / PERF-05) Reports and Item Master send every row to the browser. On hold, Ravi, 29 Sept 2026: "will take decision later". Scan P7 (11 Oct 2026, SCAN-P7-02, duplicate): measured on a…
-- **C18** (Housekeeping) CLOSED 18 Oct 2026 (`b54da87`): the read-only SQL checks are in `scripts/sql/` (see Pass 87). Left out on purpose: the cleanup, backup and bug-reproduction scripts. Still to do: run `live-data-checks.sql` on the live database before go-live.
+- **C18** (Housekeeping) CLOSED 18 Oct 2026 (`b54da87`): the read-only SQL checks are in `scripts/sql/` (see Pass 87). Left out on purpose: the cleanup, backup and bug-reproduction scripts. `live-data-checks.sql` run read-only on the live database 18 Oct 2026 (Pass 89); run again on production before go-live.
 - **C19** (Mobile) Phone fit of the main screens (Dashboard, Purchase, QC, Inventory Ledger: wide tables and forms…. Parked, Ravi, 30 Sept 2026. Menu (E17) and install (E18) are done.
 
 ## F. Scan findings still open (36)
