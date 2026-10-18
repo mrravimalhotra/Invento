@@ -526,6 +526,14 @@ union all
 select 'finished product batch', null, fpb.batch_number, count(*)
   from public.finished_product_batches fpb where fpb.active group by fpb.batch_number having count(*) > 1;
 
+-- ## INV-SIC  The Stock Integrity Check itself, run as the System Administrator would (E56, E62)
+-- A read-only transaction: nothing can be written. Expected: nine rows S1 to S9, every "problems" 0.
+-- Run all four lines together. (A non-admin user id in set_config must give "Only the System Administrator ...".)
+begin transaction read only;
+select set_config('request.jwt.claim.sub', (select user_id::text from user_roles where role = 'system_admin' order by user_id limit 1), true);
+select code, problems, title from public.stock_integrity_check();
+commit;
+
 -- ## INV-S10  Orphans: submitted lines with no receipt push in the ledger, purchase receipts that still count (do not net to zero) for lines that are not on a submitted order (0122), QC records pointing at nothing
 -- Expect no rows.
 select 'submitted line without receipt push' as problem, pl.id::text as ref

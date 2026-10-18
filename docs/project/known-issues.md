@@ -518,4 +518,4 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 
 - [x] **LW-11 fixed:** S9 flagged any purchase receipt row on a line that is not submitted, so PO-0032 (submitted, then reopened: receipt of 100 kg plus its reversal, net 0) showed as a difference. S9 now flags such a line only when its purchase receipts do not net to zero. The other eight checks are unchanged.
 - [x] `scripts/sql/live-data-checks.sql` INV-S10 uses the same rule. Suite ic122 (11 checks: reopened order clean, a stray receipt still found and explained, resubmit clean, other roles refused); 41 suites OK.
-- Live check: Admin → Stock Integrity Check should now say "All 9 checks passed" (E56, E62).
+- [x] **Checked on the live database after 0122** (read-only transaction, as the System Administrator): S1 to S9 all 0 problems; a non-admin user is refused. Ledger rows 209. Repeatable as block INV-SIC in `scripts/sql/live-data-checks.sql`.
