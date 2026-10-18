@@ -553,3 +553,12 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - [x] Removed code nothing used: `lib/supabase/client.ts` (browser client), `fpEligibleForLabel()`, `ITEM_CATEGORIES`, and one lint suppression that suppressed nothing.
 - Checks: type-check, lint, build, 30 unit tests, 43 database suites.
 - Open, needs Ravi's go-ahead (touch screens, no behaviour change intended): split `lib/actions/bulk-upload.ts` (1,615 lines) by module; merge the Add line / Edit line purchase forms (~250 duplicated lines); one shared retest card for the three QC sections; look at the four suppressed hook warnings in the feedback widget alongside E10.
+
+## Pass 95 — Feedback widget: the list refreshes after every note (18 Oct 2026, no migration)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: fix the refresh bug).
+
+- [x] Found while checking the widget's suppressed React warnings: the page's feedback list reloaded only when the success text changed, and the text is the same on every submit, so a second note on the same page was saved but did not appear until the page was reloaded. The list now reloads after every successful submit (`components/feedback/page-feedback.tsx`).
+- The other three suppressions are harmless (load on page open; Edit/Delete closing and refreshing).
+- E10 (`/feedback` admin Save, 12 Sept): no cause in the current code; the admin Save returns "Saved." with no redirect, the #418 error matches the ledger date bug fixed the same day (L-4), and 26 tickets have been saved since. Close after one screen Save.
+- No unit test: the app has no browser test setup for components (deferred with CI to go-live). Checks: type-check, lint, build, unit tests.
+- Live check: on any page, open Feedback & change log, submit two short notes one after the other; both appear in the list straight away.

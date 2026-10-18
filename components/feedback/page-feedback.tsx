@@ -74,10 +74,13 @@ function PageFeedbackInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagePath]);
 
+  // Depend on the whole result: the success text is the same on every submit,
+  // so watching only the text refreshed the list after the first note but not
+  // after the next ones (18 Oct 2026).
   useEffect(() => {
     if (state?.success) refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.success]);
+  }, [state]);
 
   return (
     <div className="mt-8 rounded-lg border border-border bg-card">
