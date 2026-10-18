@@ -1,5 +1,7 @@
 # Invento: detailed handoff to a new (cloud) session, 18 Oct 2026
 
+> **Newer handoff:** `handoff-2026-10-18-push-delivery.md` (18 Oct, evening) comes first. This file stays for its detail: mobile plan, go-live preparation, lessons, document map and SQL scripts.
+
 Read this first in a new session. It replaces `claude/session-handoff-2026-10-12.md` (keep that one as history). It says where things stand, how to set up, the rules Ravi works by, what is waiting on him and what to do next. A ready-to-paste starter prompt is at the end.
 
 ## 0. If you only have five minutes
