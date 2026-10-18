@@ -1,5 +1,5 @@
 -- ============================================================
--- Invento — FRESH INSTALL (all 120 migrations in one file, through 0120_finished_product_retest.sql)
+-- Invento — FRESH INSTALL (all 121 migrations in one file, through 0121_migration_pipeline_check.sql)
 --
 -- FOR A NEW, EMPTY SUPABASE PROJECT ONLY. Do NOT run this on a database that
 -- already has Invento data: the first migration recreates the tables.
@@ -19503,3 +19503,15 @@ revoke all on function public.load_opening_finished_product(jsonb) from public, 
 grant execute on function public.load_opening_finished_product(jsonb) to authenticated;
 
 commit;
+
+-- ############################################################
+-- ## 0121_migration_pipeline_check.sql
+-- ############################################################
+
+-- 0121: first migration applied by Supabase's GitHub integration after the
+-- history fix (scripts/db/mark-migrations-applied.sql). It only sets a
+-- description on the public schema, so it proves the push-to-main pipeline
+-- end to end without changing any table, row, function or permission.
+
+comment on schema public is
+  'Invento application schema. Changes arrive only as files in supabase/migrations, applied by the Supabase GitHub integration on push to main.';
