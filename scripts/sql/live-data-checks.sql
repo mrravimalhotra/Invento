@@ -526,7 +526,7 @@ union all
 select 'finished product batch', null, fpb.batch_number, count(*)
   from public.finished_product_batches fpb where fpb.active group by fpb.batch_number having count(*) > 1;
 
--- ## INV-S10  Orphans: submitted lines with no receipt push in the ledger, ledger pushes for lines that are not on a submitted order, QC records pointing at nothing
+-- ## INV-S10  Orphans: submitted lines with no receipt push in the ledger, purchase receipts that still count (do not net to zero) for lines that are not on a submitted order (0122), QC records pointing at nothing
 -- Expect no rows.
 select 'submitted line without receipt push' as problem, pl.id::text as ref
   from public.purchase_lines pl join public.purchase_orders po on po.id = pl.purchase_order_id and po.status = 'submitted'
@@ -534,10 +534,12 @@ select 'submitted line without receipt push' as problem, pl.id::text as ref
    and not exists (select 1 from public.inventory_ledger l
                     where l.purchase_line_id = pl.id and l.event_type = 'push' and l.reference_type = 'purchase')
 union all
-select 'receipt push on a line that is not submitted', l.id::text
-  from public.inventory_ledger l join public.purchase_lines pl on pl.id = l.purchase_line_id
-  join public.purchase_orders po on po.id = pl.purchase_order_id
- where l.event_type = 'push' and l.reference_type = 'purchase' and (po.status <> 'submitted' or pl.pushed_at is null)
+select 'receipt still counted on a line that is not submitted', pl.id::text
+  from public.purchase_lines pl join public.purchase_orders po on po.id = pl.purchase_order_id
+  join public.inventory_ledger l on l.purchase_line_id = pl.id and l.reference_type = 'purchase'
+ where po.status <> 'submitted' or pl.pushed_at is null
+ group by pl.id
+having sum(case l.event_type when 'push' then l.quantity else -l.quantity end) <> 0
 union all
 select 'QC record with no batch', q.id::text
   from public.quality_checks q
