@@ -87,7 +87,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | C5 | SEC-05 | Documents links accept any URL type | Deferred until the screen is used. Scan P8 (SCAN-P8-07): revision and link checks are on the screen only. |
 | C6 | SEC-08 | Bulk upload reads the whole file before the row limit | No action for now. |
 | C7 | SEC-11 | No length limits on typed text | No action for now. |
-| C8 | SEC-13 | Purge has no environment guard | No action for now. High once real data exists. |
+| C8 | SEC-13 | Purge has no environment guard | No action for now. High once real data exists. **Ravi, 18 Oct 2026: the purge button stays (System Administrator) for the whole testing cycle; add the guard or remove it at go-live.** |
 | C9 | L-2 | Environmental Control range and excursion checks | Skipped 12 Sept; needs area ranges first. Scan P8 (11 Oct 2026, SCAN-P8-05): the smaller step needs no ranges (require one value, typing guard 0 to 100 %RH). |
 | C10 | Req #20 | Sample unit chosen at purchase is not stored | Scoped and deferred 14 Sept. Needs a new column and about 10 files. |
 | C11 | Req #19 | One packaged item per finished product, so pack sizes pool into one count | Not to be built yet (14 Sept). |
@@ -652,6 +652,7 @@ Not app bugs. They explain oddities in the legacy data and the limits of the sam
 - Ground rule (Ravi, 12 Oct 2026): ignore anything whose name ends with "Deprecated", including Line Clearance and Environmental Control (not required anymore); scan findings about them (P8-04, P8-09, P8-14) are set aside and not built.
 - Go-live (Ravi, 18 Oct 2026): backups, separate test and production environments, automatic checks, e-mail delivery and the Mumbai region move are handled at go-live, when Supabase and Vercel move to Pro plans. Recorded in `claude/go-live-readiness-log.md` (G1 to G11).
 - Delivery (Ravi, 18 Oct 2026): Claude pushes the session branch and fast-forwards `main`; Supabase's GitHub integration applies migrations from `main`; Claude confirms on the live database with read-only queries. No patches, no SQL run by hand. (Before 18 Oct: patches applied with `git am` after the SQL was run in the SQL Editor.)
+- Purge (Ravi, 18 Oct 2026): the purge button is an admin tool needed throughout testing; leave it unchanged until go-live (C8).
 
 ## PART 6 — WHERE OLDER DOCUMENTS DISAGREE WITH THE CODE
 
