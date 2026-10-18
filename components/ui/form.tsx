@@ -11,8 +11,10 @@ import type { ComponentProps, InputHTMLAttributes, TextareaHTMLAttributes } from
 // autocomplete through out the app") — see that file for why.
 export { Select } from "@/components/ui/combobox";
 
+// Phones (18 Oct 2026, Ravi): 16 px text in boxes (max-md:text-base) so iPhone
+// Safari does not zoom in when a box is tapped; desktop keeps 14 px.
 const fieldBase =
-  "w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand disabled:bg-black/5 disabled:text-muted";
+  "w-full rounded-md border border-border bg-white px-3 py-2 text-sm max-md:text-base outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand disabled:bg-black/5 disabled:text-muted";
 
 export function Field({
   label,
@@ -39,8 +41,11 @@ export function Field({
   );
 }
 
-export function Input({ className, ...props }: ComponentProps<"input">) {
-  return <input className={cn(fieldBase, className)} {...props} />;
+// Number boxes open the phone's number pad: whole-number steps get digits only,
+// everything else digits with a decimal point. An explicit inputMode wins.
+export function Input({ className, inputMode, ...props }: ComponentProps<"input">) {
+  const mode = inputMode ?? (props.type === "number" ? (props.step === "1" || props.step === 1 ? "numeric" : "decimal") : undefined);
+  return <input className={cn(fieldBase, className)} inputMode={mode} {...props} />;
 }
 
 export function PasswordInput({ className, id, ...props }: ComponentProps<"input">) {

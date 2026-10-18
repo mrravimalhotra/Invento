@@ -261,7 +261,7 @@ export function DataTable<T>({
                         type="button"
                         onClick={() => toggleSort(c.header)}
                         title="Click to sort"
-                        className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground max-md:min-h-10"
+                        className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground max-md:min-h-11"
                       >
                         {c.header}
                         {dir === "asc" ? (
@@ -338,7 +338,7 @@ export function DataTable<T>({
           <div className="flex gap-2">
             <button
               aria-label="Previous page"
-              className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40 max-md:min-h-10 max-md:px-4"
+              className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40 max-md:min-h-11 max-md:px-4"
               disabled={currentPage === 0}
               onClick={() => setPage(Math.max(0, currentPage - 1))}
             >
@@ -346,7 +346,7 @@ export function DataTable<T>({
             </button>
             <button
               aria-label="Next page"
-              className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40 max-md:min-h-10 max-md:px-4"
+              className="rounded-md border border-border px-2.5 py-1 disabled:opacity-40 max-md:min-h-11 max-md:px-4"
               disabled={currentPage >= pageCount - 1}
               onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))}
             >

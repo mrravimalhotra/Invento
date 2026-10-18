@@ -582,3 +582,14 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - Result: duplication 1.9% → 1.0% of lines, largest file 1,625 → 779 lines, lint 0 problems, type-check 0 errors; build, 34 unit tests and 44 database suites pass. No database change, no new package.
 - Kept on purpose: the two label sheet previews (pixel-exact to their PDFs), the long linear bulk-upload functions (validate then save, no screen tests to guard a deeper split), and the history comments (decision record).
 - Live check: one save on each touched screen: Purchase add a line and edit it; QC page retest cards (if any due) and a rejection; Inventory → Rejected Materials, Retained Samples, Expiry & Retest Ageing open and search; Bulk Upload one small file of any module; Feedback note.
+
+## Pass 98 — Phone basics (18 Oct 2026, no migration)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: fix mobile; "apply the phone basics everywhere"; phone-first set: Dashboard and Labels, mockup to follow).
+
+- No browser walk was possible in this session (no Chrome connection; Claude never signs in), so the gaps were found by reading the code.
+- [x] Boxes (inputs, dropdowns, text areas) use 16 px text on phones (`max-md:text-base`), so iPhone Safari no longer zooms in on tap. Desktop unchanged (14 px).
+- [x] Number boxes open the number pad (`inputMode` decimal, or numeric for whole-number steps) through the shared `Input`; 3 of 47 had it before.
+- [x] Touch targets on phones 40 → 44 px (buttons, table sort and paging, menu, Audit Log paging, Opening Stock tabs).
+- [x] The two tables that could push the whole page sideways (MFR report, purge screen) now scroll inside their own box (`print:overflow-visible` keeps the printed MFR report whole).
+- Checks: type-check, lint, build, unit tests.
+- Live check (E72), on a phone: tap any box (no zoom); tap Quantity on a purchase line (number pad); buttons comfortable to tap; MFR report page does not scroll sideways as a whole.

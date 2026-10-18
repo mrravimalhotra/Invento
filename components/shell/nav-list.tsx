@@ -35,7 +35,7 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors max-md:min-h-10",
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors max-md:min-h-11",
                       active
                         ? "bg-brand-light text-brand-dark font-medium"
                         : "text-foreground/80 hover:bg-black/5"

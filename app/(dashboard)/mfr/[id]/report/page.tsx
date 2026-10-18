@@ -126,7 +126,8 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
             </p>
           </div>
 
-          <table className="mt-6 w-full text-sm">
+          <div className="mt-6 overflow-x-auto print:overflow-visible">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-black/[0.02] text-left text-xs font-semibold uppercase tracking-wide text-muted">
                 <th className="px-3 py-2">#</th>
@@ -146,13 +147,15 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
               ))}
             </tbody>
           </table>
+          </div>
 
           {(def.procedure_intro || stepRows.length > 0 || yieldLine) && (
             <div className="mt-6">
               <h3 className="text-sm font-semibold">Manufacturing Procedure</h3>
               {def.procedure_intro && <p className="mt-2 text-sm">{def.procedure_intro}</p>}
               {stepRows.length > 0 && (
-                <table className="mt-3 w-full text-sm">
+                <div className="mt-3 overflow-x-auto print:overflow-visible">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-black/[0.02] text-left text-xs font-semibold uppercase tracking-wide text-muted">
                       <th className="px-3 py-2 w-12">Sr.No</th>
@@ -170,6 +173,7 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
               {yieldLine && <p className="mt-3 text-sm">{yieldLine}</p>}
             </div>

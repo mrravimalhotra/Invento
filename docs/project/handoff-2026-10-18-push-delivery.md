@@ -33,7 +33,7 @@ Read this first. It sits on top of `handoff-cloud-session-2026-10-18.md` (the de
    If main moved: `git merge origin/main` into the branch, re-run checks, push again. Never force-push.
 5. Confirm a migration (usually live within two minutes):
    `select max(version), count(*) from supabase_migrations.schema_migrations;` plus one query that shows the change itself.
-6. Close out: row in `docs/project/deployment-log.md` (and Current state, migration register), next pass in `docs/project/known-issues.md` (next is **Pass 98**), `docs/project/open-items-master-list.md` and the summary if counts change. Commit and push.
+6. Close out: row in `docs/project/deployment-log.md` (and Current state, migration register), next pass in `docs/project/known-issues.md` (next is **Pass 99**), `docs/project/open-items-master-list.md` and the summary if counts change. Commit and push.
 
 **Never run or ask Ravi to run a migration in the SQL Editor.** It is not recorded in `schema_migrations`, so the integration runs it again and stalls. This is what happened from 0008 to 0120 (section 4).
 

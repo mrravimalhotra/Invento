@@ -23,6 +23,7 @@ export function PurgeTestDataForm() {
         </p>
         {purged.length > 0 && (
           <div className="max-h-64 overflow-y-auto rounded border border-border bg-white">
+            <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <tbody className="divide-y divide-border">
                 {purged.map((r) => (
@@ -33,6 +34,7 @@ export function PurgeTestDataForm() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
         <p className="text-muted">

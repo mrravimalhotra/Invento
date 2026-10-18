@@ -301,7 +301,7 @@ export function Select({
             }
           }}
           className={cn(
-            "w-full rounded-md border border-border bg-white px-3 py-2 pr-8 text-sm outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand disabled:bg-black/5 disabled:text-muted",
+            "w-full rounded-md border border-border bg-white px-3 py-2 pr-8 text-sm max-md:text-base outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand disabled:bg-black/5 disabled:text-muted",
             className
           )}
         />

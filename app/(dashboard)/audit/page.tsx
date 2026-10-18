@@ -117,12 +117,12 @@ async function AuditLogList({ filter, page }: { filter: AuditFilter; page: numbe
         </span>
         <div className="flex flex-wrap items-center gap-2">
           {page > 1 && (
-            <Link href={pageHref(filter, page - 1)} className="rounded-md border border-border px-3 py-1.5 text-foreground hover:bg-black/5 max-md:min-h-10 max-md:py-2.5">
+            <Link href={pageHref(filter, page - 1)} className="rounded-md border border-border px-3 py-1.5 text-foreground hover:bg-black/5 max-md:min-h-11 max-md:py-2.5">
               Newer
             </Link>
           )}
           {page < pageCount && (
-            <Link href={pageHref(filter, page + 1)} className="rounded-md border border-border px-3 py-1.5 text-foreground hover:bg-black/5 max-md:min-h-10 max-md:py-2.5">
+            <Link href={pageHref(filter, page + 1)} className="rounded-md border border-border px-3 py-1.5 text-foreground hover:bg-black/5 max-md:min-h-11 max-md:py-2.5">
               Older
             </Link>
           )}

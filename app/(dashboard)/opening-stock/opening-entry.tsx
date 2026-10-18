@@ -23,7 +23,7 @@ export function OpeningEntry({ kind, templateHref }: { kind: OpeningKind; templa
       role="tab"
       aria-selected={mode === m}
       onClick={() => pick(m)}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors max-md:min-h-10 ${
+      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors max-md:min-h-11 ${
         mode === m ? "bg-brand text-white" : "text-foreground hover:bg-black/5"
       }`}
     >
