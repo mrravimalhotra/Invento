@@ -6,7 +6,7 @@ Next.js 16 App Router + Supabase (Postgres, RLS). Inventory / QC / manufacturing
 pharma (GMP) SME. Not live: all data is test data. Deployed by pushing `main` (Vercel).
 
 ## Where things live
-- Screens: `app/(dashboard)/<module>/` (page.tsx, forms, tables). Module docs: `docs/modules/<module>.md`.
+- Screens: `app/(dashboard)/<module>/` (page.tsx, forms, tables). Module docs: `docs/modules/<module>.md`. Project status, open items, handoff and go-live plan: `docs/project/README.md`.
 - Server actions (all writes): `lib/actions/<module>.ts` — validate with zod, call `supabase.from()` or an RPC,
   map errors with `friendlyDbError` (`lib/db-errors.ts`; P0001/P0002/22023 messages reach the user as written).
 - Shared: `lib/utils.ts` (IST dates, `formatQty`, `escapeLike`), `lib/supabase/fetch-all.ts` (`fetchAllRows`,
