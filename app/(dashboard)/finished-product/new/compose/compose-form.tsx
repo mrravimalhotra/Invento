@@ -8,7 +8,7 @@ import { formatQty } from "@/lib/utils";
 import { LegacyTag } from "@/components/ui/legacy-tag";
 
 // One batch actually drawn from as part of an ingredient's automatic FIFO
-// allocation (see allocateFifo() in page.tsx) — `qty` is how much of THIS
+// allocation (see allocateFifo() in lib/fifo.ts) — `qty` is how much of THIS
 // batch is being taken, not how much the batch has left.
 //
 // Ravi (14 Sept 2026): "it should only show batch number, no need to show
@@ -32,13 +32,8 @@ import { LegacyTag } from "@/components/ui/legacy-tag";
 // 0050_production_rm_from_packaging.sql). Exactly one of
 // finished_product_components.purchase_line_id / production_batch_id gets
 // set server-side depending on which this is.
-export type Allocation = {
-  source: "purchase" | "production";
-  id: string;
-  batchNumber: string;
-  qty: number;
-  isLegacy?: boolean;
-};
+import type { Allocation } from "@/lib/fifo";
+export type { Allocation };
 
 export type ComposeLine = {
   itemId: string;

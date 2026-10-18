@@ -11,7 +11,7 @@ Invento = Next.js 16 + Supabase inventory/QC/manufacturing app for an Ayurvedic 
 
 ## Building
 1. Start from the latest main: `git fetch origin main && git checkout -B <session-branch> origin/main`. Stage files by name (`git add <paths>`), never `git add -A`.
-2. Run `npx tsc --noEmit`, `npx eslint <files>`, `next build` (command in `CLAUDE.md`), and for DB changes `scripts/dev/run-tests.sh` (needs `service postgresql start`; compare with `supabase/tests/expected.txt`).
+2. Run `npx tsc --noEmit`, `npx eslint <files>`, `npm test` (unit tests, `tests/unit/`; add one when a `lib/` rule changes), `next build` (command in `CLAUDE.md`), and for DB changes `scripts/dev/run-tests.sh` (needs `service postgresql start`; compare with `supabase/tests/expected.txt`).
 3. A migration ships with: the SQL (`supabase/migrations/NNNN_name.sql`, next number = highest + 1; check the live history too), a regression suite `supabase/tests/part_*.sql` added to the `FILE` map and `ORDER` array in `run-tests.sh` plus its `expected.txt` line, a regenerated `supabase/fresh-install.sql` (`node scripts/build-fresh-install.mjs`), and a line in `docs/modules/` if user-visible.
 4. Never edit a migration that is already live; add a new one.
 

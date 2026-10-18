@@ -21,7 +21,7 @@ pharma (GMP) SME. Not live: all data is test data. Deployed by pushing `main` (V
 - Deprecated (do not touch unless asked): BMR (`bmr_*` tables, `/admin/bmr-deprecated`).
 
 ## Commands
-- `npx tsc --noEmit`, `npx eslint <files>`, `NEXT_PUBLIC_SUPABASE_URL=https://x.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=x npx next build`
+- `npx tsc --noEmit`, `npx eslint <files>`, `npm test` (unit tests in `tests/unit/`, ~1 s), `NEXT_PUBLIC_SUPABASE_URL=https://x.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=x npx next build`
 - Database regression suites (needs local Postgres, ~7 s): `scripts/dev/run-tests.sh [suite...]` — one line per suite,
   compared with `supabase/tests/expected.txt`. New migration => add a suite `supabase/tests/part_*.sql` + expected line.
 - After adding or changing a migration: `node scripts/build-fresh-install.mjs` and commit `supabase/fresh-install.sql`.

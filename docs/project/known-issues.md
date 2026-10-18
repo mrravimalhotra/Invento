@@ -519,3 +519,12 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - [x] **LW-11 fixed:** S9 flagged any purchase receipt row on a line that is not submitted, so PO-0032 (submitted, then reopened: receipt of 100 kg plus its reversal, net 0) showed as a difference. S9 now flags such a line only when its purchase receipts do not net to zero. The other eight checks are unchanged.
 - [x] `scripts/sql/live-data-checks.sql` INV-S10 uses the same rule. Suite ic122 (11 checks: reopened order clean, a stray receipt still found and explained, resubmit clean, other roles refused); 41 suites OK.
 - [x] **Checked on the live database after 0122** (read-only transaction, as the System Administrator): S1 to S9 all 0 problems; a non-admin user is refused. Ledger rows 209. Repeatable as block INV-SIC in `scripts/sql/live-data-checks.sql`.
+
+## Pass 91 — Testing: unit tests for the app's own rules, live checks confirmed in the data (18 Oct 2026, no migration)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: fix the Testing row of the rating).
+
+- [x] **30 unit tests** (`tests/unit/`, `npm test`, Node's built-in test runner through `tsx`; no new package): FIFO allocation (cascade, shortfall, dust, the same batch never promised twice), unit conversion, money rounding, stock precision, limits, batch QC state, usable stock split, ageing buckets, QC rounds and results, yield rule, low stock, date rules, India dates and number formats, database error messages, name and paging helpers. They pass in UTC, New York and India time. A deliberately broken FIFO made the matching test fail.
+- [x] `allocateFifo()` moved from `finished-product/new/compose/page.tsx` to `lib/fifo.ts` (no change in behaviour) so it can be tested; `Allocation` is defined once there.
+- [x] `tsconfig.json` leaves `docs/` out: the archived scan scripts there broke `npx tsc --noEmit`.
+- [x] **Live checks, data side (read-only):** evidence written into E10, E12, E20, E22, E27, E28, E29, E31, E32, E33, E36, E37, E40, E47, E53, E55, E57, E60, E61, E67 and E68 of the master list. What each still needs on screen is unchanged.
+- Finding for Ravi (no change made): an approved MFR that no batch has used can be deleted by the System Administrator, and its finished product item stays behind. It happened twice (MFR-0001 on 28 Sept, MFR-0006 on 7 Oct, each deleted within a minute of approval), leaving FP-00001 and FP-00005 with no MFR. For GMP, an approved master record is usually retired (Deactivate), not deleted. Decision needed: refuse delete once approved, or keep as is.

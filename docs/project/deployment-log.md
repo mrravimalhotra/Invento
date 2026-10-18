@@ -41,6 +41,7 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
+| 2026-10-18 | this commit | Testing (Ravi: fix the Testing row): 30 unit tests of the app's own rules (`npm test`), `allocateFifo()` moved to `lib/fifo.ts`, `tsconfig.json` leaves `docs/` out, data side of 21 live checks recorded (known issues Pass 91) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-18 | `3444733` | Migration 0122 (Ravi: go ahead): Stock Integrity Check S9 compares the net receipt, so a reopened purchase order (receipt plus reversal) is no longer a difference (LW-11); `live-data-checks.sql` INV-S10 matches; suite ic122 | `0122_integrity_s9_net_receipt` | ✅ | ✅ | Pushed by Claude; applied by the Supabase GitHub integration |
 | 2026-10-18 | `f583e06` | Database checks run read-only on the live database (`live-data-checks.sql`, 97 blocks; E8, E56, E62, E70, LW-11): invariants clean, LW-11 confirmed a false alarm, old test-data findings listed (known issues Pass 89) | None | ✅ | n/a | Documents only; nothing changed in the database |
 | 2026-10-18 | `9170877` | Project documents updated to the new delivery method (handoff, deployment log, working agreement, what was built, open items, readiness rating, known issues Pass 88) | None | ✅ | n/a | Pushed by Claude |
