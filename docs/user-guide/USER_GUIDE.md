@@ -2,7 +2,7 @@
 
 **A complete guide to using Invento — Atharva's inventory, quality control, and manufacturing system.**
 
-*Version: 12 October 2026 · This guide is updated whenever the app changes in a way that affects how you use it. See "How this guide stays current" at the end.*
+*Version: 18 October 2026 · This guide is updated whenever the app changes in a way that affects how you use it. See "How this guide stays current" at the end.*
 
 ---
 
@@ -402,7 +402,7 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 
 **Where to find it:** Procurement → Inventory Ledger
 
-**Who can use it:** Everyone signed in can view all eight tabs (Ledger, Stock Position, Stock Statement, RM Report As On Date, Rejected Materials, Batch Trace, Expiry & Retest Ageing, Retained Samples). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
+**Who can use it:** Everyone signed in can view all eight tabs (Ledger, Stock Position, Stock Statement, RM Report, Rejected Materials, Batch Trace, Expiry & Retest Ageing, Retained Samples). Recording wastage is limited to System Admin, Inventory Manager, Quality Checker, or QC Reviewer.
 
 **What it's for:** This is the record of every stock movement in Invento — material coming in from Purchase, samples pulled out for QC, material consumed making finished product, packaging issued, and wastage — plus ways to see where things stand: a current on-hand view (Stock Position), a report of raw material stock (RM Report As On Date, which shows today's quantities) and a period view with opening and closing stock (Stock Statement). Everything on these screens is generated automatically from other modules except wastage, which is the one thing you record here directly.
 
@@ -423,6 +423,9 @@ Nothing on a Draft order is visible anywhere else in the app — Quality Control
 
 **How it connects to the rest of the app**
 This module is downstream of everything else: a Purchase Final Submit creates the "Stock In" rows here, starting a QC check creates the sample "Stock Out" rows automatically, and Finished Product/Packaging create their own rows when batches are made or issued. Wastage is the only entry you create directly on this screen. The RM Report As On Date and the Ledger/Stock Position views only ever reflect batches from **submitted** purchase orders — a Draft order's stock won't appear here at all.
+
+**RM Report**
+Open the **RM Report** tab for a batch-by-batch list of raw material. **PQTY** is the quantity purchased, **SQTY** the samples taken (QC, stability and R&D) and **QTY** the stock left today. Rejected batches are not listed (see Rejected Materials). For stock on a past date use the Stock Statement tab.
 
 **Rejected Materials**
 Open the **Rejected Materials** tab to see every batch QC has rejected — raw material and finished product — with the QC, Stability and R&D samples taken from each shown on the same row. You can search it and export it to Excel or PDF. When QC rejects a raw material batch, what is left of it is taken out of stock on hand automatically (the ledger shows it as "QC Rejected"), so Stock Position only counts material you can actually use. Recording wastage against a rejected batch writes it off from the rejected quantity. A purchase order that contains a rejected batch can't be reopened.
@@ -448,7 +451,7 @@ The ledger's Event column shows **Stock In** when stock is added (receipts, batc
 
 **Good to know**
 - The main Ledger tab shows only the 1,000 most recent events — use the item, reason, and date filters if you're looking for something older rather than scrolling.
-- The RM Report As On Date shows **today's** quantities, whatever date you pick, so it is not a true record of stock on a past date. To see how stock moved over a past period, use the Stock Statement tab, which gives Opening and Closing stock for any dates you choose. Use the Export PDF button to save or print the report.
+- The **RM Report** shows each batch's quantity as it is **today**. It has no date box, because a date would suggest it can show past stock. To see how stock moved over a past period, use the Stock Statement tab, which gives Opening and Closing stock for any dates you choose. Use the Export PDF button to save or print the report.
 - Wastage always needs a batch now — if an item has no received batches yet, the form won't let you submit until one exists.
 
 ---
@@ -615,6 +618,8 @@ This module is self-contained — it doesn't read or affect data from Purchase, 
 4. Click **View** on a row to open its detail page: a full before/after comparison with field names in words, and people, items, vendors, batches and recipes shown by name instead of by code.
 5. The list shows 200 changes at a time, newest first; use **Older** and **Newer** at the bottom to move through them.
 
+**QC decisions:** choose Table → **QC Decision History** to see each round's decision, reason and who made it, one row per step (Round 1, Round 2, proposed rejection, send back, void).
+
 **Sign-ins:** choose Table → **User Account** to see who signed in and out, failed sign-in attempts (the e-mail typed, never the password) and passwords changed by the user. A run of failed attempts on one account is worth a look. After 20 failed attempts for one e-mail in an hour (or 200 in all), the log adds one line saying more were not recorded.
 
 **History on a record's own page:** the Item, Purchase Order, QC record, MFR and Finished Product batch pages show a **History** button (System Admin and Super Auditor only) that opens the Audit Log for that one record.
@@ -689,6 +694,7 @@ Finished Product sits downstream of MFR (needs an approved recipe) and Quality C
 
 **Good to know**
 - A raw material batch that's pending, rejected, expired or overdue for retest is never used — if a batch you expected is not being drawn from, check its QC status first.
+- **Retest of a finished batch.** An approved batch is retested when its retest date arrives (see Quality Control). The batch page lists every QC record: **First QC**, then **Retest 1**, **Retest 2** and **Retest 3**. While a retest is open, the batch cannot be packed or labelled, and the bulk left shown on the page already has the retest sample taken off.
 - The raw material is set aside as soon as the Draft is saved, not after the finished batch's own QC passes. If the Draft is cancelled, by you or after 30 minutes, the stock goes back.
 - **After completion card.** On a completed batch's page it shows the samples taken, how much bulk packaging has used, how much bulk is left unpacked, and each packing run with a link to Packaging.
 - **No correction after Complete.** Once a batch has been completed, its yield, dates and sample quantities cannot be changed on the screen, so use the review step to check them first.
@@ -725,6 +731,7 @@ Packaging draws from the same stock the Inventory Ledger tracks — an issue her
 **Good to know**
 - You can't issue more than a batch's current available quantity — the form will stop you rather than letting stock go negative. When a batch or a packaging material is short, a red "Not enough stock for …" message names the line and shows what is available against what you asked for, the quantity box turns red, and Add line / Save stay greyed out until it is fixed.
 - There is no repack or unpack: every issue is a pack.
+- **Retest blocks packing.** A finished product batch cannot be packed while it is expired, past its retest date, or while a retest of it is open on the Quality Control page. The form says why. When the retest is approved the batch can be packed again; a rejected retest takes the remaining bulk out of stock (packs already made stay). Samples taken for a retest come off the bulk, so they reduce what is left to pack.
 - The Packaging list has a Packing Register PDF for printing.
 
 ---
