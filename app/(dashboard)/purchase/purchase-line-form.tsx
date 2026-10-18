@@ -85,7 +85,6 @@ export function PurchaseLineForm({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       resetForm();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   function handleItemChange(id: string) {

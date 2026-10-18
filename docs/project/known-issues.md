@@ -544,3 +544,12 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
 - [x] Every public function has `search_path = public, extensions` (advisor: 48 without), the path API sessions already use.
 - [x] The migration checks all three outcomes itself. Suite sh124 (6 checks, including every function the app calls still open); sa113 updated for the closed helper. 43 suites OK, unit tests 30/30.
 - Purge left unchanged (Ravi: needed for the testing cycle; C8 at go-live).
+
+## Pass 94 — Code quality check and no-behaviour-change cleanup (18 Oct 2026, no migration)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: go for the no-behaviour-change cleanup).
+
+- Check (whole app, about 41,000 lines): 0 type errors, 0 lint errors, 3 justified `any`, no `@ts-ignore`, no debug logs, 1 TODO, 1.9% duplicated lines, no swallowed errors; `npm audit`: 2 moderate in `uuid` under `exceljs` (a function the app does not use).
+- [x] Lint ignores parameters named with a leading `_` (server actions must accept `prevState, formData`): 44 noise warnings gone; lint now reports 0 problems.
+- [x] Removed code nothing used: `lib/supabase/client.ts` (browser client), `fpEligibleForLabel()`, `ITEM_CATEGORIES`, and one lint suppression that suppressed nothing.
+- Checks: type-check, lint, build, 30 unit tests, 43 database suites.
+- Open, needs Ravi's go-ahead (touch screens, no behaviour change intended): split `lib/actions/bulk-upload.ts` (1,615 lines) by module; merge the Add line / Edit line purchase forms (~250 duplicated lines); one shared retest card for the three QC sections; look at the four suppressed hook warnings in the feedback widget alongside E10.

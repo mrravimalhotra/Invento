@@ -41,6 +41,7 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
+| 2026-10-18 | this commit | Code quality cleanup, no behaviour change (Ravi: go): lint ignores `_` parameters, unused code removed (`lib/supabase/client.ts`, `fpEligibleForLabel`, `ITEM_CATEGORIES`, a stale suppression); known issues Pass 94 | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-18 | `402266c` | Migration 0124 (Ravi: lock only what no screen uses): trigger functions closed to direct calls, `can_manage_coa_template`, `check_sufficient_stock`, `stability_reserve_left` database-only, search_path fixed on every public function; suite sh124; sa113 updated | `0124_function_access_hardening` | ✅ | ✅ | Pushed by Claude; applied by the Supabase GitHub integration |
 | 2026-10-18 | `0eb9369` | Migration 0123 (Ravi: refuse delete once an MFR is approved): a before-delete trigger refuses any delete of an approved MFR; Delete button only on a draft; suite md123; sec04, a0085, a0086 updated | `0123_mfr_no_delete_once_approved` | ✅ | ✅ | Pushed by Claude; applied by the Supabase GitHub integration |
 | 2026-10-18 | `2fb277b` | Testing (Ravi: fix the Testing row): 30 unit tests of the app's own rules (`npm test`), `allocateFifo()` moved to `lib/fifo.ts`, `tsconfig.json` leaves `docs/` out, data side of 21 live checks recorded (known issues Pass 91) | None | ✅ | n/a | Pushed by Claude; no database change |

@@ -41,10 +41,6 @@ export function rmEligibleFor(kind: LabelKind, r: RmLabelInput, today: string): 
   return false;
 }
 
-export function fpEligibleForLabel(status: string): boolean {
-  return status === "approved";
-}
-
 export const ELIGIBILITY_HINT: Record<LabelKind, string> = {
   approved_rm: "Only batches that are QC-approved now (not due for retest, purchase order submitted) are listed.",
   under_test: "Only batches awaiting a QC decision or due for retest are listed.",
