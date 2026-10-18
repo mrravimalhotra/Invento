@@ -17,7 +17,7 @@ Short form of `claude/open-items-master-list.md` (the full register, with every 
 
 1. **Live check E70** (finished product retest, 7 steps). Ask Claude for the SQL line that moves one batch's approval back so it falls due.
 2. **"Go" on the corrections group**: P4-09 (void or replace a certificate), P6-01 (void a packaging issue), P5-04 (correct or close a finished product batch), P8-01 (equipment calibration status).
-3. **Decisions:** B45 (invoice date or received date, per output), P6-04 (production raw material QC), LW-11 (S9 false alarm; needs migration 0122; ledger confirmed 18 Oct 2026: S9 is a false alarm, net 0), MFA (B3), P9-01 (paper or app for deviations and CAPA).
+3. **Decisions:** B45 (invoice date or received date, per output), P6-04 (production raw material QC), MFA (B3), P9-01 (paper or app for deviations and CAPA).
 4. **Quick wins:** Vercel Function Region to Tokyo (hnd1) and redeploy now; Mumbai (ap-south-1 plus bom1) when the production project is created (reminder on record).
 5. **Mobile:** say "go" for the read-only phone-width walk, then the two fix patches (see the handoff, section 8).
 6. **Go-live register** (`claude/go-live-readiness-log.md`): G1 to G11, deferred to go-live with the move to Supabase Pro and Vercel Pro.

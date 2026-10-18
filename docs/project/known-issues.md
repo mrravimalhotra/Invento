@@ -512,3 +512,10 @@ Ravi said "Go" and answered P7-14 "Yes, build it".
   - P2-C: RM-00003 Dink has no Item type (before E20). P2-E: vendor V-0006 has no phone, mobile or e-mail; V-0004 has its address in the mobile field.
 - Informational: INV-P9: four components of FP-00003-01/26 and one of FP-00004-01/26 carry binary-fraction tails (for example 0.6958000000000002); screens round them. INV-K7: PKG-0002 is missing from the series. P1-F: every QC record was decided by one person in both rounds (the System Administrator, allowed; INV-Q5 is clean). P1-A: the anonymous role can still execute 41 trigger functions; trigger functions cannot be called directly, so no exposure, but the expected list was 4 helpers. P1-D: schemas `backup_20260913_1116` (25 tables, pre-purge copy) and `legacy` (31 tables) are still there; drop the backup before go-live (B10). P2-K: no opening stock load has been made on the live database yet (E33, E34, E35, E63, E65 untested).
 - Not run: P9-B and P9-C (column lists for the paper-form comparison) and P7-D (30-day ledger summary): reference output, nothing to judge.
+
+## Pass 90 — Migration 0122: Stock Integrity Check S9 compares the net receipt (18 Oct 2026, `3444733`)
+**Deploy status: live 18 Oct 2026.** Pushed to `main` by Claude (Ravi: go ahead with migration 0122); applied by the Supabase GitHub integration.
+
+- [x] **LW-11 fixed:** S9 flagged any purchase receipt row on a line that is not submitted, so PO-0032 (submitted, then reopened: receipt of 100 kg plus its reversal, net 0) showed as a difference. S9 now flags such a line only when its purchase receipts do not net to zero. The other eight checks are unchanged.
+- [x] `scripts/sql/live-data-checks.sql` INV-S10 uses the same rule. Suite ic122 (11 checks: reopened order clean, a stray receipt still found and explained, resubmit clean, other roles refused); 41 suites OK.
+- Live check: Admin → Stock Integrity Check should now say "All 9 checks passed" (E56, E62).
