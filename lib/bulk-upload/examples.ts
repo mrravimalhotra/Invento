@@ -37,7 +37,7 @@ export const EXAMPLE_ROWS: Record<ExampleKey, string[][]> = {
     ["Ambadas Vanaushadhalaya", "INV-2026-0091", "2026-09-10", "Raw Material", "Jatamansi", "20", "kg", "0.5", "0.2", "0.1", "", "450", "5"],
     ["Ambadas Vanaushadhalaya", "INV-2026-0091", "2026-09-10", "Packaging Item", "White Cap 28 mm", "500", "nos", "", "", "", "", "3.2", "18"],
   ],
-  equipment: [["Analytical Balance", "R-101", "QC Lab", "", "1", "Calibrated", "2026-06-01", "2027-06-01"]],
+  equipment: [["Analytical Balance", "R-101", "QC Lab", "", "1", "Needs Calibration", "2026-06-01", "2027-06-01"]],
   "dead-stock": [["Old HPLC Column", "2022-03-15", "1", "12000", "25", "", "0", "0", "", "", ""]],
   "coa-templates": [
     ["RM-001", "Loss on drying", "Not More Than 10 %w/w"],

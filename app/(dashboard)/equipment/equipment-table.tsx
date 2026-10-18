@@ -4,6 +4,9 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { InactiveTag } from "@/components/ui/inactive-tag";
 import type { TableExport } from "@/lib/table-export";
+import { formatDate } from "@/lib/utils";
+import { calibrationState } from "@/lib/calibration";
+import { CalibrationBadge } from "./calibration-badge";
 
 export type EquipmentRow = {
   id: string;
@@ -14,16 +17,15 @@ export type EquipmentRow = {
   asset_id: string | null;
   quantity: number;
   calibration_status: string | null;
+  last_calibration_date: string | null;
+  next_calibration_due: string | null;
   active: boolean;
 };
 
-const CALIBRATION_LABELS: Record<string, string> = {
-  calibrated: "Calibrated",
-  due: "Due for calibration",
-  not_applicable: "Not applicable",
-};
-
-export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
+// `today` comes from the server (India date) so the computed status is the same
+// on the server and in the browser.
+export function EquipmentTable({ rows, today }: { rows: EquipmentRow[]; today: string }) {
+  const stateOf = (r: EquipmentRow) => calibrationState(r.calibration_status, r.next_calibration_due, today);
   const columns: Column<EquipmentRow>[] = [
     {
       header: "Code",
@@ -53,10 +55,20 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
     },
     { header: "Qty", accessor: (r) => r.quantity },
     {
+      header: "Last calibration",
+      accessor: (r) => formatDate(r.last_calibration_date),
+      sortValue: (r) => r.last_calibration_date ?? "",
+    },
+    {
+      header: "Next due",
+      accessor: (r) => formatDate(r.next_calibration_due),
+      sortValue: (r) => r.next_calibration_due ?? "",
+    },
+    {
       header: "Calibration",
-      accessor: (r) =>
-        r.calibration_status ? CALIBRATION_LABELS[r.calibration_status] ?? r.calibration_status : "—",
-      searchValue: (r) => (r.calibration_status ? CALIBRATION_LABELS[r.calibration_status] ?? "" : ""),
+      accessor: (r) => <CalibrationBadge state={stateOf(r)} />,
+      searchValue: (r) => stateOf(r).label,
+      sortValue: (r) => stateOf(r).days ?? Number.MAX_SAFE_INTEGER,
     },
   ];
 
@@ -72,10 +84,9 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
       { header: "Section", value: (r) => r.section ?? "" },
       { header: "Asset ID", value: (r) => r.asset_id ?? "" },
       { header: "Qty", type: "number", decimals: 0, value: (r) => r.quantity },
-      {
-        header: "Calibration",
-        value: (r) => (r.calibration_status ? CALIBRATION_LABELS[r.calibration_status] ?? r.calibration_status : ""),
-      },
+      { header: "Last calibration", type: "date", value: (r) => r.last_calibration_date },
+      { header: "Next due", type: "date", value: (r) => r.next_calibration_due },
+      { header: "Calibration", value: (r) => stateOf(r).label },
     ],
   };
 

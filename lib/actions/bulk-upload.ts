@@ -1191,9 +1191,14 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
 // ------------------------------------------------------------------
 // Instrument / Equipment Master
 // ------------------------------------------------------------------
+// P8-01 (18 Oct 2026): the status is worked out from Next Calibration Due, so the
+// sheet only says whether the equipment needs calibration. The older words
+// Calibrated and Due still load, as Needs Calibration.
 const CALIBRATION_STATUS_MAP: Record<string, string> = {
-  calibrated: "calibrated",
-  due: "due",
+  "needs calibration": "required",
+  required: "required",
+  calibrated: "required",
+  due: "required",
   "not applicable": "not_applicable",
   na: "not_applicable",
   "n/a": "not_applicable",
@@ -1286,19 +1291,19 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     let quantity = 1;
     if (quantityRaw) {
       const n = Number(quantityRaw);
-      if (Number.isNaN(n) || n <= 0) {
-        rowErrors.push(`Row ${r} ("${name}"): Quantity must be a number greater than 0.`);
+      if (Number.isNaN(n) || n <= 0 || !Number.isInteger(n)) {
+        rowErrors.push(`Row ${r} ("${name}"): Quantity must be a whole number greater than 0.`);
         return;
       }
       quantity = n;
     }
 
-    let calibration_status: string | null = null;
+    let calibration_status: string | null = null; // decided below once Next Calibration Due is read
     if (calibRaw) {
       const match = CALIBRATION_STATUS_MAP[calibRaw.trim().toLowerCase()];
       if (!match) {
         rowErrors.push(
-          `Row ${r} ("${name}"): Calibration Status must be "Calibrated", "Due", or "Not Applicable" — got "${calibRaw}".`
+          `Row ${r} ("${name}"): Calibration Status must be "Needs Calibration" or "Not Applicable" — got "${calibRaw}".`
         );
         return;
       }
@@ -1310,7 +1315,12 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
     const next_calibration_due = parseOptionalDate(nextCalibRaw, "Next Calibration Due", r, rowErrors);
     if (next_calibration_due === undefined) return;
     // Date rules (Ravi, 3 Oct 2026), same as the Equipment screen.
+    // Blank status: Needs Calibration when a Next Calibration Due date is given, else Not Applicable.
+    if (calibration_status === null) calibration_status = next_calibration_due ? "required" : "not_applicable";
     const calibDateError = firstDateError(
+      calibration_status === "required" && !next_calibration_due
+        ? "Next Calibration Due is required when the equipment needs calibration."
+        : null,
       futureDateError(last_calibration_date, "Last Calibration Date"),
       notAfterDateError(next_calibration_due, last_calibration_date, "Next Calibration Due", "the Last Calibration Date")
     );

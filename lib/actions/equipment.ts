@@ -10,32 +10,34 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canWrite } from "@/lib/constants/roles";
 import { escapeLike } from "@/lib/utils";
 import { friendlyDbError } from "@/lib/db-errors";
+import { CALIBRATION_CHOICES, calibrationDueDateError } from "@/lib/calibration";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
-const CALIBRATION_STATUSES = ["calibrated", "due", "not_applicable"] as const;
+const CALIBRATION_STATUSES: readonly string[] = CALIBRATION_CHOICES.map((c) => c.value);
 
 const equipmentSchema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(NAME_MAX, "Name is too long (limit 200 characters)."),
   room_no: z.string().trim().optional(),
   section: z.string().trim().optional(),
   asset_id: z.string().trim().optional(),
-  quantity: z.coerce.number().positive("Quantity must be greater than zero.").default(1),
+  quantity: z.coerce.number().int("Quantity must be a whole number.").positive("Quantity must be greater than zero.").default(1),
   calibration_status: z
     .string()
     .trim()
-    .refine((v) => v === "" || (CALIBRATION_STATUSES as readonly string[]).includes(v), {
-      message: "Invalid calibration status.",
-    })
-    .optional(),
+    .refine((v) => CALIBRATION_STATUSES.includes(v), {
+      message: "Choose whether the equipment needs calibration.",
+    }),
   last_calibration_date: z.string().trim().optional(),
   next_calibration_due: z.string().trim().optional(),
 });
 
 // Date rules (Ravi, 3 Oct 2026): a calibration cannot be dated in the future, and the
 // next due date has to come after the last calibration. A past due date is fine (overdue).
-function equipmentDateError(d: { last_calibration_date?: string; next_calibration_due?: string }): string | null {
+// P8-01 (Ravi, 18 Oct 2026): Next due is required when the equipment needs calibration.
+function equipmentDateError(d: { calibration_status: string; last_calibration_date?: string; next_calibration_due?: string }): string | null {
   return firstDateError(
+    calibrationDueDateError(d.calibration_status, d.next_calibration_due),
     futureDateError(d.last_calibration_date, "Last calibration date"),
     notAfterDateError(d.next_calibration_due, d.last_calibration_date, "Next calibration due", "the last calibration date")
   );
@@ -99,7 +101,7 @@ export async function createEquipment(_prev: ActionState, formData: FormData): P
     section: parsed.data.section || null,
     asset_id: parsed.data.asset_id || null,
     quantity: parsed.data.quantity,
-    calibration_status: parsed.data.calibration_status || null,
+    calibration_status: parsed.data.calibration_status,
     last_calibration_date: parsed.data.last_calibration_date || null,
     next_calibration_due: parsed.data.next_calibration_due || null,
   });
@@ -151,7 +153,7 @@ export async function updateEquipment(
       section: parsed.data.section || null,
       asset_id: parsed.data.asset_id || null,
       quantity: parsed.data.quantity,
-      calibration_status: parsed.data.calibration_status || null,
+      calibration_status: parsed.data.calibration_status,
       last_calibration_date: parsed.data.last_calibration_date || null,
       next_calibration_due: parsed.data.next_calibration_due || null,
       active,

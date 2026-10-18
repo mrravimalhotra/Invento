@@ -213,9 +213,9 @@ export const EQUIPMENT_COLUMNS: ColumnDef[] = [
   { header: "Section", required: false },
   { header: "Asset ID", required: false, hint: "the existing printed/engraved ID tag, if any — holds both legacy and newly assigned IDs" },
   { header: "Quantity", required: false, hint: "a number greater than 0 — defaults to 1 if left blank", numeric: true },
-  { header: "Calibration Status", required: false, hint: "Calibrated, Due, or Not Applicable — leave blank if unknown" },
+  { header: "Calibration Status", required: false, hint: "Needs Calibration or Not Applicable — blank means Needs Calibration when a Next Calibration Due date is given" },
   { header: "Last Calibration Date", required: false, hint: "not later than today" },
-  { header: "Next Calibration Due", required: false, hint: "after the Last Calibration Date" },
+  { header: "Next Calibration Due", required: false, hint: "after the Last Calibration Date; required for Needs Calibration" },
 ];
 
 export const DEAD_STOCK_COLUMNS: ColumnDef[] = [

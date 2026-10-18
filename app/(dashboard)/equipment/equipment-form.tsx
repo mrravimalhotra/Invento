@@ -6,6 +6,7 @@ import { createEquipment, updateEquipment, deleteEquipment, type ActionState } f
 import { Field, Input, Select, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { todayIst } from "@/lib/utils";
+import { CALIBRATION_CHOICES } from "@/lib/calibration";
 
 type Equipment = {
   id: string;
@@ -52,12 +53,18 @@ export function NewEquipmentForm({ nextEquipmentCode }: { nextEquipmentCode: str
       <Field label="Quantity" htmlFor="quantity">
         <Input id="quantity" name="quantity" type="number" step="1" min="1" defaultValue={1} />
       </Field>
-      <Field label="Calibration status" htmlFor="calibration_status" hint="Leave blank if not applicable yet.">
-        <Select id="calibration_status" name="calibration_status" defaultValue="">
-          <option value="">—</option>
-          <option value="calibrated">Calibrated</option>
-          <option value="due">Due for calibration</option>
-          <option value="not_applicable">Not applicable</option>
+      <Field
+        label="Calibration"
+        htmlFor="calibration_status"
+        required
+        hint="The status (Calibrated, Due in N days, Overdue) is worked out from Next calibration due, which is required when the equipment needs calibration."
+      >
+        <Select id="calibration_status" name="calibration_status" defaultValue="required">
+          {CALIBRATION_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
         </Select>
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -110,12 +117,22 @@ export function EditEquipmentForm({ equipment }: { equipment: Equipment }) {
           defaultValue={equipment.quantity}
         />
       </Field>
-      <Field label="Calibration status" htmlFor="calibration_status">
-        <Select id="calibration_status" name="calibration_status" defaultValue={equipment.calibration_status ?? ""}>
-          <option value="">—</option>
-          <option value="calibrated">Calibrated</option>
-          <option value="due">Due for calibration</option>
-          <option value="not_applicable">Not applicable</option>
+      <Field
+        label="Calibration"
+        htmlFor="calibration_status"
+        required
+        hint="The status is worked out from Next calibration due, which is required when the equipment needs calibration."
+      >
+        <Select
+          id="calibration_status"
+          name="calibration_status"
+          defaultValue={equipment.calibration_status === "not_applicable" ? "not_applicable" : "required"}
+        >
+          {CALIBRATION_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
         </Select>
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">

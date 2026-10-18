@@ -60,15 +60,15 @@ select t_ok('insert vendor, edit, then insert a second and delete it', $q$insert
 select t_check('vendor: 2 inserts, 1 update, 1 delete logged', t_audits('vendors','insert') = 2 and t_audits('vendors','update') = 1 and t_audits('vendors','delete') = 1);
 select t_check('deleted vendor snapshot kept in the log', exists (select 1 from audit_log where table_name='vendors' and action='delete' and old_data->>'name' = 'Temp Vendor'));
 select t_ok('equipment, dead stock, document, line clearance, environmental reading', $q$
-  insert into equipment (id,equipment_code,name,calibration_status) values ('00000000-0000-0000-0000-000000000e01','EQ-T1','Balance','calibrated');
-  update equipment set calibration_status='due' where id='00000000-0000-0000-0000-000000000e01';
+  insert into equipment (id,equipment_code,name,calibration_status,next_calibration_due) values ('00000000-0000-0000-0000-000000000e01','EQ-T1','Balance','required',current_date + 200);
+  update equipment set calibration_status='not_applicable' where id='00000000-0000-0000-0000-000000000e01';
   insert into dead_stock_items (id,asset_code,article_name,quantity,purchase_price) values ('00000000-0000-0000-0000-000000000e02','DS-T1','Old PC',1,40000);
   insert into documents (id,doc_type,title,file_url) values ('00000000-0000-0000-0000-000000000e03','sop','SOP 1','https://example.com/sop1');
   delete from documents where id='00000000-0000-0000-0000-000000000e03';
   insert into line_clearance_checks (id,area,status,checked_by) values ('00000000-0000-0000-0000-000000000e04','Room 1','clear','00000000-0000-0000-0000-0000000000a1');
   insert into environmental_control_readings (id,area,temperature,humidity) values ('00000000-0000-0000-0000-000000000e05','Room 1',24,50)$q$);
 select t_check('equipment insert+update, dead stock insert, document insert+delete, clearance, reading all logged',
-  t_audits('equipment','insert')=1 and t_audits('equipment','update')=1 and t_audits('dead_stock_items','insert')=1
+  t_audits('equipment','insert','00000000-0000-0000-0000-000000000e01')=1 and t_audits('equipment','update','00000000-0000-0000-0000-000000000e01')=1 and t_audits('dead_stock_items','insert')=1
   and t_audits('documents','insert')=1 and t_audits('documents','delete')=1 and t_audits('line_clearance_checks','insert')=1
   and t_audits('environmental_control_readings','insert')=1);
 select t_ok('grant and revoke a role', $q$insert into user_roles (user_id, role) values ('00000000-0000-0000-0000-0000000000a2','super_auditor'); delete from user_roles where user_id='00000000-0000-0000-0000-0000000000a2' and role='super_auditor'$q$);

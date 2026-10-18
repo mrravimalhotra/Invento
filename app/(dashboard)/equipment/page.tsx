@@ -8,6 +8,7 @@ import { NewEquipmentForm } from "./equipment-form";
 import { EquipmentTable, type EquipmentRow } from "./equipment-table";
 
 import { friendlyDbError } from "@/lib/db-errors";
+import { todayIst } from "@/lib/utils";
 export default async function EquipmentPage({
   searchParams,
 }: {
@@ -21,7 +22,7 @@ export default async function EquipmentPage({
     fetchAllRows((from, to) =>
       supabase
         .from("equipment")
-        .select("id, equipment_code, name, room_no, section, asset_id, quantity, calibration_status, active")
+        .select("id, equipment_code, name, room_no, section, asset_id, quantity, calibration_status, last_calibration_date, next_calibration_due, active")
         .order("room_no")
         .order("equipment_code")
         .order("id", { ascending: true })
@@ -59,7 +60,7 @@ export default async function EquipmentPage({
           </Card>
         )}
         <Card>
-          <EquipmentTable rows={rows} />
+          <EquipmentTable rows={rows} today={todayIst()} />
         </Card>
       </div>
     </div>

@@ -10,6 +10,8 @@ import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
 import { formatDate, formatQty, fpBatchBoth, isLegacyCode, todayIst } from "@/lib/utils";
 import type { AlertRow } from "./dashboard-alerts";
 import type { FpInProgressRow } from "@/lib/fp-in-progress";
+import type { CalibrationState } from "@/lib/calibration";
+import { CalibrationBadge } from "./equipment/calibration-badge";
 import { DashboardCharts } from "./charts";
 
 // ACC-26 (29 Sept 2026): the "Hide legacy data" switch lives in the browser,
@@ -33,6 +35,7 @@ export type DashboardData = {
   expirySoon: AlertRow[];
   fpInProgress: FpInProgressRow[];
   fpInProgressTotal: number;
+  equipmentDue: { id: string; equipment_code: string; name: string; room_no: string | null; next_calibration_due: string | null; state: CalibrationState }[];
   ledger30: { event_type: string; event_at: string; quantity: number; unit: string; legacy: boolean }[];
   purchase30: { created_at: string; value: number; legacy: boolean }[];
   fp30: { created_at: string; legacy: boolean }[];
@@ -105,6 +108,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
   const expirySoon = expiryAll.slice(0, MAX_ALERTS);
   const inProgressAll = hideLegacy ? data.fpInProgress.filter((r) => !r.is_legacy) : data.fpInProgress;
   const inProgress = inProgressAll.slice(0, MAX_ALERTS);
+  const equipmentDue = data.equipmentDue.slice(0, MAX_ALERTS);
 
   return (
     <div>
@@ -123,7 +127,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <StatCard label="Pending QC" value={pendingQc} href="/qc" />
       </div>
 
-      {(lowStock.length > 0 || retestSoon.length > 0 || expirySoon.length > 0 || inProgress.length > 0) && (
+      {(lowStock.length > 0 || retestSoon.length > 0 || expirySoon.length > 0 || inProgress.length > 0 || equipmentDue.length > 0) && (
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lowStock.length > 0 && (
             <Card className="border-amber/40">
@@ -141,6 +145,29 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 {lowStock.length > 8 && (
                   <Link href="/inventory/balance" className="text-xs font-medium text-brand hover:underline">
                     + {lowStock.length - 8} more in Stock Position
+                  </Link>
+                )}
+              </CardBody>
+            </Card>
+          )}
+          {equipmentDue.length > 0 && (
+            <Card className="border-amber/40">
+              <CardHeader title="Equipment calibration overdue or due in the next 30 days" />
+              <CardBody className="flex flex-col gap-3">
+                {equipmentDue.map((e) => (
+                  <Link key={e.id} href={`/equipment/${e.id}`} className="flex items-start gap-2 text-sm hover:underline">
+                    <TriangleAlert className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${e.state.tone === "overdue" ? "text-red" : "text-amber"}`} />
+                    <span className="flex-1">
+                      <span className="font-mono text-xs">{e.equipment_code}</span> <span className="font-medium">{e.name}</span>
+                      {e.room_no && <span className="text-muted"> · {e.room_no}</span>}
+                      <span className="block text-xs text-muted">Next due {formatDate(e.next_calibration_due)}</span>
+                    </span>
+                    <CalibrationBadge state={e.state} />
+                  </Link>
+                ))}
+                {data.equipmentDue.length > equipmentDue.length && (
+                  <Link href="/equipment" className="text-xs font-medium text-brand hover:underline">
+                    + {data.equipmentDue.length - equipmentDue.length} more on the Equipment page
                   </Link>
                 )}
               </CardBody>

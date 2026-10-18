@@ -286,7 +286,7 @@ async function buildEquipmentWorkbook(): Promise<ExcelJS.Workbook> {
   addExampleRows(sheet, EQUIPMENT_COLUMNS_WITH_EXAMPLE.columns, EQUIPMENT_COLUMNS_WITH_EXAMPLE.example);
 
   const refSheet = workbook.addWorksheet("Reference");
-  addReferenceSheet(refSheet, "Valid Calibration Status values", ["Calibrated", "Due", "Not Applicable"]);
+  addReferenceSheet(refSheet, "Valid Calibration Status values", ["Needs Calibration", "Not Applicable"]);
   return workbook;
 }
 

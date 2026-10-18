@@ -7,6 +7,7 @@ import { istDayStart, isLegacyCode, todayIst } from "@/lib/utils";
 import { addDaysToDate, chartUnit, isInternalMove, lastIstDays, lineValueInclGst } from "@/lib/dashboard-series";
 import { ALERT_WINDOW_DAYS, getDashboardAlerts } from "./dashboard-alerts";
 import { getFpInProgress } from "@/lib/fp-in-progress";
+import { CALIBRATION_DUE_SOON_DAYS, calibrationNeedsAttention, calibrationState } from "@/lib/calibration";
 import { DashboardView, type CountPair, type DashboardData, type QcStatusCounts } from "./dashboard-view";
 
 // ACC-26 (29 Sept 2026, Ravi): the Dashboard now agrees with the lists its
@@ -135,6 +136,19 @@ export default async function DashboardPage() {
   const alerts = await getDashboardAlerts(supabase, retestFrom, retestTo);
   // B34: finished product batches that have started and are not complete.
   const inProgress = await getFpInProgress(supabase);
+  // P8-01: equipment whose calibration is overdue or due within 30 days, soonest first.
+  const { data: equipmentRows } = await supabase
+    .from("equipment")
+    .select("id, equipment_code, name, room_no, calibration_status, next_calibration_due")
+    .eq("active", true)
+    .eq("calibration_status", "required")
+    .lte("next_calibration_due", addDaysToDate(retestFrom, CALIBRATION_DUE_SOON_DAYS))
+    .order("next_calibration_due", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(200);
+  const equipmentDue = (equipmentRows ?? [])
+    .map((e) => ({ ...e, state: calibrationState(e.calibration_status, e.next_calibration_due, retestFrom) }))
+    .filter((e) => calibrationNeedsAttention(e.state));
 
   const pair = (all: { count: number | null }, non: { count: number | null }): CountPair => ({
     all: all.count ?? 0,
@@ -203,6 +217,7 @@ export default async function DashboardPage() {
     expirySoon: alerts.expirySoon,
     fpInProgress: inProgress.rows,
     fpInProgressTotal: inProgress.total,
+    equipmentDue,
     ledger30: ((ledger30 ?? []) as unknown as LedgerRow[])
       .filter((l) => !isInternalMove(l.reference_type, l.department))
       .map((l) => ({

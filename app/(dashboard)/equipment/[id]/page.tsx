@@ -5,6 +5,9 @@ import { canWrite } from "@/lib/constants/roles";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { EditEquipmentForm, DeleteEquipmentForm } from "../equipment-form";
+import { CalibrationBadge } from "../calibration-badge";
+import { calibrationState } from "@/lib/calibration";
+import { formatDate, todayIst } from "@/lib/utils";
 
 export default async function EquipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,8 +56,20 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
                 <dd>{equipment.quantity}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted">Calibration status</dt>
-                <dd>{equipment.calibration_status ?? "—"}</dd>
+                <dt className="text-muted">Last calibration</dt>
+                <dd>{formatDate(equipment.last_calibration_date)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted">Next calibration due</dt>
+                <dd>{formatDate(equipment.next_calibration_due)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted">Calibration</dt>
+                <dd>
+                  <CalibrationBadge
+                    state={calibrationState(equipment.calibration_status, equipment.next_calibration_due, todayIst())}
+                  />
+                </dd>
               </div>
             </dl>
           )}
