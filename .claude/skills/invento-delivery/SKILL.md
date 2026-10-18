@@ -36,6 +36,7 @@ Invento = Next.js 16 + Supabase inventory/QC/manufacturing app for an Ayurvedic 
 - Company identity: "Atharva Nature Healthcare Pvt. Ltd.", licence "PD/AYU/111" (editable under Admin → Company Details).
 - Never create accounts, type passwords or log in on the live site. Read-only walks use Ravi's signed-in Chrome. No destructive git commands unless he asks.
 - Work one step at a time; build exactly the approved mockup; ask product decisions as multiple choice with a **Park it** option and record the answer. Do not start building until Ravi says what he wants.
+- **Ask before changing core functionality** (Ravi, 18 Oct 2026): anything that changes what a screen, button or workflow does, or removes or restricts a feature, is a product decision. Ask it as multiple choice with a Park it option, even when it looks like a safety or clean-up fix. Only changes that leave behaviour as it is (tests, documents, read-only checks, internal hardening that no screen notices) go ahead without asking.
 - End every reply with exactly one recommended next step.
 - Test data may be left in place.
 - A stop-hook message about an unpushed branch means something is not pushed: push it.
