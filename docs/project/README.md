@@ -13,6 +13,7 @@ A path written as `claude/<name>.md` in these files means the file of that name 
 | `what-was-built-and-how.md` | What exists and how it was built |
 | `open-items-summary-2026-10-18.md` | Short list of everything still open |
 | `open-items-master-list.md` | Full register: open, parked, closed, tickets, decisions |
+| `pending-items-2026-10-20.md` | Everything still open in one place (20 Oct 2026): decided-to-build, live checks, decisions, parked, go-live, settings, old test data |
 | `known-issues.md` | Pass-by-pass findings and fixes (Pass 53 to 87; passes 1 to 52 are in the Claude project archive, see below) |
 | `deployment-log.md` | What is live, migrations run, delivery rows |
 | `production-readiness-rating-2026-10-18.md` | Ratings by category |
