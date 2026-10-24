@@ -8,7 +8,8 @@ A path written as `claude/<name>.md` in these files means the file of that name 
 
 | File | What it holds |
 |---|---|
-| `handoff-2026-10-18-push-delivery.md` | **Read first.** Latest handoff: delivery by push to `main`, Supabase applies migrations, Claude's read-only database access, current state, starter prompt |
+| `handoff-2026-10-24.md` | **Read first.** Latest handoff (24 Oct 2026): state after migrations 0122 to 0125, the code quality and phone passes, rules (ask before core changes), what waits on Ravi, starter prompt. |
+| `handoff-2026-10-18-push-delivery.md` | Previous handoff (18 Oct 2026): the push-to-main delivery method and its first day. |
 | `handoff-cloud-session-2026-10-18.md` | Where things stand, how to set up a new session, rules, what is waiting, next steps, SQL script inventory, starter prompt |
 | `what-was-built-and-how.md` | What exists and how it was built |
 | `open-items-summary-2026-10-18.md` | Short list of everything still open |

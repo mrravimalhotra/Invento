@@ -1,5 +1,7 @@
 # Invento: handoff to a new session (18 Oct 2026, evening)
 
+> **Superseded by `handoff-2026-10-24.md`** (read that first). Kept for the 18 Oct delivery history and traps.
+
 Read this first. It sits on top of `handoff-cloud-session-2026-10-18.md` (the detailed handoff of the same morning): this file says what changed during the day and how work is delivered now; the older file still holds the mobile plan (section 8), go-live preparation (section 9), lessons (section 10), the document map (section 11) and the SQL script inventory (section 12).
 
 ## 0. If you only have five minutes
