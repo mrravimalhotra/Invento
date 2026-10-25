@@ -16,7 +16,16 @@ import { LEDGER_FILTER_OPTIONS } from "@/lib/ledger-reasons";
 // a client-side re-filter of whatever page the 1,000-row cap happened to
 // return — the same row-cap-truncation lesson this app's other pickers
 // already learned the hard way (see claude/known-issues.md).
-export type ItemFilterOption = { id: string; name: string; item_code: string };
+export type ItemFilterOption = { id: string; name: string; item_code: string; category?: string | null };
+
+// UX-12 (25 Oct 2026): look-alike names (a finished product and its packaged item share
+// a name) are told apart by the category after each option.
+const CATEGORY_LABELS: Record<string, string> = {
+  raw: "Raw material",
+  packaging: "Packaging",
+  processed: "Finished product",
+  packaged_fp: "Packaged finished product",
+};
 
 export function LedgerFilters({
   items,
@@ -45,7 +54,8 @@ export function LedgerFilters({
           <option value="">All items</option>
           {items.map((it) => (
             <option key={it.id} value={it.id} data-legacy={isLegacyCode(it.item_code) ? "1" : undefined}>
-              {it.name} ({it.item_code})
+              {it.item_code} — {it.name}
+              {it.category && CATEGORY_LABELS[it.category] ? ` (${CATEGORY_LABELS[it.category]})` : ""}
             </option>
           ))}
         </Select>

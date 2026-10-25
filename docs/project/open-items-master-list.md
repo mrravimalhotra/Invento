@@ -223,6 +223,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E79 | UX-07 part 1 button wording (Pass 106, no SQL) | A draft purchase order shows "Submit order (locks lines)"; a draft finished product batch shows "Create batch"; a QC retest card shows "Start retest"; the User Guide PDF says Submit order. | Open |
 | E80 | UX-07 part 2 term hints (Pass 107, no SQL) | (1) QC list: the ⓘ beside AR No. shows its meaning on hover and on tap (phone); tapping elsewhere closes it. (2) RM Report: PQTY, SQTY and QTY headings explain themselves. (3) User Guide page: Glossary card lists the terms. (4) Clicking a heading still sorts. | Open |
 | E81 | UX-08 short hints + ⓘ (Pass 108, no SQL) | Items → edit: Low stock threshold shows one line and an ⓘ that explains usable stock; Unit and (for an item in use) Category likewise; New equipment, New MFR (Market), New packaging issue (date) and the QC reviewer form show one-line hints with an ⓘ. | Open |
+| E82 | UX-12 Ledger item filter category (Pass 109, no SQL) | Inventory → Ledger: item filter lines read "code — name (category)"; the four Tab Ostopix lines are told apart. | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 

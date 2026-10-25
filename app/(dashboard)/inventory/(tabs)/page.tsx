@@ -86,7 +86,7 @@ export default async function InventoryLedgerPage({
     fetchAllRows((from, to) =>
       supabase
         .from("items")
-        .select("id, item_code, name")
+        .select("id, item_code, name, category")
         .eq("active", true)
         .order("created_at", { ascending: false })
         .order("id", { ascending: true })
