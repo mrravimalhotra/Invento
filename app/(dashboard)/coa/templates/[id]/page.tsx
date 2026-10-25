@@ -71,7 +71,7 @@ export default async function CoaTemplateHistoryPage({ params }: { params: Promi
 
   return (
     <div>
-      <PageHeader
+      <PageHeader back={{ href: "/coa/templates", label: "COA Template Register" }}
         title="COA template history"
         description={`${subject.kind} · ${subject.label}`}
         action={

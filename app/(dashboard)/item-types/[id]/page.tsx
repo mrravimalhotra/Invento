@@ -25,7 +25,7 @@ export default async function EditItemTypePage({ params }: { params: Promise<{ i
 
   return (
     <div>
-      <PageHeader title={itemType.description} description={readOnly ? "Read-only — you don't have write access to Item Type Master." : "Edit this item type."} />
+      <PageHeader back={{ href: "/item-types", label: "Item Types" }} title={itemType.description} description={readOnly ? "Read-only — you don't have write access to Item Type Master." : "Edit this item type."} />
       <Card className="max-w-md">
         <CardBody>
           {readOnly ? (

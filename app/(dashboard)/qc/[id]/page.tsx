@@ -165,7 +165,7 @@ export default async function QualityCheckDetailPage({
 
   return (
     <div>
-      <PageHeader
+      <PageHeader back={{ href: "/qc", label: "Quality Control" }}
         title={record.ar_number}
         description={record.items ? `${record.items.item_code} — ${record.items.name}` : undefined}
         action={

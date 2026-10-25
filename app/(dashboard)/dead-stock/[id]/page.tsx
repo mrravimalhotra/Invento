@@ -26,7 +26,7 @@ export default async function DeadStockDetailPage({ params }: { params: Promise<
 
   return (
     <div>
-      <PageHeader title={item.article_name} description={`Asset ${item.asset_code}`} />
+      <PageHeader back={{ href: "/dead-stock", label: "Dead Stock Register" }} title={item.article_name} description={`Asset ${item.asset_code}`} />
       <Card className="max-w-xl">
         <CardBody>
           {canEdit ? (

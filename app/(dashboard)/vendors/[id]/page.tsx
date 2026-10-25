@@ -24,7 +24,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div>
-      <PageHeader title={vendor.name} description={`Vendor ${vendor.vendor_code}`} />
+      <PageHeader back={{ href: "/vendors", label: "Vendor Master" }} title={vendor.name} description={`Vendor ${vendor.vendor_code}`} />
       <Card className="max-w-xl">
         <CardBody>
           {canEdit ? (

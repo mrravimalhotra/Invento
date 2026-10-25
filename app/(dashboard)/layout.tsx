@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { Sidebar } from "@/components/shell/sidebar";
 import { UnsavedChangesGuard } from "@/components/shell/unsaved-changes-guard";
+import { ListUrlMemory } from "@/components/shell/list-url-memory";
 import { Topbar } from "@/components/shell/topbar";
 import { PageFeedback } from "@/components/feedback/page-feedback";
 import { PdfUserSetter } from "@/components/shell/pdf-user-setter";
@@ -62,6 +63,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-x-hidden p-4 outline-none md:p-6">
           <Suspense fallback={null}>
             <FlashHost />
+            <ListUrlMemory />
           </Suspense>
           {children}
           <PageFeedback currentUserId={user.id} />

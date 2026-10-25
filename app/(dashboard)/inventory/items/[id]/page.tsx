@@ -299,7 +299,7 @@ export default async function ItemPositionDetailPage({ params }: { params: Promi
           ← Stock Position
         </Link>
       </p>
-      <PageHeader
+      <PageHeader back={{ href: "/inventory/balance", label: "Stock Position" }}
         title={item.name}
         description={`${item.item_code} · ${CATEGORY_LABELS[item.category] ?? item.category}`}
       />

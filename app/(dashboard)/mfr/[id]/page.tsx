@@ -140,7 +140,7 @@ export default async function MfrDetailPage({
 
   return (
     <div>
-      <PageHeader
+      <PageHeader back={{ href: "/mfr", label: "MFR list" }}
         title={`${def.code} · ${def.name}`}
         description={finishedProduct ? finishedProduct.item_code : `No Finished Product item — ${noItemReason}`}
         action={

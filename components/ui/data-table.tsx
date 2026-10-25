@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { isReturnTo, loadTableState, saveTableState } from "@/lib/list-memory";
 import { Input } from "@/components/ui/form";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -123,6 +125,28 @@ export function DataTable<T>({
       })
       .map((x) => x.row);
   }, [filtered, columns, sort]);
+
+  // UX-16: remember this table's search, filters, sort and page for this tab; restore
+  // them only when the person comes back through a record page's "Back to" link.
+  const pathname = usePathname();
+  const memoryKey = `${pathname}|${exportConfig?.title ?? searchPlaceholder}`;
+  const [memoryReady, setMemoryReady] = useState(false);
+  useEffect(() => {
+    const saved = isReturnTo(pathname) ? loadTableState(memoryKey) : null;
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time restore after mount; storage is not available while rendering on the server */
+    if (saved) {
+      setQuery(saved.query ?? "");
+      setSource(saved.source ?? "all");
+      setShowInactive(!!saved.showInactive);
+      setSort(saved.sort ?? null);
+      setPage(saved.page ?? 0);
+    }
+    setMemoryReady(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [pathname, memoryKey]);
+  useEffect(() => {
+    if (memoryReady) saveTableState(memoryKey, { query, source, showInactive, sort, page });
+  }, [memoryReady, memoryKey, query, source, showInactive, sort, page]);
 
   function toggleSort(header: string) {
     setSort((s) => (!s || s.header !== header ? { header, dir: "asc" } : s.dir === "asc" ? { header, dir: "desc" } : null));

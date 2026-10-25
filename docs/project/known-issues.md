@@ -616,7 +616,7 @@ Impact: **High** = slows or misleads daily work for most users; **Medium** = fri
 | UX-13 | Medium | Confirmations | Irreversible steps are confirmed in different ways: QC rejection and void use a red two-step box; Final Submit, Complete batch and a packaging issue save in one click although they cannot be undone (until the decided voids P4-09, P6-01, P5-04 are built). | One confirmation pattern for every irreversible step, stating the consequence in plain words. |
 | UX-14 | Medium | Errors | A failed save shows one message at the top of the form and a red banner; the field that caused it is not highlighted or focused. | Highlight the field in error, put the message under it and move the focus there. |
 | UX-15 | Medium | Search | There is no app-wide search: finding a batch, AR number, PO number or certificate means knowing which module holds it; Batch Trace (the closest thing) is the sixth tab inside Inventory. | A search box in the top bar that finds batches, AR Nos, POs, COAs and items and opens the record or its trace. |
-| UX-16 | Low | Navigation | Detail pages (purchase order, QC record, batch, item) have no breadcrumb or "Back to list"; going back loses the list's filters and search. | A breadcrumb or back link that returns to the list as it was left. |
+| UX-16 | Low | Navigation | **Built 25 Oct 2026 (Pass 104).** Detail pages (purchase order, QC record, batch, item) have no breadcrumb or "Back to list"; going back loses the list's filters and search. | A breadcrumb or back link that returns to the list as it was left. |
 | UX-17 | Low | Help | The User Guide is a 39-page PDF; help is not available on the page where it is needed. | A "Help for this page" link in each page header that opens the matching guide section. |
 | UX-18 | Low | Accessibility | Colour carries meaning on badges and alerts (text is present, which is good); amber text on the amber background and grey muted text have not been contrast-checked; no automated accessibility check exists. | Run an accessibility check (contrast, labels, keyboard order) on the main screens once, and fix what it finds. |
 | UX-19 | Low | Notifications | Alerts (retest, expiry, calibration, QC waiting) exist only as Dashboard cards; nobody is told unless they open the Dashboard. | Same as SCAN-P9-07 / G5: decide on an e-mail or WhatsApp digest. |
@@ -659,3 +659,12 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - Checked in Chromium: 1,280 px and 360 px wide → preview 320 px, no sideways page scroll; 320 px wide → preview shrinks (288 px) and the page still does not scroll sideways.
 - Checks: type-check, lint, build, unit tests.
 - Live check (E76): on a phone, Label Printing → pick a batch: the preview fits the screen and the page does not move sideways; on a computer it looks as before.
+
+## Pass 104 — UX-16: "Back to <list>" on record pages, keeping the list's filters (25 Oct 2026, no migration)
+**Deploy status: live 25 Oct 2026.** Pushed to `main` by Claude (Ravi, quick win 5: "Yes, keep filters").
+
+- [x] Record pages show "← Back to …" above the title: purchase order (Purchase), QC record (Quality Control), finished product batch, item (Item Master), inventory item (Stock Position), MFR, COA and COA template, vendor, item type, equipment, dead stock and audit entry.
+- [x] It returns to the list as it was left in this tab: filters kept in the address (Ledger, Audit Log, Stock Statement) come back with it, and each table's search box, Source and Show inactive filters, sort and page are restored. Arriving at a list from the menu still opens it plain.
+- Code: `lib/list-memory.ts` (this tab's sessionStorage, guarded; a blocked storage just gives the plain list), `components/ui/back-link.tsx`, `PageHeader` `back` prop, `ListUrlMemory` in the dashboard layout, save/restore in `DataTable`.
+- Checks: type-check, lint, build, 39 unit tests (3 new for the memory rules).
+- Live check (E77): Items → search "oil", open an item → "Back to Item Master": the search is still "oil". Audit Log → filter a table, open an entry → back: same filter. Open Items from the menu: plain list.

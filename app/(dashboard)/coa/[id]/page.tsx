@@ -55,7 +55,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
       <Link href="/coa" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Certificate of Analysis
       </Link>
-      <PageHeader
+      <PageHeader back={{ href: "/coa", label: "Certificates of Analysis" }}
         title={row.coa_number}
         description={`Issued ${formatDateTime(row.issued_at)} · Analytical Report No. ${row.quality_checks?.ar_number ?? "—"} · ${itemLabel} · Batch ${batchLabel}${row.quality_checks?.is_legacy ? " · Legacy (opening stock)" : ""}`}
         action={

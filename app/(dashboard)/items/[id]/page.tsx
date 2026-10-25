@@ -66,7 +66,7 @@ export default async function ItemDetailPage({
 
   return (
     <div>
-      <PageHeader
+      <PageHeader back={{ href: "/items", label: "Item Master" }}
         title={item.name}
         description={`${item.item_code} · ${CATEGORY_LABELS[item.category] ?? item.category}${readOnly ? " · Read-only — you don't have write access to Item Master." : ""}`}
         action={<AuditHistoryLink recordId={item.id} roles={user?.roles ?? []} />}

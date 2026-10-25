@@ -67,7 +67,7 @@ export function PurchaseOrderView({
 
   return (
     <div>
-      <PageHeader
+      <PageHeader back={{ href: "/purchase", label: "Purchase" }}
         title={po.po_number}
         description={`Vendor: ${po.vendor?.name ?? "—"} (${po.vendor?.vendor_code ?? "—"}) · Invoice ${po.invoice_number} dated ${formatDate(
           po.invoice_date

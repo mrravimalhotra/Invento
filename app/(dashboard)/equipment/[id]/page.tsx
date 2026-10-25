@@ -29,7 +29,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
 
   return (
     <div>
-      <PageHeader title={equipment.name} description={`Equipment ${equipment.equipment_code}`} />
+      <PageHeader back={{ href: "/equipment", label: "Equipment" }} title={equipment.name} description={`Equipment ${equipment.equipment_code}`} />
       <Card className="max-w-xl">
         <CardBody>
           {canEdit ? (

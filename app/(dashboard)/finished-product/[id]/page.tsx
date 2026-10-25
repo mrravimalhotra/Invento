@@ -174,7 +174,7 @@ export default async function FinishedProductDetailPage({
 
   return (
     <div>
-      <PageHeader
+      <PageHeader back={{ href: "/finished-product", label: "Finished Product" }}
         title={fpBatchBoth(batch.batch_number, batch.short_batch_no)}
         description={mfr ? `Built from ${mfr.code} · ${mfr.name} (recipe v${batch.mfr_version})` : `Recipe v${batch.mfr_version}`}
         action={

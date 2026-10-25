@@ -18,6 +18,7 @@ infrastructure that doesn't belong to any one module's own `docs/modules/*.md`.
 > - 18 Oct 2026 (migration 0124, Ravi: lock only what no screen uses): trigger functions can no longer be called directly by anyone; three internal helpers (`can_manage_coa_template`, `check_sufficient_stock`, `stability_reserve_left`) are for the database only; every function has a fixed search_path. No screen changes.
 > - 25 Oct 2026 (UX-02): the three deprecated modules sit in a folded **Archive** menu group shown to the System Administrator only.
 > - 25 Oct 2026 (UX-09): leaving a page with unsaved form input asks first (`lib/unsaved-guard.ts`; filters and search boxes excluded; browser check `scripts/dev/check-unsaved-guard.py`).
+> - 25 Oct 2026 (UX-16): record pages carry "← Back to <list>" (`PageHeader` `back`), returning to the list with its address filters and table search/filters/sort/page as left in this tab (`lib/list-memory.ts`).
 > - A PDF export is refused above 3,000 rows (`PDF_ROW_LIMIT` in `lib/pdf.ts`, SCAN-P7-15): the user is told to narrow the list or use Excel. Seven database functions and two views now use the India date and year themselves, whatever the connection's time zone is (migration 0114, SCAN-P10-07).
 > - Where a later section below disagrees with an earlier one, the later one is right.
 

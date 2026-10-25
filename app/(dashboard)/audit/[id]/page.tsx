@@ -59,7 +59,7 @@ export default async function AuditLogDetailPage({ params }: { params: Promise<{
       <Link href="/audit" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Audit Log
       </Link>
-      <PageHeader
+      <PageHeader back={{ href: "/audit", label: "Audit Log" }}
         title={`${tableLabel(row.table_name)} · ${recordLabel(row)}`}
         description={`Change recorded ${formatDateTime(row.changed_at)}${changedByName ? ` by ${changedByName}` : ""}${row.changed_via ? ` via ${changedViaLabel(row.changed_via)}` : ""}.`}
       />
