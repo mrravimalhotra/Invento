@@ -170,17 +170,18 @@ A handful of things are open to **any** signed-in user regardless of role, becau
 
 **How to check what needs your attention today**
 1. Open Invento — you land on the Dashboard automatically.
-2. Scan the row of summary cards across the top (Raw materials, Vendors, MFR definitions, Finished batches, POs in the last 30 days, Pending QC). Click any card to jump straight to that module.
-3. If anything needs action, you'll see up to four cards just below: **Low stock** (raw materials whose usable quantity has dropped below their reorder threshold), **Finished product batches in progress** (batches started but not yet completed), **Retest overdue or due in the next 90 days**, and **Expired or expiring in the next 90 days**. A card only appears when there's something to flag.
-4. Click any item in those cards to go straight to the relevant screen (Item Master, Finished Product or Quality Control).
-5. Scroll down to see four charts: inventory movement in and out over the last 30 days (one chart for each unit), QC results by status, purchase value over the last 30 days, and finished batches produced over the last 30 days.
+2. The first card, **My tasks**, shows how many records wait for you, from your roles (for example QC records waiting for Round 1, or batches to complete). Click a line to open its screen.
+3. If anything needs action, warning cards follow: **Low stock** (raw materials whose usable quantity has dropped below their reorder threshold), **Finished product batches in progress** (batches started but not yet completed), **Retest overdue or due in the next 90 days**, and **Expired or expiring in the next 90 days**. A card only appears when there's something to flag.
+4. Below them is the row of summary cards (Raw materials, Vendors, MFR definitions, Finished batches, POs in the last 30 days, Pending QC). Click any card to jump straight to that module.
+5. Click any item in the warning cards to go straight to the relevant screen (Item Master, Finished Product or Quality Control).
+6. Scroll down to see four charts: inventory movement in and out over the last 30 days (one chart for each unit), QC results by status, purchase value over the last 30 days, and finished batches produced over the last 30 days.
 
 **How it connects to the rest of the app**
 Nothing is entered here — every number and chart is a live read of records created in Item Master, Vendors, Purchase, QC, MFR, and Finished Product. There's no separate reporting step; as soon as something changes elsewhere in the app, the Dashboard reflects it on your next visit.
 
 **Good to know**
 - The "Hide legacy data" checkbox in the top-right corner is a personal display preference, not a delete — it hides old/legacy records (LEG- codes and batches loaded through Opening Stock) from lists, alerts and dropdowns throughout the app, on your browser only, and can be switched back on any time.
-- The warning cards only show up when there's actually something to flag — an empty dashboard below the summary cards is a good sign, not a bug.
+- The warning cards only show up when there's actually something to flag — no warning cards between My tasks and the summary cards is a good sign, not a bug.
 - The "Pending QC" count includes items waiting at either QC step (initial check or the second-round review), so it may look higher than just "not yet checked at all."
 
 ---

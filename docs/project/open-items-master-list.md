@@ -232,6 +232,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E88 | UX-06 step strip (Pass 116, no SQL) | Finished product batch pages: the strip and "Next:" match the batch status (incl. Packed, Rejected); a submitted purchase order shows "N of M decided" matching its QC records. | Open |
 | E89 | UX-04 My tasks card (Pass 117, no SQL) | Dashboard as Quality Checker: only the Round 1 line, matching Awaiting QC on the QC list; as MFR Manager: batch lines match Finished Product; as System Admin: every line. | Open |
 | E90 | UX-01 menu: Reports & checks group (Pass 118, no SQL) | Side menu (desktop and phone): Reports & checks lists Reports, Audit Log, Stock Integrity Check; Admin no longer does. | Open |
+| E91 | UX-03 Dashboard order (Pass 119, no SQL) | Dashboard: My tasks, then warning cards, then the six counts, then the charts. | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 

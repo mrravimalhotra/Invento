@@ -41,7 +41,8 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-25 | this commit | UX-01 (Only split Admin): new side-menu group Reports & checks (Reports, Audit Log, Stock Integrity Check) (known issues Pass 118, live check E90) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | this commit | UX-03: Dashboard order My tasks → Needs attention → counts → charts (known issues Pass 119, live check E91) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | `ebca462` | UX-01 (Only split Admin): new side-menu group Reports & checks (Reports, Audit Log, Stock Integrity Check) (known issues Pass 118, live check E90) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `dc1a5ed` | UX-04: "My tasks" card first on the Dashboard, counts by role with links (known issues Pass 117, live check E89) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `d1d2ea2` | UX-06: read-only step strip with "Next:" on finished product batch and purchase order pages (known issues Pass 116, live check E88) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `ba422d8` | UX-10: all 27 date boxes read dd-mm-yyyy on every computer, with a calendar button; values sent unchanged (known issues Pass 115, live check E87) | None | ✅ | n/a | Pushed by Claude; no database change |

@@ -119,17 +119,9 @@ export function DashboardView({ data, tasks }: { data: DashboardData; tasks?: Re
       />
       {tasks}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <StatCard label="Raw materials" value={pick(data.rawMaterials)} href="/items" />
-        <StatCard label="Vendors" value={pick(data.vendors)} href="/vendors" />
-        <StatCard label="MFR definitions" value={pick(data.mfrs)} href="/mfr" />
-        <StatCard label="Finished batches" value={pick(data.finishedBatches)} href="/finished-product" />
-        <StatCard label="POs (30d)" value={pick(data.pos30)} href="/purchase" />
-        <StatCard label="Pending QC" value={pendingQc} href="/qc" />
-      </div>
-
+      {/* UX-03 (Ravi, 25 Oct 2026): what needs attention comes before the counts. */}
       {(lowStock.length > 0 || retestSoon.length > 0 || expirySoon.length > 0 || inProgress.length > 0 || equipmentDue.length > 0) && (
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lowStock.length > 0 && (
             <Card className="border-amber/40">
               <CardHeader title={`Low stock (${lowStock.length})`} />
@@ -228,6 +220,15 @@ export function DashboardView({ data, tasks }: { data: DashboardData; tasks?: Re
           )}
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <StatCard label="Raw materials" value={pick(data.rawMaterials)} href="/items" />
+        <StatCard label="Vendors" value={pick(data.vendors)} href="/vendors" />
+        <StatCard label="MFR definitions" value={pick(data.mfrs)} href="/mfr" />
+        <StatCard label="Finished batches" value={pick(data.finishedBatches)} href="/finished-product" />
+        <StatCard label="POs (30d)" value={pick(data.pos30)} href="/purchase" />
+        <StatCard label="Pending QC" value={pendingQc} href="/qc" />
+      </div>
 
       <div className="mt-6">
         <DashboardCharts
