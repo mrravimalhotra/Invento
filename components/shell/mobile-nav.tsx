@@ -10,7 +10,7 @@ import { NavList } from "./nav-list";
  * opens the same menu as the desktop sidebar as a slide-in panel. Hidden from
  * 768 px up, where the fixed sidebar is shown instead.
  */
-export function MobileNav() {
+export function MobileNav({ isSystemAdmin }: { isSystemAdmin: boolean }) {
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const openRef = useRef<HTMLButtonElement>(null);
@@ -102,7 +102,7 @@ export function MobileNav() {
               <X className="h-5 w-5" />
             </button>
           </div>
-          <NavList onNavigate={() => setOpen(false)} />
+          <NavList onNavigate={() => setOpen(false)} isSystemAdmin={isSystemAdmin} />
         </aside>
       </div>
     </div>

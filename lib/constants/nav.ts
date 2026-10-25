@@ -8,7 +8,16 @@ import {
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; module: number };
 
-export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+export type NavGroup = {
+  title: string;
+  items: NavItem[];
+  /** Shown to the System Administrator only. */
+  adminOnly?: boolean;
+  /** Folded until opened (or until one of its pages is open). */
+  collapsible?: boolean;
+};
+
+export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Overview",
     items: [
@@ -108,6 +117,15 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       // batch figures; System Administrator only (the page and the database function both
       // check). Module 25 follows Company Details (24).
       { href: "/admin/stock-integrity", label: "Stock Integrity Check", icon: Scale, module: 25 },
+    ],
+  },
+  {
+    // UX-02 (Ravi, 25 Oct 2026): the deprecated modules leave the everyday menu;
+    // a folded Archive group for the System Administrator only. Pages and data unchanged.
+    title: "Archive",
+    adminOnly: true,
+    collapsible: true,
+    items: [
       // Ravi (16 Sept 2026): "move the highlighted 'Batch Mfg. Record' to
       // Admin page and rename this to 'Batch Mfg. Record- Deprecated' we
       // will later remove this functionality." This is the real BMR

@@ -602,7 +602,7 @@ Impact: **High** = slows or misleads daily work for most users; **Medium** = fri
 | # | Impact | Area | Finding | Suggestion |
 |---|---|---|---|---|
 | UX-01 | High | Navigation | The menu groups mix daily work with administration: "Admin" holds 13 entries, among them Reports, SOP / STP Documents and Bulk Data Upload, which non-admins use; "Inventory Ledger" sits under Procurement although it opens eight tabs (Stock Position, Stock Statement, Ageing, Retained Samples, Rejected Materials, Batch Trace, RM Report, Ledger). | Regroup by job: Overview · Daily work (Purchase, Quality Control, Finished Product, Packaging, Labels, COA) · Stock (rename "Inventory Ledger" to "Inventory") · Masters · Reports · Admin. |
-| UX-02 | Medium | Navigation | Three deprecated modules (BMR, Line Clearance, Environmental Control) are in the main menu for everyone. | Hide them, or move them into a collapsed "Archive" group shown to System Admin only. |
+| UX-02 | Medium | Navigation | **Built 25 Oct 2026 (Pass 100).** Three deprecated modules (BMR, Line Clearance, Environmental Control) are in the main menu for everyone. | Hide them, or move them into a collapsed "Archive" group shown to System Admin only. |
 | UX-03 | High | Dashboard | The six counts come first and the "needs attention" cards follow; four 256 px charts make a long page. The same Dashboard is shown to every role. | Put "Needs attention" first; tailor it by role (QC sees records waiting for Round 1 / Round 2 and retests; Stores sees receipts, low stock, packaging; Production sees batches in progress). Charts folded or moved to Reports. (Overlaps the parked phone mockup, C19.) |
 | UX-04 | High | Work queues | Nobody has a "my work" list: a Quality Checker must open the QC list and filter to find what waits for Round 1; a Reviewer likewise for Round 2; a Production user for batches to complete. | A "My tasks" card or page per role, with counts in the menu (for example "Quality Control (3)"). |
 | UX-05 | Medium | Wording | Status names are inconsistent: some screens show friendly labels ("Approved - Awaiting Review", "Rejection proposed"), others show the raw stored code with underscores replaced ("complete awaiting qc", "checker approved", "not submitted") in at least nine places (Label Printing, item page batches, Batch Trace, Retained Samples, Stock Integrity Check). | One status dictionary used everywhere, with the same wording and colour for each state. |
@@ -624,3 +624,11 @@ Impact: **High** = slows or misleads daily work for most users; **Medium** = fri
 Related, already on record: phone layouts (C19, parked 18 Oct), default date range for Reports and Item Master (C17), single label instead of six (B33), alerts digest (SCAN-P9-07).
 
 Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), then UX-09 and UX-10 (prevent lost or wrong entries), then UX-01, UX-03 and UX-04 (navigation, Dashboard and work queues; mockup first).
+
+## Pass 100 — UX-02: deprecated modules move to an admin-only Archive group (25 Oct 2026, no migration)
+**Deploy status: live 25 Oct 2026.** Pushed to `main` by Claude (Ravi, quick win 1: "Admin-only Archive").
+
+- [x] Batch Mfg. Record, Line Clearance and Environmental Control (all "- Deprecated") leave the Admin group and sit in a new **Archive** group at the bottom of the menu, folded until opened (it opens by itself while one of its pages is shown), and shown to the System Administrator only, on the desktop sidebar and the phone menu. Pages, addresses and data unchanged.
+- Code: `NavGroup` gains `adminOnly` and `collapsible` (`lib/constants/nav.ts`); `NavList` takes `isSystemAdmin` from the dashboard layout (sidebar) and the top bar (phone menu).
+- Checks: type-check, lint, build, unit tests.
+- Live check (E73): as System Admin the menu ends with a folded "Archive" holding the three deprecated pages; as any other role there is no Archive and the three entries are gone from Admin.

@@ -54,7 +54,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       >
         Skip to main content
       </a>
-      <Sidebar />
+      <Sidebar isSystemAdmin={user.roles.includes("system_admin")} />
       <div className="flex flex-1 flex-col min-w-0">
         <Topbar user={user} />
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-x-hidden p-4 outline-none md:p-6">

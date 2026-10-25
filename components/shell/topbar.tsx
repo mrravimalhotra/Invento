@@ -80,7 +80,7 @@ export function Topbar({ user, showMenu = true }: { user: CurrentUser; showMenu?
     <header className="flex h-14 items-center justify-between gap-2 border-b border-border bg-card px-3 md:px-5">
       {/* Phones: ☰ menu button + logo (the desktop sidebar carries the logo from 768 px up). */}
       <div className="flex min-w-0 items-center gap-2 md:hidden">
-        {showMenu && <MobileNav />}
+        {showMenu && <MobileNav isSystemAdmin={user.roles.includes("system_admin")} />}
         <Image
           src="/atharva-logo.svg"
           alt="Atharva Nature Healthcare"
