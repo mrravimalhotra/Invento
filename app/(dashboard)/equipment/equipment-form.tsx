@@ -57,7 +57,8 @@ export function NewEquipmentForm({ nextEquipmentCode }: { nextEquipmentCode: str
         label="Calibration"
         htmlFor="calibration_status"
         required
-        hint="The status (Calibrated, Due in N days, Overdue) is worked out from Next calibration due, which is required when the equipment needs calibration."
+        hint="Status is worked out from Next calibration due."
+        more="Calibrated, Due in N days (within 30 days) or Overdue. Next calibration due is required when the equipment needs calibration."
       >
         <Select id="calibration_status" name="calibration_status" defaultValue="required">
           {CALIBRATION_CHOICES.map((c) => (
@@ -121,7 +122,8 @@ export function EditEquipmentForm({ equipment }: { equipment: Equipment }) {
         label="Calibration"
         htmlFor="calibration_status"
         required
-        hint="The status is worked out from Next calibration due, which is required when the equipment needs calibration."
+        hint="Status is worked out from Next calibration due."
+        more="Calibrated, Due in N days (within 30 days) or Overdue. Next calibration due is required when the equipment needs calibration."
       >
         <Select
           id="calibration_status"

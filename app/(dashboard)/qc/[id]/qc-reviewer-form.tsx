@@ -66,7 +66,8 @@ export function QcReviewerForm({
       {round1Results && (
         <Field
           label="Test results"
-          hint="These are the Quality Checker's results. Leave them as they are to keep them; if you change any, your results become final and go on the Certificate of Analysis. Both versions are kept for audit."
+          hint="The Quality Checker's results; change any to make yours final."
+          more="Leave them as they are to keep them. If you change any, your results become final and go on the Certificate of Analysis. Both versions are kept for audit."
         >
           <ResultsGrid
             lines={round1Results.map(({ seq, test, specification }) => ({ seq, test, specification }))}
@@ -96,7 +97,7 @@ export function QcReviewerForm({
         label="Reason"
         htmlFor="review_comments"
         required
-        hint={`Required for either decision (at least ${MIN_REASON_CHARS} characters).${edited ? " Say why you changed the results." : ""}`}
+        hint={`Required, at least ${MIN_REASON_CHARS} characters.${edited ? " Say why you changed the results." : ""}`}
       >
         <Textarea
           id="review_comments"

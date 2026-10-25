@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { Eye, EyeOff } from "lucide-react";
 import { useId, useState } from "react";
+import { InfoHint } from "@/components/ui/term-hint";
 import type { ComponentProps, InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 // Re-exported so every existing `import { Select } from "@/components/ui/form"`
@@ -20,12 +21,15 @@ export function Field({
   label,
   htmlFor,
   hint,
+  more,
   required,
   children,
 }: {
   label: string;
   htmlFor?: string;
   hint?: string;
+  /** UX-08: the rest of a long hint, behind an ⓘ at the end of the hint line. */
+  more?: string;
   required?: boolean;
   children: React.ReactNode;
 }) {
@@ -36,7 +40,12 @@ export function Field({
         {required && <span className="text-red ml-0.5">*</span>}
       </label>
       {children}
-      {hint && <p className="text-xs text-muted">{hint}</p>}
+      {hint && (
+        <p className="text-xs text-muted">
+          {hint}
+          {more && <InfoHint text={more} />}
+        </p>
+      )}
     </div>
   );
 }

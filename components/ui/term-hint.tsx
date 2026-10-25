@@ -11,11 +11,16 @@ const WIDTH = 256;
 
 export function TermHint({ text }: { text: string }) {
   const terms = termsIn(text);
+  if (terms.length === 0) return null;
+  const meaning = terms.map((t) => `${t.term}: ${t.meaning.replace(/^[^:]+: /, "")}`).join(" ");
+  return <InfoHint text={meaning} label={`What ${terms.map((t) => t.term).join(" and ")} means`} />;
+}
+
+// UX-08 (25 Oct 2026): the same ⓘ, for any extra explanation (used by Field's `more`).
+export function InfoHint({ text, label = "More about this" }: { text: string; label?: string }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  if (terms.length === 0) return null;
-
-  const meaning = terms.map((t) => `${t.term}: ${t.meaning.replace(/^[^:]+: /, "")}`).join(" ");
+  const meaning = text;
   const show = () => {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
@@ -29,7 +34,7 @@ export function TermHint({ text }: { text: string }) {
       <button
         ref={ref}
         type="button"
-        aria-label={`What ${terms.map((t) => t.term).join(" and ")} means`}
+        aria-label={label}
         onMouseEnter={show}
         onMouseLeave={hide}
         onFocus={show}

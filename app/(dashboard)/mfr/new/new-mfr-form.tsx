@@ -65,7 +65,8 @@ export function NewMfrForm({
           label="Market"
           htmlFor="market"
           required
-          hint="Set once here and can't be changed later — drives the short batch number printed on labels (PR for Domestic, OR for Export)."
+          hint="Set once; can't be changed later."
+          more="It drives the short batch number printed on labels: PR for Domestic, OR for Export."
         >
           <Select id="market" name="market" defaultValue="domestic" required>
             <option value="domestic">Domestic</option>

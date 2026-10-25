@@ -74,7 +74,8 @@ function SendBackForm({ id }: { id: string }) {
       <ReasonField
         name="returned_reason"
         label="Reason"
-        hint={`Tell the Quality Checker what to re-check (at least ${MIN_REASON_CHARS} characters). The record returns to Awaiting QC.`}
+        hint={`Tell the Quality Checker what to re-check (at least ${MIN_REASON_CHARS} characters).`}
+        more="The record returns to Awaiting QC."
         value={reason}
         onChange={setReason}
       />
@@ -114,17 +115,19 @@ function ReasonField({
   name,
   label,
   hint,
+  more,
   value,
   onChange,
 }: {
   name: string;
   label: string;
   hint: string;
+  more?: string;
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <Field label={label} htmlFor={name} required hint={hint}>
+    <Field label={label} htmlFor={name} required hint={hint} more={more}>
       <Textarea id={name} name={name} rows={3} required minLength={MIN_REASON_CHARS} value={value} onChange={(e) => onChange(e.target.value)} />
     </Field>
   );

@@ -82,7 +82,8 @@ export function NewItemForm({ itemTypes, nextCodes }: { itemTypes: ItemTypeOptio
         <Field label="Barcode" htmlFor="barcode" hint="Optional, must be unique.">
           <Input id="barcode" name="barcode" />
         </Field>
-        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the low-stock banner. For raw material it is compared with usable stock (QC approved, in date); for other items, with stock on hand.">
+        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Shows the low-stock banner when stock falls below this."
+            more="For raw material it is compared with usable stock (QC approved, in date); for other items, with stock on hand.">
           <Input id="low_stock_threshold" name="low_stock_threshold" type="number" step="any" min="0" />
         </Field>
       </div>
@@ -159,7 +160,8 @@ export function EditItemForm({
           <Field
             label="Category"
             htmlFor="category"
-            hint="Fixed because this item already has purchases, recipes, QC records or stock movements. To use a different category, create a new item."
+            hint="Fixed: this item is already in use."
+            more="It already has purchases, recipes, QC records or stock movements. To use a different category, create a new item."
           >
             <Input id="category" value={item.category === "raw" ? "Raw material" : "Packaging"} readOnly disabled />
             <input type="hidden" name="category" value={item.category} />
@@ -215,7 +217,8 @@ export function EditItemForm({
           label="Unit"
           htmlFor="unit"
           required={category === "raw" || category === "packaging"}
-          hint="The item's stock unit — every quantity is stored in it. Can't be changed once the item has purchases, recipes or stock."
+          hint="The item's stock unit; every quantity is stored in it."
+          more="It can't be changed once the item has purchases, recipes or stock."
         >
           <Select
             id="unit"
@@ -234,7 +237,8 @@ export function EditItemForm({
         <Field label="Barcode" htmlFor="barcode" hint="Optional, must be unique.">
           <Input id="barcode" name="barcode" defaultValue={item.barcode ?? ""} />
         </Field>
-        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Powers the low-stock banner. For raw material it is compared with usable stock (QC approved, in date); for other items, with stock on hand.">
+        <Field label="Low stock threshold" htmlFor="low_stock_threshold" hint="Shows the low-stock banner when stock falls below this."
+            more="For raw material it is compared with usable stock (QC approved, in date); for other items, with stock on hand.">
           <Input
             id="low_stock_threshold"
             name="low_stock_threshold"
