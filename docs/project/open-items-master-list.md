@@ -219,6 +219,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E75 | UX-09 unsaved-changes warning (Pass 102, no SQL) | (1) Type in any form (for example New purchase order), click a menu item: "You have unsaved changes…" appears; Cancel stays, OK leaves. (2) Reload the tab with typed input: the browser asks. (3) Save a form, then click away: no question. (4) Type in the Ledger or Audit Log filter, click away: no question. | Open |
 | E76 | Label Printing preview on phones (Pass 103, no SQL) | On a phone: Label Printing → pick a batch of each label type: the preview fits the screen and the page does not scroll sideways. On a computer: unchanged (320 px). | Open |
 | E77 | UX-16 back links (Pass 104, no SQL) | (1) Items: search "oil", open an item, click "← Back to Item Master": the search is still "oil". (2) Audit Log: filter by a table, open an entry, go back: same filter. (3) Purchase order, QC record and batch pages show their back link. (4) Opening a list from the menu shows it plain. | Open |
+| E78 | UX-11 empty lists (Pass 105, no SQL) | (1) Items: search "zzz": "No rows match “zzz”." and Clear search and filters brings the list back. (2) An empty list shows a second line saying what fills it (for example Stock Statement for a day with no movement: "Try a wider From and To range"). | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 

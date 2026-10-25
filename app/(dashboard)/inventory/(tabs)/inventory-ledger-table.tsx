@@ -152,7 +152,7 @@ export function InventoryLedgerTable({ rows, ledgerLimit }: { rows: LedgerRow[];
         columns={columns}
         rows={rows}
         searchPlaceholder="Search item, batch, event type, reference…"
-        emptyLabel="No ledger events yet."
+        emptyLabel="No ledger events yet." emptyHint="Every stock movement (receipts, samples, production, packaging, wastage) is recorded here."
         pageSize={20}
         isOpeningStock={(r) => !!r.purchase_lines?.is_legacy || r.fpBatchIsLegacy}
         exportConfig={exportConfig}

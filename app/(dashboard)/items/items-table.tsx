@@ -115,7 +115,7 @@ export function ItemsTable({ rows }: { rows: ItemRow[] }) {
       columns={columns}
       rows={rows}
       searchPlaceholder="Search items…"
-      emptyLabel="No items yet."
+      emptyLabel="No items yet." emptyHint="Add one with New item, or load many with Bulk Data Upload."
       isLegacy={(r) => isLegacyCode(r.item_code)}
       exportConfig={exportConfig}
     />

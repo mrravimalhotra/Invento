@@ -149,7 +149,7 @@ export function QcTable({ rows }: { rows: QcListRow[] }) {
     <DataTable
       columns={columns}
       rows={rows}
-      emptyLabel="No quality checks yet."
+      emptyLabel="No quality checks yet." emptyHint="A record appears when a raw material batch is sent to QC or a finished product batch is submitted to QC."
       searchPlaceholder="Search Analytical Report No., item, or batch…"
       isLegacy={isLegacyQcRow}
       isOpeningStock={(r) => r.is_legacy || !!r.purchase_lines?.is_legacy || !!r.finished_product_batches?.is_legacy}

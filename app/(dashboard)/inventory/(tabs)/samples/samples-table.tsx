@@ -90,7 +90,7 @@ export function SamplesTable({ rows }: { rows: SampleRow[] }) {
       columns={columns}
       rows={rows}
       searchPlaceholder="Search item, batch, AR number, type, status…"
-      emptyLabel="No samples recorded."
+      emptyLabel="No samples recorded." emptyHint="A batch appears once a QC, Stability or R&D sample is taken from it."
       pageSize={20}
       isOpeningStock={(r) => r.isLegacy}
       isLegacy={(r) => isLegacyCode(r.itemCode) || isLegacyCode(r.batch)}

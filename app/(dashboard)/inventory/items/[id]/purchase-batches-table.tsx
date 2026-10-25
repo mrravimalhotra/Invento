@@ -98,7 +98,7 @@ export function PurchaseBatchesTable({ rows, showQcStatus }: { rows: PurchaseBat
       columns={columns}
       rows={rows}
       searchPlaceholder="Search batch number…"
-      emptyLabel="No purchase batches for this item yet."
+      emptyLabel="No purchase batches for this item yet." emptyHint="Batches appear when a purchase order with this item is submitted."
       pageSize={10}
       isLegacy={(r) => isLegacyCode(r.batch_number)}
     />

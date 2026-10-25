@@ -58,7 +58,7 @@ export function VendorsTable({ rows }: { rows: VendorRow[] }) {
     <DataTable
       columns={columns}
       rows={rows}
-      emptyLabel="No vendors yet."
+      emptyLabel="No vendors yet." emptyHint="Add one with Add new vendor, or load many with Bulk Data Upload."
       searchPlaceholder="Search vendors…"
       isLegacy={(r) => isLegacyCode(r.vendor_code)}
       isInactive={(r) => r.active === false}

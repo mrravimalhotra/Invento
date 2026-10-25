@@ -230,7 +230,7 @@ export function StockPositionTable({ rows }: { rows: PositionRow[] }) {
       rows={rows}
       exportConfig={exportConfig}
       searchPlaceholder="Search item name or code…"
-      emptyLabel="No active items yet."
+      emptyLabel="No active items yet." emptyHint="Items added in Item Master appear here."
       pageSize={20}
       isLegacy={(r) => isLegacyCode(r.item_code)}
     />

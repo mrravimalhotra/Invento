@@ -178,7 +178,7 @@ export function ReportSection<T>({
           </div>
         )}
       </div>
-      <DataTable columns={tableColumns} rows={filtered} emptyLabel="No rows in range." isOpeningStock={isOpeningStock} />
+      <DataTable columns={tableColumns} rows={filtered} emptyLabel="No rows in range." emptyHint="Try a wider date range." isOpeningStock={isOpeningStock} />
     </Card>
   );
 }

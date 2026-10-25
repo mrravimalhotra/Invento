@@ -40,6 +40,7 @@ export function DataTable<T>({
   columns,
   rows,
   emptyLabel = "Nothing here yet.",
+  emptyHint,
   searchPlaceholder = "Search…",
   pageSize = 15,
   isLegacy,
@@ -50,6 +51,8 @@ export function DataTable<T>({
   columns: Column<T>[];
   rows: T[];
   emptyLabel?: string;
+  // UX-11: one short line under an empty list saying what fills it.
+  emptyHint?: string;
   searchPlaceholder?: string;
   pageSize?: number;
   // When provided, rows this returns true for are treated as legacy data
@@ -311,11 +314,11 @@ export function DataTable<T>({
                   {/* SCAN-P7-20: say so when a search or filter removed every row, instead of "none yet". */}
                   {rows.length > 0 ? (
                     <span>
-                      No rows match.{" "}
+                      {query.trim() ? `No rows match \u201c${query.trim()}\u201d.` : "No rows match."}{" "}
                       {hideLegacy && isLegacy ? "“Hide legacy data” is on. " : ""}
                       <button
                         type="button"
-                        className="font-medium text-brand-dark hover:underline"
+                        className="font-medium text-brand-dark hover:underline max-md:min-h-11"
                         onClick={() => {
                           setQuery("");
                           setSource("all");
@@ -326,7 +329,10 @@ export function DataTable<T>({
                       </button>
                     </span>
                   ) : (
-                    emptyLabel
+                    <>
+                      {emptyLabel}
+                      {emptyHint && <span className="mt-1 block text-xs">{emptyHint}</span>}
+                    </>
                   )}
                 </td>
               </tr>

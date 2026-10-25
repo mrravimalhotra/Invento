@@ -96,7 +96,7 @@ export function RejectedTable({ rows }: { rows: RejectedRow[] }) {
       columns={columns}
       rows={rows}
       searchPlaceholder="Search item, batch, AR number, type…"
-      emptyLabel="No rejected batches."
+      emptyLabel="No rejected batches." emptyHint="A batch appears here when QC rejects it."
       pageSize={20}
       isOpeningStock={(r) => r.isLegacy}
       isLegacy={(r) => isLegacyCode(r.itemCode) || isLegacyCode(r.batch)}

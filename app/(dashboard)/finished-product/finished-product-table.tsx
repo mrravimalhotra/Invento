@@ -74,7 +74,7 @@ export function FinishedProductTable({ rows }: { rows: FpRow[] }) {
       columns={columns}
       rows={rows}
       searchPlaceholder="Search batch number or MFR…"
-      emptyLabel="No finished product batches yet."
+      emptyLabel="No finished product batches yet." emptyHint="Start one with New batch, choosing an approved MFR."
       isLegacy={(r) => isLegacyCode(r.batch_number)}
       isOpeningStock={(r) => r.is_legacy}
       exportConfig={exportConfig}

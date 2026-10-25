@@ -111,7 +111,7 @@ export function CoaTable({ rows }: { rows: CoaRow[] }) {
     <DataTable
       columns={columns}
       rows={rows}
-      emptyLabel="No certificates issued yet."
+      emptyLabel="No certificates issued yet." emptyHint="Issue one with New COA once a batch is QC-approved."
       searchPlaceholder="Search COA or Analytical Report No.…"
       isOpeningStock={(r) => !!r.quality_checks?.is_legacy}
       exportConfig={exportConfig}

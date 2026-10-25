@@ -120,7 +120,7 @@ export function StatementTable({ rows, from, to }: { rows: StatementRow[]; from:
       columns={columns}
       rows={rows}
       searchPlaceholder="Search item name, code or category…"
-      emptyLabel="No stock or movement for this period."
+      emptyLabel="No stock or movement for this period." emptyHint="Try a wider From and To range."
       pageSize={20}
       isLegacy={(r) => isLegacyCode(r.itemCode)}
       exportConfig={exportConfig}

@@ -94,7 +94,7 @@ export function EquipmentTable({ rows, today }: { rows: EquipmentRow[]; today: s
     <DataTable
       columns={columns}
       rows={rows}
-      emptyLabel="No equipment yet."
+      emptyLabel="No equipment yet." emptyHint="Add one with Add new equipment, or load many with Bulk Data Upload."
       searchPlaceholder="Search equipment, room, or asset ID…"
       isInactive={(r) => !r.active}
       exportConfig={exportConfig}

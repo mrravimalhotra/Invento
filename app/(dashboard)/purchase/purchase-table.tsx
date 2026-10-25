@@ -72,7 +72,7 @@ export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
     <DataTable
       columns={columns}
       rows={rows}
-      emptyLabel="No purchase orders yet."
+      emptyLabel="No purchase orders yet." emptyHint="Create one with New purchase order, or load many with Bulk Data Upload."
       searchPlaceholder="Search purchase orders…"
       isLegacy={(r) => isLegacyCode(r.po_number)}
       isOpeningStock={(r) => !!r.isOpening}

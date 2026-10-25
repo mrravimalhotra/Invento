@@ -72,7 +72,7 @@ export function FpBatchesTable({ rows, unit }: { rows: FpBatchRow[]; unit: strin
       columns={columns}
       rows={rows}
       searchPlaceholder="Search batch number…"
-      emptyLabel="No Finished Product batches for this item yet."
+      emptyLabel="No Finished Product batches for this item yet." emptyHint="Batches appear when a finished product batch is started from this product’s MFR."
       pageSize={10}
       isLegacy={(r) => isLegacyCode(r.batch_number)}
       isOpeningStock={(r) => !!r.is_legacy}

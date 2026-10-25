@@ -61,7 +61,7 @@ export function RmReportTable({ rows, asOf }: { rows: RmReportExportRow[]; asOf:
       exportConfig={exportConfig}
       isOpeningStock={(r) => r.isLegacy}
       searchPlaceholder="Search item or batch…"
-      emptyLabel="No raw material batches in stock."
+      emptyLabel="No raw material batches in stock." emptyHint="Raw material appears here once its purchase order is submitted."
       pageSize={20}
     />
   );

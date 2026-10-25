@@ -152,7 +152,7 @@ export function AgeingView({ rows, initialBucket }: { rows: AgeingRow[]; initial
         columns={columns}
         rows={shown}
         searchPlaceholder="Search item, batch, AR number, type…"
-        emptyLabel="No batches in this group."
+        emptyLabel="No batches in this group." emptyHint="Pick another group in the boxes above."
         pageSize={20}
         isOpeningStock={(r) => r.isLegacy}
         isLegacy={(r) => isLegacyCode(r.itemCode) || isLegacyCode(r.batch)}

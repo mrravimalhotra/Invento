@@ -41,5 +41,5 @@ export function ItemTypesTable({ rows }: { rows: ItemTypeRow[] }) {
     },
   ];
 
-  return <DataTable columns={columns} rows={rows} searchPlaceholder="Search item types…" emptyLabel="No item types yet." />;
+  return <DataTable columns={columns} rows={rows} searchPlaceholder="Search item types…" emptyLabel="No item types yet." emptyHint="Add one with Add new item type." />;
 }

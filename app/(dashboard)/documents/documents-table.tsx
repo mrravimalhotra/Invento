@@ -43,7 +43,7 @@ export function DocumentsTable({ rows }: { rows: DocumentRow[] }) {
       columns={columns}
       rows={rows}
       searchPlaceholder="Search by title, or type sop / stp…"
-      emptyLabel="No documents recorded yet."
+      emptyLabel="No documents recorded yet." emptyHint="Add one with New document."
     />
   );
 }

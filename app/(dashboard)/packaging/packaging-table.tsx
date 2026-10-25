@@ -105,7 +105,7 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
       columns={columns}
       rows={rows}
       searchPlaceholder="Search by code, FP batch, RM-FP item or batch, or packaging item…"
-      emptyLabel="No packaging issues yet."
+      emptyLabel="No packaging issues yet." emptyHint="Issues appear here once saved with New issue."
       isLegacy={(r) => isLegacyCode(r.finished_product_batches?.batch_number)}
       isOpeningStock={(r) => !!r.finished_product_batches?.is_legacy}
       exportConfig={exportConfig}

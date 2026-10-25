@@ -82,7 +82,7 @@ export function MfrTable({ rows }: { rows: MfrRow[] }) {
       columns={columns}
       rows={rows}
       searchPlaceholder="Search MFR code or name…"
-      emptyLabel="No MFR definitions yet."
+      emptyLabel="No MFR definitions yet." emptyHint="Create one with New MFR; its finished product item is made when it is approved."
       isLegacy={(r) => isLegacyCode(r.code)}
       exportConfig={exportConfig}
     />

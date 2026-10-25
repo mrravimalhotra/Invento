@@ -107,7 +107,7 @@ export function ProductionBatchesTable({
       columns={columns}
       rows={rows}
       searchPlaceholder="Search batch number…"
-      emptyLabel="No batches produced via Packaging issued to Production yet."
+      emptyLabel="No batches produced via Packaging issued to Production yet." emptyHint="Batches appear when finished product is issued to Production in Packaging."
       pageSize={10}
       isLegacy={(r) => isLegacyCode(r.batch_number)}
     />

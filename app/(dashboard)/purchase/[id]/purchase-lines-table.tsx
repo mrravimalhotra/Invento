@@ -211,5 +211,5 @@ export function PurchaseLinesTable({
     });
   }
 
-  return <DataTable columns={columns} rows={rows} emptyLabel="No lines added yet." searchPlaceholder="Search lines…" />;
+  return <DataTable columns={columns} rows={rows} emptyLabel="No lines added yet." emptyHint="Add the first line with the form above." searchPlaceholder="Search lines…" />;
 }

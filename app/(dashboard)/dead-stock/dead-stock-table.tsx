@@ -114,7 +114,7 @@ export function DeadStockTable({ rows }: { rows: DeadStockRow[] }) {
     <DataTable
       columns={columns}
       rows={rows}
-      emptyLabel="No dead stock recorded yet."
+      emptyLabel="No dead stock recorded yet." emptyHint="Add one with Add new asset, or load many with Bulk Data Upload."
       searchPlaceholder="Search assets…"
       isInactive={(r) => !r.active}
       exportConfig={exportConfig}
