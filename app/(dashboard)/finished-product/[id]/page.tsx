@@ -16,6 +16,7 @@ import { SubmitToQcForm } from "./submit-to-qc-form";
 import { DraftActionsPanel } from "./draft-actions-panel";
 import { FpIntimationLink } from "./fp-intimation-link";
 import { BmrDownloadLink } from "./bmr-download-link";
+import { statusLabel } from "@/lib/status-labels";
 
 export default async function FinishedProductDetailPage({
   params,
@@ -442,7 +443,7 @@ export default async function FinishedProductDetailPage({
                         <Link href={`/qc/${q.id}`} className="font-medium underline">
                           {q.ar_number}
                         </Link>{" "}
-                        · {q.is_retest ? `Retest ${all.length - i - 1}` : "First QC"} · {q.status.replace(/_/g, " ")}
+                        · {q.is_retest ? `Retest ${all.length - i - 1}` : "First QC"} · {statusLabel(q.status)}
                         {q.reviewed_at ? ` · reviewed ${formatDate(q.reviewed_at)}` : ""}
                         {q.status === "approved" && q.retest_date ? ` · next retest ${formatDate(q.retest_date)}` : ""}
                       </li>

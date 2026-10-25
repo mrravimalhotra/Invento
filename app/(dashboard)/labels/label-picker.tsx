@@ -22,6 +22,7 @@ import {
 import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX } from "./rm-sheet-preview";
 import { FpIpSheetPreview, FPIP_PREVIEW_WIDTH_PX, FPIP_PREVIEW_HEIGHT_PX } from "./fp-ip-sheet-preview";
 import { UtSheetPreview, UT_PREVIEW_WIDTH_PX, UT_PREVIEW_HEIGHT_PX } from "./ut-sheet-preview";
+import { statusLabel } from "@/lib/status-labels";
 
 // The Approved Raw Material sheet preview renders at a fixed native size
 // (RM_PREVIEW_WIDTH_PX — see rm-sheet-preview.tsx) that's too wide for this
@@ -272,14 +273,14 @@ export function LabelPicker() {
           {rm && (
             <div className="flex items-center gap-2 text-sm text-muted">
               <span>Current QC status:</span>
-              <Badge status={rm.qcStatus}>{rm.qcStatus.replace("_", " ")}</Badge>
+              <Badge status={rm.qcStatus}>{statusLabel(rm.qcStatus)}</Badge>
               {rm.arNumber && <span>Analytical Report No. {rm.arNumber}</span>}
             </div>
           )}
           {fp && (
             <div className="flex items-center gap-2 text-sm text-muted">
               <span>Current FP status:</span>
-              <Badge status={fp.status}>{fp.status.replace(/_/g, " ")}</Badge>
+              <Badge status={fp.status}>{statusLabel(fp.status)}</Badge>
             </div>
           )}
 

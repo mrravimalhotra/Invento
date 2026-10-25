@@ -18,8 +18,8 @@ test("batch QC state: approved, retest due on the day, expired, rejected, pendin
   assert.equal(computeBatchQcState("rejected", null, TODAY), "rejected");
   assert.equal(computeBatchQcState("checker_approved", null, TODAY), "qc_pending");
   assert.equal(computeBatchQcState(null, null, TODAY), "qc_pending");
-  assert.equal(qcRecordStatusLabel("checker_rejected"), "Rejection proposed");
-  assert.equal(qcRecordStatusLabel("approved"), "approved");
+  assert.equal(qcRecordStatusLabel("checker_rejected"), "Round 1 rejection proposed");
+  assert.equal(qcRecordStatusLabel("approved"), "Approved");
 });
 
 test("raw material stock splits into usable and not usable (E38)", () => {

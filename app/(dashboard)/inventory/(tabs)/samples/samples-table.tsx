@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatQty, isLegacyCode } from "@/lib/utils";
 import type { TableExport } from "@/lib/table-export";
 import { batchIdentityColumns } from "../batch-columns";
+import { statusLabel } from "@/lib/status-labels";
 
 export type SampleRow = {
   key: string;
@@ -31,7 +32,7 @@ const KIND_LABEL: Record<SampleRow["kind"], string> = {
   fp: "Finished product",
 };
 
-const statusText = (s: string | null) => (s ? s.replace(/_/g, " ") : "");
+const statusText = (s: string | null) => statusLabel(s);
 const qty = (v: number, unit: string) => (v === 0 ? <span className="text-muted">—</span> : <span className="whitespace-nowrap">{formatQty(v)} {unit}</span>);
 
 export function SamplesTable({ rows }: { rows: SampleRow[] }) {

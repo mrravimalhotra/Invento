@@ -1,4 +1,5 @@
 import { todayIst } from "@/lib/utils";
+import { statusLabel } from "@/lib/status-labels";
 // Shared "is this raw-material batch usable" status, derived from
 // purchase_batch_status (0001_init.sql: qc_status + retest_date, one row
 // per purchase_line via a lateral join to its latest quality_checks row).
@@ -43,15 +44,9 @@ export function computeBatchQcState(
   return "qc_pending";
 }
 
-// Display label for a raw quality_checks.status value (the AR's own
-// status, distinct from BATCH_QC_LABELS above which is the *batch's*
-// derived usability). Ravi's exact phrasing for the intermediate stage
-// ("it will show as approved - Awaiting Review") — every other status
-// keeps the generic underscore-to-space fallback already used elsewhere
-// (qc-table.tsx, the QC Register report).
+// Display label for a raw quality_checks.status value (the AR's own status,
+// distinct from BATCH_QC_LABELS above, which is the *batch's* derived usability).
+// UX-05 (25 Oct 2026): the wording lives in lib/status-labels.ts, shared by every screen.
 export function qcRecordStatusLabel(status: string): string {
-  if (status === "checker_approved") return "Approved - Awaiting Review";
-  // 0119: a Quality Checker's rejection waits for the QC Reviewer to confirm or send it back.
-  if (status === "checker_rejected") return "Rejection proposed";
-  return status.replace(/_/g, " ");
+  return statusLabel(status);
 }

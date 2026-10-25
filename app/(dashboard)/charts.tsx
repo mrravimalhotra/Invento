@@ -14,7 +14,7 @@ const RED = "#b91c1c";
 // SCAN-P7-23: darkened from #94a3a0 (2.6:1 on white) to at least 3:1 for graphics.
 const MUTED = "#6b7f7b";
 // Two-round QC review (20 Sept 2026) — distinct color for the new
-// "checker_approved / Awaiting Review" slice, so it reads apart from the
+// "checker_approved / Round 1 approved" slice, so it reads apart from the
 // pre-existing amber "Submitted" slice on the same pie.
 const BLUE = "#2563eb";
 
@@ -49,7 +49,7 @@ export function DashboardCharts({ qcCounts, ledger30, purchase30, fp30, days }: 
 
   const qcPie = [
     { name: "Submitted", value: qcCounts.submitted, color: AMBER },
-    { name: "Awaiting Review", value: qcCounts.checker_approved, color: BLUE },
+    { name: "Round 1 approved — awaiting review", value: qcCounts.checker_approved, color: BLUE },
     { name: "Approved", value: qcCounts.approved, color: BRAND },
     { name: "Rejected", value: qcCounts.rejected, color: RED },
   ];

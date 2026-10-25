@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatDate, isLegacyCode, formatQty, fpBatchBoth } from "@/lib/utils";
+import { statusLabel } from "@/lib/status-labels";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
 // Option C) — every Finished Product batch that fed into this FP item's
@@ -41,8 +42,8 @@ export function FpBatchesTable({ rows, unit }: { rows: FpBatchRow[]; unit: strin
     },
     {
       header: "Status",
-      accessor: (r) => <Badge status={r.status}>{r.status.replace(/_/g, " ")}</Badge>,
-      searchValue: (r) => r.status,
+      accessor: (r) => <Badge status={r.status}>{statusLabel(r.status)}</Badge>,
+      searchValue: (r) => statusLabel(r.status),
     },
     {
       header: "Batch yield",

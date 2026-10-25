@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatQty } from "@/lib/utils";
 import { exportTable, type TableExport } from "@/lib/table-export";
+import { statusLabel } from "@/lib/status-labels";
 
 export type TraceKind = "purchase" | "fp" | "production";
 
@@ -170,7 +171,7 @@ function Section({ title, hint, rows }: { title: string; hint: string; rows: Tra
                     {num(r.remaining) !== null ? `${formatQty(num(r.remaining) as number)} ${r.unit ?? ""}` : "—"}
                   </td>
                   <td className="px-4 py-2">
-                    {r.status && r.status !== "not_submitted" ? <Badge status={r.status}>{r.status.replace(/_/g, " ")}</Badge> : "—"}
+                    {r.status && r.status !== "not_submitted" ? <Badge status={r.status}>{statusLabel(r.status)}</Badge> : "—"}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-xs">
                     {[r.ar_number, r.ref_code].filter((v, idx, a) => v && a.indexOf(v) === idx).join(" · ") || "—"}
@@ -240,7 +241,7 @@ export function TraceView({ rows }: { rows: TraceRow[] }) {
               {root.status && root.status !== "not_submitted" && (
                 <>
                   {" · "}
-                  <Badge status={root.status}>{root.status.replace(/_/g, " ")}</Badge>
+                  <Badge status={root.status}>{statusLabel(root.status)}</Badge>
                 </>
               )}
             </div>

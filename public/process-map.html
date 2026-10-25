@@ -130,9 +130,9 @@ h3{font-size:16px;margin:30px 0 4px;font-weight:600}
 <div class="who">Purchase order<small>one per vendor invoice</small></div>
 <div class="chain"><span class="chip">Draft</span><span class="arr">→</span><span class="chip ok">Submitted</span><span class="arr">→</span><span class="alt">Reopen (System Admin, before QC starts) returns it to Draft</span></div>
 <div class="who">QC record<small>raw material or finished product</small></div>
-<div class="chain"><span class="chip">Submitted</span><span class="arr">→</span><span class="chip">Approved – Awaiting Review</span><span class="arr">→</span><span class="chip ok">Approved</span><span class="alt">or</span><span class="chip stop">Rejected</span></div>
+<div class="chain"><span class="chip">Awaiting QC</span><span class="arr">→</span><span class="chip">Round 1 approved — awaiting review</span><span class="arr">→</span><span class="chip ok">Approved</span><span class="alt">or</span><span class="chip stop">Rejected</span></div>
 <div class="who">QC record, rejection path<small>Round 1 only proposes</small></div>
-<div class="chain"><span class="chip">Submitted</span><span class="arr">→</span><span class="chip">Rejection proposed</span><span class="arr">→</span><span class="chip stop">Rejected</span><span class="alt">or sent back to Submitted; a Rejected record can be voided with a reason and returns to Submitted</span></div>
+<div class="chain"><span class="chip">Awaiting QC</span><span class="arr">→</span><span class="chip">Round 1 rejection proposed</span><span class="arr">→</span><span class="chip stop">Rejected</span><span class="alt">or sent back to Awaiting QC; a Rejected record can be voided with a reason and returns to Awaiting QC</span></div>
 <div class="who">Finished product batch<small>one per manufacturing run</small></div>
 <div class="chain"><span class="chip">Draft</span><span class="arr">→</span><span class="chip">In process</span><span class="arr">→</span><span class="chip">Complete – Awaiting QC</span><span class="arr">→</span><span class="chip">Submitted to QC</span><span class="arr">→</span><span class="chip ok">Approved</span><span class="alt">or</span><span class="chip stop">Rejected</span><span class="alt">A Draft cancels itself after 30 minutes</span></div>
 <div class="who">Raw material batch in stock<small>what production may use</small></div>

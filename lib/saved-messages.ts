@@ -9,7 +9,7 @@ export const SAVED_MESSAGES = {
   qc_round1_approved:
     "Decision saved: Approved. This Analytical Report now goes to a QC Reviewer for the final decision.",
   qc_round1_rejected:
-    "Decision saved: Rejection proposed. A QC Reviewer will confirm it or send it back; the batch stays on hand until then.",
+    "Decision saved: Round 1 rejection proposed. A QC Reviewer will confirm it or send it back; the batch stays on hand until then.",
   qc_round2_approved: "Final decision saved: Approved. The retest date has been set.",
   qc_round2_rejected: "Final decision saved: Rejected. The batch is rejected.",
   qc_sent_back: "Proposed rejection sent back. The record is awaiting a new first decision from a Quality Checker.",

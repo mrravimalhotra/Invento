@@ -223,7 +223,7 @@ export default async function QualityCheckDetailPage({
                     "Not recorded (decided in the earlier single-step review)"
                   ) : (
                     <Badge status={record.status === "checker_rejected" ? "checker_rejected" : rounds.round1}>
-                      {record.status === "checker_rejected" ? "Rejection proposed" : rounds.round1 === "rejected" ? "Rejected" : "Approved"}
+                      {record.status === "checker_rejected" ? "Round 1 rejection proposed" : rounds.round1 === "rejected" ? "Rejected" : "Approved"}
                     </Badge>
                   )
                 }
@@ -266,7 +266,7 @@ export default async function QualityCheckDetailPage({
           <Card>
             <CardBody>
               <p className="text-sm text-muted">
-                Rejection proposed — a QC Reviewer will confirm it or send it back. The batch stays on hand until then.
+                Round 1 rejection proposed — a QC Reviewer will confirm it or send it back. The batch stays on hand until then.
               </p>
             </CardBody>
           </Card>

@@ -471,14 +471,14 @@ The ledger's Event column shows **Stock In** when stock is added (receipts, batc
 **How to start QC on a newly received batch**
 1. Go to Quality Control & Documents → Quality Control. Batches that just came in and haven't been assigned for QC yet show in the green **"Awaiting QC"** card at the top of the page.
 2. Click **Start QC** on a row (or use **New AR** and pick the item, then the batch, yourself). The sample quantity and sample unit are pre-filled from what was set on the purchase line — check them and adjust if needed. The expiry date is not entered here; the QC Reviewer sets it at Round 2.
-3. Submit. This gives the batch an Assign Record (AR) with an **Analytical Report No.** (for example ARRM-0001/26 for raw material, ARFP-0001/26 for finished product), and its status becomes "Submitted" — ready for the first review round.
+3. Submit. This gives the batch an Assign Record (AR) with an **Analytical Report No.** (for example ARRM-0001/26 for raw material, ARFP-0001/26 for finished product), and its status becomes "Awaiting QC" — ready for the first review round.
 
 **How to review and approve or reject a batch**
 1. **Round 1 (Quality Checker):** Open the AR. With the batch still "Submitted," you'll see the Round 1 form.
    - For a raw material bought from a vendor and for a finished product, the form lists the tests on the item's (or the MFR's) **COA template**. Type the **result** of every test. If the item has no COA template yet, the page says so and links to where it is added; until then you cannot approve (you can still reject).
    - Choose **Approved** or **Rejected** and give a **reason** (at least 3 characters). A reason is needed for either decision and is kept for audit.
-   - If **Approved**, the status changes to **"Approved – Awaiting Review"** and the AR moves into the QC Reviewer's queue. Round 1's decision and results show read-only from here on.
-   - If **Rejected**, you are only **proposing** the rejection (you are asked to confirm first). The status becomes **"Rejection proposed"** and the batch stays in stock until a QC Reviewer decides.
+   - If **Approved**, the status changes to **"Round 1 approved — awaiting review"** and the AR moves into the QC Reviewer's queue. Round 1's decision and results show read-only from here on.
+   - If **Rejected**, you are only **proposing** the rejection (you are asked to confirm first). The status becomes **"Round 1 rejection proposed"** and the batch stays in stock until a QC Reviewer decides.
 2. **Round 2 (QC Reviewer):** Open the same AR.
    - On an **approved** Round 1 you see the Quality Checker's results next to boxes for the final results. Leave them as they are to keep Round 1's results; **if you change any, your results are final** and go on the Certificate of Analysis (changed results are highlighted, and both versions are kept for audit). Choose **Approved** or **Rejected**, give a reason (at least 3 characters; say why if you changed results), and if approving also enter the **Expiry date** and a **Retest Period (days)**. For a raw material the retest period is filled in as 180 days (6 months), the longest allowed, and you can shorten it. A rejection asks you to confirm.
    - On a **proposed rejection** you either **Confirm the rejection** (the batch is then rejected and leaves stock) or **Send it back** to the Quality Checker with a reason (the AR returns to Awaiting QC and Round 1 starts again; the earlier decision stays in the history).
@@ -498,7 +498,7 @@ Only a batch that is fully Approved (both rounds, not expired, and not currently
 **Good to know**
 - Assigning QC ("New AR") is open to a wider group of roles than actually deciding the outcome — the two review rounds are deliberately restricted to the Quality Checker and QC Reviewer roles (System Admin can stand in for either).
 - The same person can't approve both rounds on the same batch. If you did Round 1, you won't be able to do Round 2 on that same AR.
-- A batch sitting at "Approved – Awaiting Review" is not yet usable — it needs the second round too. Don't assume a batch is clear until it shows a final "Approved" status.
+- A batch sitting at "Round 1 approved — awaiting review" is not yet usable — it needs the second round too. Don't assume a batch is clear until it shows a final "Approved" status.
 - A retest AR is marked with a small "Retest" badge so you can tell it apart from a batch's first-ever QC check.
 - **Two people, one record.** If two people try to decide the same record at the same moment, the first decision is saved and the second person is told "Someone else has just made this decision" and nothing of theirs is saved. Refresh the page to see the result.
 - **Rejected raw material** leaves On hand automatically (see Rejected Materials in the Inventory Ledger).
