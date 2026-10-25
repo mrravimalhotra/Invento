@@ -12,7 +12,8 @@ import { parseCoaTemplateLines } from "@/lib/coa-template-lines";
 import { STALE_MESSAGE, applyLoadedAt, readLoadedAt } from "@/lib/stale-check";
 import { validBarcode, BARCODE_RULE } from "@/lib/name-rules";
 
-export type ActionState = { error?: string; success?: string } | undefined;
+// `field` (UX-14): the form field the error is about, pointed at on screen.
+export type ActionState = { error?: string; success?: string; field?: string } | undefined;
 
 // Categories this screen is allowed to create/edit directly. 'processed'
 // ("Finished Product") is deliberately NOT here — per the "MFR screen be
@@ -32,25 +33,25 @@ function duplicateItemMessage(dbMessage: string, name: string): string {
   return "That item code already exists.";
 }
 
-function numOrNull(formData: FormData, key: string): number | null | { error: string } {
+function numOrNull(formData: FormData, key: string): number | null | { error: string; field: string } {
   const raw = String(formData.get(key) ?? "").trim();
   if (raw === "") return null;
   const n = Number(raw);
-  if (Number.isNaN(n)) return { error: `${key} must be a number.` };
+  if (Number.isNaN(n)) return { error: `${key} must be a number.`, field: key };
   return n;
 }
 
 export async function createItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get("name") || "").trim();
-  { const limitError = textLimitError("Name", name, NAME_MAX); if (limitError) return { error: limitError }; }
+  { const limitError = textLimitError("Name", name, NAME_MAX); if (limitError) return { error: limitError, field: "name" }; }
   const botanical_alias = String(formData.get("botanical_alias") || "").trim() || null;
   const category = String(formData.get("category") || "");
   const item_type_id = String(formData.get("item_type_id") || "") || null;
   const unit = String(formData.get("unit") || "") || null;
   const barcode = String(formData.get("barcode") || "").trim() || null;
 
-  if (!name) return { error: "Name is required." };
-  if (barcode && !validBarcode(barcode)) return { error: BARCODE_RULE };
+  if (!name) return { error: "Name is required.", field: "name" };
+  if (barcode && !validBarcode(barcode)) return { error: BARCODE_RULE, field: "barcode" };
   if (!CREATABLE_CATEGORIES.includes(category as (typeof CREATABLE_CATEGORIES)[number])) {
     return {
       error:
@@ -60,10 +61,10 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
     };
   }
   if (category === "raw" && !item_type_id) {
-    return { error: "Item type is required for a Raw Material — pick one from the list." };
+    return { error: "Item type is required for a Raw Material — pick one from the list.", field: "item_type_id" };
   }
   // 30 Sept 2026 (Ravi): Unit is mandatory — every quantity is stored in it.
-  if (!unit) return { error: "Unit is required — pick the unit this item is stocked in." };
+  if (!unit) return { error: "Unit is required — pick the unit this item is stocked in.", field: "unit" };
   if (!UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
@@ -88,7 +89,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   // bulk upload and the regular one-at-a-time forms."
   // SCAN-P2-03: compared after squeezing repeated spaces, ignoring case and a trailing full stop.
   const { data: dupItem } = await supabase.rpc("item_name_taken", { p_name: name, p_exclude_id: null });
-  if (dupItem === true) return { error: `"${name}" already exists as an item.` };
+  if (dupItem === true) return { error: `"${name}" already exists as an item.`, field: "name" };
 
   const { data: itemCode, error: codeError } = await supabase.rpc("get_next_item_code", {
     p_category: category,
@@ -149,7 +150,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
 
 export async function updateItem(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get("name") || "").trim();
-  { const limitError = textLimitError("Name", name, NAME_MAX); if (limitError) return { error: limitError }; }
+  { const limitError = textLimitError("Name", name, NAME_MAX); if (limitError) return { error: limitError, field: "name" }; }
   const botanical_alias = String(formData.get("botanical_alias") || "").trim() || null;
   const item_type_id = String(formData.get("item_type_id") || "") || null;
   const unit = String(formData.get("unit") || "") || null;
@@ -166,17 +167,17 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   // CREATABLE_CATEGORIES above for why 'processed' creation moved to MFR.
   const submittedCategory = String(formData.get("category") || "");
 
-  if (!name) return { error: "Name is required." };
-  if (barcode && !validBarcode(barcode)) return { error: BARCODE_RULE };
+  if (!name) return { error: "Name is required.", field: "name" };
+  if (barcode && !validBarcode(barcode)) return { error: BARCODE_RULE, field: "barcode" };
   // 30 Sept 2026 (Ravi): Item Type is mandatory for a Raw Material.
   if (submittedCategory === "raw" && !item_type_id) {
-    return { error: "Item type is required for a Raw Material — pick one from the list." };
+    return { error: "Item type is required for a Raw Material — pick one from the list.", field: "item_type_id" };
   }
   // Unit is mandatory for Raw Material and Packaging (Finished Product items keep
   // the unit MFR gave them). An item saved with no unit can always be given one:
   // the unit lock (0076) only stops changing a unit that is already set.
   const editable = submittedCategory === "raw" || submittedCategory === "packaging";
-  if (editable && !unit) return { error: "Unit is required — pick the unit this item is stocked in." };
+  if (editable && !unit) return { error: "Unit is required — pick the unit this item is stocked in.", field: "unit" };
   if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
@@ -198,7 +199,7 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   // excluded so saving an item without changing its name doesn't collide
   // with itself.
   const { data: dupItem } = await supabase.rpc("item_name_taken", { p_name: name, p_exclude_id: id });
-  if (dupItem === true) return { error: `"${name}" already exists as an item.` };
+  if (dupItem === true) return { error: `"${name}" already exists as an item.`, field: "name" };
 
   // default_qc_qty / default_stability_qty / default_rnd_qty /
   // default_sample_unit are deliberately NOT in this update object (2 Sept

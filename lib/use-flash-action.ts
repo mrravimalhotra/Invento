@@ -2,8 +2,9 @@
 
 import { useActionState, useCallback } from "react";
 import { flash } from "@/lib/flash";
+import { clearFieldErrors, markFieldError } from "@/lib/field-error";
 
-type Result = { error?: string; success?: string | boolean } | undefined | void;
+type Result = { error?: string; success?: string | boolean; field?: string } | undefined | void;
 
 // ---------------------------------------------------------------------------
 // FB-0045 (1 Oct 2026): "if any point is missed or entered incorrectly, the
@@ -37,6 +38,7 @@ function keepState(): KeepState | null {
       (e) => {
         s.lastSubmitted = e.target instanceof HTMLFormElement ? e.target : null;
         s.keep = null; // a new attempt starts clean
+        if (s.lastSubmitted) clearFieldErrors(s.lastSubmitted);
       },
       true
     );
@@ -78,6 +80,10 @@ export function useFlashActionState<State extends Result, Payload>(
           if (keep && keep.lastSubmitted) {
             keep.keep = keep.lastSubmitted;
             keep.until = Date.now() + KEEP_WINDOW_MS;
+            // UX-14: point at the field, once React has finished with the form.
+            const form = keep.lastSubmitted;
+            const { field, error } = result;
+            if (field) setTimeout(() => markFieldError(form, field, error), 0);
           }
         }
       }

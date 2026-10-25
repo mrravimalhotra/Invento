@@ -48,3 +48,11 @@ body {
     opacity: 1;
   }
 }
+
+/* UX-14: the field a failed save points at (lib/field-error.ts). */
+[aria-invalid="true"] {
+  border-color: var(--color-red);
+}
+[data-field][data-invalid] > label {
+  color: var(--color-red);
+}

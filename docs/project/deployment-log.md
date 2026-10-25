@@ -41,7 +41,8 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-25 | this commit | UX-12: Inventory Ledger item filter shows code — name (category) (known issues Pass 109, live check E82) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | this commit | UX-14: a failed save on Item, Purchase and QC forms outlines the field, repeats the message under it and focuses it (known issues Pass 110, live check E83) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | `23d30b5` | UX-12: Inventory Ledger item filter shows code — name (category) (known issues Pass 109, live check E82) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `d7bbe41` | UX-08: the 10 long field hints trimmed to one line with the rest behind an ⓘ (`Field` `more`; known issues Pass 108, live check E81) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `e3bfee2` | UX-07 part 2: short terms explained on table headings (ⓘ hint) and a Glossary card on the User Guide page (known issues Pass 107, live check E80) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `8fdb356` | UX-07 part 1: Create batch, Start retest, Submit order (locks lines); User Guide and Process Map PDFs rebuilt (known issues Pass 106, live check E79) | None | ✅ | n/a | Pushed by Claude; no database change |

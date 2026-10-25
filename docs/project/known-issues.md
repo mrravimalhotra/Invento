@@ -614,7 +614,7 @@ Impact: **High** = slows or misleads daily work for most users; **Medium** = fri
 | UX-11 | Low | Empty states | **Built 25 Oct 2026 (Pass 105).** Lists that are empty show a plain sentence ("No vendors yet.", "No samples recorded.") with no next step. | Say what the list is for and offer the action ("Add the first vendor"), or why it is empty for this filter ("Clear filters"). |
 | UX-12 | Medium | Pickers | Items with the same name appear several times in dropdowns (for example "Tab Ostopix" four times: FP-00005, FP-00006, PKG-FP-00005, PKG-FP-00006), told apart only by the code. | Show a category tag beside each option (Raw / Finished / Packed / Packaging) and filter pickers to the categories that make sense on that screen. **Built (Pass 109) on the Inventory Ledger item filter.** |
 | UX-13 | Medium | Confirmations | Irreversible steps are confirmed in different ways: QC rejection and void use a red two-step box; Final Submit, Complete batch and a packaging issue save in one click although they cannot be undone (until the decided voids P4-09, P6-01, P5-04 are built). | One confirmation pattern for every irreversible step, stating the consequence in plain words. |
-| UX-14 | Medium | Errors | A failed save shows one message at the top of the form and a red banner; the field that caused it is not highlighted or focused. | Highlight the field in error, put the message under it and move the focus there. |
+| UX-14 | Medium | Errors | A failed save shows one message at the top of the form and a red banner; the field that caused it is not highlighted or focused. | Highlight the field in error, put the message under it and move the focus there. **Built (Pass 110) on the Item, Purchase and QC forms.** |
 | UX-15 | Medium | Search | There is no app-wide search: finding a batch, AR number, PO number or certificate means knowing which module holds it; Batch Trace (the closest thing) is the sixth tab inside Inventory. | A search box in the top bar that finds batches, AR Nos, POs, COAs and items and opens the record or its trace. |
 | UX-16 | Low | Navigation | **Built 25 Oct 2026 (Pass 104).** Detail pages (purchase order, QC record, batch, item) have no breadcrumb or "Back to list"; going back loses the list's filters and search. | A breadcrumb or back link that returns to the list as it was left. |
 | UX-17 | Low | Help | The User Guide is a 39-page PDF; help is not available on the page where it is needed. | A "Help for this page" link in each page header that opens the matching guide section. |
@@ -706,6 +706,14 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 ## Pass 109 — UX-12: Ledger item filter shows code, name and category (25 Oct 2026, no migration)
 
 - [x] Each option in the Inventory → Ledger item filter now reads code — name (category), e.g. "FP-00005 — Tab Ostopix (Finished product)", "PKG-FP-00005 — Tab Ostopix (Packaged finished product)", "RM-013 — Musta (Raw material)". Category names match the rest of the app.
-- Note: the filter is a plain dropdown, so typing jumps by the start of the option, now the code; the name is still read on each line.
+- The filter is the searchable dropdown, so typing a code or a name still finds the item.
 - Checks: type-check, lint, build, unit tests.
 - Live check (E82): Inventory → Ledger: open the item filter and confirm the look-alike Tab Ostopix lines are told apart by code and category.
+
+## Pass 110 — UX-14: a failed save points at the field (25 Oct 2026, no migration)
+
+- [x] When a save fails because of one field, that field is outlined in red (label too), the message is repeated under it and the cursor moves there; the notice at the top stays. Typing in the form or saving again clears the mark.
+- Covered: Item (name, barcode, item type, unit, low-stock threshold, duplicate name), Purchase order and lines (vendor, QC / Stability / R&D quantity, unit price, GST %), QC (batch, sample quantity, reasons, expiry date, retest period). Errors that are not about one field (not authorised, record changed, database refusals) show only the top notice, as before.
+- Code: actions return `field` with `error`; `useFlashActionState` calls `markFieldError` (`lib/field-error.ts`); `Field` carries `data-field`. Other forms can opt in by returning `field`.
+- Checks: type-check, lint, build, unit tests; browser check of the marking (searchable dropdowns focus their visible box; one mark at a time; typing clears it).
+- Live check (E83): Items → New item: pick Raw material, leave Item type empty, Create item: Item type turns red with the message under it and the cursor is in it; choosing a type clears it.

@@ -34,7 +34,7 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div data-field className="flex flex-col gap-1.5">
       <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
         {label}
         {required && <span className="text-red ml-0.5">*</span>}

@@ -13,7 +13,8 @@ import { friendlyDbError } from "@/lib/db-errors";
 import { STALE_MESSAGE, applyLoadedAt, readLoadedAt } from "@/lib/stale-check";
 import { futureDateError } from "@/lib/date-rules";
 
-export type ActionState = { error?: string; success?: string } | undefined;
+// `field` (UX-14): the form field the error is about, pointed at on screen.
+export type ActionState = { error?: string; success?: string; field?: string } | undefined;
 
 // ------------------------------------------------------------
 // Purchase Order (header)
@@ -38,7 +39,7 @@ const poSchema = z.object({
 // (same RPC-generated po_number, same insert) — only how the result gets
 // back to the screen has changed, from a server redirect to returned data.
 export type CreatePurchaseOrderState =
-  | { error: string; success?: undefined }
+  | { error: string; success?: undefined; field?: string }
   | {
       error?: undefined;
       success: true;
@@ -79,8 +80,8 @@ export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formD
 
   // SCAN-P2-04: a vendor made inactive is not offered on new orders; the action says so too.
   const { data: vendorRow } = await supabase.from("vendors").select("active").eq("id", parsed.data.vendor_id).maybeSingle();
-  if (!vendorRow) return { error: "That vendor no longer exists. Pick another vendor." };
-  if (vendorRow.active === false) return { error: "That vendor is inactive. Pick an active vendor, or tick Active on the vendor first." };
+  if (!vendorRow) return { error: "That vendor no longer exists. Pick another vendor.", field: "vendor_id" };
+  if (vendorRow.active === false) return { error: "That vendor is inactive. Pick an active vendor, or tick Active on the vendor first.", field: "vendor_id" };
 
   // purchase_orders has no DB-level unique constraint on (vendor_id,
   // invoice_number) — checked here, case-insensitively on the invoice
@@ -205,8 +206,8 @@ export async function updatePurchaseOrderHeader(
 
   if (vendorChanged) {
     const { data: vendorRow } = await supabase.from("vendors").select("active").eq("id", vendorId).maybeSingle();
-    if (!vendorRow) return { error: "That vendor no longer exists. Pick another vendor." };
-    if (vendorRow.active === false) return { error: "That vendor is inactive. Pick an active vendor." };
+    if (!vendorRow) return { error: "That vendor no longer exists. Pick another vendor.", field: "vendor_id" };
+    if (vendorRow.active === false) return { error: "That vendor is inactive. Pick an active vendor.", field: "vendor_id" };
   }
 
   // Same per-vendor duplicate-invoice rule as creating an order, leaving this order out.
@@ -353,13 +354,13 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   const stabilityQtyField = formData.get("stability_qty");
   const rndQtyField = formData.get("rnd_qty");
   if (qcQtyField !== null && String(qcQtyField).trim() === "") {
-    return { error: "QC quantity is required — enter 0 if this line needs no QC sample." };
+    return { error: "QC quantity is required — enter 0 if this line needs no QC sample.", field: "qc_qty" };
   }
   if (stabilityQtyField !== null && String(stabilityQtyField).trim() === "") {
-    return { error: "Stability quantity is required — enter 0 if this line needs no stability sample." };
+    return { error: "Stability quantity is required — enter 0 if this line needs no stability sample.", field: "stability_qty" };
   }
   if (rndQtyField !== null && String(rndQtyField).trim() === "") {
-    return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample." };
+    return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample.", field: "rnd_qty" };
   }
   // Ravi (15 Sept 2026): "unit price and gst should be mandatory" —
   // these rendered for every line (raw or packaging) and were fully
@@ -367,10 +368,10 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   // required-but-zero-is-fine rule as above; unlike qc/stability/rnd
   // there's no packaging-only exemption to preserve here.
   if (unitPriceRaw === null || String(unitPriceRaw).trim() === "") {
-    return { error: "Unit price is required." };
+    return { error: "Unit price is required.", field: "unit_price" };
   }
   if (gstPctRaw === null || String(gstPctRaw).trim() === "") {
-    return { error: "GST % is required." };
+    return { error: "GST % is required.", field: "gst_pct" };
   }
 
   const parsed = lineSchema.safeParse({
@@ -411,7 +412,7 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
     return { error: `Sample unit "${sample_unit}" can't be converted to the line unit "${unit}" — pick a compatible unit.` };
   }
   if (qc_qty + stability_qty + rnd_qty > quantity) {
-    return { error: "QC + Stability + R&D quantity cannot exceed the received quantity." };
+    return { error: "QC + Stability + R&D quantity cannot exceed the received quantity.", field: "qc_qty" };
   }
   const limitError = firstLimitError(quantityLimitError("Quantity", quantity, unit), unitPriceLimitError(unit_price));
   if (limitError) return { error: limitError };
@@ -575,19 +576,19 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
   const stabilityQtyField = formData.get("stability_qty");
   const rndQtyField = formData.get("rnd_qty");
   if (qcQtyField !== null && String(qcQtyField).trim() === "") {
-    return { error: "QC quantity is required — enter 0 if this line needs no QC sample." };
+    return { error: "QC quantity is required — enter 0 if this line needs no QC sample.", field: "qc_qty" };
   }
   if (stabilityQtyField !== null && String(stabilityQtyField).trim() === "") {
-    return { error: "Stability quantity is required — enter 0 if this line needs no stability sample." };
+    return { error: "Stability quantity is required — enter 0 if this line needs no stability sample.", field: "stability_qty" };
   }
   if (rndQtyField !== null && String(rndQtyField).trim() === "") {
-    return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample." };
+    return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample.", field: "rnd_qty" };
   }
   if (unitPriceRaw === null || String(unitPriceRaw).trim() === "") {
-    return { error: "Unit price is required." };
+    return { error: "Unit price is required.", field: "unit_price" };
   }
   if (gstPctRaw === null || String(gstPctRaw).trim() === "") {
-    return { error: "GST % is required." };
+    return { error: "GST % is required.", field: "gst_pct" };
   }
 
   const parsed = updateLineSchema.safeParse({
@@ -618,7 +619,7 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
     return { error: `Sample unit "${sample_unit}" can't be converted to the line unit "${unit}" — pick a compatible unit.` };
   }
   if (qc_qty + stability_qty + rnd_qty > quantity) {
-    return { error: "QC + Stability + R&D quantity cannot exceed the received quantity." };
+    return { error: "QC + Stability + R&D quantity cannot exceed the received quantity.", field: "qc_qty" };
   }
   const limitError = firstLimitError(quantityLimitError("Quantity", quantity, unit), unitPriceLimitError(unit_price));
   if (limitError) return { error: limitError };

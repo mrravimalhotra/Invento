@@ -20,7 +20,8 @@ import {
   type QcResultLine,
 } from "@/lib/qc-results";
 
-export type ActionState = { error?: string; success?: string } | undefined;
+// `field` (UX-14): the form field the error is about, pointed at on screen.
+export type ActionState = { error?: string; success?: string; field?: string } | undefined;
 
 // Assign step — assign an AR number to an incoming raw-material batch and
 // record the sample. This does not move stock (ACC-38, 29 Sept 2026): since
@@ -37,11 +38,11 @@ export async function createQualityCheck(_prev: ActionState, formData: FormData)
   const sampleQtyRaw = formData.get("sample_qty");
   const sampleUnit = String(formData.get("sample_unit") || "").trim();
 
-  if (!purchaseLineId) return { error: "Select a batch." };
+  if (!purchaseLineId) return { error: "Select a batch.", field: "purchase_line_id" };
 
   const sampleQty = sampleQtyRaw ? Number(sampleQtyRaw) : null;
   if (sampleQtyRaw && (sampleQty === null || !Number.isFinite(sampleQty) || sampleQty < 0)) {
-    return { error: "Sample quantity must be a non-negative number." };
+    return { error: "Sample quantity must be a non-negative number.", field: "sample_qty" };
   }
 
   const supabase = await createClient();
@@ -138,7 +139,7 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
   }
   const checkerComments = String(formData.get("checker_comments") || "").trim();
   const reasonProblem = reasonError(checkerComments, "A reason");
-  if (reasonProblem) return { error: reasonProblem };
+  if (reasonProblem) return { error: reasonProblem, field: "checker_comments" };
 
   const supabase = await createClient();
   const { data: existing, error: existingError } = await supabase
@@ -212,18 +213,18 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
 
   const reviewComments = String(formData.get("review_comments") || "").trim();
   const reasonProblem = reasonError(reviewComments, "A reason");
-  if (reasonProblem) return { error: reasonProblem };
+  if (reasonProblem) return { error: reasonProblem, field: "review_comments" };
   const retestPeriodRaw = formData.get("retest_period_days");
   const retestPeriodDays = retestPeriodRaw ? Number(retestPeriodRaw) : null;
   if (retestPeriodRaw && (retestPeriodDays === null || !Number.isFinite(retestPeriodDays) || retestPeriodDays <= 0)) {
-    return { error: "Retest period must be a positive whole number of days." };
+    return { error: "Retest period must be a positive whole number of days.", field: "retest_period_days" };
   }
   // FB-0058: Expiry date is required to approve, raw material and finished product.
   const expiryRaw = String(formData.get("expiry_date") || "").trim();
   if (status === "approved") {
-    if (!expiryRaw) return { error: "Expiry date is required to approve a batch." };
+    if (!expiryRaw) return { error: "Expiry date is required to approve a batch.", field: "expiry_date" };
     const expiryError = beforeDateError(expiryRaw, todayIst(), "Expiry date", "today");
-    if (expiryError) return { error: expiryError };
+    if (expiryError) return { error: expiryError, field: "expiry_date" };
   }
 
   const supabase = await createClient();
@@ -297,7 +298,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
       return { error: `This was the last retest allowed (${MAX_RM_RETESTS}); no further retest period can be set.` };
     }
     if (!finalRetest && !retestPeriodRaw) {
-      return { error: "Retest period (days) is required to approve a batch." };
+      return { error: "Retest period (days) is required to approve a batch.", field: "retest_period_days" };
     }
     // SCAN-P4-04 / LW-01 (Ravi, 12 Oct 2026): the retest date can never fall after the
     // expiry date, for raw material and finished product. The database enforces it too.
@@ -353,7 +354,7 @@ export async function sendBackQcRejection(id: string, _prev: ActionState, formDa
   if (!canWrite(user?.roles ?? [], "qc_review_round2")) return { error: "Not authorized." };
   const reason = String(formData.get("returned_reason") || "").trim();
   const reasonProblem = reasonError(reason, "A reason");
-  if (reasonProblem) return { error: reasonProblem };
+  if (reasonProblem) return { error: reasonProblem, field: "returned_reason" };
 
   const supabase = await createClient();
   const { data: updated, error } = await supabase
@@ -378,7 +379,7 @@ export async function voidQcRejection(id: string, _prev: ActionState, formData: 
   if (!canWrite(user?.roles ?? [], "qc_void_rejection")) return { error: "Not authorized." };
   const reason = String(formData.get("void_reason") || "").trim();
   const reasonProblem = reasonError(reason, "A reason");
-  if (reasonProblem) return { error: reasonProblem };
+  if (reasonProblem) return { error: reasonProblem, field: "void_reason" };
 
   const supabase = await createClient();
   const { data: updated, error } = await supabase
