@@ -9,7 +9,7 @@ Ravi decided these on 18 Oct 2026. Each is built after its mockup is approved (P
 
 | # | Item | Decision |
 |---|---|---|
-| SCAN-P4-09 | Certificate (COA) can never be voided or replaced; a second certificate for the same QC record is accepted | QC Reviewer or System Admin may void with a reason; the replacement links to the voided one; a second valid certificate is refused; voided ones stay on the register marked Void. |
+| SCAN-P4-09 | Certificate (COA) can never be voided or replaced; a second certificate for the same QC record is accepted | QC Reviewer or System Admin may void with a reason; the replacement links to the voided one; a second valid certificate is refused; voided ones stay on the register marked Void. **Mockup shown 25 Oct 2026 (void button with reason, Void banner, VOID on PDF, register Status column, second certificate refused): parked by Ravi.** |
 | SCAN-P6-01 | A packaging issue made by mistake can never be undone | Inventory Manager or System Admin may void with a reason at any time; bulk, material and packed count return through new ledger rows; issue shows Void. No Store/R&D returns yet. |
 | SCAN-P5-04 | A finished product batch cannot be corrected after Complete, nor closed when it fails | Manager or System Admin may send a Complete - Awaiting QC batch back to In Process (before QC starts); an In Process batch may be closed as failed (raw material stays used, no yield, status Closed). Both audited. |
 
