@@ -41,7 +41,8 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-24 | this commit | Handoff for the next session: `docs/project/handoff-2026-10-24.md` (state, rules, waiting items, starter prompt); previous handoff marked superseded | None | ✅ | n/a | Documents only |
+| 2026-10-25 | this commit | UX review (Ravi: review as an expert UX designer, do not implement): 19 findings UX-01 to UX-19 parked in known issues Pass 99 | None | ✅ | n/a | Documents only |
+| 2026-10-24 | `0d366b2` | Handoff for the next session: `docs/project/handoff-2026-10-24.md` (state, rules, waiting items, starter prompt); previous handoff marked superseded | None | ✅ | n/a | Documents only |
 | 2026-10-20 | `42127ff` | `docs/project/pending-items-2026-10-20.md`: every pending item in one file (Ravi: add all pending items in markdown) | None | ✅ | n/a | Documents only |
 | 2026-10-18 | `bfa04dd` | Phone basics (Ravi: fix mobile): 16 px text in boxes on phones, number pad on number boxes, 44 px touch targets, two tables scroll in their own box (known issues Pass 98, live check E72) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-18 | `c73c459` | Code quality pass, no behaviour change (Ravi: fix all code quality issues): bulk upload split by module, shared purchase line parts, shared QC retest card and rejection pieces, shared inventory batch columns, useEffectEvent instead of 6 suppressions (known issues Pass 97) | None | ✅ | n/a | Pushed by Claude; no database change |
