@@ -45,3 +45,4 @@ next-env.d.ts
 # scratch output
 *.err
 tsconfig.tsbuildinfo
+tests/browser/guard.js

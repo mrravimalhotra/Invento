@@ -1,0 +1,14 @@
+<!doctype html><html><body>
+<form id="data"><input id="d1" name="x"><button id="save" type="submit">Save</button></form>
+<form id="filter" action="/inventory" method="get"><input id="f1" name="q"></form>
+<form id="edit"><input id="e1" name="y"></form>
+<form id="ign" data-unsaved="ignore"><input id="i1"></form>
+<input id="s1" type="search">
+<a id="go" href="/other">Go</a>
+<script src="guard.js"></script>
+<script>
+  window.navs = 0;
+  document.addEventListener("click", (e) => { const a = e.target.closest("a"); if (a) { e.preventDefault(); window.navs++; } });
+  document.getElementById("data").addEventListener("submit", (e) => e.preventDefault());
+  window.stop = UG.installUnsavedGuard();
+</script></body></html>

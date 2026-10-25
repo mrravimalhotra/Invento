@@ -41,7 +41,8 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-25 | this commit | UX-05 quick win: one wording for every status (`lib/status-labels.ts`; clearer Round 1 names); User Guide and Process Map PDFs rebuilt (known issues Pass 101, live check E74) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | this commit | UX-09 quick win: unsaved-changes warning on every form; browser check script (known issues Pass 102, live check E75) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | `a94443d` | UX-05 quick win: one wording for every status (`lib/status-labels.ts`; clearer Round 1 names); User Guide and Process Map PDFs rebuilt (known issues Pass 101, live check E74) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `6223456` | UX-02 quick win: deprecated modules in an admin-only, folded Archive menu group (known issues Pass 100, live check E73) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `873aa21` | UX review (Ravi: review as an expert UX designer, do not implement): 19 findings UX-01 to UX-19 parked in known issues Pass 99 | None | ✅ | n/a | Documents only |
 | 2026-10-24 | `0d366b2` | Handoff for the next session: `docs/project/handoff-2026-10-24.md` (state, rules, waiting items, starter prompt); previous handoff marked superseded | None | ✅ | n/a | Documents only |

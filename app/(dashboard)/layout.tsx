@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { Sidebar } from "@/components/shell/sidebar";
+import { UnsavedChangesGuard } from "@/components/shell/unsaved-changes-guard";
 import { Topbar } from "@/components/shell/topbar";
 import { PageFeedback } from "@/components/feedback/page-feedback";
 import { PdfUserSetter } from "@/components/shell/pdf-user-setter";
@@ -54,6 +55,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       >
         Skip to main content
       </a>
+      <UnsavedChangesGuard />
       <Sidebar isSystemAdmin={user.roles.includes("system_admin")} />
       <div className="flex flex-1 flex-col min-w-0">
         <Topbar user={user} />
