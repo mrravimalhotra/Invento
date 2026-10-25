@@ -651,3 +651,11 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - Known limit: the browser's own Back button is not intercepted (Next's router gives no hook); the warning covers menu and link clicks, reload and closing the tab.
 - Checks: type-check, lint, build, unit tests, and a new browser check `scripts/dev/check-unsaved-guard.py` (8 cases in Chromium, all pass: untouched page, filter/search/opt-out never ask, ask and Cancel stays, OK leaves, no ask after Save, no ask after an edit form closes, reload asks, guard removed).
 - Live check (E75): type in New purchase order and click Dashboard: the question appears; Cancel stays; OK leaves. Save a form, then click away: no question. Type in the Ledger filter and click away: no question.
+
+## Pass 103 — Label Printing preview fits small phones (25 Oct 2026, no migration)
+**Deploy status: live 25 Oct 2026.** Pushed to `main` by Claude (Ravi, quick win 4: "Yes, fit the screen").
+
+- [x] The three label sheet previews (Approved Raw Material, Finished Product / In-process, Under Test) are shown by a new `ScaledPreview` (`app/(dashboard)/labels/scaled-preview.tsx`): 320 px wide as before, but never wider than the space the page gives it, with the same proportions. The printed PDF is unchanged.
+- Checked in Chromium: 1,280 px and 360 px wide → preview 320 px, no sideways page scroll; 320 px wide → preview shrinks (288 px) and the page still does not scroll sideways.
+- Checks: type-check, lint, build, unit tests.
+- Live check (E76): on a phone, Label Printing → pick a batch: the preview fits the screen and the page does not move sideways; on a computer it looks as before.

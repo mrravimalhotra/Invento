@@ -23,21 +23,10 @@ import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX } from "./rm-
 import { FpIpSheetPreview, FPIP_PREVIEW_WIDTH_PX, FPIP_PREVIEW_HEIGHT_PX } from "./fp-ip-sheet-preview";
 import { UtSheetPreview, UT_PREVIEW_WIDTH_PX, UT_PREVIEW_HEIGHT_PX } from "./ut-sheet-preview";
 import { statusLabel } from "@/lib/status-labels";
+import { ScaledPreview } from "./scaled-preview";
 
-// The Approved Raw Material sheet preview renders at a fixed native size
-// (RM_PREVIEW_WIDTH_PX — see rm-sheet-preview.tsx) that's too wide for this
-// card, so it's displayed scaled down via a CSS transform on a wrapper
-// around the preview rather than shrinking the preview's own layout.
-const RM_PREVIEW_DISPLAY_WIDTH_PX = 320;
-const RM_PREVIEW_DISPLAY_SCALE = RM_PREVIEW_DISPLAY_WIDTH_PX / RM_PREVIEW_WIDTH_PX;
-// Same display-scaling approach for the Finished Product / In-process
-// sheet preview (see fp-ip-sheet-preview.tsx).
-const FPIP_PREVIEW_DISPLAY_WIDTH_PX = 320;
-const FPIP_PREVIEW_DISPLAY_SCALE = FPIP_PREVIEW_DISPLAY_WIDTH_PX / FPIP_PREVIEW_WIDTH_PX;
-// Same display-scaling approach for the Under Test sheet preview (see
-// ut-sheet-preview.tsx).
-const UT_PREVIEW_DISPLAY_WIDTH_PX = 320;
-const UT_PREVIEW_DISPLAY_SCALE = UT_PREVIEW_DISPLAY_WIDTH_PX / UT_PREVIEW_WIDTH_PX;
+// The sheet previews render at their fixed native size (see the *-sheet-preview.tsx
+// files) and are shown scaled down by ScaledPreview: 320 px wide, or less on a narrow phone.
 
 const LABEL_TYPE_OPTIONS: { value: LabelType; label: string }[] = [
   { value: "approved_rm", label: "Approved Raw Material" },
@@ -304,49 +293,31 @@ export function LabelPicker() {
             // sheet preview matching Ravi's reference template — see
             // rm-sheet-preview.tsx. Every other label type below keeps the
             // original single-label brand-styled preview.
-            <div
-              className="overflow-hidden rounded-md border-2 border-border shadow-sm"
-              style={{ width: RM_PREVIEW_DISPLAY_WIDTH_PX, height: RM_PREVIEW_HEIGHT_PX * RM_PREVIEW_DISPLAY_SCALE }}
-            >
-              <div style={{ transform: `scale(${RM_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
-                <RmSheetPreview fields={fields} />
-              </div>
-            </div>
+            <ScaledPreview nativeWidth={RM_PREVIEW_WIDTH_PX} nativeHeight={RM_PREVIEW_HEIGHT_PX}>
+              <RmSheetPreview fields={fields} />
+            </ScaledPreview>
           ) : labelType === "finished_product" || labelType === "inprocess" ? (
             // Finished Product / In-process (19 Sept 2026): same treatment
             // as Approved Raw Material above — a dedicated 6-up US Letter
             // sheet preview matching Ravi's reference templates, see
             // fp-ip-sheet-preview.tsx.
-            <div
-              className="overflow-hidden rounded-md border-2 border-border shadow-sm"
-              style={{
-                width: FPIP_PREVIEW_DISPLAY_WIDTH_PX,
-                height: FPIP_PREVIEW_HEIGHT_PX * FPIP_PREVIEW_DISPLAY_SCALE,
-              }}
-            >
-              <div style={{ transform: `scale(${FPIP_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
-                <FpIpSheetPreview
-                  fields={fields}
-                  title={HEADER_TEXT[labelType]}
-                  fieldPrefix={labelType === "finished_product" ? FP_FIELD_PREFIX : IP_FIELD_PREFIX}
-                  cellHeightMm={labelType === "finished_product" ? FP_CELL_HEIGHT_MM : IP_CELL_HEIGHT_MM}
-                />
-              </div>
-            </div>
+            <ScaledPreview nativeWidth={FPIP_PREVIEW_WIDTH_PX} nativeHeight={FPIP_PREVIEW_HEIGHT_PX}>
+              <FpIpSheetPreview
+                fields={fields}
+                title={HEADER_TEXT[labelType]}
+                fieldPrefix={labelType === "finished_product" ? FP_FIELD_PREFIX : IP_FIELD_PREFIX}
+                cellHeightMm={labelType === "finished_product" ? FP_CELL_HEIGHT_MM : IP_CELL_HEIGHT_MM}
+              />
+            </ScaledPreview>
           ) : labelType === "under_test" ? (
             // Under Test (19 Sept 2026): same treatment again — a
             // dedicated 10-up US Legal sheet preview matching Ravi's
             // reference template, see ut-sheet-preview.tsx. No label type
             // is left on the original generic single-label preview below
             // any more.
-            <div
-              className="overflow-hidden rounded-md border-2 border-border shadow-sm"
-              style={{ width: UT_PREVIEW_DISPLAY_WIDTH_PX, height: UT_PREVIEW_HEIGHT_PX * UT_PREVIEW_DISPLAY_SCALE }}
-            >
-              <div style={{ transform: `scale(${UT_PREVIEW_DISPLAY_SCALE})`, transformOrigin: "top left" }}>
-                <UtSheetPreview fields={fields} />
-              </div>
-            </div>
+            <ScaledPreview nativeWidth={UT_PREVIEW_WIDTH_PX} nativeHeight={UT_PREVIEW_HEIGHT_PX}>
+              <UtSheetPreview fields={fields} />
+            </ScaledPreview>
           ) : null}
         </CardBody>
       </Card>

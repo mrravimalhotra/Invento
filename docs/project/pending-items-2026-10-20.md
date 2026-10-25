@@ -175,7 +175,7 @@ Also walk after the 18 Oct code-quality pass (Pass 97, no behaviour change): add
 | SCAN-P8-06 | No way to retire an old revision; same title and revision can be added twice; link swappable under the same revision (ov | Parked by Ravi 12 Oct 2026. |
 | SCAN-P10-08 | No automatic tests for app code and nothing runs on a push; the 26 database suites are run by hand | Yes: GitHub workflow wanted? Fixes delivered with their suites? Parked by Ravi 12 Oct 2026. |
 
-Also parked on 18 Oct 2026: the Dashboard and Labels phone-first layouts (alerts first, charts folded, label preview fitted to the screen, Download PDF kept in view). The Labels preview is fixed at 320 px and may scroll sideways on 360 px phones; a one-line fix if wanted.
+Also parked on 18 Oct 2026: the Dashboard and Labels phone-first layouts (alerts first, charts folded, label preview fitted to the screen, Download PDF kept in view).  (The Labels preview now fits small phones: Pass 103.)
 
 Also parked on 25 Oct 2026: the **UX review**, 19 findings UX-01 to UX-19 (known issues Pass 99): navigation by job, role-based Dashboard and work queues, one status vocabulary, status timeline, wording, unsaved-changes warning, dd-mm-yyyy date boxes, pickers, confirmations, field errors, app-wide search, help and accessibility.
 

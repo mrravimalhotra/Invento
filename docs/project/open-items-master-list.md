@@ -217,6 +217,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E73 | UX-02 Archive menu group (Pass 100, no SQL) | (1) As System Admin: the menu ends with a folded "Archive"; open it: Batch Mfg. Record, Line Clearance and Environmental Control (all Deprecated); they are no longer under Admin. (2) As another role: no Archive group. | Open |
 | E74 | UX-05 status names (Pass 101, no SQL) | (1) QC list: a new record shows "Awaiting QC"; after Round 1 approval "Round 1 approved — awaiting review"; a proposed rejection "Round 1 rejection proposed". (2) Label Printing, Batch Trace, Retained Samples and an item page show the same names (no underscores or lowercase codes). (3) Dashboard QC chart legend matches. (4) User Guide PDF, QC section, uses the same names. | Open |
 | E75 | UX-09 unsaved-changes warning (Pass 102, no SQL) | (1) Type in any form (for example New purchase order), click a menu item: "You have unsaved changes…" appears; Cancel stays, OK leaves. (2) Reload the tab with typed input: the browser asks. (3) Save a form, then click away: no question. (4) Type in the Ledger or Audit Log filter, click away: no question. | Open |
+| E76 | Label Printing preview on phones (Pass 103, no SQL) | On a phone: Label Printing → pick a batch of each label type: the preview fits the screen and the page does not scroll sideways. On a computer: unchanged (320 px). | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 
