@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Download, FileText, Workflow } from "lucide-react";
 import { GLOSSARY } from "@/lib/glossary";
+import { GUIDE_HTML } from "./guide-html";
 
 // Static, downloadable end-to-end user guide (Ravi, 22 Sept 2026: "Create
 // an end-to-end use guide and crate a link in app for user to download
@@ -116,6 +117,13 @@ export default function UserGuidePage() {
           </CardBody>
         </Card>
       </div>
+      {/* UX-17: the guide's text, so each page's Help link can open its own section. */}
+      <Card className="mt-6 max-w-4xl">
+        <CardHeader title="Read the guide here" />
+        <CardBody>
+          <article className="guide text-sm" dangerouslySetInnerHTML={{ __html: GUIDE_HTML }} />
+        </CardBody>
+      </Card>
     </div>
   );
 }

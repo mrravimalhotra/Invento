@@ -1,4 +1,5 @@
 import { BackLink } from "@/components/ui/back-link";
+import { HelpLink } from "@/components/ui/help-link";
 
 export function PageHeader({
   title,
@@ -19,7 +20,10 @@ export function PageHeader({
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted max-w-2xl">{description}</p>}
       </div>
-      {action}
+      <div className="flex shrink-0 items-start gap-3">
+        <HelpLink />
+        {action}
+      </div>
     </div>
   );
 }

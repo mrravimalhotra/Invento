@@ -227,6 +227,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E83 | UX-14 field errors (Pass 110, no SQL) | Items → New item, Raw material, Item type empty, Create item: Item type outlined red, message under it, cursor in it; picking a type clears it. Purchase line with Unit price blank does the same. | Open |
 | E84 | UX-18 accessibility fixes (Pass 111, no SQL) | Register page: the "sign in" link is underlined. Nothing else visible changes (spoken names only). | Open |
 | E85 | UX-13 confirm before irreversible saves (Pass 113, no SQL) | Draft PO → Submit order: red box asks, Cancel keeps it draft. New packaging issue (Store), one line → Save 1 issue: red box asks, Cancel saves nothing. | Open |
+| E86 | UX-17 Help links (Pass 114, no SQL) | Purchase → Help opens the User Guide at "Purchase"; an item page → Help opens at "Item Master"; the guide text reads well on a phone. | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 

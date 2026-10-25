@@ -617,7 +617,7 @@ Impact: **High** = slows or misleads daily work for most users; **Medium** = fri
 | UX-14 | Medium | Errors | A failed save shows one message at the top of the form and a red banner; the field that caused it is not highlighted or focused. | Highlight the field in error, put the message under it and move the focus there. **Built (Pass 110) on the Item, Purchase and QC forms.** |
 | UX-15 | Medium | Search | There is no app-wide search: finding a batch, AR number, PO number or certificate means knowing which module holds it; Batch Trace (the closest thing) is the sixth tab inside Inventory. | A search box in the top bar that finds batches, AR Nos, POs, COAs and items and opens the record or its trace. |
 | UX-16 | Low | Navigation | **Built 25 Oct 2026 (Pass 104).** Detail pages (purchase order, QC record, batch, item) have no breadcrumb or "Back to list"; going back loses the list's filters and search. | A breadcrumb or back link that returns to the list as it was left. |
-| UX-17 | Low | Help | The User Guide is a 39-page PDF; help is not available on the page where it is needed. | A "Help for this page" link in each page header that opens the matching guide section. |
+| UX-17 | Low | Help | The User Guide is a 39-page PDF; help is not available on the page where it is needed. | A "Help for this page" link in each page header that opens the matching guide section. **Built (Pass 114).** |
 | UX-18 | Low | Accessibility | Colour carries meaning on badges and alerts (text is present, which is good); amber text on the amber background and grey muted text have not been contrast-checked; no automated accessibility check exists. | Run an accessibility check (contrast, labels, keyboard order) on the main screens once, and fix what it finds. **Done (Pass 111): small fixes built; one item parked (UX-18a).** |
 | UX-19 | Low | Notifications | Alerts (retest, expiry, calibration, QC waiting) exist only as Dashboard cards; nobody is told unless they open the Dashboard. | Same as SCAN-P9-07 / G5: decide on an e-mail or WhatsApp digest. |
 
@@ -740,3 +740,10 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - Code: `components/ui/confirm-submit.tsx` (`ConfirmSubmit`), used in `purchase-order-form.tsx` and `packaging-form.tsx`. User Guide text and PDF updated; module docs purchase and packaging.
 - Checks: type-check, lint, build, unit tests; browser check (empty required box: no question; Cancel: nothing saved; Yes: one save).
 - Live check (E85): open a draft purchase order, click Submit order: the red box asks; Cancel leaves it draft. New packaging issue (Store), fill one line, Save 1 issue: the red box asks; Cancel saves nothing.
+
+## Pass 114 — UX-17: Help link on every page (25 Oct 2026, no migration)
+
+- [x] Every page header shows a small "Help" link (right of the title). It opens the User Guide page scrolled to that screen's section; screens without a section (BMR archive, the guide itself) show none. 25 screens mapped (`lib/help-links.ts`).
+- [x] The User Guide page now also shows the guide's text ("Read the guide here") below the PDF, Process Map and Glossary cards, so a section can be opened in the app. The text is generated from `USER_GUIDE.md` by `scripts/build-user-guide-pdf.py`, together with the PDF, so the two never differ.
+- Checks: type-check, lint, build, 44 unit tests (new: longest-path match; every Help target exists in the guide); render check at phone width (no sideways scroll, lands on the section).
+- Live check (E86): Purchase list → Help: the User Guide opens at "Purchase". Items → open an item → Help: opens at "Item Master".
