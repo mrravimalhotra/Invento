@@ -724,6 +724,12 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - [x] **Labels:** every `Field` label points at its box. Fixed: 11 read-only code boxes (vendor, equipment and asset codes, batch number, item) now take their name from the label; 17 boxes in table rows and small forms (MFR recipe and procedure lines, COA template lines and results, packaging material lines, feedback triage, the two Excel upload pickers, feedback edit) now have a spoken name.
 - [x] **Keyboard:** no forced tab order, nothing clickable by mouse only (the phone menu backdrop also closes with Escape), every focusable control shows a focus ring.
 - [x] **Automated check (axe, WCAG A/AA):** sign-in, forgot-password and register pages at desktop and phone width: clean after one fix (the register page's sign-in link is now underlined, not told apart by colour alone). Signed-in screens need test accounts, so they were checked through the code, not axe.
-- Parked **UX-18a** (Low): about 40 links elsewhere are shown in green and underline only on hover. Inside a sentence that relies on colour alone; in table cells it is fine. Underlining in-sentence links app-wide is a visual change for Ravi to decide.
+- **UX-18a** (Low, built in Pass 112): about 40 links elsewhere are shown in green and underline only on hover. Inside a sentence that relies on colour alone; in table cells it is fine. Underlining in-sentence links app-wide is a visual change for Ravi to decide.
 - Checks: type-check, lint, build, unit tests.
 - Live check (E84): none needed beyond a glance: the register page link is underlined; screen-reader names are invisible.
+
+## Pass 112 — UX-18a: links inside sentences always underlined (25 Oct 2026, no migration)
+
+- [x] Ravi chose "Underline in sentences". Of the green links, only two sit inside running text: New COA "No COA template is defined yet … — add one on its page", and an old file-link certificate's "Open the linked file". Both are now always underlined (the register page link was done in Pass 111). Links in table cells, page-header actions, back links and menus stay as they were.
+- Checks: type-check, lint, build, unit tests.
+- Live check: none needed (E84 covers the look).

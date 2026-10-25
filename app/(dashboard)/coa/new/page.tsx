@@ -126,7 +126,7 @@ export default async function NewCoaPage({
         <Card>
           <CardBody className="text-sm text-muted">
             No COA template is defined yet for {noTemplateFor.thing} &quot;{noTemplateFor.label}&quot; —{" "}
-            <Link href={noTemplateFor.href} className="text-brand hover:underline">
+            <Link href={noTemplateFor.href} className="text-brand underline">
               add one on its page
             </Link>{" "}
             before a certificate can be generated for this batch.

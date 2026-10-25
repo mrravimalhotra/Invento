@@ -79,7 +79,7 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
           <CardBody className="text-sm text-muted">
             This certificate was created via the old file-link flow and has no in-app preview.{" "}
             {row.file_url && (
-              <a href={row.file_url} target="_blank" rel="noreferrer" className="text-brand-dark hover:underline">
+              <a href={row.file_url} target="_blank" rel="noreferrer" className="text-brand-dark underline">
                 Open the linked file
               </a>
             )}
