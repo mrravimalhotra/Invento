@@ -377,7 +377,7 @@ This register is independent of Inventory Ledger — it doesn't pull from or pus
 **Correcting invoice details:** on a Draft order (or one that was reopened), click **Edit invoice details** to fix the invoice number, invoice date or received-on date. The vendor can be changed only while the order has no lines. A submitted order stays locked; ask a System Admin to reopen it first.
 
 **How to submit a purchase order so stock becomes available**
-1. Once every line on the order is correct, click **Submit order (locks lines)** on the order's detail page. This is a whole-order action — you can't submit just one line at a time.
+1. Once every line on the order is correct, click **Submit order (locks lines)** on the order's detail page, then **Yes, submit** in the red box that asks once more. This is a whole-order action — you can't submit just one line at a time.
 2. Submitting pushes each line's remaining quantity (received quantity minus its QC/Stability/R&D samples) into inventory in one go, and locks the order so its lines can no longer be edited or deleted.
 3. If something was submitted by mistake, a System Admin can click **Reopen**, which reverses the stock that was pushed and unlocks the order for editing. Resubmitting later re-pushes whatever the (possibly corrected) lines say at that point.
 4. Reopen is **refused** once QC has a record on any batch of the order (even one still waiting for its first review), once any batch has been used in production or written off, or when a batch of the order has been rejected by QC. The message names the batch. After QC has started, the order can no longer be changed.
@@ -713,7 +713,7 @@ Finished Product sits downstream of MFR (needs an approved recipe) and Quality C
 2. Choose the **department** (Store, R&D or Production) and the **Issue date**. The Issue date is required and starts as today; you can enter an earlier date, but not a future one.
 3. For each line (Store or R&D), pick the **approved finished product batch** being packed, the **pack size** (quantity and unit, for example 200 ml) and the **number of packs**. The number of packs cannot use more than what is left of that batch.
 4. Add the **packaging materials** used (material, quantity and unit). They are taken from their purchase batches oldest first.
-5. Submit — the issue and its materials are saved together, each line gets its own **PKG-** code, and the finished product and packaging material quantities are deducted from stock straight away.
+5. Click **Save** and then **Yes, save** in the red box that asks once more — the issue and its materials are saved together, each line gets its own **PKG-** code, and the finished product and packaging material quantities are deducted from stock straight away.
 
 **Packing several pack sizes at once (Store/R&D):** after choosing Store or R&D, add one line for each pack size or batch (for example 200 ml × 50 and 1 ltr × 8 from the same batch), up to 30 lines in one save. Each line has its own packaging materials and gets its own packaging issue code. The Issue date and department are shared. The form shows the bulk product each line uses and what is left in each batch; if any line can't be saved, none are.
 

@@ -6,6 +6,7 @@ DESIGN.md cross-reference: §4.10.
 > - Every issue is a **pack**. The Pack / Repack / Unpack choice was removed (29 Sept 2026, migration 0079, ACC-05); the database accepts only `pack`. Descriptions of repack and unpack further down are **superseded**.
 > - Only **approved** finished-product batches can be issued. Departments: production, R&D, store.
 > - An issue and its packaging-material lines are saved in **one step** (`create_packaging_issue()`); an issue is limited to what is left of that batch (yield less samples, less earlier issues).
+> - **Save issue(s)** asks once more in a red box ("Yes, save" / Cancel) before it saves, since a saved issue cannot be undone yet (UX-13, 25 Oct 2026).
 > - Packaging materials come out of their purchase batches **oldest first (FIFO)** and every ledger row records its batch.
 > - The list page has a Packing Register PDF; several lines can be entered in one save (Store, R&D and Production).
 > - The New packaging issue page reads one database view, `fp_batch_packing_options` (migration 0114, SCAN-P6-03): approved batches with product name, unit and the quantity still free to pack or issue (the same figure the database enforces). It no longer reads every batch, quality check and issue.

@@ -4,7 +4,8 @@ import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
 import { createPackagingIssue, type ActionState } from "@/lib/actions/packaging";
 import { Field, Input, Select } from "@/components/ui/form";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { DEPARTMENTS } from "@/lib/constants/units";
 import { todayIst } from "@/lib/utils";
 import type { PackagingItemOption } from "./packaging-materials-editor";
@@ -88,9 +89,13 @@ export function PackagingForm({
                 <LinkButton href="/packaging" variant="secondary">
                   Cancel
                 </LinkButton>
-                <Button type="submit" disabled={pending || blocked || fpBatches.length === 0}>
-                  {pending ? "Saving…" : n === 1 ? "Save 1 issue" : `Save ${n} issues`}
-                </Button>
+                <ConfirmSubmit
+                  startLabel={n === 1 ? "Save 1 issue" : `Save ${n} issues`}
+                  question={`Save ${n === 1 ? "this issue" : `these ${n} issues`}? The stock moves at once, and a saved issue can't be edited or undone.`}
+                  yesLabel="Yes, save"
+                  pending={pending}
+                  disabled={blocked || fpBatches.length === 0}
+                />
               </div>
             )}
           />
@@ -116,9 +121,13 @@ export function PackagingForm({
                 <LinkButton href="/packaging" variant="secondary">
                   Cancel
                 </LinkButton>
-                <Button type="submit" disabled={pending || blocked || fpBatches.length === 0}>
-                  {pending ? "Saving…" : n === 1 ? "Save 1 issue" : `Save ${n} issues`}
-                </Button>
+                <ConfirmSubmit
+                  startLabel={n === 1 ? "Save 1 issue" : `Save ${n} issues`}
+                  question={`Save ${n === 1 ? "this issue" : `these ${n} issues`}? The stock moves at once, and a saved issue can't be edited or undone.`}
+                  yesLabel="Yes, save"
+                  pending={pending}
+                  disabled={blocked || fpBatches.length === 0}
+                />
               </div>
             )}
           />

@@ -10,6 +10,7 @@ import {
   type ActionState,
 } from "@/lib/actions/purchase";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { Field, Input, Select } from "@/components/ui/form";
 import { todayIst } from "@/lib/utils";
 
@@ -60,11 +61,9 @@ export function DeletePurchaseOrderForm({ id, poNumber }: { id: string; poNumber
 }
 
 // FB-0018 ("final submit button post which the record should be
-// committed"): one-click, no two-step confirm — matches the Approve/
-// Deactivate convention elsewhere (MFR's ToggleMfrActiveForm), since
-// Reopen below is the built-in undo path rather than a second dialog
-// here. Only shown while the PO is still draft and canEditLines (write
-// role) is true — see page.tsx.
+// committed"). UX-13 (25 Oct 2026, Ravi): asks once more before submitting,
+// since only a System Admin can reopen. Only shown while the PO is still
+// draft and canEditLines (write role) is true — see page.tsx.
 export function SubmitPurchaseOrderForm({ id }: { id: string }) {
   const boundAction = submitPurchaseOrder.bind(null, id);
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(boundAction, undefined);
@@ -72,9 +71,12 @@ export function SubmitPurchaseOrderForm({ id }: { id: string }) {
   return (
     <form action={formAction} className="flex flex-col items-end gap-2">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
-      <Button type="submit" disabled={pending}>
-        {pending ? "Submitting…" : "Submit order (locks lines)"}
-      </Button>
+      <ConfirmSubmit
+        startLabel="Submit order (locks lines)"
+        question="Submit this order? Its lines lock and the stock is booked in. Only a System Administrator can reopen it."
+        yesLabel="Yes, submit"
+        pending={pending}
+      />
     </form>
   );
 }

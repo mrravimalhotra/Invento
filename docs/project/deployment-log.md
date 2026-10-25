@@ -41,7 +41,8 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-25 | this commit | UX-18a: the two links inside sentences (New COA, old file-link COA) always underlined (known issues Pass 112) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | this commit | UX-13: Submit order and packaging Save ask once more in the red two-step box (known issues Pass 113, live check E85) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | `35e2be6` | UX-18a: the two links inside sentences (New COA, old file-link COA) always underlined (known issues Pass 112) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `e35f8ca` | UX-18: accessibility check (contrast passes; labels and spoken names fixed on 28 boxes; register link underlined; axe clean on public pages) (known issues Pass 111, live check E84) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `cc8bc5c` | UX-14: a failed save on Item, Purchase and QC forms outlines the field, repeats the message under it and focuses it (known issues Pass 110, live check E83) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `23d30b5` | UX-12: Inventory Ledger item filter shows code — name (category) (known issues Pass 109, live check E82) | None | ✅ | n/a | Pushed by Claude; no database change |
