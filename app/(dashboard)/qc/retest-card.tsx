@@ -74,7 +74,7 @@ export function RetestRow({
             ))}
           </Select>
           <Button type="submit" variant="secondary" size="sm" disabled={pending}>
-            {pending ? "Starting…" : "Start Retest"}
+            {pending ? "Starting…" : "Start retest"}
           </Button>
         </div>
       )}

@@ -58,7 +58,7 @@ const MODULE_CARDS: ModuleCard[] = [
     key: "purchase",
     action: bulkUploadPurchase,
     description:
-      "Create purchase orders — one row per purchase line, grouped by repeating the same Vendor Code and Invoice Number. Every purchase order created this way lands as a Draft, exactly like one entered by hand — nothing is pushed to inventory until someone opens it and clicks Final Submit.",
+      "Create purchase orders — one row per purchase line, grouped by repeating the same Vendor Code and Invoice Number. Every purchase order created this way lands as a Draft, exactly like one entered by hand — nothing is pushed to inventory until someone opens it and clicks Submit order.",
   },
   {
     key: "equipment",

@@ -67,7 +67,7 @@ export function DraftActionsPanel({ batchId, createdAt, canEdit }: { batchId: st
         <div>
           <p className="text-sm font-semibold text-amber">Draft — not yet in production</p>
           <p className="mt-1 max-w-xl text-xs text-amber">
-            Raw material for this batch has already been reserved from inventory. Click <strong>Create Batch</strong> to
+            Raw material for this batch has already been reserved from inventory. Click <strong>Create batch</strong> to
             start production, or <strong>Cancel</strong> to release the reservation. Left as a draft for more than 30
             minutes, it cancels itself automatically and the reserved raw material goes back to inventory.
           </p>
@@ -87,7 +87,7 @@ export function DraftActionsPanel({ batchId, createdAt, canEdit }: { batchId: st
           <div className="mt-3 flex gap-2">
             <form action={confirmAction}>
               <Button type="submit" disabled={confirmPending || cancelPending}>
-                {confirmPending ? "Creating…" : "Create Batch"}
+                {confirmPending ? "Creating…" : "Create batch"}
               </Button>
             </form>
             <form action={cancelAction}>

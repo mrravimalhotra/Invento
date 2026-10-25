@@ -15,7 +15,7 @@ export const SAVED_MESSAGES = {
   qc_sent_back: "Proposed rejection sent back. The record is awaiting a new first decision from a Quality Checker.",
   qc_voided: "Rejection voided. The record is awaiting QC again and the stock is back on hand.",
   po_submitted: "Purchase order submitted — inventory has been updated.",
-  fp_draft_created: "Draft batch created. Confirm it with Create Batch within 30 minutes, or cancel it.",
+  fp_draft_created: "Draft batch created. Confirm it with Create batch within 30 minutes, or cancel it.",
   fp_confirmed: "Batch created — now in process.",
   fp_cancelled: "Batch cancelled — its raw material has been returned to inventory.",
   fp_completed: "Batch completed — now Complete - Awaiting QC.",

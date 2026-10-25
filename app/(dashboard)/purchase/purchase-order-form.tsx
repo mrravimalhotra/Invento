@@ -73,7 +73,7 @@ export function SubmitPurchaseOrderForm({ id }: { id: string }) {
     <form action={formAction} className="flex flex-col items-end gap-2">
       {state?.error && <p className="text-sm text-red">{state.error}</p>}
       <Button type="submit" disabled={pending}>
-        {pending ? "Submitting…" : "Final submit"}
+        {pending ? "Submitting…" : "Submit order (locks lines)"}
       </Button>
     </form>
   );
