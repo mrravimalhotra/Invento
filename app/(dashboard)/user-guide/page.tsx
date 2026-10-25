@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Download, FileText, Workflow } from "lucide-react";
+import { GLOSSARY } from "@/lib/glossary";
 
 // Static, downloadable end-to-end user guide (Ravi, 22 Sept 2026: "Create
 // an end-to-end use guide and crate a link in app for user to download
@@ -98,6 +99,20 @@ export default function UserGuidePage() {
                 Download Process Map (PDF)
               </a>
             </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="Glossary" />
+          <CardBody>
+            {/* UX-07 part 2: the same meanings shown by the ⓘ hints on table headings. */}
+            <dl className="grid gap-3 text-sm sm:grid-cols-[7rem_1fr]">
+              {GLOSSARY.map((g) => (
+                <div key={g.term} className="contents">
+                  <dt className="font-semibold text-foreground">{g.term}</dt>
+                  <dd className="text-muted max-sm:mb-1">{g.meaning}</dd>
+                </div>
+              ))}
+            </dl>
           </CardBody>
         </Card>
       </div>

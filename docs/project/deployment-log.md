@@ -41,7 +41,8 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-25 | this commit | UX-07 part 1: Create batch, Start retest, Submit order (locks lines); User Guide and Process Map PDFs rebuilt (known issues Pass 106, live check E79) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | this commit | UX-07 part 2: short terms explained on table headings (ⓘ hint) and a Glossary card on the User Guide page (known issues Pass 107, live check E80) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | `8fdb356` | UX-07 part 1: Create batch, Start retest, Submit order (locks lines); User Guide and Process Map PDFs rebuilt (known issues Pass 106, live check E79) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `e144c45` | UX-11 quick win: empty lists name the search and say what fills them (24 lists; known issues Pass 105, live check E78) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `40af7a6` | UX-16 quick win: "Back to <list>" on 13 record pages, keeping the list's filters and search (known issues Pass 104, live check E77) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `c19066f` | Quick win 4: Label Printing previews fit small phones (`ScaledPreview`; known issues Pass 103, live check E76) | None | ✅ | n/a | Pushed by Claude; no database change |

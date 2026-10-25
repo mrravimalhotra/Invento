@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isReturnTo, loadTableState, saveTableState } from "@/lib/list-memory";
+import { termsIn } from "@/lib/glossary";
+import { TermHint } from "@/components/ui/term-hint";
 import { Input } from "@/components/ui/form";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,12 @@ function isEmptyKey(k: SortKey): boolean {
 function compareKeys(a: SortKey, b: SortKey): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+// UX-07 part 2: a heading's hover text explains its short terms, then says it sorts.
+function headerTitle(header: string): string {
+  const terms = termsIn(header);
+  return terms.length ? `${terms.map((t) => t.meaning).join(" ")} Click to sort.` : "Click to sort";
 }
 
 export function DataTable<T>({
@@ -287,10 +295,10 @@ export function DataTable<T>({
                       <button
                         type="button"
                         onClick={() => toggleSort(c.header)}
-                        title="Click to sort"
+                        title={headerTitle(c.header)}
                         className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground max-md:min-h-11"
                       >
-                        {c.header}
+                        <span className={termsIn(c.header).length ? "underline decoration-dotted underline-offset-2" : undefined}>{c.header}</span>
                         {dir === "asc" ? (
                           <ArrowUp className="h-3 w-3" aria-hidden="true" />
                         ) : dir === "desc" ? (
@@ -302,6 +310,7 @@ export function DataTable<T>({
                     ) : (
                       c.header
                     )}
+                    <TermHint text={c.header} />
                   </th>
                 );
               })}

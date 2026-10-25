@@ -221,6 +221,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E77 | UX-16 back links (Pass 104, no SQL) | (1) Items: search "oil", open an item, click "← Back to Item Master": the search is still "oil". (2) Audit Log: filter by a table, open an entry, go back: same filter. (3) Purchase order, QC record and batch pages show their back link. (4) Opening a list from the menu shows it plain. | Open |
 | E78 | UX-11 empty lists (Pass 105, no SQL) | (1) Items: search "zzz": "No rows match “zzz”." and Clear search and filters brings the list back. (2) An empty list shows a second line saying what fills it (for example Stock Statement for a day with no movement: "Try a wider From and To range"). | Open |
 | E79 | UX-07 part 1 button wording (Pass 106, no SQL) | A draft purchase order shows "Submit order (locks lines)"; a draft finished product batch shows "Create batch"; a QC retest card shows "Start retest"; the User Guide PDF says Submit order. | Open |
+| E80 | UX-07 part 2 term hints (Pass 107, no SQL) | (1) QC list: the ⓘ beside AR No. shows its meaning on hover and on tap (phone); tapping elsewhere closes it. (2) RM Report: PQTY, SQTY and QTY headings explain themselves. (3) User Guide page: Glossary card lists the terms. (4) Clicking a heading still sorts. | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 
