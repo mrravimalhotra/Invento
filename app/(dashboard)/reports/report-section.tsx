@@ -5,9 +5,10 @@ import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { Field, Input } from "@/components/ui/form";
+import { Field } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { exportTable, type ExportColumnType } from "@/lib/table-export";
+import { DateInput } from "@/components/ui/date-input";
 
 // Loaded on click, not with the page (PERF-06): the PDF / Word library only
 // downloads when someone actually asks for the file.
@@ -141,24 +142,22 @@ export function ReportSection<T>({
         {dateOf && (
           <div className="flex flex-wrap items-end gap-3">
             <Field label={`${dateLabel} from`} htmlFor={`${inputId}-from`}>
-              <Input
+              <DateInput
                 id={`${inputId}-from`}
-                type="date"
                 value={from}
                 max={to || todayIst()}
                 onChange={(e) => setFrom(e.target.value)}
-                className="w-auto"
+                className="w-40"
               />
             </Field>
             <Field label={`${dateLabel} to`} htmlFor={`${inputId}-to`}>
-              <Input
+              <DateInput
                 id={`${inputId}-to`}
-                type="date"
                 value={to}
                 min={from || undefined}
                 max={todayIst()}
                 onChange={(e) => setTo(e.target.value)}
-                className="w-auto"
+                className="w-40"
               />
             </Field>
             {from && to && from > to && <p className="basis-full text-sm text-red">From date cannot be after To date.</p>}

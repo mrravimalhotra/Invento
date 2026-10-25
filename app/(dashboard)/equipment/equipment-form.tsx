@@ -7,6 +7,7 @@ import { Field, Input, Select, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { todayIst } from "@/lib/utils";
 import { CALIBRATION_CHOICES } from "@/lib/calibration";
+import { DateInput } from "@/components/ui/date-input";
 
 type Equipment = {
   id: string;
@@ -70,10 +71,10 @@ export function NewEquipmentForm({ nextEquipmentCode }: { nextEquipmentCode: str
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Last calibration date" htmlFor="last_calibration_date">
-          <Input id="last_calibration_date" name="last_calibration_date" type="date" max={todayIst()} />
+          <DateInput id="last_calibration_date" name="last_calibration_date" max={todayIst()} />
         </Field>
         <Field label="Next calibration due" htmlFor="next_calibration_due">
-          <Input id="next_calibration_due" name="next_calibration_due" type="date" />
+          <DateInput id="next_calibration_due" name="next_calibration_due" />
         </Field>
       </div>
       <Button type="submit" disabled={pending}>
@@ -139,19 +140,17 @@ export function EditEquipmentForm({ equipment }: { equipment: Equipment }) {
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Last calibration date" htmlFor="last_calibration_date">
-          <Input
+          <DateInput
             id="last_calibration_date"
             name="last_calibration_date"
-            type="date"
             max={todayIst()}
             defaultValue={equipment.last_calibration_date ?? ""}
           />
         </Field>
         <Field label="Next calibration due" htmlFor="next_calibration_due">
-          <Input
+          <DateInput
             id="next_calibration_due"
             name="next_calibration_due"
-            type="date"
             defaultValue={equipment.next_calibration_due ?? ""}
           />
         </Field>

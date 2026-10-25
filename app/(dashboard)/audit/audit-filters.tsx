@@ -5,6 +5,7 @@ import { Field, Input, Select } from "@/components/ui/form";
 import { todayIst } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AUDIT_ACTION_OPTIONS, AUDIT_TABLE_OPTIONS } from "./audit-diff";
+import { DateInput } from "@/components/ui/date-input";
 
 // Same server-side "GET form, submit on change" pattern as the Inventory
 // Ledger's LedgerFilters (app/(dashboard)/inventory/(tabs)/ledger-filters.tsx)
@@ -75,10 +76,10 @@ export function AuditFilters({
         <Input id="record" name="record" type="search" defaultValue={record} maxLength={60} placeholder="e.g. ARRM-0001/26" />
       </Field>
       <Field label="From" htmlFor="from">
-        <Input id="from" name="from" type="date" defaultValue={from} max={to || todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
+        <DateInput id="from" name="from" defaultValue={from} max={to || todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
       </Field>
       <Field label="To" htmlFor="to">
-        <Input id="to" name="to" type="date" defaultValue={to} min={from || undefined} max={todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
+        <DateInput id="to" name="to" defaultValue={to} min={from || undefined} max={todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
       </Field>
       {from && to && from > to && <p className="basis-full text-sm text-red">From date cannot be after To date.</p>}
       <Button type="submit" variant="secondary" size="sm">

@@ -12,6 +12,7 @@ import { MAX_OPENING_ROWS, OPENING_COLUMNS, type OpeningKind } from "@/lib/openi
 import { UNITS } from "@/lib/constants/units";
 import { todayIst } from "@/lib/utils";
 import { OpeningResult } from "./result-panel";
+import { DateInput } from "@/components/ui/date-input";
 
 // Typed-in opening stock (Ravi, 12 Oct 2026): the same rows as the Excel sheet, filled in on the
 // page. One card per row. "Check rows" and "Load N rows" send every row at once to the same checks
@@ -220,8 +221,8 @@ function RowCard({
   );
   const date = (h: string, label: string, opts: { required?: boolean; hint?: string; noFuture?: boolean } = {}) => (
     <Field label={label} htmlFor={fid(h)} required={opts.required} hint={opts.hint}>
-      <Input
-        id={fid(h)} type="date" max={opts.noFuture ? today : undefined}
+      <DateInput
+        id={fid(h)} max={opts.noFuture ? today : undefined}
         value={v(h)} onChange={(e) => onField(h, e.target.value)}
       />
     </Field>

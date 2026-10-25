@@ -13,6 +13,7 @@ import { DecisionChoice } from "@/components/ui/decision-choice";
 import { formatDate, todayIst } from "@/lib/utils";
 import { MIN_REASON_CHARS, type QcResultLine } from "@/lib/qc-results";
 import { ResultsGrid } from "./results-grid";
+import { DateInput } from "@/components/ui/date-input";
 
 export function QcReviewerForm({
   id,
@@ -111,10 +112,9 @@ export function QcReviewerForm({
       </Field>
 
       <Field label="Expiry date" htmlFor="expiry_date" required={status === "approved"}>
-        <Input
+        <DateInput
           id="expiry_date"
           name="expiry_date"
-          type="date"
           min={today}
           max={maxExpiry}
           required={status === "approved"}

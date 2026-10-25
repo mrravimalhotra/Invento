@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Field, Input, Select } from "@/components/ui/form";
+import { Field, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { isLegacyCode, todayIst } from "@/lib/utils";
 import { LEDGER_FILTER_OPTIONS } from "@/lib/ledger-reasons";
+import { DateInput } from "@/components/ui/date-input";
 
 // Inventory Ledger redesign, Phase 4 (claude/inventory-ledger-redesign.md,
 // Option A folded into this phase) — the Ledger tab was a flat,
@@ -76,10 +77,10 @@ export function LedgerFilters({
         </Select>
       </Field>
       <Field label="From" htmlFor="from">
-        <Input id="from" name="from" type="date" defaultValue={from} max={to || todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
+        <DateInput id="from" name="from" defaultValue={from} max={to || todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
       </Field>
       <Field label="To" htmlFor="to">
-        <Input id="to" name="to" type="date" defaultValue={to} min={from || undefined} max={todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
+        <DateInput id="to" name="to" defaultValue={to} min={from || undefined} max={todayIst()} onChange={(e) => e.currentTarget.form?.requestSubmit()} />
       </Field>
       {from && to && from > to && <p className="basis-full text-sm text-red">From date cannot be after To date.</p>}
       <Button type="submit" variant="secondary" size="sm">

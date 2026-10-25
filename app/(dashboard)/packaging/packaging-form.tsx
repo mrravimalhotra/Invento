@@ -3,7 +3,7 @@
 import { useFlashActionState } from "@/lib/use-flash-action";
 import { useState } from "react";
 import { createPackagingIssue, type ActionState } from "@/lib/actions/packaging";
-import { Field, Input, Select } from "@/components/ui/form";
+import { Field, Select } from "@/components/ui/form";
 import { LinkButton } from "@/components/ui/button";
 import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { DEPARTMENTS } from "@/lib/constants/units";
@@ -11,6 +11,7 @@ import { todayIst } from "@/lib/utils";
 import type { PackagingItemOption } from "./packaging-materials-editor";
 import { PackagingLinesEditor, type PackagingBatchOption } from "./packaging-lines-editor";
 import { ProductionLinesEditor } from "./packaging-production-lines-editor";
+import { DateInput } from "@/components/ui/date-input";
 
 // Task F (claude/packaged-fp-redesign.md) — department Store/R&D transform
 // bulk Finished Product into a Packaged Finished Product and immediately
@@ -47,7 +48,7 @@ export function PackagingForm({
           hint="Today by default; not a future day."
           more="The day this issue was made. An earlier day is fine, but not before the batch was approved by QC."
         >
-          <Input id="issue_date" name="issue_date" type="date" defaultValue={todayIst()} max={todayIst()} required />
+          <DateInput id="issue_date" name="issue_date" defaultValue={todayIst()} max={todayIst()} required />
         </Field>
         <Field label={multiLine ? "Department (all lines)" : "Department"} htmlFor="department" required>
           <Select

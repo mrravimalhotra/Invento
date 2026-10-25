@@ -9,6 +9,7 @@ import { compatibleUnits, convertUnit } from "@/lib/constants/units";
 import { formatDate, formatQty, todayIst } from "@/lib/utils";
 import { futureDateError, notAfterDateError } from "@/lib/date-rules";
 import { checkYield, yieldBlockedMessage } from "@/lib/yield-rule";
+import { DateInput } from "@/components/ui/date-input";
 
 type Defaults = {
   batch_yield: string | number | null;
@@ -214,10 +215,9 @@ export function CompleteBatchForm({
           )}
         </div>
         <Field label="Finish date" htmlFor="finish_date" required>
-          <Input
+          <DateInput
             id="finish_date"
             name="finish_date"
-            type="date"
             required
             min={startDate ?? undefined}
             max={todayIst()}
@@ -234,10 +234,9 @@ export function CompleteBatchForm({
             "Best Before" date on labels in labels/label-picker.tsx, which
             reads this same column and prints it as a full date). */}
         <Field label="Expiry date" htmlFor="expiry_month" required>
-          <Input
+          <DateInput
             id="expiry_month"
             name="expiry_month"
-            type="date"
             min={finishDate || undefined}
             required
             value={expiryMonth}

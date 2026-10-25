@@ -12,6 +12,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { isLegacyCode, todayIst } from "@/lib/utils";
 import { PurchaseOrderView } from "./purchase-order-view";
 import type { RawItemOption } from "./purchase-line-form";
+import { DateInput } from "@/components/ui/date-input";
 
 type VendorOption = { id: string; vendor_code: string; name: string; address: string | null; mobile: string | null };
 
@@ -88,10 +89,10 @@ export function PurchaseOrderForm({
                 <Input id="invoice_number" name="invoice_number" required />
               </Field>
               <Field label="Invoice date" htmlFor="invoice_date" required>
-                <Input id="invoice_date" name="invoice_date" type="date" max={todayIst()} required />
+                <DateInput id="invoice_date" name="invoice_date" max={todayIst()} required />
               </Field>
               <Field label="Received on" htmlFor="received_on" required hint="The day the goods arrived. Printed as Date of Receipt on the RM label.">
-                <Input id="received_on" name="received_on" type="date" max={todayIst()} defaultValue={todayIst()} required />
+                <DateInput id="received_on" name="received_on" max={todayIst()} defaultValue={todayIst()} required />
               </Field>
             </div>
             <div className="flex gap-3">

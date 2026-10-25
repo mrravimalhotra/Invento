@@ -6,6 +6,7 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { entryUnitsFor } from "@/lib/constants/units";
 import { isLegacyCode, todayIst } from "@/lib/utils";
 import { istDay } from "@/lib/date-rules";
+import { DateInput } from "@/components/ui/date-input";
 
 type MfrOption = {
   id: string;
@@ -103,10 +104,9 @@ export function Step1Form({ mfrDefinitions }: { mfrDefinitions: MfrOption[] }) {
         required
         hint="When this batch's production run started. Not in the future, and not before the MFR was approved."
       >
-        <Input
+        <DateInput
           id="batch_start_date"
           name="batch_start_date"
-          type="date"
           defaultValue={today}
           min={istDay(selected?.approved_at) ?? undefined}
           max={today}

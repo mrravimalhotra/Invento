@@ -5,6 +5,7 @@ import { useFlashActionState } from "@/lib/use-flash-action";
 import { createDocument, type ActionState } from "@/lib/actions/documents";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 
 export function NewDocumentForm() {
   const [state, formAction, pending] = useFlashActionState<ActionState, FormData>(createDocument, undefined);
@@ -32,7 +33,7 @@ export function NewDocumentForm() {
         <Input id="file_url" name="file_url" type="url" placeholder="https://…" required />
       </Field>
       <Field label="Effective date" htmlFor="effective_date">
-        <Input id="effective_date" name="effective_date" type="date" />
+        <DateInput id="effective_date" name="effective_date" />
       </Field>
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>

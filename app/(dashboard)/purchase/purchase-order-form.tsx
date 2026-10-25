@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { Field, Input, Select } from "@/components/ui/form";
 import { todayIst } from "@/lib/utils";
+import { DateInput } from "@/components/ui/date-input";
 
 // The "new purchase order" header form itself now lives in
 // new-purchase-order-form.tsx, not here — it needs to render
@@ -184,10 +185,10 @@ export function EditInvoiceDetailsForm({
           <Input id="edit_invoice_number" name="invoice_number" defaultValue={invoiceNumber} required />
         </Field>
         <Field label="Invoice date" htmlFor="edit_invoice_date" required>
-          <Input id="edit_invoice_date" name="invoice_date" type="date" max={todayIst()} defaultValue={invoiceDate} required />
+          <DateInput id="edit_invoice_date" name="invoice_date" max={todayIst()} defaultValue={invoiceDate} required />
         </Field>
         <Field label="Received on" htmlFor="edit_received_on" required hint="Printed as Date of Receipt on the RM label.">
-          <Input id="edit_received_on" name="received_on" type="date" max={todayIst()} defaultValue={receivedOn ?? todayIst()} required />
+          <DateInput id="edit_received_on" name="received_on" max={todayIst()} defaultValue={receivedOn ?? todayIst()} required />
         </Field>
       </div>
       <div className="flex gap-3">

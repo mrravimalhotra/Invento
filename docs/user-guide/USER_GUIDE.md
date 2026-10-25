@@ -93,6 +93,8 @@ Once you're signed in, you'll always see the same layout:
 
 **Two people editing the same record.** On the Item, Vendor and purchase order invoice-details forms, if someone else saves the same record while you are editing it, your save is refused with "Someone else changed this record while you were editing it. Nothing was saved. Reload the page to see their change, then make your edit again." Reload, check their change and enter yours again.
 
+**Typing a date.** Every date box reads **dd-mm-yyyy** (day first), whatever language your computer uses. Type it as 05-10-2026, 5/10/2026 or 05102026, or click the calendar at the right of the box. If the date does not exist or is outside the allowed range, the box says so when you save.
+
 **Dates and limits.** Dates for things that have already happened (invoice date, received on, batch start and finish, issue date, calibration, dead stock purchase and resolution, report and audit filters) cannot be in the future. Quantities, prices and text also have upper limits (for example 1,000,000 kg or ltr, a unit price of ₹10,000,000 and names of 200 characters); the message names the field to correct.
 
 At the bottom of every single page you'll find a **Feedback & change log** box — this is the fastest way to report something confusing or broken from exactly where you noticed it. See [Tester Feedback](#tester-feedback) for details.

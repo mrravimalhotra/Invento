@@ -12,6 +12,7 @@ import { Field, Input, Checkbox } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { todayIst } from "@/lib/utils";
 import { deadStockWarnings, figuresFromForm } from "@/lib/dead-stock-check";
+import { DateInput } from "@/components/ui/date-input";
 
 // SCAN-P8-02: a warning, never a block, when the hand-typed figures do not add up.
 function FigureWarnings({ warnings }: { warnings: string[] }) {
@@ -65,7 +66,7 @@ export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Date of purchase" htmlFor="date_of_purchase">
-          <Input id="date_of_purchase" name="date_of_purchase" type="date" max={todayIst()} />
+          <DateInput id="date_of_purchase" name="date_of_purchase" max={todayIst()} />
         </Field>
         <Field label="Quantity" htmlFor="quantity">
           <Input id="quantity" name="quantity" type="number" step="1" min="1" defaultValue={1} />
@@ -80,7 +81,7 @@ export function NewDeadStockForm({ nextAssetCode }: { nextAssetCode: string }) {
         </Field>
       </div>
       <Field label="Resolution date" htmlFor="resolution_date">
-        <Input id="resolution_date" name="resolution_date" type="date" max={todayIst()} />
+        <DateInput id="resolution_date" name="resolution_date" max={todayIst()} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Rejected qty" htmlFor="rejected_qty">
@@ -131,7 +132,7 @@ export function EditDeadStockForm({ item }: { item: DeadStockItem }) {
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Date of purchase" htmlFor="date_of_purchase">
-          <Input id="date_of_purchase" name="date_of_purchase" type="date" max={todayIst()} defaultValue={item.date_of_purchase ?? ""} />
+          <DateInput id="date_of_purchase" name="date_of_purchase" max={todayIst()} defaultValue={item.date_of_purchase ?? ""} />
         </Field>
         <Field label="Quantity" htmlFor="quantity">
           <Input id="quantity" name="quantity" type="number" step="1" min="1" defaultValue={item.quantity} />
@@ -164,7 +165,7 @@ export function EditDeadStockForm({ item }: { item: DeadStockItem }) {
         <Input value={item.depreciated_unit_value ?? "—"} readOnly disabled />
       </Field>
       <Field label="Resolution date" htmlFor="resolution_date">
-        <Input id="resolution_date" name="resolution_date" type="date" max={todayIst()} defaultValue={item.resolution_date ?? ""} />
+        <DateInput id="resolution_date" name="resolution_date" max={todayIst()} defaultValue={item.resolution_date ?? ""} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Rejected qty" htmlFor="rejected_qty">

@@ -1,7 +1,8 @@
 "use client";
 
-import { Field, Input, Select } from "@/components/ui/form";
+import { Field, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 
 export function StatementFilter({
   from,
@@ -17,10 +18,10 @@ export function StatementFilter({
   return (
     <form action="/inventory/stock-statement" className="flex flex-wrap items-end gap-3 border-b border-border p-4">
       <Field label="From" htmlFor="from">
-        <Input id="from" name="from" type="date" defaultValue={from} max={today} required />
+        <DateInput id="from" name="from" defaultValue={from} max={today} required />
       </Field>
       <Field label="To" htmlFor="to">
-        <Input id="to" name="to" type="date" defaultValue={to} max={today} required />
+        <DateInput id="to" name="to" defaultValue={to} max={today} required />
       </Field>
       <Field label="Category" htmlFor="category">
         <Select id="category" name="category" defaultValue={category}>
