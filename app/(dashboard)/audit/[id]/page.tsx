@@ -1,5 +1,4 @@
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canReadAudit } from "@/lib/constants/roles";
@@ -7,7 +6,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
 import { resolveAuditNames } from "@/lib/audit-names";
 import {
   type AuditLogRow,
@@ -56,9 +54,6 @@ export default async function AuditLogDetailPage({ params }: { params: Promise<{
 
   return (
     <div>
-      <Link href="/audit" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to Audit Log
-      </Link>
       <PageHeader back={{ href: "/audit", label: "Audit Log" }}
         title={`${tableLabel(row.table_name)} · ${recordLabel(row)}`}
         description={`Change recorded ${formatDateTime(row.changed_at)}${changedByName ? ` by ${changedByName}` : ""}${row.changed_via ? ` via ${changedViaLabel(row.changed_via)}` : ""}.`}

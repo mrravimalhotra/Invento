@@ -786,3 +786,8 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - User Guide (Dashboard steps) and PDF updated; shell module doc.
 - Checks: type-check, lint, build, unit tests.
 - Live check (E91): the Dashboard shows My tasks, then any warning cards, then the six counts, then the charts.
+
+## Pass 120 — duplicate back links removed (25 Oct 2026, no migration)
+
+- [x] The Audit Log record page and the Certificate page showed two back links: the old "← Back to …" and the UX-16 one from Pass 104. The old one is removed; the remaining link returns to the list as it was left. Found while preparing the P4-09 mockup.
+- Checks: type-check, lint, build.

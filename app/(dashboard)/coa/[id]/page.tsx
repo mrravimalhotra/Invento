@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { formatDateTime, fpBatchBoth } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
 import { CoaPdfButton } from "../coa-pdf-button";
 import type { HeaderField, ResultLine } from "@/lib/actions/coa";
 import type { Company } from "@/lib/company";
@@ -52,9 +50,6 @@ export default async function CoaDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div>
-      <Link href="/coa" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to Certificate of Analysis
-      </Link>
       <PageHeader back={{ href: "/coa", label: "Certificates of Analysis" }}
         title={row.coa_number}
         description={`Issued ${formatDateTime(row.issued_at)} · Analytical Report No. ${row.quality_checks?.ar_number ?? "—"} · ${itemLabel} · Batch ${batchLabel}${row.quality_checks?.is_legacy ? " · Legacy (opening stock)" : ""}`}
