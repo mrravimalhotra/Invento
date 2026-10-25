@@ -81,7 +81,7 @@ Forgot your password? Use the **Forgot password** link on the sign-in page to re
 
 Once you're signed in, you'll always see the same layout:
 
-- **Sidebar (left)** — every module you have access to, in six groups: Overview, Master data, Procurement, Quality Control & Documents, Manufacturing, and Admin. (SOP / STP Documents, Audit Log and Reports sit under Admin in the sidebar.)
+- **Sidebar (left)** — every module you have access to, in seven groups: Overview, Master data, Procurement, Quality Control & Documents, Manufacturing, Reports & checks (Reports, Audit Log, Stock Integrity Check), and Admin. (SOP / STP Documents sits under Admin in the sidebar.)
 - **Top bar (right)** — your name and assigned role(s), a live **low stock** alert badge when any item has fallen below its reorder threshold (click it to jump straight to Item Master), a **Profile** link, and **Sign out**.
 - **Main area** — the screen you're currently on.
 
@@ -607,7 +607,7 @@ This module is self-contained — it doesn't read or affect data from Purchase, 
 
 ### Audit Log
 
-**Where to find it:** Admin → Audit Log
+**Where to find it:** Reports & checks → Audit Log
 
 **Who can use it:** View-only, and restricted to System Admin and Super Auditor. Everyone else who opens the page sees an "Access restricted" message instead of the log.
 
@@ -777,14 +777,14 @@ Every "Add," "Edit," and "Delete" control throughout Invento checks the roles as
 
 ### Reports
 
-**Where to find it:** Admin → Reports
+**Where to find it:** Reports & checks → Reports
 
 **Who can use it:** Every signed-in user can view and export reports. There's no separate write permission for this screen — it's read-only, so there's nothing to restrict.
 
 **What it's for:** Reports is where you pull together the four core registers Atharva needs for day-to-day tracking and audits — raw material stock, QC history, finished product history, and purchases — each as a searchable table you can filter by date and download as Excel or as a printed PDF.
 
 **How to pull a report and export it as a PDF**
-1. Go to Admin → Reports.
+1. Go to Reports & checks → Reports.
 2. Scroll to the report card you need: **RM Stock Report**, **QC Register**, **FP Register**, or **Purchase Register**.
 3. Optionally, narrow it down using the **From** / **To** date fields on that card (see below for which date each one filters on).
 4. Use the table's built-in search to find specific rows on screen, and click a column heading (where it shows the up/down mark) to sort.
@@ -945,14 +945,14 @@ Running this clears out data across nearly every module at once — Item Master,
 
 ### Stock Integrity Check
 
-**Where to find it:** Admin → Stock Integrity Check
+**Where to find it:** Reports & checks → Stock Integrity Check
 
 **Who can use it:** System Admin only. Anyone else who opens the page sees an access-restricted message.
 
 **What it's for:** Invento keeps stock in two places: the inventory ledger (how much of each item there is) and the quantity left on each batch. Every receipt, issue, write-off, rejection and undo has to change both. This screen compares them. It runs nine read-only checks: an item's On hand against the parts on Stock Position, each purchase batch and each production-issued batch against the ledger, negative stock, purchase lines that are not submitted but have stock, ledger rows with the wrong unit or item, finished product stock against the bulk left on approved batches, duplicate batch numbers, and orphan records. It never changes data.
 
 **How to use it**
-1. Open Admin → Stock Integrity Check. The checks run every time the page opens; reload to run them again.
+1. Open Reports & checks → Stock Integrity Check. The checks run every time the page opens; reload to run them again.
 2. A green banner means every check passed. A red banner lists how many differences were found. Each failing check says what it compares and what a difference means, and shows the first 20 rows. Every row starts with a sentence saying what is wrong, then the item, batch numbers, date and figures involved.
 3. If anything fails, do not correct stock by hand. Note the rows and tell the developer.
 

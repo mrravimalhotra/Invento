@@ -83,17 +83,27 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Admin",
+    // UX-01 (Ravi, 25 Oct 2026: "Only split Admin"): reading and checking pages out of Admin.
+    title: "Reports & checks",
     items: [
-      { href: "/user-roles", label: "User Roles & Access", icon: Users, module: 13 },
+      { href: "/reports", label: "Reports", icon: BarChart3, module: 15 },
       // Not part of the original 15-module baseline — added per Ravi's
       // 21 Sept 2026 "lets fix the audit trail issue" request; module
       // number 21 follows Purge Test Data (20)'s precedent for
       // post-baseline additions. Page itself gates on canReadAudit()
       // (system_admin/super_auditor) the same way User Roles gates on
-      // canWrite() above — shown to everyone here, restricted on the page.
+      // canWrite() in Admin — shown to everyone here, restricted on the page.
       { href: "/audit", label: "Audit Log", icon: History, module: 21 },
-      { href: "/reports", label: "Reports", icon: BarChart3, module: 15 },
+      // Ravi (12 Oct 2026, SCAN-P3-05): nine read-only comparisons of the ledger and the
+      // batch figures; System Administrator only (the page and the database function both
+      // check). Module 25 follows Company Details (24).
+      { href: "/admin/stock-integrity", label: "Stock Integrity Check", icon: Scale, module: 25 },
+    ],
+  },
+  {
+    title: "Admin",
+    items: [
+      { href: "/user-roles", label: "User Roles & Access", icon: Users, module: 13 },
       { href: "/documents", label: "SOP / STP Documents", icon: FileText, module: 12 },
       { href: "/feedback", label: "Tester Feedback", icon: MessageSquarePlus, module: 16 },
       // Not part of the original 15-module baseline — added per Ravi's
@@ -113,10 +123,6 @@ export const NAV_GROUPS: NavGroup[] = [
       // module number 20 follows Bulk Data Upload (19)'s precedent for
       // post-baseline additions.
       { href: "/admin/purge-test-data", label: "Purge Test Data", icon: Trash2, module: 20 },
-      // Ravi (12 Oct 2026, SCAN-P3-05): nine read-only comparisons of the ledger and the
-      // batch figures; System Administrator only (the page and the database function both
-      // check). Module 25 follows Company Details (24).
-      { href: "/admin/stock-integrity", label: "Stock Integrity Check", icon: Scale, module: 25 },
     ],
   },
   {

@@ -601,7 +601,7 @@ Impact: **High** = slows or misleads daily work for most users; **Medium** = fri
 
 | # | Impact | Area | Finding | Suggestion |
 |---|---|---|---|---|
-| UX-01 | High | Navigation | The menu groups mix daily work with administration: "Admin" holds 13 entries, among them Reports, SOP / STP Documents and Bulk Data Upload, which non-admins use; "Inventory Ledger" sits under Procurement although it opens eight tabs (Stock Position, Stock Statement, Ageing, Retained Samples, Rejected Materials, Batch Trace, RM Report, Ledger). | Regroup by job: Overview · Daily work (Purchase, Quality Control, Finished Product, Packaging, Labels, COA) · Stock (rename "Inventory Ledger" to "Inventory") · Masters · Reports · Admin. |
+| UX-01 | High | Navigation | The menu groups mix daily work with administration: "Admin" holds 13 entries, among them Reports, SOP / STP Documents and Bulk Data Upload, which non-admins use; "Inventory Ledger" sits under Procurement although it opens eight tabs (Stock Position, Stock Statement, Ageing, Retained Samples, Rejected Materials, Batch Trace, RM Report, Ledger). | Regroup by job: Overview · Daily work (Purchase, Quality Control, Finished Product, Packaging, Labels, COA) · Stock (rename "Inventory Ledger" to "Inventory") · Masters · Reports · Admin. **Partly built (Pass 118): Ravi chose "Only split Admin"; the Inventory group and moving SOP / STP Documents were not taken.** |
 | UX-02 | Medium | Navigation | **Built 25 Oct 2026 (Pass 100).** Three deprecated modules (BMR, Line Clearance, Environmental Control) are in the main menu for everyone. | Hide them, or move them into a collapsed "Archive" group shown to System Admin only. |
 | UX-03 | High | Dashboard | The six counts come first and the "needs attention" cards follow; four 256 px charts make a long page. The same Dashboard is shown to every role. | Put "Needs attention" first; tailor it by role (QC sees records waiting for Round 1 / Round 2 and retests; Stores sees receipts, low stock, packaging; Production sees batches in progress). Charts folded or moved to Reports. (Overlaps the parked phone mockup, C19.) |
 | UX-04 | High | Work queues | Nobody has a "my work" list: a Quality Checker must open the QC list and filter to find what waits for Round 1; a Reviewer likewise for Round 2; a Production user for batches to complete. | A "My tasks" card or page per role, with counts in the menu (for example "Quality Control (3)"). **Built (Pass 117) as a Dashboard card.** |
@@ -772,3 +772,10 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - Code: `lib/my-tasks.ts` (2 unit tests), `app/(dashboard)/my-tasks.ts` (counts), `app/(dashboard)/my-tasks-card.tsx`.
 - Checks: type-check, lint, build, 52 unit tests; look checked at desktop and phone width against the mockup.
 - Live check (E89): sign in as a Quality Checker: the card shows QC Round 1 only, with the same number as the QC list's Awaiting QC; as an MFR Manager: the batch lines match Finished Product; as System Admin: every line.
+
+## Pass 118 — UX-01: Reports & checks split out of Admin (25 Oct 2026, no migration)
+
+- [x] Ravi saw the full regrouping mockup and chose "Only split Admin". New side-menu group **Reports & checks** (Reports, Audit Log, Stock Integrity Check), just above Admin. Admin keeps User Roles & Access, SOP / STP Documents, Tester Feedback, Bulk Data Upload, Opening Stock, Company Details and Purge Test Data. Inventory Ledger stays under Procurement.
+- Same pages, addresses and access; phone menu follows (one list, `lib/constants/nav.ts`). User Guide ("Where to find it" lines and the sidebar sentence) and PDF updated.
+- Checks: type-check, lint, build, unit tests.
+- Live check (E90): the side menu (desktop and phone) shows Reports & checks with Reports, Audit Log and Stock Integrity Check, and Admin no longer lists them.
