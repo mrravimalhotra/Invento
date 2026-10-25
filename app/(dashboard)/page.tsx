@@ -8,6 +8,9 @@ import { addDaysToDate, chartUnit, isInternalMove, lastIstDays, lineValueInclGst
 import { ALERT_WINDOW_DAYS, getDashboardAlerts } from "./dashboard-alerts";
 import { getFpInProgress } from "@/lib/fp-in-progress";
 import { CALIBRATION_DUE_SOON_DAYS, calibrationNeedsAttention, calibrationState } from "@/lib/calibration";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getMyTaskCounts } from "./my-tasks";
+import { MyTasksCard } from "./my-tasks-card";
 import { DashboardView, type CountPair, type DashboardData, type QcStatusCounts } from "./dashboard-view";
 
 // ACC-26 (29 Sept 2026, Ravi): the Dashboard now agrees with the lists its
@@ -40,6 +43,9 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  // UX-04: started first, read alongside everything below.
+  const userPromise = getCurrentUser();
+  const tasksPromise = userPromise.then((u) => getMyTaskCounts(supabase, u?.roles ?? [], u?.id ?? null));
 
   // The last 30 India-time calendar days, today included.
   const days = lastIstDays(DAYS);
@@ -240,10 +246,12 @@ export default async function DashboardPage() {
     days,
   };
 
+  const [user, taskCounts] = await Promise.all([userPromise, tasksPromise]);
+
   return (
     <>
       <LoadWarning errors={[ledgerError, purchaseError, fpError, itemsError, balancesError, statusesError]} what="the Dashboard" />
-      <DashboardView data={data} />
+      <DashboardView data={data} tasks={<MyTasksCard roles={user?.roles ?? []} counts={taskCounts} />} />
     </>
   );
 }

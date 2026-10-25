@@ -88,7 +88,7 @@ function AlertLine({ row, verb }: { row: AlertRow; verb: "retest" | "expires" })
   );
 }
 
-export function DashboardView({ data }: { data: DashboardData }) {
+export function DashboardView({ data, tasks }: { data: DashboardData; tasks?: React.ReactNode }) {
   const [hideLegacy] = useHideLegacy();
   const pick = (c: CountPair) => (hideLegacy ? c.nonLegacy : c.all);
   const keep = <T extends { legacy: boolean }>(rows: T[]) => (hideLegacy ? rows.filter((r) => !r.legacy) : rows);
@@ -117,6 +117,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         description="What needs attention today, and the last 30 days at a glance."
         action={<HideLegacyToggle />}
       />
+      {tasks}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Raw materials" value={pick(data.rawMaterials)} href="/items" />
