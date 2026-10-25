@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { WorkflowStrip } from "@/components/ui/workflow-strip";
+import { poWorkflow } from "@/lib/workflow-steps";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getCurrentUser } from "@/lib/auth/session";
 import { AuditHistoryLink } from "@/components/ui/audit-history-link";
@@ -87,6 +89,18 @@ export default async function PurchaseOrderDetailPage({
   }
   const isSystemAdmin = (user?.roles ?? []).includes("system_admin");
 
+  // UX-06: how many raw material lines already have a QC decision.
+  const rawLineIds = lineRows.filter((l) => l.item?.category === "raw").map((l) => l.id);
+  let decided = 0;
+  if (po.status === "submitted" && rawLineIds.length > 0) {
+    const { data: qcRows } = await supabase
+      .from("quality_checks")
+      .select("purchase_line_id, status")
+      .in("purchase_line_id", rawLineIds)
+      .in("status", ["approved", "rejected"]);
+    decided = new Set((qcRows ?? []).map((q) => q.purchase_line_id)).size;
+  }
+
   return (
     <div>
       <PurchaseOrderView
@@ -97,6 +111,7 @@ export default async function PurchaseOrderDetailPage({
         isSystemAdmin={isSystemAdmin}
         vendors={vendorChoices}
         historyLink={<AuditHistoryLink recordId={po.id} roles={user?.roles ?? []} />}
+        workflow={<WorkflowStrip workflow={poWorkflow(po.status, rawLineIds.length, decided)} />}
       />
     </div>
   );

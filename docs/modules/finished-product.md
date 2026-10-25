@@ -4,6 +4,7 @@ Cross-reference: `docs/DESIGN.md` §4.8 (schema), §7.3 (FIFO suggestion),
 §7.2 (QC-gates-consumption, DB-enforced), §6 (route map).
 
 > **Current behaviour (read this first; the sections below are a dated history).**
+> - **Step strip (UX-06, 25 Oct 2026):** under the batch title, read-only: Draft → In Process → Complete → Submitted to QC → Approved → Packed (Packed once any packaging issue exists; Rejected / Cancelled shown in red), with a "Next:" line (`lib/workflow-steps.ts`).
 > - Flow: New (MFR, batch size, batch start date) → Compose (raw material taken **automatically oldest-first, across several batches if needed**; no manual batch choice) → batch saved as **Draft** with the raw material reserved → **Create Batch** (In Progress) or **Cancel** → **Complete Batch** (yield, finish date, expiry, sample unit, QC/Stability/R&D samples, all mandatory, with a review step) → "Complete - Awaiting QC" → Submit to QC → Approved or Rejected.
 > - A Draft cancels itself after **30 minutes** (applied the next time it is read) and returns the reserved stock; Cancel does the same.
 > - Oldest stock first is a hard database rule (0090); expired, retest-due and not-approved batches are never used.

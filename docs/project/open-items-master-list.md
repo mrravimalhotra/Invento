@@ -229,6 +229,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E85 | UX-13 confirm before irreversible saves (Pass 113, no SQL) | Draft PO → Submit order: red box asks, Cancel keeps it draft. New packaging issue (Store), one line → Save 1 issue: red box asks, Cancel saves nothing. | Open |
 | E86 | UX-17 Help links (Pass 114, no SQL) | Purchase → Help opens the User Guide at "Purchase"; an item page → Help opens at "Item Master"; the guide text reads well on a phone. | Open |
 | E87 | UX-10 dd-mm-yyyy date boxes (Pass 115, no SQL) | New purchase order: dates show dd-mm-yyyy; 31-04-2026 refused; a calendar pick saves the same day. Ledger: From 01-10-2026 filters the list. | Open |
+| E88 | UX-06 step strip (Pass 116, no SQL) | Finished product batch pages: the strip and "Next:" match the batch status (incl. Packed, Rejected); a submitted purchase order shows "N of M decided" matching its QC records. | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 

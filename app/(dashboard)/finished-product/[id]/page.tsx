@@ -17,6 +17,8 @@ import { DraftActionsPanel } from "./draft-actions-panel";
 import { FpIntimationLink } from "./fp-intimation-link";
 import { BmrDownloadLink } from "./bmr-download-link";
 import { statusLabel } from "@/lib/status-labels";
+import { WorkflowStrip } from "@/components/ui/workflow-strip";
+import { fpWorkflow } from "@/lib/workflow-steps";
 
 export default async function FinishedProductDetailPage({
   params,
@@ -185,6 +187,7 @@ export default async function FinishedProductDetailPage({
           </div>
         }
       />
+      <WorkflowStrip workflow={fpWorkflow(batch.status, latestQc?.status, packingRuns.length > 0)} />
 
       <div className="grid gap-6">
         <Card>

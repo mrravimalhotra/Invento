@@ -3,6 +3,7 @@
 Cross-reference: `docs/DESIGN.md` §4.4 (schema), §7.1 (workflow spec).
 
 > **Current behaviour (read this first; the sections below are a dated history).**
+> - **Step strip (UX-06, 25 Oct 2026):** under the order title, read-only: Draft → Submitted → QC decided, with "Next:" naming how many raw material batches have a QC decision (packaging-only orders stop at Submitted).
 > - A purchase order starts as a **Draft**; **Final Submit** (whole order) puts each line's remaining quantity (received less QC/Stability/R&D samples) into stock. Only System Admin and Inventory Manager write; only a System Admin can reopen or delete.
 > - Lines are Raw Material or Packaging Item. QC/Stability/R&D quantities and the sample unit are mandatory on raw material lines (0 is allowed); Unit Price and GST % are mandatory (0 is allowed). **The line has no expiry date**: the QC Reviewer sets it at approval (the earlier "Expiry → Re-Test Date" and "Re-Test Date manual entry" sections are superseded).
 > - **Submit order (locks lines)** asks once more in a red box ("Yes, submit" / Cancel) before it submits (UX-13, 25 Oct 2026).

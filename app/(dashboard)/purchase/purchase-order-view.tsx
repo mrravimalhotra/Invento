@@ -48,6 +48,7 @@ export function PurchaseOrderView({
   isSystemAdmin,
   historyLink,
   vendors,
+  workflow,
 }: {
   po: PurchaseOrderHeader;
   lineRows: LineRow[];
@@ -57,6 +58,8 @@ export function PurchaseOrderView({
   historyLink?: React.ReactNode;
   // SCAN-P3-02: given only by the order's own page; without it the Edit invoice details button is not shown.
   vendors?: VendorChoice[];
+  // UX-06: the step strip, given only by the order's own page.
+  workflow?: React.ReactNode;
 }) {
   const isDraft = po.status === "draft";
   // FB-0018: lines are only addable/editable/deletable while the PO is
@@ -79,6 +82,7 @@ export function PurchaseOrderView({
           <VendorContactLine address={po.vendor.address} mobile={po.vendor.mobile} />
         </div>
       )}
+      {workflow}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         <Card className="p-4">

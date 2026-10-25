@@ -41,7 +41,8 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-25 | this commit | UX-10: all 27 date boxes read dd-mm-yyyy on every computer, with a calendar button; values sent unchanged (known issues Pass 115, live check E87) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | this commit | UX-06: read-only step strip with "Next:" on finished product batch and purchase order pages (known issues Pass 116, live check E88) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-10-25 | `ba422d8` | UX-10: all 27 date boxes read dd-mm-yyyy on every computer, with a calendar button; values sent unchanged (known issues Pass 115, live check E87) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `bf223b1` | UX-17: "Help" in every page header opens that screen's User Guide section; guide text shown in the app (known issues Pass 114, live check E86) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `2313a02` | UX-13: Submit order and packaging Save ask once more in the red two-step box (known issues Pass 113, live check E85) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-25 | `35e2be6` | UX-18a: the two links inside sentences (New COA, old file-link COA) always underlined (known issues Pass 112) | None | ✅ | n/a | Pushed by Claude; no database change |
