@@ -158,6 +158,7 @@ export function PackagingMaterialsEditor({
                 <td className="px-3 py-2">
                   <Select
                     name={`${namePrefix}item_id_${i}`}
+                    aria-label={`Packaging material ${i + 1}`}
                     value={line.itemId}
                     onChange={(e) => {
                       const item = packagingItems.find((it) => it.id === e.target.value);
@@ -178,6 +179,7 @@ export function PackagingMaterialsEditor({
                 <td className="px-3 py-2">
                   <Input
                     name={`${namePrefix}quantity_${i}`}
+                    aria-label={`Quantity used ${i + 1}`}
                     type="number"
                     step="any"
                     min="0"
@@ -189,6 +191,7 @@ export function PackagingMaterialsEditor({
                 <td className="px-3 py-2">
                   <Select
                     name={`${namePrefix}unit_${i}`}
+                    aria-label={`Unit ${i + 1}`}
                     value={line.unit}
                     onChange={(e) => updateLine(i, { unit: e.target.value })}
                     required={i === 0}

@@ -33,13 +33,15 @@ export function Field({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  const labelId = useId();
   return (
     <div data-field className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
+      <label id={labelId} htmlFor={htmlFor} className="text-sm font-medium text-foreground">
         {label}
         {required && <span className="text-red ml-0.5">*</span>}
       </label>
-      {children}
+      {/* UX-18: without htmlFor (read-only code boxes) the label names the box through a group. */}
+      {htmlFor ? children : <div role="group" aria-labelledby={labelId}>{children}</div>}
       {hint && (
         <p className="text-xs text-muted">
           {hint}

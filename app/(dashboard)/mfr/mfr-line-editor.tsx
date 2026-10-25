@@ -57,6 +57,7 @@ export function MfrLineEditor({
                 <td className="px-3 py-2">
                   <Select
                     name={`item_${i}`}
+                    aria-label={`Raw material ${i + 1}`}
                     value={line.itemId}
                     onChange={(e) => {
                       const item = rawItems.find((it) => it.id === e.target.value);
@@ -81,6 +82,7 @@ export function MfrLineEditor({
                 <td className="px-3 py-2">
                   <Input
                     name={`quantity_${i}`}
+                    aria-label={`Quantity ${i + 1}`}
                     type="number"
                     step="any"
                     min="0"
@@ -92,6 +94,7 @@ export function MfrLineEditor({
                 <td className="px-3 py-2">
                   <Select
                     name={`unit_${i}`}
+                    aria-label={`Unit ${i + 1}`}
                     value={line.unit}
                     onChange={(e) => updateLine(i, { unit: e.target.value })}
                     required={i === 0}

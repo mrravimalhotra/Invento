@@ -36,6 +36,7 @@ export function OpeningUploadForm({ kind, templateHref }: { kind: OpeningKind; t
           key={inputKey}
           type="file"
           name="file"
+          aria-label="Excel file to upload"
           accept=".xlsx"
           required
           onChange={(e) => {

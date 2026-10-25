@@ -124,6 +124,7 @@ export function GenerateCoaForm({
                   <td className="px-3 py-2">
                     <Input
                       value={results[i]}
+                      aria-label={`Result for ${line.test}`}
                       onChange={(e) => updateResult(i, e.target.value)}
                       placeholder="Enter result…"
                       readOnly={!!qcResults}

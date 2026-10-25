@@ -618,7 +618,7 @@ Impact: **High** = slows or misleads daily work for most users; **Medium** = fri
 | UX-15 | Medium | Search | There is no app-wide search: finding a batch, AR number, PO number or certificate means knowing which module holds it; Batch Trace (the closest thing) is the sixth tab inside Inventory. | A search box in the top bar that finds batches, AR Nos, POs, COAs and items and opens the record or its trace. |
 | UX-16 | Low | Navigation | **Built 25 Oct 2026 (Pass 104).** Detail pages (purchase order, QC record, batch, item) have no breadcrumb or "Back to list"; going back loses the list's filters and search. | A breadcrumb or back link that returns to the list as it was left. |
 | UX-17 | Low | Help | The User Guide is a 39-page PDF; help is not available on the page where it is needed. | A "Help for this page" link in each page header that opens the matching guide section. |
-| UX-18 | Low | Accessibility | Colour carries meaning on badges and alerts (text is present, which is good); amber text on the amber background and grey muted text have not been contrast-checked; no automated accessibility check exists. | Run an accessibility check (contrast, labels, keyboard order) on the main screens once, and fix what it finds. |
+| UX-18 | Low | Accessibility | Colour carries meaning on badges and alerts (text is present, which is good); amber text on the amber background and grey muted text have not been contrast-checked; no automated accessibility check exists. | Run an accessibility check (contrast, labels, keyboard order) on the main screens once, and fix what it finds. **Done (Pass 111): small fixes built; one item parked (UX-18a).** |
 | UX-19 | Low | Notifications | Alerts (retest, expiry, calibration, QC waiting) exist only as Dashboard cards; nobody is told unless they open the Dashboard. | Same as SCAN-P9-07 / G5: decide on an e-mail or WhatsApp digest. |
 
 Related, already on record: phone layouts (C19, parked 18 Oct), default date range for Reports and Item Master (C17), single label instead of six (B33), alerts digest (SCAN-P9-07).
@@ -717,3 +717,13 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - Code: actions return `field` with `error`; `useFlashActionState` calls `markFieldError` (`lib/field-error.ts`); `Field` carries `data-field`. Other forms can opt in by returning `field`.
 - Checks: type-check, lint, build, unit tests; browser check of the marking (searchable dropdowns focus their visible box; one mark at a time; typing clears it).
 - Live check (E83): Items → New item: pick Raw material, leave Item type empty, Create item: Item type turns red with the message under it and the cursor is in it; choosing a type clears it.
+
+## Pass 111 — UX-18: accessibility check and small fixes (25 Oct 2026, no migration)
+
+- [x] **Contrast:** every text/background pair in the colour tokens meets WCAG AA (4.5:1). Lowest: amber on the amber background 4.58; grey muted text 7.0 on white, 6.6 on the page background. No colour change needed.
+- [x] **Labels:** every `Field` label points at its box. Fixed: 11 read-only code boxes (vendor, equipment and asset codes, batch number, item) now take their name from the label; 22 boxes in table rows and small forms (MFR recipe and procedure lines, COA template lines and results, packaging material lines, feedback triage, the two Excel upload pickers, feedback edit) now have a spoken name.
+- [x] **Keyboard:** no forced tab order, nothing clickable by mouse only (the phone menu backdrop also closes with Escape), every focusable control shows a focus ring.
+- [x] **Automated check (axe, WCAG A/AA):** sign-in, forgot-password and register pages at desktop and phone width: clean after one fix (the register page's sign-in link is now underlined, not told apart by colour alone). Signed-in screens need test accounts, so they were checked through the code, not axe.
+- Parked **UX-18a** (Low): about 40 links elsewhere are shown in green and underline only on hover. Inside a sentence that relies on colour alone; in table cells it is fine. Underlining in-sentence links app-wide is a visual change for Ravi to decide.
+- Checks: type-check, lint, build, unit tests.
+- Live check (E84): none needed beyond a glance: the register page link is underlined; screen-reader names are invisible.

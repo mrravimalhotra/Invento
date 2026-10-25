@@ -35,7 +35,7 @@ export function FeedbackAdminRow({ row }: { row: FeedbackRow }) {
 
       <div className="flex flex-col gap-2">
         <div className="flex gap-2">
-          <Select name="category" defaultValue={row.category ?? ""} className="text-xs">
+          <Select aria-label="Category" name="category" defaultValue={row.category ?? ""} className="text-xs">
             <option value="">Not classified</option>
             {FEEDBACK_CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -43,7 +43,7 @@ export function FeedbackAdminRow({ row }: { row: FeedbackRow }) {
               </option>
             ))}
           </Select>
-          <Select name="status" defaultValue={row.status} className="text-xs">
+          <Select aria-label="Status" name="status" defaultValue={row.status} className="text-xs">
             {FEEDBACK_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {FEEDBACK_STATUS_LABELS[s]}
@@ -53,6 +53,7 @@ export function FeedbackAdminRow({ row }: { row: FeedbackRow }) {
         </div>
         <Textarea
           name="claudeNotes"
+          aria-label="Notes shown to the tester"
           defaultValue={row.claude_notes ?? ""}
           rows={2}
           placeholder="Notes shown to the tester (why rejected, what was fixed, etc.)"

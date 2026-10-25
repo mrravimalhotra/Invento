@@ -225,6 +225,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E81 | UX-08 short hints + ⓘ (Pass 108, no SQL) | Items → edit: Low stock threshold shows one line and an ⓘ that explains usable stock; Unit and (for an item in use) Category likewise; New equipment, New MFR (Market), New packaging issue (date) and the QC reviewer form show one-line hints with an ⓘ. | Open |
 | E82 | UX-12 Ledger item filter category (Pass 109, no SQL) | Inventory → Ledger: item filter lines read "code — name (category)"; the four Tab Ostopix lines are told apart. | Open |
 | E83 | UX-14 field errors (Pass 110, no SQL) | Items → New item, Raw material, Item type empty, Create item: Item type outlined red, message under it, cursor in it; picking a type clears it. Purchase line with Unit price blank does the same. | Open |
+| E84 | UX-18 accessibility fixes (Pass 111, no SQL) | Register page: the "sign in" link is underlined. Nothing else visible changes (spoken names only). | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 

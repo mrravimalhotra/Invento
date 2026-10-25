@@ -54,6 +54,7 @@ export function CoaTemplateLineEditor({
                 <td className="px-3 py-2">
                   <Textarea
                     name={`${COA_FIELD_PREFIX}test_${i}`}
+                    aria-label={`Test ${i + 1}`}
                     rows={2}
                     value={line.test}
                     onChange={(e) => updateLine(i, { test: e.target.value })}
@@ -64,6 +65,7 @@ export function CoaTemplateLineEditor({
                 <td className="px-3 py-2">
                   <Textarea
                     name={`${COA_FIELD_PREFIX}specification_${i}`}
+                    aria-label={`Specification ${i + 1}`}
                     rows={2}
                     value={line.specification}
                     onChange={(e) => updateLine(i, { specification: e.target.value })}

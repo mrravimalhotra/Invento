@@ -210,7 +210,7 @@ function FeedbackItem({
 
       {mode === "edit" ? (
         <form action={updateAction} className="mt-1.5 flex flex-col gap-1.5">
-          <Textarea name="observation" required minLength={5} rows={2} defaultValue={item.observation} autoFocus />
+          <Textarea name="observation" aria-label="Observation" required minLength={5} rows={2} defaultValue={item.observation} autoFocus />
           {updateState?.error && <p className="text-xs text-red">{updateState.error}</p>}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={updatePending}>

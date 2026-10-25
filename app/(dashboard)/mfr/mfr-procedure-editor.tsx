@@ -50,6 +50,7 @@ export function MfrProcedureEditor({ initialSteps }: { initialSteps?: EditableSt
                 <td className="px-3 py-2">
                   <Textarea
                     name={`stage_${i}`}
+                    aria-label={`Stage ${i + 1}`}
                     rows={2}
                     value={step.stage}
                     onChange={(e) => updateStep(i, { stage: e.target.value })}
@@ -60,6 +61,7 @@ export function MfrProcedureEditor({ initialSteps }: { initialSteps?: EditableSt
                 <td className="px-3 py-2">
                   <Textarea
                     name={`operation_${i}`}
+                    aria-label={`Operation ${i + 1}`}
                     rows={2}
                     value={step.operation}
                     onChange={(e) => updateStep(i, { operation: e.target.value })}
