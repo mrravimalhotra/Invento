@@ -12,7 +12,14 @@ import type { AlertRow } from "./dashboard-alerts";
 import type { FpInProgressRow } from "@/lib/fp-in-progress";
 import type { CalibrationState } from "@/lib/calibration";
 import { CalibrationBadge } from "./equipment/calibration-badge";
-import { DashboardCharts } from "./charts";
+import dynamic from "next/dynamic";
+
+// React review (1 Nov 2026): the chart library (about 0.4 MB) loads after the rest of the
+// Dashboard, since the charts are the last block on the page.
+const DashboardCharts = dynamic(() => import("./charts").then((m) => m.DashboardCharts), {
+  ssr: false,
+  loading: () => <p className="text-sm text-muted">Loading charts…</p>,
+});
 
 // ACC-26 (29 Sept 2026): the "Hide legacy data" switch lives in the browser,
 // so the Dashboard can't decide server-side what to leave out. The server

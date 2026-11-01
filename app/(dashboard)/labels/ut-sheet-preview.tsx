@@ -11,11 +11,11 @@
 // The one real difference from fp-ip-sheet-preview.tsx: Under Test mixes
 // font weights (bold company-name/title lines, regular everywhere else),
 // so this embeds and loads both Liberation Serif weights rather than one.
+import { UT_PREVIEW_WIDTH_PX, UT_PREVIEW_HEIGHT_PX } from "./label-constants";
 import { forwardRef, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 import {
   UT_PAGE_WIDTH_MM,
-  UT_PAGE_HEIGHT_MM,
   UT_GRID_COLS,
   UT_GRID_ROWS,
   UT_GRID_ORIGIN_X_MM,
@@ -64,9 +64,7 @@ export function loadUtLiberationSerifFonts(): Promise<void> {
 
 // ~US Legal at 96 CSS-px/inch (215.9mm * 96/25.4) — same base-resolution/
 // display-scaling approach as the other two preview components.
-export const UT_PREVIEW_WIDTH_PX = 816;
 const PX_PER_MM = UT_PREVIEW_WIDTH_PX / UT_PAGE_WIDTH_MM;
-export const UT_PREVIEW_HEIGHT_PX = UT_PAGE_HEIGHT_MM * PX_PER_MM;
 
 function ptToPx(sizePt: number) {
   return sizePt * 0.3528 * PX_PER_MM;

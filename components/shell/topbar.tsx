@@ -38,16 +38,18 @@ async function LowStockBanner() {
   const itemIds = items.map((it) => it.id);
   // ACC-08: in chunks, so a large set of threshold items never makes an
   // over-long request (each chunk is still a literal IN list, as above).
-  const { data: balances } = await fetchByIdChunks<{ item_id: string; on_hand: number }>(itemIds, (chunk) =>
-    supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk)
-  );
-  const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
-
   // SCAN-P3-10: raw material is compared on usable stock (lib/low-stock.ts).
-  const { data: statuses } = await fetchByIdChunks<{ item_id: string; usable: number }>(
-    items.filter((it) => it.category === "raw").map((it) => it.id),
-    (chunk) => supabase.from("item_stock_status").select("item_id, usable").in("item_id", chunk)
-  );
+  // React review (1 Nov 2026): the two reads are independent, so they run together.
+  const [{ data: balances }, { data: statuses }] = await Promise.all([
+    fetchByIdChunks<{ item_id: string; on_hand: number }>(itemIds, (chunk) =>
+      supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk)
+    ),
+    fetchByIdChunks<{ item_id: string; usable: number }>(
+      items.filter((it) => it.category === "raw").map((it) => it.id),
+      (chunk) => supabase.from("item_stock_status").select("item_id, usable").in("item_id", chunk)
+    ),
+  ]);
+  const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
   const usableMap = new Map((statuses ?? []).map((x) => [x.item_id, Number(x.usable)]));
   const low = items.filter(
     (it) =>

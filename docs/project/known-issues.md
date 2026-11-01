@@ -810,3 +810,13 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - Not applied, conflict with Ravi's decisions: Title Case on buttons (UX-07 sentence case), locale date formats (UX-10 dd-mm-yyyy), filters in the address bar (UX-16 list memory).
 - Checks: type-check, lint, build, 54 unit tests; browser check (green ring on Tab, none on click; cursor on open on desktop, not on a phone; tabular figures; reduced motion).
 - Live check (E93): press Tab on any form: each button shows a green ring; open New item on a phone: the keyboard does not pop up until a box is tapped.
+
+## Pass 123 — React / Next.js performance review and fixes (1 Nov 2026, no migration)
+
+- Review with Vercel's `vercel-react-best-practices` skill; report `docs/project/react-review-2026-11-01.md`. Ravi chose all four fixes:
+- [x] **Faster Dashboard and every page:** reads that waited on each other now run together (Dashboard about 4 fewer round trips; every page one fewer; the low-stock banner one fewer).
+- [x] **MFR report:** the PDF code loads on Download, not with the page (`mfr-pdf.ts`), as the project rule says.
+- [x] **Dashboard charts** load after the rest of the page ("Loading charts…" for a moment).
+- [x] **Label Printing:** opens with 0.14 MB of script instead of about 2.4 MB; the preview ("Loading preview…" for a moment) and the PDF code load when needed. Layout values moved unchanged to `label-constants.ts`.
+- Checks: type-check, lint, build, 54 unit tests; moved label values compared equal (17); moved MFR PDF code compared line by line; previews rendered after lazy loading at the old sizes (794 × 1123 and 816 × 1344 px); script loaded on open measured per page from the build.
+- Live check (E94): Dashboard, Label Printing (pick a batch: preview appears, Download gives the same PDF as before), MFR report (Download PDF works).

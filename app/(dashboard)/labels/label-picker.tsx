@@ -9,21 +9,42 @@ import { formatDate, isLegacyCode, formatQty } from "@/lib/utils";
 import { ELIGIBILITY_HINT } from "./label-eligibility";
 import { searchLabelBatches } from "@/lib/actions/labels";
 import { LABEL_RESULT_LIMIT, type RmRecord, type FpRecord } from "./label-types";
+import dynamic from "next/dynamic";
 import {
-  downloadLabelPdf,
   HEADER_TEXT,
   FP_FIELD_PREFIX,
   IP_FIELD_PREFIX,
   FP_CELL_HEIGHT_MM,
   IP_CELL_HEIGHT_MM,
+  RM_PREVIEW_WIDTH_PX,
+  RM_PREVIEW_HEIGHT_PX,
+  FPIP_PREVIEW_WIDTH_PX,
+  FPIP_PREVIEW_HEIGHT_PX,
+  UT_PREVIEW_WIDTH_PX,
+  UT_PREVIEW_HEIGHT_PX,
   type LabelField,
   type LabelType,
-} from "./generate-label-pdf";
-import { RmSheetPreview, RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX } from "./rm-sheet-preview";
-import { FpIpSheetPreview, FPIP_PREVIEW_WIDTH_PX, FPIP_PREVIEW_HEIGHT_PX } from "./fp-ip-sheet-preview";
-import { UtSheetPreview, UT_PREVIEW_WIDTH_PX, UT_PREVIEW_HEIGHT_PX } from "./ut-sheet-preview";
+} from "./label-constants";
 import { statusLabel } from "@/lib/status-labels";
 import { ScaledPreview } from "./scaled-preview";
+
+// React review (1 Nov 2026): the previews measure text with jsPDF and the label fonts
+// (about 2.3 MB), so they load after the page; the PDF code loads on Download.
+const previewLoading = () => <p className="p-4 text-sm text-muted">Loading preview…</p>;
+const RmSheetPreview = dynamic(() => import("./rm-sheet-preview").then((m) => m.RmSheetPreview), {
+  ssr: false,
+  loading: previewLoading,
+});
+const FpIpSheetPreview = dynamic(() => import("./fp-ip-sheet-preview").then((m) => m.FpIpSheetPreview), {
+  ssr: false,
+  loading: previewLoading,
+});
+const UtSheetPreview = dynamic(() => import("./ut-sheet-preview").then((m) => m.UtSheetPreview), {
+  ssr: false,
+  loading: previewLoading,
+});
+const downloadLabelPdf = async (...args: Parameters<typeof import("./generate-label-pdf").downloadLabelPdf>) =>
+  (await import("./generate-label-pdf")).downloadLabelPdf(...args);
 
 // The sheet previews render at their fixed native size (see the *-sheet-preview.tsx
 // files) and are shown scaled down by ScaledPreview: 320 px wide, or less on a narrow phone.

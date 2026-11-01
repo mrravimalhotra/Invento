@@ -18,11 +18,11 @@
 // Calibri-substitute the PDF embeds) is loaded here as a CSS @font-face
 // from the same base64 data, so the on-screen preview uses the identical
 // typeface as the PDF rather than a browser default.
+import { RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX } from "./label-constants";
 import { forwardRef, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 import {
   RM_PAGE_WIDTH_MM,
-  RM_PAGE_HEIGHT_MM,
   RM_GRID_COLS,
   RM_GRID_ROWS,
   RM_GRID_ORIGIN_X_MM,
@@ -71,9 +71,7 @@ export function loadRmCarlitoFont(): Promise<void> {
 // resolution; the on-screen card displays this node scaled *down* via a
 // wrapping CSS transform rather than rendering it at this full size — see
 // RM_PREVIEW_WIDTH_PX's usage in label-picker.tsx.
-export const RM_PREVIEW_WIDTH_PX = 794;
 const PX_PER_MM = RM_PREVIEW_WIDTH_PX / RM_PAGE_WIDTH_MM;
-export const RM_PREVIEW_HEIGHT_PX = RM_PAGE_HEIGHT_MM * PX_PER_MM;
 
 // pt -> px at this preview's scale (1pt = 0.3528mm).
 function ptToPx(sizePt: number) {

@@ -61,6 +61,23 @@ export default async function DashboardPage() {
   //   MFR definitions /mfr              every MFR (the list has an Active column)
   //   Finished batches /finished-product active batches
   //   POs (30d)       /purchase         active purchase orders
+  // React review (1 Nov 2026): the reads below need nothing from the batch that follows, so
+  // they start now and run alongside it instead of one after another afterwards.
+  // B15: retest / expiry alerts, next 90 days (see dashboard-alerts.ts).
+  const alertsPromise = getDashboardAlerts(supabase, retestFrom, retestTo);
+  // B34: finished product batches that have started and are not complete.
+  const inProgressPromise = getFpInProgress(supabase);
+  // P8-01: equipment whose calibration is overdue or due within 30 days, soonest first.
+  const equipmentPromise = supabase
+    .from("equipment")
+    .select("id, equipment_code, name, room_no, calibration_status, next_calibration_due")
+    .eq("active", true)
+    .eq("calibration_status", "required")
+    .lte("next_calibration_due", addDaysToDate(retestFrom, CALIBRATION_DUE_SOON_DAYS))
+    .order("next_calibration_due", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(200);
+
   const [
     rawAll, rawNon,
     vendorAll, vendorNon,
@@ -138,20 +155,7 @@ export default async function DashboardPage() {
     ),
   ]);
 
-  // B15: retest / expiry alerts, next 90 days (see dashboard-alerts.ts).
-  const alerts = await getDashboardAlerts(supabase, retestFrom, retestTo);
-  // B34: finished product batches that have started and are not complete.
-  const inProgress = await getFpInProgress(supabase);
-  // P8-01: equipment whose calibration is overdue or due within 30 days, soonest first.
-  const { data: equipmentRows } = await supabase
-    .from("equipment")
-    .select("id, equipment_code, name, room_no, calibration_status, next_calibration_due")
-    .eq("active", true)
-    .eq("calibration_status", "required")
-    .lte("next_calibration_due", addDaysToDate(retestFrom, CALIBRATION_DUE_SOON_DAYS))
-    .order("next_calibration_due", { ascending: true })
-    .order("id", { ascending: true })
-    .limit(200);
+  const [alerts, inProgress, { data: equipmentRows }] = await Promise.all([alertsPromise, inProgressPromise, equipmentPromise]);
   const equipmentDue = (equipmentRows ?? [])
     .map((e) => ({ ...e, state: calibrationState(e.calibration_status, e.next_calibration_due, retestFrom) }))
     .filter((e) => calibrationNeedsAttention(e.state));
@@ -179,17 +183,20 @@ export default async function DashboardPage() {
   // chunks. Before, the whole stock_balance view was read in one capped
   // request, so an item outside the first 1,000 counted as 0 on hand and
   // showed as a false "Low stock".
-  const { data: balances, error: balancesError } = await fetchByIdChunks<{ item_id: string; on_hand: string | number }>(
-    (items ?? []).map((it) => it.id),
-    (chunk) => supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk)
-  );
-  const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
-  // SCAN-P3-10: raw material is compared on usable stock (see lib/low-stock.ts).
+  // SCAN-P3-10: raw material is compared on usable stock (see lib/low-stock.ts). Both reads
+  // run together (React review, 1 Nov 2026).
   const rawIds = (items ?? []).filter((it) => it.category === "raw").map((it) => it.id);
-  const { data: statuses, error: statusesError } = await fetchByIdChunks<{ item_id: string; usable: string | number }>(
-    rawIds,
-    (chunk) => supabase.from("item_stock_status").select("item_id, usable").in("item_id", chunk)
-  );
+  const [{ data: balances, error: balancesError }, { data: statuses, error: statusesError }] = await Promise.all([
+    fetchByIdChunks<{ item_id: string; on_hand: string | number }>(
+      (items ?? []).map((it) => it.id),
+      (chunk) => supabase.from("stock_balance").select("item_id, on_hand").in("item_id", chunk)
+    ),
+    fetchByIdChunks<{ item_id: string; usable: string | number }>(
+      rawIds,
+      (chunk) => supabase.from("item_stock_status").select("item_id, usable").in("item_id", chunk)
+    ),
+  ]);
+  const balanceMap = new Map((balances ?? []).map((b) => [b.item_id, Number(b.on_hand)]));
   const usableMap = new Map((statuses ?? []).map((x) => [x.item_id, Number(x.usable)]));
   const lowStock = (items ?? [])
     .map((it) => {

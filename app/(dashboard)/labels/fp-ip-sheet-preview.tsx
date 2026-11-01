@@ -15,11 +15,11 @@
 // differ only in title text, field list/prefixes and cell height (see the
 // `opts` prop, mirroring downloadFpIpLabel's own `opts` in
 // generate-label-pdf.ts).
+import { FPIP_PREVIEW_WIDTH_PX, FPIP_PREVIEW_HEIGHT_PX } from "./label-constants";
 import { forwardRef, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 import {
   FPIP_PAGE_WIDTH_MM,
-  FPIP_PAGE_HEIGHT_MM,
   FPIP_GRID_COLS,
   FPIP_GRID_ROWS,
   FPIP_GRID_ORIGIN_X_MM,
@@ -63,9 +63,7 @@ export function loadFpIpLiberationSerifFont(): Promise<void> {
 // ~US Letter at 96 CSS-px/inch (215.9mm * 96/25.4) — same "arbitrary but
 // clean base resolution, scaled down for on-screen display via a wrapper
 // transform" approach as RM_PREVIEW_WIDTH_PX in rm-sheet-preview.tsx.
-export const FPIP_PREVIEW_WIDTH_PX = 816;
 const PX_PER_MM = FPIP_PREVIEW_WIDTH_PX / FPIP_PAGE_WIDTH_MM;
-export const FPIP_PREVIEW_HEIGHT_PX = FPIP_PAGE_HEIGHT_MM * PX_PER_MM;
 
 function ptToPx(sizePt: number) {
   return sizePt * 0.3528 * PX_PER_MM;

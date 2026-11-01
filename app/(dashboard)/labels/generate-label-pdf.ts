@@ -3,26 +3,48 @@ import { getCompany, addressAndLicenceLine } from "@/lib/company";
 import { CARLITO_BOLD_TTF_BASE64 } from "@/lib/fonts/carlito-bold";
 import { LIBERATION_SERIF_BOLD_TTF_BASE64 } from "@/lib/fonts/liberation-serif-bold";
 import { LIBERATION_SERIF_REGULAR_TTF_BASE64 } from "@/lib/fonts/liberation-serif-regular";
+import {
+  HEADER_TEXT,
+  RM_PAGE_WIDTH_MM,
+  RM_PAGE_HEIGHT_MM,
+  FPIP_PAGE_WIDTH_MM,
+  FPIP_PAGE_HEIGHT_MM,
+  UT_PAGE_WIDTH_MM,
+  UT_PAGE_HEIGHT_MM,
+  FP_CELL_HEIGHT_MM,
+  IP_CELL_HEIGHT_MM,
+  FP_FIELD_PREFIX,
+  IP_FIELD_PREFIX,
+  type LabelType,
+  type LabelField,
+} from "./label-constants";
+// Re-exported so existing imports from this file keep working.
+export {
+  HEADER_TEXT,
+  RM_PAGE_WIDTH_MM,
+  RM_PAGE_HEIGHT_MM,
+  FPIP_PAGE_WIDTH_MM,
+  FPIP_PAGE_HEIGHT_MM,
+  UT_PAGE_WIDTH_MM,
+  UT_PAGE_HEIGHT_MM,
+  FP_CELL_HEIGHT_MM,
+  IP_CELL_HEIGHT_MM,
+  FP_FIELD_PREFIX,
+  IP_FIELD_PREFIX,
+  type LabelType,
+  type LabelField,
+};
 
 // Compact ~4in x 3in label layout, built directly with jsPDF (not the full
 // letterhead() masthead in lib/pdf.ts — this is a small physical label, not
 // a page). Reuses the same brand color + company details as the letterhead
 // for visual consistency across every printed document. See DESIGN.md §4.11.
 
-export type LabelType = "approved_rm" | "under_test" | "inprocess" | "finished_product";
-
-export type LabelField = { label: string; value: string | null };
 
 const BRAND_R = 31;
 const BRAND_G = 111;
 const BRAND_B = 78;
 
-export const HEADER_TEXT: Record<LabelType, string> = {
-  approved_rm: "APPROVED RAW MATERIAL",
-  under_test: "UNDER TEST",
-  inprocess: "INPROCESS",
-  finished_product: "Finished Product",
-};
 
 const WIDTH_MM = 101.6; // 4in
 const HEIGHT_MM = 76.2; // 3in
@@ -65,8 +87,6 @@ const HEIGHT_MM = 76.2; // 3in
 // exported so rm-sheet-preview.tsx's on-screen/JPEG rendering shares the
 // exact same numbers as this PDF path, rather than a second hand-tuned
 // copy that could drift from it.
-export const RM_PAGE_WIDTH_MM = 210;
-export const RM_PAGE_HEIGHT_MM = 297;
 export const RM_GRID_COLS = 2;
 export const RM_GRID_ROWS = 3;
 export const RM_GRID_ORIGIN_X_MM = 17.02;
@@ -304,8 +324,6 @@ function downloadApprovedRmLabel(fields: LabelField[], filename: string) {
 // Company header text: name, address and licence come from the saved company
 // details (Admin -> Company Details), composed onto the reference's one-line
 // layout and position.
-export const FPIP_PAGE_WIDTH_MM = 215.9; // US Letter
-export const FPIP_PAGE_HEIGHT_MM = 279.4;
 export const FPIP_GRID_COLS = 2;
 export const FPIP_GRID_ROWS = 3;
 export const FPIP_GRID_ORIGIN_X_MM = 6.33;
@@ -340,26 +358,7 @@ const FPIP_LINE_PITCH_MM = 6.685;
 // both label types share the same FPIP_GRID_ORIGIN_Y_MM above rather than
 // In-process inheriting that offset. Flagged to Ravi rather than silently
 // normalized.
-export const FP_CELL_HEIGHT_MM = 67.03;
-export const IP_CELL_HEIGHT_MM = 60.35;
 
-export const FP_FIELD_PREFIX: Record<string, string> = {
-  Name: "Name                  :",
-  Status: "Status                  :",
-  "Batch No.": "Batch No.            :",
-  "Batch Quantity": "Batch Quantity   :",
-  "Month of Manufacture": "Month of Manufacture:",
-  "Best Before": "Best Before          :",
-  Sign: "Sign                      :",
-};
-export const IP_FIELD_PREFIX: Record<string, string> = {
-  Name: "Name                  :",
-  Status: "Status                  :",
-  "Batch No.": "Batch No.            :",
-  "Batch Quantity": "Batch Quantity  :",
-  "Start Date": "Start Date           :",
-  Sign: "Sign                     :",
-};
 
 // Same shrink-to-fit / truncate-as-last-resort approach as RM's
 // fitRmValueRun (see there for the rationale), parameterized here since
@@ -542,8 +541,6 @@ function downloadFpIpLabel(
 // <w:b/> on those runs). Both weights are embedded:
 // lib/fonts/liberation-serif-bold.ts (reused from Finished Product/
 // In-process) and the new lib/fonts/liberation-serif-regular.ts.
-export const UT_PAGE_WIDTH_MM = 215.9; // US Legal
-export const UT_PAGE_HEIGHT_MM = 355.6;
 export const UT_GRID_COLS = 2;
 export const UT_GRID_ROWS = 5;
 export const UT_GRID_ORIGIN_X_MM = 11.45;

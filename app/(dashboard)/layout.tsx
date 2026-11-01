@@ -15,6 +15,10 @@ import { FlashHost } from "@/components/ui/flash-host";
 import { Suspense } from "react";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // React review (1 Nov 2026): company details and the idle time-out are read alongside the
+  // user, not after (they are used only once the user has a role).
+  const supabase = await createClient();
+  const settingsPromise = Promise.all([fetchCompany(supabase), fetchIdleTimeoutMinutes(supabase)]);
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -42,8 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     );
   }
 
-  const supabase = await createClient();
-  const [company, idleMinutes] = await Promise.all([fetchCompany(supabase), fetchIdleTimeoutMinutes(supabase)]);
+  const [company, idleMinutes] = await settingsPromise;
   // SCAN-P1-02: automatic sign-out after inactivity; a System Admin is never signed out this way.
   const idleSignOut = idleMinutes > 0 && !user.roles.includes("system_admin");
 
