@@ -41,7 +41,8 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-11-01 | this commit | Component structure review: unused packaging materials layout removed; label previews without forwardRef (known issues Pass 124) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-11-01 | `465fb4d`, this commit | Writing review: clearer app messages (dashes, next steps, shorter); User Guide plain-language pass and PDF (known issues Pass 125, live check E95) | None | ✅ | n/a | Pushed by Claude; no database change |
+| 2026-11-01 | `30b35f0` | Component structure review: unused packaging materials layout removed; label previews without forwardRef (known issues Pass 124) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-11-01 | `43f2f23` | React performance review: parallel reads (Dashboard, every page, low-stock banner); PDF and chart code loaded when needed (MFR report, Dashboard, Label Printing 2.4 MB → 0.14 MB on open) (known issues Pass 123, live check E94) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-11-01 | `f1eba13` | Web-design-guidelines review: keyboard focus ring, aligned table figures, no keyboard pop-up on phones, reduced motion, logo sizes (known issues Pass 122, live check E93) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-11-01 | `2f9524a` | Security: the sign-in proxy now covers every page address (it skipped ones ending in .png etc.); Supabase review report; Supabase skills installed (known issues Pass 121, live check E92) | None | ✅ | n/a | Pushed by Claude; no database change |

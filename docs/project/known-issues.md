@@ -828,3 +828,11 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - [x] C2: the three label previews dropped `forwardRef` (not needed in React 19; no caller passed a ref).
 - Checks: type-check, lint, build, 54 unit tests; browser check: materials box add / fill / remove keeps the same form field names; previews render at the same sizes.
 - Live check: covered by E94 (Label Printing preview) and a Store packaging issue with two materials.
+
+## Pass 125 — Writing review: clearer messages and a plain-language User Guide (1 Nov 2026, no migration)
+
+- Review with Vercel's `writing-guidelines` skill; report and before/after figures in `docs/project/writing-review-2026-11-01.md`. Ravi chose all three clean-ups.
+- [x] **Messages:** dashes replaced with full stops or colons in 71 messages; 65 bare messages now say what to do ("Your role can't do this. Ask your System Administrator if you need access.", "… not found. It may have been deleted; reload the page.", "Pick a unit from the list."); the six longest shortened. BMR, Line Clearance and Environmental Control left as they are.
+- [x] **User Guide:** plain-language pass over 218 passages (shorter sentences, steps instead of long paragraphs, filler and vague words removed, dashes replaced, horizontal rules removed); same content. Three facts corrected on the way (calibration reminder, Archive menu, archived BMR). Version note 1 November 2026; PDF and in-app text rebuilt (47 → 43 pages).
+- Checks: type-check, lint, build, 54 unit tests (Help-link sections all still found).
+- Live check (E95): read the User Guide's Purchase and Quality Control sections in the app; try an action your role can't do (for example Purchase → Delete as a non-admin) and see the new "Your role can't do this" message.

@@ -236,6 +236,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E92 | Sign-in proxy fix (Pass 121, no SQL) | Signed out: /items/abc.png goes to sign-in; the sign-in page still shows the logo; the app icon still installs. | Open |
 | E93 | Web-design fixes (Pass 122, no SQL) | Tab through a form: green ring on each button; New item on a phone: no keyboard until a box is tapped; table figures line up. | Open |
 | E94 | Speed fixes (Pass 123, no SQL) | Dashboard opens with all cards and charts; Label Printing: pick a batch, preview appears, Download gives the same PDF; MFR report: Download PDF works. | Open |
+| E95 | Writing clean-up (Pass 125, no SQL) | User Guide reads clearly (Purchase, QC sections); a refused action shows "Your role can't do this. Ask your System Administrator…". | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 
