@@ -35,6 +35,8 @@ const STATUS_STYLES: Record<string, string> = {
   // rejected/not_clear/wastage.
   draft: "bg-amber-bg text-amber",
   cancelled: "bg-red-bg text-red",
+  // P6-01 (0126): a voided packaging issue or QC record.
+  voided: "bg-red-bg text-red",
   // New intermediate FP batch stage (0047_fp_batch_complete_awaiting_qc.sql,
   // 15 Sept 2026), sitting between in_process and submitted_to_qc — same
   // amber as the other "needs a next action" statuses above.

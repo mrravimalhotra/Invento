@@ -711,6 +711,12 @@ Finished Product needs an approved recipe (MFR) and approved raw material batche
 **How it connects to the rest of the app**
 Packaging uses the same stock the Inventory Ledger tracks: an issue here shows there as an outgoing movement. For a finished batch it's the last step before it leaves Atharva, apart from the certificate and labels that go with it.
 
+**Voiding an issue made by mistake** (Inventory Manager or System Admin)
+1. On the Packaging list, click **Void** in the issue's Status column.
+2. A red box lists what goes back: the bulk to its batch, each packaging material to the batches it came from, and the packs taken off Packaged Finished Product stock.
+3. Give a reason (at least 3 characters) and click **Yes, void**. Nothing is deleted: the stock goes back through new ledger rows, and the issue stays on the list struck through, with a **Void** badge, the date, who voided it and why.
+4. A Production issue can be voided only while its RM-FP batch hasn't been used in a finished product batch or written off. Its RM-FP batch then leaves stock and its QC record is marked Void.
+
 **Good to know**
 - You can't issue more than a batch has available; the form stops you before stock goes negative. When a batch or packaging material is short, a red "Not enough stock for …" message names the line and shows what's available against what you asked for. The quantity box turns red, and Add line and Save stay greyed out until it's fixed.
 - There is no repack or unpack: every issue is a pack.

@@ -15,6 +15,7 @@ const STATUS_LABELS: Record<string, string> = {
   complete_awaiting_qc: "Complete - Awaiting QC",
   submitted_to_qc: "Submitted to QC",
   cancelled: "Cancelled",
+  voided: "Void",
   // Raw material batches (label and trace screens)
   under_test: "Under test",
   not_submitted: "Not submitted",

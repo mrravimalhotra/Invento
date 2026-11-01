@@ -9,13 +9,14 @@ import { resolveDisplayStatus } from "@/lib/finished-product-status";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { friendlyDbError } from "@/lib/db-errors";
+import { reasonError } from "@/lib/qc-results";
 import { todayIst } from "@/lib/utils";
 import { beforeDateError, istDay } from "@/lib/date-rules";
 
 // lineErrors (FB-0052): a message that belongs to one line of the Store/R&D
 // form (keyed by line number, 1-based) — shown as plain red text under that
 // line; `error` is then only the short pop-up pointing at it.
-export type ActionState = { error?: string; success?: string; lineErrors?: Record<number, string> } | undefined;
+export type ActionState = { error?: string; success?: string; lineErrors?: Record<number, string>; field?: string } | undefined;
 
 type MaterialInput = { itemId: string; quantity: number; unit: string };
 
@@ -420,4 +421,26 @@ async function saveProductionIssues(formData: FormData, issueDate: string): Prom
   redirect(
     `/packaging?created=${made.length || lines.length}${made.length ? `&codes=${encodeURIComponent(made.join(","))}` : ""}`,
   );
+}
+
+// P6-01 (Ravi, 18 Oct 2026; mockup approved 1 Nov 2026): an Inventory Manager or System Admin
+// voids a packaging issue with a reason, at any time. void_packaging_issue() (0126) writes the
+// opposite ledger rows, puts the bulk, materials and packed count back, and keeps the issue on
+// the list marked Void. A Production issue is refused once its RM-FP batch has been used.
+export async function voidPackagingIssue(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  const roles = user?.roles ?? [];
+  if (!roles.includes("system_admin") && !roles.includes("inventory_manager")) {
+    return { error: "Your role can't do this. Ask your System Administrator if you need access." };
+  }
+  const reason = String(formData.get("void_reason") || "").trim();
+  const reasonProblem = reasonError(reason, "A reason");
+  if (reasonProblem) return { error: reasonProblem, field: "void_reason" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("void_packaging_issue", { p_id: id, p_reason: reason });
+  if (error) return { error: friendlyDbError(error) };
+  revalidatePath("/packaging");
+  revalidatePath("/finished-product", "layout");
+  revalidatePath("/inventory", "layout");
+  return { success: "Packaging issue voided. Stock has been put back." };
 }

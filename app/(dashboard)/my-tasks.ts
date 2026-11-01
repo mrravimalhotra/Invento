@@ -42,7 +42,7 @@ export async function getMyTaskCounts(
           supabase.from("finished_product_batches").select("id").eq("active", true).eq("status", "approved").order("id").range(from, to)
         ),
         fetchAllRows<{ finished_product_batch_id: string }>((from, to) =>
-          supabase.from("packaging_issues").select("finished_product_batch_id").order("id").range(from, to)
+          supabase.from("packaging_issues").select("finished_product_batch_id").is("voided_at", null).order("id").range(from, to)
         ),
       ]).then(([approved, issues]) => {
         if (approved.error || issues.error) return;

@@ -496,6 +496,7 @@ export async function createProductionQualityCheck(
     .from("production_issue_batches")
     .select("id, item_id, qc_qty, unit")
     .eq("id", productionBatchId)
+    .eq("active", true) // P6-01: a voided issue's RM-FP batch takes no QC
     .maybeSingle();
   if (batchError || !batch) return { error: "Selected batch could not be found." };
 

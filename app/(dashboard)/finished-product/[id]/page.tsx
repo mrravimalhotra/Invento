@@ -157,6 +157,7 @@ export default async function FinishedProductDetailPage({
       .from("packaging_issues")
       .select("id, code, pack_size, unit_count, department, issue_date, fp_qty_consumed")
       .eq("finished_product_batch_id", id)
+      .is("voided_at", null) // P6-01: a voided issue no longer counts
       .order("issue_date", { ascending: false })
       .order("id", { ascending: true })
       .limit(500);

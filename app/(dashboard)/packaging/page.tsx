@@ -29,7 +29,7 @@ export default async function PackagingListPage({
     supabase
       .from("packaging_issues")
       .select(
-        "id, code, pack_size, unit_count, department, created_at, issue_date, finished_product_batches(batch_number, short_batch_no, is_legacy), packaging_issue_items(quantity, unit, items(name, item_code)), production_issue_batches(batch_number, quantity, unit, active, items(item_code))"
+        "id, code, pack_size, unit_count, department, created_at, issue_date, fp_qty_consumed, voided_fp_qty, voided_at, voided_by, void_reason, finished_product_batches(batch_number, short_batch_no, is_legacy, mfr_definitions(items(item_code, name, unit))), packaging_issue_items(quantity, unit, items(name, item_code)), production_issue_batches(batch_number, quantity, unit, active, items(item_code))"
       )
       .order("issue_date", { ascending: false })
       .order("created_at", { ascending: false })
@@ -37,8 +37,16 @@ export default async function PackagingListPage({
       .range(from, to)
   );
 
-  const rows = (data ?? []) as unknown as PackagingRow[];
+  const rows = (data ?? []) as unknown as (PackagingRow & { voided_by: string | null })[];
   const canCreate = canWrite(user?.roles ?? [], "packaging");
+  // P6-01: only an Inventory Manager or System Admin may void; show who voided each issue.
+  const canVoid = (user?.roles ?? []).some((r) => r === "system_admin" || r === "inventory_manager");
+  const voiderIds = [...new Set(rows.map((r) => r.voided_by).filter((v): v is string => !!v))];
+  if (voiderIds.length) {
+    const { data: voiders } = await supabase.from("profiles").select("id, full_name").in("id", voiderIds);
+    const names = new Map((voiders ?? []).map((p) => [p.id, p.full_name as string | null]));
+    for (const r of rows) r.voided_by_name = r.voided_by ? (names.get(r.voided_by) ?? null) : null;
+  }
 
   const pdfRows = rows.map((r) => [
     r.code,
@@ -52,6 +60,7 @@ export default async function PackagingListPage({
     rmFpItemCodesText(r.production_issue_batches),
     rmFpBatchesText(r.production_issue_batches),
     formatDate(r.issue_date),
+    r.voided_at ? `VOID ${formatDate(r.voided_at)}: ${r.void_reason ?? ""}` : "",
   ]);
 
   return (
@@ -77,7 +86,7 @@ export default async function PackagingListPage({
         </p>
       )}
       <Card>
-        <PackagingTable rows={rows} />
+        <PackagingTable rows={rows} canVoid={canVoid} />
       </Card>
     </div>
   );

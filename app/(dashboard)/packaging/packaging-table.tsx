@@ -1,9 +1,11 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { LegacyTag } from "@/components/ui/legacy-tag";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatDate, formatNumber, isLegacyCode, fpBatchBoth, fpBatchShort } from "@/lib/utils";
+import { formatDate, formatNumber, formatQty, isLegacyCode, fpBatchBoth, fpBatchShort } from "@/lib/utils";
+import { VoidIssueBox } from "./void-issue-box";
 import type { TableExport } from "@/lib/table-export";
 import {
   materialsSummary,
@@ -25,14 +27,52 @@ export type PackagingRow = {
   department: string;
   created_at: string;
   issue_date: string;
-  finished_product_batches: { batch_number: string; short_batch_no: string | null; is_legacy: boolean } | null;
+  finished_product_batches: {
+    batch_number: string;
+    short_batch_no: string | null;
+    is_legacy: boolean;
+    mfr_definitions: { items: { item_code: string; name: string; unit: string | null } | null } | null;
+  } | null;
+  // P6-01: bulk used (in the product's unit), and the void, if any.
+  fp_qty_consumed: number | string | null;
+  voided_fp_qty: number | string | null;
+  voided_at: string | null;
+  void_reason: string | null;
+  voided_by_name?: string | null;
   packaging_issue_items: PackagingMaterialRow[] | null;
   production_issue_batches: ProductionIssueBatchRow[] | null;
 };
 
-export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
-  const columns: Column<PackagingRow>[] = [
-    { header: "Code", accessor: (r) => r.code, searchValue: (r) => r.code },
+// P6-01: what a void puts back, listed in the confirmation box.
+function goesBack(r: PackagingRow): string[] {
+  const fp = r.finished_product_batches;
+  const item = fp?.mfr_definitions?.items;
+  const out: string[] = [];
+  if (r.fp_qty_consumed != null && fp) {
+    out.push(
+      `${formatQty(r.fp_qty_consumed)} ${item?.unit ?? ""} of bulk to batch ${fpBatchShort(fp.batch_number, fp.short_batch_no)}${item ? ` (${item.item_code} · ${item.name})` : ""}`
+    );
+  }
+  for (const m of r.packaging_issue_items ?? []) {
+    out.push(`${formatQty(m.quantity)} ${m.unit} × ${m.items?.name ?? "material"} to the batches it came from`);
+  }
+  if (r.department === "production") {
+    out.push("its RM-FP batch leaves stock and its QC record is marked Void (refused if that batch has been used)");
+  } else {
+    out.push(`the ${formatNumber(r.unit_count, 0)} packs are taken off Packaged Finished Product stock`);
+  }
+  return out;
+}
+
+export function PackagingTable({ rows, canVoid = false }: { rows: PackagingRow[]; canVoid?: boolean }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const close = useCallback(() => setOpenId(null), []);
+  const baseColumns: Column<PackagingRow>[] = [
+    {
+      header: "Code",
+      accessor: (r) => (r.voided_at ? <span className="text-muted line-through">{r.code}</span> : r.code),
+      searchValue: (r) => r.code,
+    },
     {
       header: "FP Batch",
       accessor: (r) =>
@@ -74,7 +114,39 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
       searchValue: (r) => rmFpBatchesText(r.production_issue_batches),
     },
     { header: "Issue date", accessor: (r) => formatDate(r.issue_date) },
+    {
+      header: "Status",
+      accessor: (r) =>
+        r.voided_at ? (
+          <div className="min-w-40">
+            <Badge status="voided">Void</Badge>
+            <p className="mt-1 text-xs text-muted">
+              {formatDate(r.voided_at)}
+              {r.voided_by_name ? ` · ${r.voided_by_name}` : ""}:
+              <br />
+              &ldquo;{r.void_reason}&rdquo;
+            </p>
+          </div>
+        ) : canVoid ? (
+          <button
+            type="button"
+            onClick={() => setOpenId(openId === r.id ? null : r.id)}
+            className="text-sm text-red underline hover:opacity-80"
+          >
+            Void
+          </button>
+        ) : (
+          ""
+        ),
+      searchValue: (r) => (r.voided_at ? `void ${r.void_reason ?? ""}` : ""),
+    },
   ];
+  // P6-01: a voided issue's row is greyed out, as in the approved mockup (the Status cell keeps its colours).
+  const columns: Column<PackagingRow>[] = baseColumns.map((c) =>
+    c.header === "Status" || c.header === "Code"
+      ? c
+      : { ...c, accessor: (r: PackagingRow) => (r.voided_at ? <span className="text-muted">{c.accessor(r)}</span> : c.accessor(r)) }
+  );
 
   // Excel of the register (export decision (c), 29 Sept 2026); the PDF button stays on the page.
   const exportConfig: TableExport<PackagingRow> = {
@@ -97,6 +169,7 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
       { header: "RM-FP item code", value: (r) => (r.production_issue_batches?.length ? rmFpItemCodesText(r.production_issue_batches) : "") },
       { header: "RM-FP batch", value: (r) => (r.production_issue_batches?.length ? rmFpBatchesText(r.production_issue_batches) : "") },
       { header: "Issue date", type: "date", value: (r) => r.issue_date },
+      { header: "Status", value: (r) => (r.voided_at ? `Void (${formatDate(r.voided_at)}): ${r.void_reason ?? ""}` : "") },
     ],
   };
 
@@ -109,6 +182,11 @@ export function PackagingTable({ rows }: { rows: PackagingRow[] }) {
       isLegacy={(r) => isLegacyCode(r.finished_product_batches?.batch_number)}
       isOpeningStock={(r) => !!r.finished_product_batches?.is_legacy}
       exportConfig={exportConfig}
+      rowAfter={(r) =>
+        openId === r.id && !r.voided_at ? (
+          <VoidIssueBox id={r.id} code={r.code} goesBack={goesBack(r)} onClose={close} />
+        ) : null
+      }
     />
   );
 }

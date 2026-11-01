@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isReturnTo, loadTableState, saveTableState } from "@/lib/list-memory";
 import { termsIn } from "@/lib/glossary";
@@ -55,6 +55,7 @@ export function DataTable<T>({
   isOpeningStock,
   isInactive,
   exportConfig,
+  rowAfter,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -77,6 +78,8 @@ export function DataTable<T>({
   // matches the search box and the "Hide legacy data" switch (not just the
   // page on screen). See lib/table-export.ts.
   exportConfig?: TableExport<T>;
+  /** P6-01: a full-width row shown under a row (for example a confirmation box); null for none. */
+  rowAfter?: (row: T) => React.ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
@@ -346,15 +349,27 @@ export function DataTable<T>({
                 </td>
               </tr>
             )}
-            {pageRows.map((row, i) => (
-              <tr key={i} className="border-b border-border last:border-0 hover:bg-black/[0.015]">
-                {columns.map((c, ci) => (
-                  <td key={c.header} className={cn("px-4 py-2.5 align-top", ci === 0 && "max-md:sticky max-md:left-0 max-md:bg-card")}>
-                    {c.accessor(row)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {pageRows.map((row, i) => {
+              const after = rowAfter?.(row);
+              return (
+                <Fragment key={i}>
+                  <tr className="border-b border-border last:border-0 hover:bg-black/[0.015]">
+                    {columns.map((c, ci) => (
+                      <td key={c.header} className={cn("px-4 py-2.5 align-top", ci === 0 && "max-md:sticky max-md:left-0 max-md:bg-card")}>
+                        {c.accessor(row)}
+                      </td>
+                    ))}
+                  </tr>
+                  {after != null && after !== false && (
+                    <tr className="border-b border-border">
+                      <td colSpan={columns.length} className="px-4 pb-3">
+                        {after}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
