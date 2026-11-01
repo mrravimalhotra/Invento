@@ -861,3 +861,8 @@ Ravi ran `/code-review high` on the P6-01 commit (`a94fcfa`) and asked to fix al
 - [x] **10. Returned bulk:** the Status cell shows "N unit bulk returned".
 - Checks: type-check, lint, build, 56 unit tests, 48 database suites (new `vr127`, 21 checks; `vp126` updated for the history row); browser check of the Packaging list.
 - Live check (E97): void a test Store issue (as in E96), then open Stock Statement for today: the material shows no Packaging and no Other in for it; on the batch page the issue is listed as Void.
+
+## Pass 128 — security review of P6-01 (1 Nov 2026, no change)
+
+- Manual review (the `security-review` skill cannot start in this checkout) of migrations 0126 and 0127, the Packaging screens and the server action: no high or medium findings. Report: `docs/project/security-review-2026-11-01-p601.md`. One low finding, L1: the void reason has no length limit; cap at 2,000 characters if Ravi agrees (migration 0128).
+- 0127 confirmed live (127 migrations; QC guard trigger and the "voided_with_issue" history event present; `anon` cannot call the void).
