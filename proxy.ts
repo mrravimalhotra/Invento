@@ -7,6 +7,13 @@ export async function proxy(request: NextRequest) {
   return updateSession(request);
 }
 
+// Security review (1 Nov 2026): only the real public files skip the proxy, listed by name.
+// The old rule skipped every address ending in .png, .svg and so on, so a page address
+// such as /items/abc.png bypassed the sign-in check and its x-invento-user-* headers
+// (lib/auth/session.ts trusts them). A new file in /public that is not listed here simply
+// needs sign-in, which fails safe; add it here if it must load before sign-in.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ttf)$).*)"],
+  matcher: [
+    "/((?!_next/static/|_next/image|favicon\\.ico$|manifest\\.webmanifest$|apple-touch-icon\\.png$|atharva-logo\\.svg$|icon-192\\.png$|icon-512\\.png$|icon-maskable-512\\.png$|fonts/).*)",
+  ],
 };

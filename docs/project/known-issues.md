@@ -791,3 +791,10 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 
 - [x] The Audit Log record page and the Certificate page showed two back links: the old "← Back to …" and the UX-16 one from Pass 104. The old one is removed; the remaining link returns to the list as it was left. Found while preparing the P4-09 mockup.
 - Checks: type-check, lint, build.
+
+## Pass 121 — Supabase review: sign-in proxy skipped addresses ending in .png and similar (1 Nov 2026, no migration)
+
+- [x] **Fixed (High).** `proxy.ts` skipped every address ending in an image or font extension, so a page address such as `/items/abc.png` rendered without the sign-in proxy and `getCurrentUser()` trusted a forged `x-invento-user-id` header (shown locally: 200 instead of a redirect). The disabled-account and forced-password checks were skipped the same way. The proxy now skips only the named public files; forged requests redirect to sign-in; the logo, icons, fonts and manifest still load before sign-in. Unit test `tests/unit/proxy-matcher.test.ts`.
+- Review report with the remaining findings (all for Ravi to decide, nothing changed on the database): `docs/project/supabase-review-2026-11-01.md`. Supabase skills installed in `.claude/skills/` (`supabase`, `supabase-postgres-best-practices`, `skills-lock.json`).
+- Checks: type-check, lint, build, 54 unit tests; local request test of 15 addresses.
+- Live check (E92): signed out, open https://invento-atharva.vercel.app/items/abc.png: it goes to the sign-in page; the sign-in page still shows the Atharva logo.
