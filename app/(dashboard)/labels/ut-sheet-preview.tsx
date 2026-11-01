@@ -12,7 +12,7 @@
 // font weights (bold company-name/title lines, regular everywhere else),
 // so this embeds and loads both Liberation Serif weights rather than one.
 import { UT_PREVIEW_WIDTH_PX, UT_PREVIEW_HEIGHT_PX } from "./label-constants";
-import { forwardRef, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 import {
   UT_PAGE_WIDTH_MM,
@@ -84,10 +84,7 @@ function useUtMeasurer() {
   }, []);
 }
 
-export const UtSheetPreview = forwardRef<HTMLDivElement, { fields: LabelField[] }>(function UtSheetPreview(
-  { fields },
-  ref
-) {
+export function UtSheetPreview({ fields }: { fields: LabelField[] }) {
   const measurer = useUtMeasurer();
   const lines = useMemo(() => buildUtLines(fields, measurer), [fields, measurer]);
   useEffect(() => {
@@ -111,7 +108,6 @@ export const UtSheetPreview = forwardRef<HTMLDivElement, { fields: LabelField[] 
 
   return (
     <div
-      ref={ref}
       style={{
         position: "relative",
         width: UT_PREVIEW_WIDTH_PX,
@@ -215,4 +211,4 @@ export const UtSheetPreview = forwardRef<HTMLDivElement, { fields: LabelField[] 
       ))}
     </div>
   );
-});
+}

@@ -16,7 +16,7 @@
 // `opts` prop, mirroring downloadFpIpLabel's own `opts` in
 // generate-label-pdf.ts).
 import { FPIP_PREVIEW_WIDTH_PX, FPIP_PREVIEW_HEIGHT_PX } from "./label-constants";
-import { forwardRef, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 import {
   FPIP_PAGE_WIDTH_MM,
@@ -93,10 +93,7 @@ export type FpIpSheetPreviewProps = {
   cellHeightMm: number;
 };
 
-export const FpIpSheetPreview = forwardRef<HTMLDivElement, FpIpSheetPreviewProps>(function FpIpSheetPreview(
-  { fields, title, fieldPrefix, cellHeightMm },
-  ref
-) {
+export function FpIpSheetPreview({ fields, title, fieldPrefix, cellHeightMm }: FpIpSheetPreviewProps) {
   const measurer = useFpIpMeasurer();
   const lines = useMemo(
     () => buildFpIpLines(fields, measurer, { title, fieldPrefix }),
@@ -124,7 +121,6 @@ export const FpIpSheetPreview = forwardRef<HTMLDivElement, FpIpSheetPreviewProps
 
   return (
     <div
-      ref={ref}
       style={{
         position: "relative",
         width: FPIP_PREVIEW_WIDTH_PX,
@@ -221,7 +217,7 @@ export const FpIpSheetPreview = forwardRef<HTMLDivElement, FpIpSheetPreviewProps
       ))}
     </div>
   );
-});
+}
 
 // Every FP/IP line is FPIP_FONT_SIZE_PT (11pt) — no mixed sizes the way
 // RM has — but the line's own `sizePt` (or its first run's) is read here

@@ -19,7 +19,7 @@
 // from the same base64 data, so the on-screen preview uses the identical
 // typeface as the PDF rather than a browser default.
 import { RM_PREVIEW_WIDTH_PX, RM_PREVIEW_HEIGHT_PX } from "./label-constants";
-import { forwardRef, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 import {
   RM_PAGE_WIDTH_MM,
@@ -99,10 +99,7 @@ function useRmMeasurer() {
   }, []);
 }
 
-export const RmSheetPreview = forwardRef<HTMLDivElement, { fields: LabelField[] }>(function RmSheetPreview(
-  { fields },
-  ref
-) {
+export function RmSheetPreview({ fields }: { fields: LabelField[] }) {
   const measurer = useRmMeasurer();
   const lines = useMemo(() => buildRmLines(fields, measurer), [fields, measurer]);
   // Start loading Carlito as soon as this preview is on screen, well
@@ -128,7 +125,6 @@ export const RmSheetPreview = forwardRef<HTMLDivElement, { fields: LabelField[] 
 
   return (
     <div
-      ref={ref}
       style={{
         position: "relative",
         width: RM_PREVIEW_WIDTH_PX,
@@ -186,4 +182,4 @@ export const RmSheetPreview = forwardRef<HTMLDivElement, { fields: LabelField[] 
       ))}
     </div>
   );
-});
+}

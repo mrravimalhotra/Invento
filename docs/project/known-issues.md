@@ -820,3 +820,11 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - [x] **Label Printing:** opens with 0.14 MB of script instead of about 2.4 MB; the preview ("Loading preview…" for a moment) and the PDF code load when needed. Layout values moved unchanged to `label-constants.ts`.
 - Checks: type-check, lint, build, 54 unit tests; moved label values compared equal (17); moved MFR PDF code compared line by line; previews rendered after lazy loading at the old sizes (794 × 1123 and 816 × 1344 px); script loaded on open measured per page from the build.
 - Live check (E94): Dashboard, Label Printing (pick a batch: preview appears, Download gives the same PDF as before), MFR report (Download PDF works).
+
+## Pass 124 — Component structure review and two tidy-ups (1 Nov 2026, no migration)
+
+- Review with Vercel's `vercel-composition-patterns` skill; report `docs/project/composition-review-2026-11-01.md`. Overall healthy: no component steered by a pile of on/off switches, New and Edit forms already separate, no deep state passing.
+- [x] C1: the packaging materials box lost its unused full-table layout and the `compact` switch (about 90 lines; its only user always used the stacked layout). Nothing on screen changes.
+- [x] C2: the three label previews dropped `forwardRef` (not needed in React 19; no caller passed a ref).
+- Checks: type-check, lint, build, 54 unit tests; browser check: materials box add / fill / remove keeps the same form field names; previews render at the same sizes.
+- Live check: covered by E94 (Label Printing preview) and a Store packaging issue with two materials.

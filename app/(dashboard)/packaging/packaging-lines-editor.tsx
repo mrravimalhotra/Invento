@@ -298,7 +298,6 @@ export function PackagingLinesEditor({
                     <PackagingMaterialsEditor
                       packagingItems={packagingItems}
                       namePrefix={`ln${i}_`}
-                      compact
                       onLinesChange={(mats) => update(l.key, { mats })}
                       shortItems={matShort}
                     />
