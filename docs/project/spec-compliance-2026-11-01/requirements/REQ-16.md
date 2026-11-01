@@ -35,7 +35,7 @@ if old.status in ('checker_approved', 'checker_rejected') and new.status in ('ap
 App layer: `reviewQcRound2` reads `existing.checker_by` and refuses the same person (lib/actions/qc.ts:L320-L324); the page hides the Round 2 forms from the Round 1 decider (app/(dashboard)/qc/[id]/page.tsx:L164, L248, L256, L276, L293). `sendBackQcRejection` has no app-level same-person check but the trigger covers send-back (0126:L81 includes `'submitted'`).
 
 Stale-state ("the state the page showed"):
-- Round 1: update filtered `.eq("status", "submitted")` (qc.ts:L190), empty result -> "Someone else has just made this decision" (L192). The Round 1 form is only shown on `submitted` (page.tsx:L196). ✓
+- Round 1: update filtered `.eq("status", "submitted")` (qc.ts:L190), empty result -> "Someone else has just made this decision" (L193). The Round 1 form is only shown on `submitted` (page.tsx:L196). ✓
 - Send back: `.eq("status", "checker_rejected")` (qc.ts:L364). ✓  Void: `.eq("status", "rejected")` (qc.ts:L389). ✓
 - Round 2: the expected status is **re-read inside the action** (qc.ts:L231-L240) and the update filters on that fresh value, `.eq("status", existing.status)` (qc.ts:L339). No form posts the status the page showed (no hidden field in qc-reviewer-form.tsx or qc-rejection-forms.tsx:L47-L65; only `status` = the chosen outcome). ✗ for one path, below.
 
@@ -48,7 +48,7 @@ Stale-state ("the state the page showed"):
   - Round 1 via the app (checker_by = self), then Round 2 as `update quality_checks set status='approved', checker_by=null, review_comments='...', expiry_date=..., retest_period_days=... where id=...`. `new.checker_by is not null` is false at 0126:L85, so the check is skipped; the role check passes; the record is approved by one person. ✗
   - Or Round 1 with `checker_by` set to a colleague's id, then Round 2 normally. ✗
   - What remains: `qc_decision_history.decided_by = auth.uid()` (0127_void_review_fixes.sql:L51-L52) and the audit log record the real actor for both rounds, so it is detectable afterwards, not prevented.
-- Round 2 stale page, proposed rejection: Reviewer A opens a `checker_rejected` record (ProposedRejectionForm). Reviewer B sends it back; the Checker re-decides it `checker_approved`. A presses "Yes, reject the batch": the action reads `checker_approved` (qc.ts:L231-L240), `checker_approved` -> `rejected` is legal (0126:L81), and the update matches `existing.status` (L339). If Round 1 recorded results, the confirm form sends none, so `checkResultsAgainstTemplate([], round1, false)` refuses with "The test list does not match the COA template" (lib/qc-results.ts:L53-L55) and nothing saves. If Round 1 has no results (Production raw material, where results are not required, 0126:L32), the rejection saves on a record A never saw approved. ✗
+- Round 2 stale page, proposed rejection: Reviewer A opens a `checker_rejected` record (ProposedRejectionForm). Reviewer B sends it back; the Checker re-decides it `checker_approved`. A presses "Yes, reject the batch": the action reads `checker_approved` (qc.ts:L231-L240), `checker_approved` -> `rejected` is legal (0126:L81), and the update matches `existing.status` (L339). If Round 1 recorded results, the confirm form sends none, so `checkResultsAgainstTemplate([], round1, false)` refuses with "The test list does not match the COA template" (lib/qc-results.ts:L53-L55) and nothing saves. If Round 1 has no results (Production raw material, where results are not required, 0126:L33), the rejection saves on a record A never saw approved. ✗
 - Round 2 stale page from `checker_approved`: the record cannot leave `checker_approved` except to a final state (0126:L81, L149), so a stale page there is caught by the status filter. ✓
 - Void on a stale page: only an A-B-A cycle (void, new Round 1 and Round 2, rejected again) leaves the filter at `rejected` matching a later rejection. Needs a full second decision cycle in between.
 
@@ -60,7 +60,7 @@ Stale-state ("the state the page showed"):
 - `policy.*quality_checks` -> qc_select, qc_insert (0001, 0003), qc_update (0001:L317)
 - triggers `on public.quality_checks` in fresh-install.sql -> the 11 listed above; none stamps checker_by
 - `checker_by|reviewed_by|.eq("status"` in lib/actions/qc.ts -> L184, L190, L233, L286, L320, L334, L339, L364, L389
-- `hidden` in qc-checker-form.tsx, qc-reviewer-form.tsx, qc-rejection-forms.tsx -> only `name="status"` (the outcome) at qc-rejection-forms.tsx:L53; no expected-state field
+- `hidden` in qc-checker-form.tsx, qc-reviewer-form.tsx, qc-rejection-forms.tsx -> only `name="status"` (the outcome) at qc-rejection-forms.tsx:L54; no expected-state field
 - `different person|same person|checker_by=null` in supabase/tests -> 0 hits; no DB suite tests the same-person rule
 
 ---
