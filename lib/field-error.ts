@@ -53,7 +53,8 @@ export function markFieldError(form: HTMLFormElement, field: string, message: st
     target.insertAdjacentElement("afterend", msg);
   }
   target.focus({ preventScroll: true });
-  target.scrollIntoView({ block: "center", behavior: "smooth" });
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
   const clear = () => {
     clearFieldErrors(form);
     form.removeEventListener("input", clear, true);

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Eye, EyeOff } from "lucide-react";
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { InfoHint } from "@/components/ui/term-hint";
 import type { ComponentProps, InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 
@@ -54,9 +54,21 @@ export function Field({
 
 // Number boxes open the phone's number pad: whole-number steps get digits only,
 // everything else digits with a decimal point. An explicit inputMode wins.
-export function Input({ className, inputMode, ...props }: ComponentProps<"input">) {
+// autoFocus (web-design-guidelines review, 1 Nov 2026): only where there is a mouse or
+// trackpad. On a phone, putting the cursor in a box on open pops the keyboard over the form.
+export function Input({ className, inputMode, autoFocus, ref, ...props }: ComponentProps<"input">) {
   const mode = inputMode ?? (props.type === "number" ? (props.step === "1" || props.step === 1 ? "numeric" : "decimal") : undefined);
-  return <input className={cn(fieldBase, className)} inputMode={mode} {...props} />;
+  const setRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      if (typeof ref === "function") ref(el);
+      else if (ref) ref.current = el;
+      if (el && autoFocus && window.matchMedia("(pointer: fine)").matches) el.focus();
+    },
+    // The box is focused once, when it first appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+  return <input ref={setRef} className={cn(fieldBase, className)} inputMode={mode} {...props} />;
 }
 
 export function PasswordInput({ className, id, ...props }: ComponentProps<"input">) {

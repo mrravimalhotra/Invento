@@ -49,7 +49,7 @@ export default async function CompanyPage() {
           <CardBody>
             <div className="flex flex-col items-center gap-1 rounded-md border border-border p-4 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`data:image/png;base64,${ATHARVA_LOGO_PNG_BASE64}`} alt="" className="h-14 w-auto" />
+              <img src={`data:image/png;base64,${ATHARVA_LOGO_PNG_BASE64}`} alt="Atharva Nature Healthcare" width={362} height={181} className="h-14 w-auto" />
               <p className="text-base font-semibold">{company.name}</p>
               <p className="text-xs text-muted">{addressAndLicenceLine(company)}</p>
             </div>

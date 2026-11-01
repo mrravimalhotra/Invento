@@ -798,3 +798,15 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - Review report with the remaining findings (all for Ravi to decide, nothing changed on the database): `docs/project/supabase-review-2026-11-01.md`. Supabase skills installed in `.claude/skills/` (`supabase`, `supabase-postgres-best-practices`, `skills-lock.json`).
 - Checks: type-check, lint, build, 54 unit tests; local request test of 15 addresses.
 - Live check (E92): signed out, open https://invento-atharva.vercel.app/items/abc.png: it goes to the sign-in page; the sign-in page still shows the Atharva logo.
+
+## Pass 122 — Web-design-guidelines review and fixes (1 Nov 2026, no migration)
+
+- Review with Vercel's `web-design-guidelines` skill (installed in `.claude/skills/` from `vercel-labs/agent-skills`; it checks the code against Vercel's published Web Interface Guidelines). Already in order: no "...", no `transition: all`, zoom not blocked, paste not blocked, skip link, every icon-only button named, notices announced (`role="status"` / `"alert"`), field errors inline and focused (UX-14), unsaved-changes warning (UX-09), confirm before irreversible saves (UX-13), example text in boxes.
+- [x] Ravi chose all four fixes:
+  - **Keyboard focus ring:** buttons and links reached with Tab show a 2 px green ring (not on a mouse click). Before: a 1 px near-white outline, almost invisible on green buttons.
+  - **Numbers line up:** figures in every table cell use equal-width digits.
+  - **No keyboard pop-up on phones:** the 11 forms that put the cursor in the first box on open now do so only with a mouse or trackpad (`Input`); the feedback edit box (opened by a click) keeps it.
+  - **Polish:** spinner and all transitions stop for people who turn motion off; the field-error scroll (UX-14) jumps instead of gliding for them; no double-tap zoom wait on phones; the two logo images get their size and a name.
+- Not applied, conflict with Ravi's decisions: Title Case on buttons (UX-07 sentence case), locale date formats (UX-10 dd-mm-yyyy), filters in the address bar (UX-16 list memory).
+- Checks: type-check, lint, build, 54 unit tests; browser check (green ring on Tab, none on click; cursor on open on desktop, not on a phone; tabular figures; reduced motion).
+- Live check (E93): press Tab on any form: each button shows a green ring; open New item on a phone: the keyboard does not pop up until a box is tapped.

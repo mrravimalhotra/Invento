@@ -73,3 +73,28 @@ body {
 .guide th, .guide td { border: 1px solid var(--color-border); padding: 0.3rem 0.5rem; text-align: left; vertical-align: top; }
 .guide th { background: var(--color-brand-light); }
 .guide hr { display: none; }
+
+/* Web-design-guidelines review (1 Nov 2026). */
+/* A clear ring when buttons and links are reached with the keyboard (not on a mouse click).
+   Boxes keep their own focus ring. */
+:where(a, button, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+/* Figures in tables line up from row to row. */
+td {
+  font-variant-numeric: tabular-nums;
+}
+/* No double-tap zoom wait on phones. */
+a, button, input, select, textarea, label, summary, [role="button"] {
+  touch-action: manipulation;
+}
+/* People who turn off motion in their system settings see no sliding or fading. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

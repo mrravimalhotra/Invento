@@ -34,7 +34,7 @@ export function PageLoading({ label = "Loading…" }: { label?: string }) {
       role="status"
       aria-live="polite"
     >
-      <Loader2 className="h-6 w-6 animate-spin text-brand" aria-hidden />
+      <Loader2 className="h-6 w-6 animate-spin text-brand motion-reduce:animate-none" aria-hidden />
       <p className="text-sm">{label}</p>
     </div>
   );

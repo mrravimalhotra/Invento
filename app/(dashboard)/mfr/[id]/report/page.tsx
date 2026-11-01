@@ -99,7 +99,7 @@ export default async function MfrReportPage({ params }: { params: Promise<{ id: 
         <CardBody>
           <div className="flex flex-col items-center border-b border-brand pb-2 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`data:image/png;base64,${ATHARVA_LOGO_PNG_BASE64}`} alt="" className="h-12 w-auto" />
+            <img src={`data:image/png;base64,${ATHARVA_LOGO_PNG_BASE64}`} alt="Atharva Nature Healthcare" width={362} height={181} className="h-12 w-auto" />
             <p className="mt-1 text-lg font-semibold text-brand-dark">{company.name}</p>
             <p className="text-xs text-muted">{addressAndLicenceLine(company)}</p>
           </div>
