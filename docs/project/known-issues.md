@@ -866,3 +866,10 @@ Ravi ran `/code-review high` on the P6-01 commit (`a94fcfa`) and asked to fix al
 
 - Manual review (the `security-review` skill cannot start in this checkout) of migrations 0126 and 0127, the Packaging screens and the server action: no high or medium findings. Report: `docs/project/security-review-2026-11-01-p601.md`. One low finding, L1: the void reason has no length limit; cap at 2,000 characters if Ravi agrees (migration 0128).
 - 0127 confirmed live (127 migrations; QC guard trigger and the "voided_with_issue" history event present; `anon` cannot call the void).
+
+## Pass 129 — spec-to-code compliance review of Packaging and QC (1 Nov 2026, no change)
+
+- Trail of Bits `spec-to-code-compliance` run by hand with sub-agents (21 requirements, 8 checkers, 4 refuters reproducing every medium/high divergence on a throwaway local database). Report: `docs/project/spec-compliance-2026-11-01/REPORT.md`. 10 implemented, 11 partial, none contradicted or absent.
+- Confirmed (all need a signed-in user with the role calling the database directly; screens enforce the rules): **high** REQ-16 a user with both QC roles can approve alone by sending checker_by null; **medium** REQ-13 a Quality Checker can insert a QC record already Approved, or approve with invented results; REQ-14 reviewer results and certificates not tied to QC's results in the database; REQ-06 packaging on unapproved batches; REQ-07 material added to a voided issue never returned; REQ-03 voided issue still shown in a backward trace, pre-voided rows; REQ-17/18 Round 2 expiry and retest-period rules, edits after approval and the opening-stock loader not checked by the database.
+- Low and document findings listed in the report (confirm box wording since P6-01, status names in four places, send-back without confirmation, old repack/unpack issues cannot be voided). For Ravi to decide which to fix.
+- Skills installed: `spec-to-code-compliance`, `differential-review`, `variant-analysis`, `supply-chain-risk-auditor` (Trail of Bits).
