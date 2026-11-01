@@ -64,6 +64,9 @@ function goesBack(r: PackagingRow): string[] {
   return out;
 }
 
+// Positions in baseColumns of the columns that draw a voided row themselves: Code (0) and Status (last).
+const CODE_COL = 0;
+
 export function PackagingTable({ rows, canVoid = false }: { rows: PackagingRow[]; canVoid?: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const close = useCallback(() => setOpenId(null), []);
@@ -121,6 +124,12 @@ export function PackagingTable({ rows, canVoid = false }: { rows: PackagingRow[]
           <div className="min-w-40">
             <Badge status="voided">Void</Badge>
             <p className="mt-1 text-xs text-muted">
+              {r.voided_fp_qty != null && (
+                <>
+                  {formatQty(r.voided_fp_qty)} {r.finished_product_batches?.mfr_definitions?.items?.unit ?? ""} bulk returned
+                  <br />
+                </>
+              )}
               {formatDate(r.voided_at)}
               {r.voided_by_name ? ` · ${r.voided_by_name}` : ""}:
               <br />
@@ -141,9 +150,11 @@ export function PackagingTable({ rows, canVoid = false }: { rows: PackagingRow[]
       searchValue: (r) => (r.voided_at ? `void ${r.void_reason ?? ""}` : ""),
     },
   ];
-  // P6-01: a voided issue's row is greyed out, as in the approved mockup (the Status cell keeps its colours).
-  const columns: Column<PackagingRow>[] = baseColumns.map((c) =>
-    c.header === "Status" || c.header === "Code"
+  const OWN_VOID_STYLE = new Set([CODE_COL, baseColumns.length - 1]);
+  // P6-01: a voided issue's row is greyed out, as in the approved mockup. Columns that style a
+  // voided row themselves (Code, Status) are listed in OWN_VOID_STYLE by their position in baseColumns.
+  const columns: Column<PackagingRow>[] = baseColumns.map((c, i) =>
+    OWN_VOID_STYLE.has(i)
       ? c
       : { ...c, accessor: (r: PackagingRow) => (r.voided_at ? <span className="text-muted">{c.accessor(r)}</span> : c.accessor(r)) }
   );

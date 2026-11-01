@@ -44,6 +44,8 @@ export const MODULE_WRITE_ROLES = {
   finished_product: ["system_admin", "mfr_manager", "inventory_manager"],
   bmr: ["system_admin", "mfr_manager", "quality_checker", "qc_reviewer"],
   packaging: ["system_admin", "inventory_manager", "mfr_manager"],
+  // P6-01 (0126): who may void a packaging issue; void_packaging_issue() checks the same roles.
+  packaging_void: ["system_admin", "inventory_manager"],
   coa: ["system_admin", "quality_checker", "qc_reviewer"],
   line_clearance: ["system_admin", "quality_checker", "qc_reviewer", "mfr_manager"],
   environmental_control: ["system_admin", "quality_checker", "qc_reviewer", "mfr_manager"],

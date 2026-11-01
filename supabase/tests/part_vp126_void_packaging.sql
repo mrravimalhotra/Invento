@@ -121,7 +121,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1'
 select t_ok('System Admin voids the 6 kg Production issue', $q$select void_packaging_issue((select pi.id from packaging_issues pi join production_issue_batches pb on pb.packaging_issue_id = pi.id limit 1), 'Issued the wrong batch')$q$);
 select t_check('its RM-FP batch left stock (inactive, nothing remaining)', (select not active and live_remaining_qty = 0 from production_issue_batches limit 1));
 select t_check('the RM-FP item has nothing on hand', (select t_oh(item_id) from production_issue_batches limit 1) = 0);
-select t_check('its open QC record is now voided, with the reason', (select status = 'voided' and void_reason like 'Void of %: Issued the wrong batch' from quality_checks where id='00000000-0000-0000-0000-0000000000f9'));
+select t_check('its open QC record is now voided, with the reason in its decision history', (select status = 'voided' from quality_checks where id='00000000-0000-0000-0000-0000000000f9') and exists (select 1 from qc_decision_history where quality_check_id='00000000-0000-0000-0000-0000000000f9' and event='voided_with_issue' and reason like 'Void of %: Issued the wrong batch'));
 select t_check('all 11 kg of bulk is back on FP-1', t_bulk('FP-1') = (select bulk from t_before) + 11);
 select t_check('Stock Position parts add up for the RM-FP item', (select t_parts_ok(item_id) from production_issue_batches limit 1));
 select t_fail('a voided QC record cannot change again', $q$update quality_checks set status='approved', review_comments='late' where id='00000000-0000-0000-0000-0000000000f9'$q$, 'voided with its packaging issue');

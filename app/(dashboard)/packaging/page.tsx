@@ -40,7 +40,7 @@ export default async function PackagingListPage({
   const rows = (data ?? []) as unknown as (PackagingRow & { voided_by: string | null })[];
   const canCreate = canWrite(user?.roles ?? [], "packaging");
   // P6-01: only an Inventory Manager or System Admin may void; show who voided each issue.
-  const canVoid = (user?.roles ?? []).some((r) => r === "system_admin" || r === "inventory_manager");
+  const canVoid = canWrite(user?.roles ?? [], "packaging_void");
   const voiderIds = [...new Set(rows.map((r) => r.voided_by).filter((v): v is string => !!v))];
   if (voiderIds.length) {
     const { data: voiders } = await supabase.from("profiles").select("id, full_name").in("id", voiderIds);

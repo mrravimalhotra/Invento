@@ -429,8 +429,7 @@ async function saveProductionIssues(formData: FormData, issueDate: string): Prom
 // the list marked Void. A Production issue is refused once its RM-FP batch has been used.
 export async function voidPackagingIssue(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  const roles = user?.roles ?? [];
-  if (!roles.includes("system_admin") && !roles.includes("inventory_manager")) {
+  if (!canWrite(user?.roles ?? [], "packaging_void")) {
     return { error: "Your role can't do this. Ask your System Administrator if you need access." };
   }
   const reason = String(formData.get("void_reason") || "").trim();

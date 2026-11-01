@@ -844,3 +844,20 @@ Suggested order if Ravi takes any up: UX-05 and UX-07 (wording only, low risk), 
 - App: the batch page's After completion card and the My tasks "not yet packed" count skip voided issues; QC can't be started on a voided issue's RM-FP batch. Shared table gained an optional row under a row (`rowAfter`).
 - Checks: type-check, lint, build, 54 unit tests, 46 database suites (new `vp126`, 37 checks: roles, reason, Store void restores bulk / jars / packed count / on hand with one opposite row each, Stock Position parts balance, Batch Trace skips it, Production void, QC record voided and frozen, used RM-FP refused, no new Stock Integrity problems; `sb` caught the lost security-invoker option before delivery); browser check of the list, the box and a voided row against the mockup.
 - Live check (E96): Packaging → Void on a test Store issue → reason → Yes, void: the row shows Void with your name and reason; the batch's bulk left and the packaging material's stock go back up; Stock Integrity Check stays green.
+
+## Pass 127 — code review of P6-01: ten fixes (1 Nov 2026, migration 0127)
+
+Ravi ran `/code-review high` on the P6-01 commit (`a94fcfa`) and asked to fix all ten findings.
+
+- [x] **1. QC audit trail:** voiding an RM-FP QC record no longer overwrites its own fields (an earlier rejection void stays as it was); the decision history gets a new **"Voided with its packaging issue"** row with who, when and the reason.
+- [x] **2. Rejected material:** material returned to a purchase batch that QC has since rejected is booked straight back out as QC rejected, so it never shows as usable stock (Stock Position's Rejected figure grows instead).
+- [x] **3. Stock Statement:** counts each movement type in both directions, like Stock Position, so a void lowers Packaging / Samples / Produced instead of showing as Other in / Other out. Sample returns now also net in Samples instead of Other in.
+- [x] **4. Legacy unpack:** the packed count is reversed with the right sign for an old "unpack" issue.
+- [x] **5. RM yield:** reversed batch by batch, each for its own quantity.
+- [x] **6. Database guard:** a new QC record on a voided RM-FP batch is refused by the database, not only by the screen.
+- [x] **7. Batch page:** a voided issue stays in the batch's packing list, struck through with a Void badge, date, reason and the bulk returned; it no longer counts in the After completion figures or the step strip's Packed.
+- [x] **8. One role rule:** `packaging_void` in `MODULE_WRITE_ROLES` (System Admin, Inventory Manager) used by the page and the action; the database checks the same roles. Unit test.
+- [x] **9. Greying:** voided rows are greyed by column position, not by heading text.
+- [x] **10. Returned bulk:** the Status cell shows "N unit bulk returned".
+- Checks: type-check, lint, build, 56 unit tests, 48 database suites (new `vr127`, 21 checks; `vp126` updated for the history row); browser check of the Packaging list.
+- Live check (E97): void a test Store issue (as in E96), then open Stock Statement for today: the material shows no Packaging and no Other in for it; on the batch page the issue is listed as Void.

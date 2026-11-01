@@ -93,4 +93,6 @@ export const QC_EVENT_LABELS: Record<string, string> = {
   round2_approved: "Round 2: approved",
   round2_rejected: "Round 2: rejected",
   voided: "Rejection voided",
+  // P6-01 (0127): the RM-FP batch's packaging issue was voided.
+  voided_with_issue: "Voided with its packaging issue",
 };

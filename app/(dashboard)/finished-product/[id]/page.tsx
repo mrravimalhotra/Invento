@@ -149,15 +149,18 @@ export default async function FinishedProductDetailPage({
     department: string | null;
     issue_date: string | null;
     fp_qty_consumed: string | number | null;
+    // P6-01: a voided run stays listed, marked Void, and no longer counts.
+    voided_at: string | null;
+    void_reason: string | null;
+    voided_fp_qty: string | number | null;
   };
   let packingRuns: PackingRun[] = [];
   let packingLoadFailed = false;
   if (bmrEligible) {
     const { data: runs, error: runsError } = await supabase
       .from("packaging_issues")
-      .select("id, code, pack_size, unit_count, department, issue_date, fp_qty_consumed")
+      .select("id, code, pack_size, unit_count, department, issue_date, fp_qty_consumed, voided_at, void_reason, voided_fp_qty")
       .eq("finished_product_batch_id", id)
-      .is("voided_at", null) // P6-01: a voided issue no longer counts
       .order("issue_date", { ascending: false })
       .order("id", { ascending: true })
       .limit(500);
@@ -171,7 +174,7 @@ export default async function FinishedProductDetailPage({
     qcSample: batch.qc_sample_qty,
     stability: batch.stability_qty,
     rnd: batch.rnd_qty,
-    issuedInItemUnit: packingRuns.map((r) => Number(r.fp_qty_consumed ?? 0)),
+    issuedInItemUnit: packingRuns.filter((r) => !r.voided_at).map((r) => Number(r.fp_qty_consumed ?? 0)),
   });
   const DEPARTMENT_LABELS: Record<string, string> = { production: "Production", rnd: "R&D", store: "Store" };
 
@@ -188,7 +191,7 @@ export default async function FinishedProductDetailPage({
           </div>
         }
       />
-      <WorkflowStrip workflow={fpWorkflow(batch.status, latestQc?.status, packingRuns.length > 0)} />
+      <WorkflowStrip workflow={fpWorkflow(batch.status, latestQc?.status, packingRuns.some((r) => !r.voided_at))} />
 
       <div className="grid gap-6">
         <Card>
@@ -373,14 +376,28 @@ export default async function FinishedProductDetailPage({
                       </thead>
                       <tbody>
                         {packingRuns.map((r) => (
-                          <tr key={r.id} className="border-b border-border last:border-0">
-                            <td className="py-1.5 pr-4 font-mono text-xs">{r.code ?? "—"}</td>
+                          <tr key={r.id} className={`border-b border-border last:border-0 ${r.voided_at ? "text-muted" : ""}`}>
+                            <td className="py-1.5 pr-4 font-mono text-xs">
+                              <span className={r.voided_at ? "line-through" : undefined}>{r.code ?? "—"}</span>
+                              {r.voided_at && (
+                                <span className="ml-2 font-sans">
+                                  <Badge status="voided">Void</Badge>{" "}
+                                  <span className="text-xs">
+                                    {formatDate(r.voided_at)}: &ldquo;{r.void_reason}&rdquo;
+                                  </span>
+                                </span>
+                              )}
+                            </td>
                             <td className="py-1.5 pr-4">{formatDate(r.issue_date)}</td>
                             <td className="py-1.5 pr-4">{r.department ? DEPARTMENT_LABELS[r.department] ?? r.department : "—"}</td>
                             <td className="py-1.5 pr-4">{r.pack_size ?? "—"}</td>
                             <td className="py-1.5 pr-4">{r.unit_count ?? "—"}</td>
                             <td className="py-1.5">
-                              {r.fp_qty_consumed != null ? `${formatQty(r.fp_qty_consumed)} ${fpItem?.unit ?? ""}` : "—"}
+                              {r.voided_at
+                                ? `${formatQty(r.voided_fp_qty)} ${fpItem?.unit ?? ""} (returned)`
+                                : r.fp_qty_consumed != null
+                                  ? `${formatQty(r.fp_qty_consumed)} ${fpItem?.unit ?? ""}`
+                                  : "—"}
                             </td>
                           </tr>
                         ))}
