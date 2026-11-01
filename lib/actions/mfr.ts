@@ -102,7 +102,7 @@ export async function createMfrDefinition(_prev: ActionState, formData: FormData
   const coaLines = coaParsed;
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
 
@@ -161,7 +161,7 @@ export async function updateMfrLines(id: string, _prev: ActionState, formData: F
   const lines = linesOrError;
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_mfr_recipe", {
@@ -235,7 +235,7 @@ export async function updateMfrProcedure(id: string, _prev: ActionState, formDat
   }
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_mfr_procedure", {
@@ -278,7 +278,7 @@ export async function deleteMfrDefinition(id: string, _prev: ActionState, _formD
       // first."
       return {
         error:
-          "Can't delete — this MFR has finished product batches on file. Deactivate it instead.",
+          "Can't delete: this MFR has finished product batches on file. Deactivate it instead.",
       };
     }
     return { error: friendlyDbError(error) };
@@ -299,7 +299,7 @@ export async function deleteMfrDefinition(id: string, _prev: ActionState, _formD
 // mfr_manager doesn't need an admin's help to do it.
 export async function setMfrActive(id: string, active: boolean, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("mfr_definitions").update({ active }).eq("id", id);
@@ -333,7 +333,7 @@ export async function setMfrActive(id: string, active: boolean, _prev: ActionSta
 export async function approveMfrDefinition(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in." };
-  if (!canWrite(user.roles, "mfr")) return { error: "Not authorized." };
+  if (!canWrite(user.roles, "mfr")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("approve_mfr_definition", { p_id: id });

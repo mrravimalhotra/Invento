@@ -35,7 +35,7 @@ type PurchaseOrderPayload = {
 
 export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const loaded = await loadSheetOrError(formData, PURCHASE_COLUMNS, "purchase");
   if ("error" in loaded) return { error: loaded.error };
@@ -327,7 +327,7 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
   });
 
   if (rowErrors.length > 0) {
-    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""}. Nothing was imported.`, rowErrors };
   }
 
   const payload = Array.from(groups.values()).map((g) => g.def);
@@ -337,7 +337,7 @@ export async function bulkUploadPurchase(_prev: BulkUploadState, formData: FormD
   if (error) {
     if (error.code === "23505") {
       return {
-        error: "Two lines in this file needed the same auto-generated batch number at once — please try uploading again.",
+        error: "Two lines in this file needed the same auto-generated batch number at once. Please try uploading again.",
       };
     }
     return { error: friendlyDbError(error, "Nothing was imported — the purchase order upload failed.") };

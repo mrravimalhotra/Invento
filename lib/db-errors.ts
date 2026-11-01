@@ -51,7 +51,7 @@ export function friendlyDbError(error: ErrorLike, fallback: string = GENERIC): s
 // Plain-language reason for a code we have no exact wording for.
 function explainFamily(code: string): string {
   if (code.startsWith("PGRST")) {
-    return "The app asked the database for something it doesn't have — this usually means a database update hasn't been applied yet. Please tell your administrator, or report it with the Feedback button.";
+    return "The database is missing something the app needs, usually because an update hasn't been applied. Tell your administrator or use the Feedback button.";
   }
   switch (code.slice(0, 2)) {
     case "08":
@@ -62,7 +62,7 @@ function explainFamily(code: string): string {
     case "42":
       return "This feature needs a database update that hasn't been applied yet. Please tell your administrator, or report it with the Feedback button.";
     case "22":
-      return "One of the values isn't acceptable — please check the numbers, dates and texts you entered.";
+      return "One of the values isn't acceptable. Please check the numbers, dates and texts you entered.";
     case "23":
       return "The data conflicts with existing records or rules. Please check it and try again.";
     default:
@@ -78,7 +78,7 @@ function mapKnown(code: string, message: string): string | null {
       if (/row-level security|permission denied/i.test(message)) return "You don't have permission to do that. Ask an administrator if you need access.";
       return message || "You don't have permission to do that.";
     case "23505":
-      return "That already exists — a record with the same code, number or name is already saved.";
+      return "That already exists. A record with the same code, number or name is already saved.";
     case "23503":
       if (/update or delete on/i.test(message)) {
         return "This record is still used elsewhere (for example by a purchase, QC check or batch), so it can't be removed.";
@@ -89,19 +89,19 @@ function mapKnown(code: string, message: string): string | null {
       if (/_limit"/.test(message)) {
         return "A quantity, price or text is above the largest value the app accepts. Check for an extra zero, or shorten an over-long text.";
       }
-      return "One of the values isn't allowed — check that quantities aren't negative or above what's available.";
+      return "One of the values isn't allowed. Check that quantities aren't negative or above what's available.";
     case "23502":
       return "A required field is missing.";
     case "22P02":
     case "22007":
     case "22008":
-      return "One of the values isn't in the right format — check numbers and dates.";
+      return "One of the values isn't in the right format. Check numbers and dates.";
     case "22003":
       return "A number is too large.";
     case "22001":
       return "One of the texts is too long.";
     case "22012":
-      return "A calculation tried to divide by zero — check that quantities and conversion factors aren't zero.";
+      return "A calculation tried to divide by zero. Check that quantities and conversion factors aren't zero.";
     case "40001":
     case "40P01":
     case "55P03":
@@ -109,14 +109,14 @@ function mapKnown(code: string, message: string): string | null {
     case "57014":
       return "That took too long and was stopped. Please try again, or narrow the dates/filters.";
     case "PGRST116":
-      return "That record wasn't found — it may have been removed. Refresh the page.";
+      return "That record wasn't found. It may have been removed. Refresh the page.";
     case "PGRST301":
     case "PGRST303":
       return "Your session has expired. Please sign in again.";
     case "PGRST202":
       // The API cannot find a database function the app calls: the database is
       // missing an update (or its function list is stale).
-      return "This feature isn't available in the database yet — a database update hasn't been applied. Nothing was saved. Please tell your administrator (reference PGRST202).";
+      return "This feature isn't available in the database yet. A database update hasn't been applied. Nothing was saved. Please tell your administrator (reference PGRST202).";
     case "PGRST200":
     case "PGRST204":
     case "PGRST205":

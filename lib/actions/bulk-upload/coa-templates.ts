@@ -25,7 +25,7 @@ type CoaTemplateGroupPayload = {
 
 export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "items")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "items")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const loaded = await loadSheetOrError(formData, COA_TEMPLATE_COLUMNS, "coa-templates");
   if ("error" in loaded) return { error: loaded.error };
@@ -85,7 +85,7 @@ export async function bulkUploadCoaTemplates(_prev: BulkUploadState, formData: F
   });
 
   if (rowErrors.length > 0) {
-    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""}. Nothing was imported.`, rowErrors };
   }
 
   const payload: CoaTemplateGroupPayload[] = Array.from(groups.values()).map((g) =>

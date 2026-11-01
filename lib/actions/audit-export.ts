@@ -39,7 +39,7 @@ const PAGE = 1000;
 export async function loadAuditExport(input: AuditFilter): Promise<Result> {
   const empty: Result = { rows: [], truncated: false, filterText: "" };
   const user = await getCurrentUser();
-  if (!user || !canReadAudit(user.roles)) return { ...empty, error: "Not authorized." };
+  if (!user || !canReadAudit(user.roles)) return { ...empty, error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   // Re-check every filter value; never trust what the browser sent.
   const filter: AuditFilter = {

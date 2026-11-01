@@ -30,7 +30,7 @@ export type ResultLine = { seq: number; test: string; specification: string; res
 // createCoaRecord's own status re-check below.
 export async function generateCoaCertificate(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "coa")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "coa")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const qualityCheckId = String(formData.get("quality_check_id") || "");
   const subjectType = String(formData.get("subject_type") || "");
@@ -64,7 +64,7 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   // this action doesn't recognize.
   for (const field of headerData) {
     if (!String(field.label ?? "").trim()) {
-      return { error: "Could not read the certificate header — reload the page and try again." };
+      return { error: "Could not read the certificate header. Reload the page and try again." };
     }
   }
 
@@ -98,13 +98,13 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   const { data: isCurrent } = await supabase.rpc("qc_is_current_approval", { p_quality_check_id: qc.id });
   if (isCurrent !== true) {
     return {
-      error: "This AR is no longer the batch's current approval (it was retested, rejected or is due for retest) — reload and pick the batch again.",
+      error: "This AR is no longer the batch's current approval (it was retested, rejected or is due for retest). Reload and pick the batch again.",
     };
   }
 
   const isRm = !!qc.purchase_line_id;
   if ((subjectType === "raw_material") !== isRm) {
-    return { error: "Subject type no longer matches this quality check — reload and try again." };
+    return { error: "Subject type no longer matches this quality check. Reload and try again." };
   }
 
   const templateQuery = supabase.from("coa_templates").select("id, coa_template_lines(seq, test, specification)");
@@ -127,18 +127,18 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   const draft = isRm ? await resolveRawMaterial(supabase, qc.id) : await resolveFinishedProduct(supabase, qc.id);
   if (!draft.ok) return { error: draft.reason };
   if (headerData.length !== draft.headerFields.length) {
-    return { error: "The certificate header does not match this batch — reload the page and try again." };
+    return { error: "The certificate header does not match this batch. Reload the page and try again." };
   }
   for (let i = 0; i < draft.headerFields.length; i++) {
     const want = draft.headerFields[i];
     const got = headerData[i];
     if (String(got.label ?? "").trim().toLowerCase() !== want.label.trim().toLowerCase()) {
-      return { error: "The certificate header does not match this batch — reload the page and try again." };
+      return { error: "The certificate header does not match this batch. Reload the page and try again." };
     }
     const handWritten = want.label.trim().toLowerCase() === "sampled qty";
     if (!handWritten && String(got.value ?? "").trim() !== want.value.trim()) {
       return {
-        error: `"${want.label}" does not match the batch record ("${want.value}"). It is filled in from the batch and cannot be changed — reload the page and try again.`,
+        error: `"${want.label}" does not match the batch record ("${want.value}"). It is filled in from the batch and cannot be changed. Reload the page and try again.`,
       };
     }
     if (handWritten && !String(got.value ?? "").trim()) {
@@ -150,13 +150,13 @@ export async function generateCoaCertificate(_prev: ActionState, formData: FormD
   }
   const templateLines = (template.coa_template_lines ?? []).slice().sort((a, b) => a.seq - b.seq);
   if (resultLines.length !== templateLines.length) {
-    return { error: "The test list does not match the COA template — reload the page and try again." };
+    return { error: "The test list does not match the COA template. Reload the page and try again." };
   }
   for (let i = 0; i < templateLines.length; i++) {
     const t = templateLines[i];
     const r = resultLines[i];
     if (Number(r.seq) !== t.seq || String(r.test ?? "") !== t.test || String(r.specification ?? "") !== t.specification) {
-      return { error: `The test "${t.test}" or its specification differs from the COA template — reload the page and try again.` };
+      return { error: `The test "${t.test}" or its specification differs from the COA template. Reload the page and try again.` };
     }
     if (String(r.result ?? "").length > 500) {
       return { error: `The result for "${t.test}" must be 500 characters or fewer.` };

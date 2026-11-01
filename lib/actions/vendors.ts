@@ -38,7 +38,7 @@ function parseVendorForm(formData: FormData) {
 
 export async function createVendor(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "vendors")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "vendors")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const parsed = parseVendorForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -88,7 +88,7 @@ export async function updateVendor(
   formData: FormData
 ): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "vendors")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "vendors")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const parsed = parseVendorForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -128,7 +128,7 @@ export async function updateVendor(
     if (error.code === "23505") return { error: `A vendor named "${parsed.data.name}" already exists.` };
     return { error: friendlyDbError(error) };
   }
-  if (!saved || saved.length === 0) return { error: loadedAt === undefined ? "Vendor not found." : STALE_MESSAGE };
+  if (!saved || saved.length === 0) return { error: loadedAt === undefined ? "Vendor not found. It may have been deleted; reload the page." : STALE_MESSAGE };
 
   revalidatePath("/vendors");
   revalidatePath(`/vendors/${id}`);
@@ -148,7 +148,7 @@ export async function deleteVendor(id: string, _prev: ActionState, _formData: Fo
   const { error } = await supabase.from("vendors").delete().eq("id", id);
   if (error) {
     if (error.code === "23503") {
-      return { error: "Can't delete — this vendor has purchase orders on file. Reassign or remove those first." };
+      return { error: "Can't delete: this vendor has purchase orders on file. Reassign or remove those first." };
     }
     return { error: friendlyDbError(error) };
   }

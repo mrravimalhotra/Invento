@@ -28,7 +28,7 @@ const CALIBRATION_STATUS_MAP: Record<string, string> = {
 
 export async function bulkUploadEquipment(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "equipment")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "equipment")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const loaded = await loadSheetOrError(formData, EQUIPMENT_COLUMNS, "equipment");
   if ("error" in loaded) return { error: loaded.error };
@@ -140,7 +140,7 @@ export async function bulkUploadEquipment(_prev: BulkUploadState, formData: Form
   });
 
   if (rowErrors.length > 0) {
-    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""}. Nothing was imported.`, rowErrors };
   }
 
   const equipmentCodes = await nextCodes(supabase, "get_next_equipment_codes", {}, parsed.length, "equipment");

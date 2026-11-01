@@ -74,7 +74,7 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
 
   revalidatePath(parsed.data.pagePath === "/" ? "/" : parsed.data.pagePath);
   revalidatePath("/feedback");
-  return { success: "Thanks — your observation has been recorded." };
+  return { success: "Thanks, your observation has been recorded." };
 }
 
 export async function listPageFeedback(pagePath: string): Promise<FeedbackList> {

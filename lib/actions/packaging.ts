@@ -166,7 +166,7 @@ async function resolveFpBatch(
       .limit(1)
       .maybeSingle(),
   ]);
-  if (!fpBatch) return { error: "Finished product batch not found." };
+  if (!fpBatch) return { error: "Finished product batch not found. It may have been deleted; reload the page." };
   // SCAN-P4-04 (12 Oct 2026): expired, past its retest date, or a retest in progress.
   const { data: blockReason } = await supabase.rpc("fp_batch_block_reason", { p_batch: fpBatchId });
   if (blockReason) return { error: blockReason as string };
@@ -189,7 +189,7 @@ async function resolveFpBatch(
   const fpItemId = mfrDef?.finished_product_item_id ?? null;
   if (!fpItemId) {
     return {
-      error: "This batch's MFR has no linked Finished Product item — can't compute quantity consumed.",
+      error: "This batch's MFR has no linked Finished Product item. Can't compute quantity consumed.",
     };
   }
   const { data: fpItem } = await supabase
@@ -290,7 +290,7 @@ async function saveStoreRndIssues(formData: FormData, department: string, issueD
   }
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
   const supabase = await createClient();
 
   // Check each distinct batch once, and name the first line that uses a bad one.
@@ -304,7 +304,7 @@ async function saveStoreRndIssues(formData: FormData, department: string, issueD
     if ("error" in info) return { error: `Line ${l.n}: ${info.error}` };
     if (!info.packagedItemId) {
       return {
-        error: `Line ${l.n}: this Finished Product has no paired Packaged Finished Product item on file yet (older MFR) — Store/R&D issue isn't available for it.`,
+        error: `Line ${l.n}: this Finished Product has no paired Packaged Finished Product item on file yet (older MFR). Store/R&D issue isn't available for it.`,
       };
     }
     const converted = info.fpUnit ? convertUnit(l.packSizeQty, l.packSizeUnit, info.fpUnit) : null;
@@ -356,7 +356,7 @@ async function saveProductionIssues(formData: FormData, issueDate: string): Prom
   const lines = parsed;
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "packaging")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
   const supabase = await createClient();
 
   // Check each distinct batch once. (The database refuses the same batch on

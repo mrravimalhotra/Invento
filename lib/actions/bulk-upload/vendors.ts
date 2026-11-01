@@ -17,7 +17,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "vendors")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "vendors")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const loaded = await loadSheetOrError(formData, VENDOR_COLUMNS, "vendors");
   if ("error" in loaded) return { error: loaded.error };
@@ -71,7 +71,7 @@ export async function bulkUploadVendors(_prev: BulkUploadState, formData: FormDa
   });
 
   if (rowErrors.length > 0) {
-    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""}. Nothing was imported.`, rowErrors };
   }
 
   const vendorCodes = await nextCodes(supabase, "get_next_vendor_codes", {}, parsed.length, "vendor");

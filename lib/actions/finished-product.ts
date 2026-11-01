@@ -37,7 +37,7 @@ function parseComponents(formData: FormData): ComponentInput[] | { error: string
       return { error: `Line ${i + 1}: invalid quantity.` };
     }
     if (!purchaseLineId && !productionBatchId) {
-      return { error: `Line ${i + 1}: choose a batch — none is currently selected.` };
+      return { error: `Line ${i + 1}: choose a batch. None is currently selected.` };
     }
     if (purchaseLineId && productionBatchId) {
       return { error: `Line ${i + 1}: a component can't draw from two batch sources at once.` };
@@ -68,7 +68,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   const batchStartDate = String(formData.get("batch_start_date") || "") || null;
 
   if (!mfrDefinitionId) return { error: "MFR definition is required." };
-  if (!mfrVersion || mfrVersion <= 0) return { error: "MFR version is missing — go back and reselect the MFR." };
+  if (!mfrVersion || mfrVersion <= 0) return { error: "MFR version is missing. Go back and reselect the MFR." };
   if (!targetQty || !Number.isFinite(targetQty) || targetQty <= 0) {
     return { error: "Target quantity must be greater than 0." };
   }
@@ -82,7 +82,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   const components = componentsOrError;
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
 
@@ -165,16 +165,16 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
   if (batchError || !batchId) {
     if (batchError?.code === "23505") {
       return {
-        error: "Another batch for this MFR was created at the same moment and took the next batch number — please try again.",
+        error: "Another batch for this MFR was created at the same moment and took the next batch number. Please try again.",
       };
     }
     if (batchError?.message.includes("is not QC-Approved")) {
-      return { error: "That batch is no longer QC-Approved — refresh and pick another." };
+      return { error: "That batch is no longer QC-Approved. Refresh and pick another." };
     }
     // live_remaining_not_negative (0029) / production_live_remaining_not_negative
     // (0050): consuming more of a batch than it has left.
     if (batchError?.message.includes("live_remaining_not_negative")) {
-      return { error: "Not enough of that batch remaining — refresh and pick another batch or a smaller quantity." };
+      return { error: "Not enough of that batch remaining. Refresh and pick another batch or a smaller quantity." };
     }
     return { error: friendlyDbError(batchError, "Could not create the batch.") };
   }
@@ -193,7 +193,7 @@ export async function createFinishedProductBatch(_prev: ActionState, formData: F
 export async function confirmFinishedProductBatch(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in." };
-  if (!canWrite(user.roles, "finished_product")) return { error: "Not authorized." };
+  if (!canWrite(user.roles, "finished_product")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -206,7 +206,7 @@ export async function confirmFinishedProductBatch(id: string, _prev: ActionState
   if (error) return { error: friendlyDbError(error) };
   if (!data) {
     return {
-      error: "This batch is no longer a draft — it may already have been confirmed, cancelled, or auto-cancelled after 30 minutes. Refresh to see its current status.",
+      error: "This batch is no longer a draft. It may already have been confirmed, cancelled, or auto-cancelled after 30 minutes. Refresh to see its current status.",
     };
   }
 
@@ -225,7 +225,7 @@ export async function confirmFinishedProductBatch(id: string, _prev: ActionState
 export async function cancelFinishedProductBatch(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in." };
-  if (!canWrite(user.roles, "finished_product")) return { error: "Not authorized." };
+  if (!canWrite(user.roles, "finished_product")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -238,7 +238,7 @@ export async function cancelFinishedProductBatch(id: string, _prev: ActionState,
   if (error) return { error: friendlyDbError(error) };
   if (!data) {
     return {
-      error: "This batch is no longer a draft — it may already have been confirmed, cancelled, or auto-cancelled after 30 minutes. Refresh to see its current status.",
+      error: "This batch is no longer a draft. It may already have been confirmed, cancelled, or auto-cancelled after 30 minutes. Refresh to see its current status.",
     };
   }
 
@@ -284,7 +284,7 @@ export async function completeFinishedProductBatch(
   formData: FormData
 ): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "finished_product")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const batchYieldRaw = formData.get("batch_yield");
   const finishDate = String(formData.get("finish_date") || "");
@@ -325,7 +325,7 @@ export async function completeFinishedProductBatch(
     .select("status, unit, batch_start_date, target_qty, mfr_definitions(theoretical_yield_pct, permissible_yield_pct)")
     .eq("id", id)
     .maybeSingle();
-  if (fetchError || !current) return { error: friendlyDbError(fetchError, "Batch not found.") };
+  if (fetchError || !current) return { error: friendlyDbError(fetchError, "Batch not found. It may have been deleted; reload the page.") };
   // FB-0025 (rest): a batch cannot finish before it started. ISO dates
   // (yyyy-mm-dd) compare correctly as text. Also enforced by the
   // fp_finish_not_before_start CHECK (0085).
@@ -358,7 +358,7 @@ export async function completeFinishedProductBatch(
   }
   if (current.status !== "in_process") {
     return {
-      error: "This batch is no longer in progress — it may already be completed or submitted to QC. Refresh to see its current status.",
+      error: "This batch is no longer in progress. It may already be completed or submitted to QC. Refresh to see its current status.",
     };
   }
 
@@ -373,7 +373,7 @@ export async function completeFinishedProductBatch(
   const rndQty = rndQtyNum !== null ? convertUnit(rndQtyNum, sampleUnitRaw, current.unit) : null;
   if (qcSampleQty === null || stabilityQty === null || (rndQtyNum !== null && rndQty === null)) {
     return {
-      error: `Sample unit "${sampleUnitRaw}" can't be converted to the batch's unit "${current.unit}" — pick a compatible unit.`,
+      error: `Sample unit "${sampleUnitRaw}" can't be converted to the batch's unit "${current.unit}". Pick a compatible unit.`,
     };
   }
 
@@ -419,7 +419,7 @@ export async function completeFinishedProductBatch(
       return { error: "Finish date can't be earlier than the batch start date." };
     }
     if (error.message.includes("fp_batch_yield_not_negative")) {
-      return { error: "QC + stability + R&D sample quantities can't exceed the batch yield — reduce one of the sample amounts." };
+      return { error: "QC + stability + R&D sample quantities can't exceed the batch yield. Reduce one of the sample amounts." };
     }
     return { error: friendlyDbError(error) };
   }
@@ -443,7 +443,7 @@ export async function submitFinishedProductToQc(
 ): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in." };
-  if (!canWrite(user.roles, "finished_product")) return { error: "Not authorized." };
+  if (!canWrite(user.roles, "finished_product")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { data: batch, error: fetchError } = await supabase
@@ -451,7 +451,7 @@ export async function submitFinishedProductToQc(
     .select("status, batch_yield, finish_date, qc_sample_qty, unit, expiry_month")
     .eq("id", id)
     .maybeSingle();
-  if (fetchError || !batch) return { error: friendlyDbError(fetchError, "Batch not found.") };
+  if (fetchError || !batch) return { error: friendlyDbError(fetchError, "Batch not found. It may have been deleted; reload the page.") };
   // Ravi (15 Sept 2026): a batch now has to pass through "Complete -
   // Awaiting QC" (set by completeFinishedProductBatch above) before it
   // can be submitted to QC — this used to gate on "in_process" directly,
@@ -475,7 +475,7 @@ export async function submitFinishedProductToQc(
     if (qcError.code === "42501") {
       return {
         error:
-          "Your role can manage this batch but current access rules don't let it create the QC record — ask an Inventory Manager, Quality Checker, QC Reviewer, or System Admin to submit this batch to QC.",
+          "Your role can't open this batch's QC record. Ask a Quality Checker, QC Reviewer, Inventory Manager or System Admin to submit it to QC.",
       };
     }
     if (qcError.code === "23505") {

@@ -15,7 +15,7 @@ import { cell, loadSheetOrError, type BulkUploadState } from "@/lib/bulk-upload/
 // ------------------------------------------------------------------
 export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "item_types")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "item_types")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const loaded = await loadSheetOrError(formData, ITEM_TYPE_COLUMNS, "item-types");
   if ("error" in loaded) return { error: loaded.error };
@@ -56,7 +56,7 @@ export async function bulkUploadItemTypes(_prev: BulkUploadState, formData: Form
   });
 
   if (rowErrors.length > 0) {
-    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""}. Nothing was imported.`, rowErrors };
   }
 
   const { error } = await supabase.from("item_types").insert(descriptions.map((description) => ({ description })));

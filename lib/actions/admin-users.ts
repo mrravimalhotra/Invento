@@ -136,7 +136,7 @@ export async function createUserAccount(
 
   revalidatePath("/user-roles");
   return {
-    success: `Account created for ${fullName}. Share the temporary password with them privately — they'll be asked to set their own at first sign-in.`,
+    success: `Account created for ${fullName}. Share the temporary password with them privately. They'll be asked to set their own at first sign-in.`,
   };
 }
 
@@ -222,7 +222,7 @@ export async function completePasswordChange(
   if (flagError) {
     return {
       error:
-        "Your password was changed, but your account couldn't be unlocked. Try once more with a different new password, or ask your System Admin to reset it.",
+        "Your password was changed, but your account is still locked. Try another new password, or ask your System Admin to reset it.",
     };
   }
 

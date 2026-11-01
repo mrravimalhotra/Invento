@@ -58,7 +58,7 @@ function parseDeadStockForm(formData: FormData) {
 
 export async function createDeadStockItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "dead_stock")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "dead_stock")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const parsed = parseDeadStockForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -109,7 +109,7 @@ export async function updateDeadStockItem(
   formData: FormData
 ): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "dead_stock")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "dead_stock")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const parsed = parseDeadStockForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };

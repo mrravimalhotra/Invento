@@ -56,16 +56,16 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
     return {
       error:
         category === "processed"
-          ? "Finished Product items are created from the MFR screen, not here — go to MFR → New MFR."
+          ? "Finished Product items are created from the MFR screen, not here. Go to MFR → New MFR."
           : "Category must be Raw Material or Packaging.",
     };
   }
   if (category === "raw" && !item_type_id) {
-    return { error: "Item type is required for a Raw Material — pick one from the list.", field: "item_type_id" };
+    return { error: "Item type is required for a Raw Material. Pick one from the list.", field: "item_type_id" };
   }
   // 30 Sept 2026 (Ravi): Unit is mandatory — every quantity is stored in it.
-  if (!unit) return { error: "Unit is required — pick the unit this item is stocked in.", field: "unit" };
-  if (!UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
+  if (!unit) return { error: "Unit is required. Pick the unit this item is stocked in.", field: "unit" };
+  if (!UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Pick a unit from the list." };
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
   if (low_stock_threshold && typeof low_stock_threshold === "object") return low_stock_threshold;
@@ -77,7 +77,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   const coaLines = coaParsed;
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "items")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "items")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
 
@@ -171,20 +171,20 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   if (barcode && !validBarcode(barcode)) return { error: BARCODE_RULE, field: "barcode" };
   // 30 Sept 2026 (Ravi): Item Type is mandatory for a Raw Material.
   if (submittedCategory === "raw" && !item_type_id) {
-    return { error: "Item type is required for a Raw Material — pick one from the list.", field: "item_type_id" };
+    return { error: "Item type is required for a Raw Material. Pick one from the list.", field: "item_type_id" };
   }
   // Unit is mandatory for Raw Material and Packaging (Finished Product items keep
   // the unit MFR gave them). An item saved with no unit can always be given one:
   // the unit lock (0076) only stops changing a unit that is already set.
   const editable = submittedCategory === "raw" || submittedCategory === "packaging";
-  if (editable && !unit) return { error: "Unit is required — pick the unit this item is stocked in.", field: "unit" };
-  if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Invalid unit." };
+  if (editable && !unit) return { error: "Unit is required. Pick the unit this item is stocked in.", field: "unit" };
+  if (unit && !UNITS.includes(unit as (typeof UNITS)[number])) return { error: "Pick a unit from the list." };
 
   const low_stock_threshold = numOrNull(formData, "low_stock_threshold");
   if (low_stock_threshold && typeof low_stock_threshold === "object") return low_stock_threshold;
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "items")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "items")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
 
@@ -193,7 +193,7 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     .select("category")
     .eq("id", id)
     .single();
-  if (existingError || !existing) return { error: friendlyDbError(existingError, "Item not found.") };
+  if (existingError || !existing) return { error: friendlyDbError(existingError, "Item not found. It may have been deleted; reload the page.") };
 
   // Same case-insensitive duplicate-name check as createItem() above, self-
   // excluded so saving an item without changing its name doesn't collide
@@ -232,7 +232,7 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
   } else if (CREATABLE_CATEGORIES.includes(submittedCategory as (typeof CREATABLE_CATEGORIES)[number])) {
     update.category = submittedCategory;
   } else if (submittedCategory === "processed" || submittedCategory === "packaged_fp") {
-    return { error: "Finished Product items are created from the MFR screen, not here — go to MFR → New MFR." };
+    return { error: "Finished Product items are created from the MFR screen, not here. Go to MFR → New MFR." };
   } else {
     return { error: "Category must be Raw Material or Packaging." };
   }
@@ -246,7 +246,7 @@ export async function updateItem(id: string, _prev: ActionState, formData: FormD
     }
     return { error: friendlyDbError(error) };
   }
-  if (!saved || saved.length === 0) return { error: loadedAt === undefined ? "Item not found." : STALE_MESSAGE };
+  if (!saved || saved.length === 0) return { error: loadedAt === undefined ? "Item not found. It may have been deleted; reload the page." : STALE_MESSAGE };
 
   revalidatePath("/items");
   revalidatePath(`/items/${id}`);
@@ -268,7 +268,7 @@ export async function deleteItem(id: string, _prev: ActionState, _formData: Form
     if (error.code === "23503") {
       return {
         error:
-          "Can't delete — this item has purchase, QC, inventory, production, or MFR records on file. Deactivate it instead.",
+          "Can't delete: this item has purchase, QC, inventory, production, or MFR records on file. Deactivate it instead.",
       };
     }
     return { error: friendlyDbError(error) };

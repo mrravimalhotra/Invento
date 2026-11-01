@@ -16,7 +16,7 @@ export async function createItemType(_prev: ActionState, formData: FormData): Pr
   if (!description) return { error: "Description is required." };
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "item_types")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "item_types")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("item_types").insert({ description });
@@ -44,7 +44,7 @@ export async function updateItemType(
   if (!description) return { error: "Description is required." };
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "item_types")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "item_types")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("item_types").update({ description, active }).eq("id", id);
@@ -74,7 +74,7 @@ export async function deleteItemType(id: string, _prev: ActionState, _formData: 
     if (error.code === "23503") {
       return {
         error:
-          "Can't delete — one or more items in Item Master still use this item type. Reassign or remove those items first, or deactivate this item type instead.",
+          "Can't delete: items in Item Master still use this item type. Move them to another type first, or deactivate this one instead.",
       };
     }
     return { error: friendlyDbError(error) };

@@ -32,7 +32,7 @@ export type ActionState = { error?: string; success?: string; field?: string } |
 // Checker.
 export async function createQualityCheck(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const purchaseLineId = String(formData.get("purchase_line_id") || "");
   const sampleQtyRaw = formData.get("sample_qty");
@@ -131,7 +131,7 @@ const ALREADY_DECIDED = "Someone else has just made this decision. Refresh the p
 
 export async function reviewQcRound1(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "qc_review_round1")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "qc_review_round1")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const status = String(formData.get("status") || "");
   if (status !== "checker_approved" && status !== "checker_rejected") {
@@ -147,7 +147,7 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
     .select("status, purchase_line_id, finished_product_batch_id")
     .eq("id", id)
     .maybeSingle();
-  if (existingError || !existing) return { error: "Record not found." };
+  if (existingError || !existing) return { error: "QC record not found. It may have been deleted; reload the page." };
   if (existing.status !== "submitted") {
     return { error: "This record has already had its first QC decision and cannot be changed." };
   }
@@ -161,7 +161,7 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
     if (status === "checker_approved") {
       if (template.lines.length === 0) {
         return {
-          error: "This item has no COA template yet. Add it first (Item Master for a raw material, the MFR page for a finished product); you can still reject without one.",
+          error: "This item has no COA template yet. Add one on its Item Master or MFR page first. You can still reject without one.",
         };
       }
       const checked = checkResultsAgainstTemplate(submitted, template.lines, true);
@@ -204,7 +204,7 @@ export async function reviewQcRound1(id: string, _prev: ActionState, formData: F
 // none, Round 1's results stand. Retest period stays mandatory on approve (Ravi, 14 Sept 2026).
 export async function reviewQcRound2(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "qc_review_round2")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "qc_review_round2")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const status = String(formData.get("status") || "");
   if (status !== "approved" && status !== "rejected") {
@@ -233,7 +233,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
     .select("status, checker_by, checker_results, purchase_line_id, production_batch_id, finished_product_batch_id, is_retest")
     .eq("id", id)
     .maybeSingle();
-  if (existingError || !existing) return { error: "Record not found." };
+  if (existingError || !existing) return { error: "QC record not found. It may have been deleted; reload the page." };
   if (existing.status !== "checker_approved" && existing.status !== "checker_rejected") {
     return { error: "This record isn't awaiting a final QC Reviewer decision." };
   }
@@ -320,7 +320,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
   const isSameAsChecker = existing.checker_by != null && existing.checker_by === user!.id;
   const isAdmin = (user!.roles ?? []).includes("system_admin");
   if (isSameAsChecker && !isAdmin) {
-    return { error: "You made the first QC decision — a different QC Reviewer must make the final decision." };
+    return { error: "You made the first QC decision. A different QC Reviewer must make the final decision." };
   }
 
   const { data: updated, error } = await supabase
@@ -351,7 +351,7 @@ export async function reviewQcRound2(id: string, _prev: ActionState, formData: F
 // decision history.
 export async function sendBackQcRejection(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "qc_review_round2")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "qc_review_round2")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
   const reason = String(formData.get("returned_reason") || "").trim();
   const reasonProblem = reasonError(reason, "A reason");
   if (reasonProblem) return { error: reasonProblem, field: "returned_reason" };
@@ -376,7 +376,7 @@ export async function sendBackQcRejection(id: string, _prev: ActionState, formDa
 // refused once wastage has been written off against the batch.
 export async function voidQcRejection(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "qc_void_rejection")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "qc_void_rejection")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
   const reason = String(formData.get("void_reason") || "").trim();
   const reasonProblem = reasonError(reason, "A reason");
   if (reasonProblem) return { error: reasonProblem, field: "void_reason" };
@@ -436,7 +436,7 @@ async function startRetest(
   formData: FormData
 ): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const sampleQty = Number(formData.get("sample_qty"));
   const sampleUnit = String(formData.get("sample_unit") || "").trim();
@@ -488,7 +488,7 @@ export async function createProductionQualityCheck(
   _formData: FormData
 ): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "qc_assign")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
 

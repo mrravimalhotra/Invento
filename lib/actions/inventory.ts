@@ -40,7 +40,7 @@ export async function recordWastage(_prev: ActionState, formData: FormData): Pro
   if (!reason) return { error: "Reason is required." };
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "inventory")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "inventory")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("record_wastage", {
@@ -56,7 +56,7 @@ export async function recordWastage(_prev: ActionState, formData: FormData): Pro
     // wastage against a batch than it actually has left is now rejected
     // at the DB level instead of silently succeeding.
     if (error.message.includes("live_remaining_not_negative")) {
-      return { error: "Not enough of that batch remaining — check the batch's remaining quantity and try a smaller amount." };
+      return { error: "Not enough of that batch remaining. Check the batch's remaining quantity and try a smaller amount." };
     }
     return { error: friendlyDbError(error) };
   }

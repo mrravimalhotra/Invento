@@ -61,7 +61,7 @@ export type CreatePurchaseOrderState =
 
 export async function createPurchaseOrder(_prev: CreatePurchaseOrderState, formData: FormData): Promise<CreatePurchaseOrderState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const parsed = poSchema.safeParse({
     vendor_id: String(formData.get("vendor_id") || ""),
@@ -161,7 +161,7 @@ export async function updatePurchaseOrderHeader(
   formData: FormData,
 ): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { data: current, error: curError } = await supabase
@@ -170,9 +170,9 @@ export async function updatePurchaseOrderHeader(
     .eq("id", id)
     .maybeSingle();
   if (curError) return { error: friendlyDbError(curError) };
-  if (!current) return { error: "Purchase order not found." };
+  if (!current) return { error: "Purchase order not found. It may have been deleted; reload the page." };
   if (current.status !== "draft") {
-    return { error: "Can't edit — this purchase order has been submitted. Reopen it first." };
+    return { error: "Can't edit: this purchase order has been submitted. Reopen it first." };
   }
 
   const { count: lineCount, error: countError } = await supabase
@@ -254,7 +254,7 @@ export async function updatePurchaseOrderHeader(
 // from the same RPC rather than trusting this client-displayed value.
 export async function previewBatchNumber(itemId: string): Promise<{ batchNumber?: string; error?: string }> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
   if (!itemId) return { error: "No item selected." };
 
   const supabase = await createClient();
@@ -308,7 +308,7 @@ const lineSchema = z.object({
 
 export async function createPurchaseLine(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const purchaseOrderIdRaw = String(formData.get("purchase_order_id") || "");
   const supabaseStatusCheck = await createClient();
@@ -322,7 +322,7 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
     .eq("id", purchaseOrderIdRaw)
     .maybeSingle();
   if (poForStatus && poForStatus.status !== "draft") {
-    return { error: "Can't add a line — this purchase order has been submitted. Reopen it first." };
+    return { error: "Can't add a line: this purchase order has been submitted. Reopen it first." };
   }
 
   const unitPriceRaw = formData.get("unit_price");
@@ -354,13 +354,13 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   const stabilityQtyField = formData.get("stability_qty");
   const rndQtyField = formData.get("rnd_qty");
   if (qcQtyField !== null && String(qcQtyField).trim() === "") {
-    return { error: "QC quantity is required — enter 0 if this line needs no QC sample.", field: "qc_qty" };
+    return { error: "QC quantity is required. Enter 0 if this line needs no QC sample.", field: "qc_qty" };
   }
   if (stabilityQtyField !== null && String(stabilityQtyField).trim() === "") {
-    return { error: "Stability quantity is required — enter 0 if this line needs no stability sample.", field: "stability_qty" };
+    return { error: "Stability quantity is required. Enter 0 if this line needs no stability sample.", field: "stability_qty" };
   }
   if (rndQtyField !== null && String(rndQtyField).trim() === "") {
-    return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample.", field: "rnd_qty" };
+    return { error: "R&D quantity is required. Enter 0 if this line needs no R&D sample.", field: "rnd_qty" };
   }
   // Ravi (15 Sept 2026): "unit price and gst should be mandatory" —
   // these rendered for every line (raw or packaging) and were fully
@@ -409,7 +409,7 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
   const stability_qty = convertUnit(stabilityQtyRaw, sample_unit, unit);
   const rnd_qty = convertUnit(rndQtyRaw, sample_unit, unit);
   if (qc_qty === null || stability_qty === null || rnd_qty === null) {
-    return { error: `Sample unit "${sample_unit}" can't be converted to the line unit "${unit}" — pick a compatible unit.` };
+    return { error: `Sample unit "${sample_unit}" can't be converted to the line unit "${unit}". Pick a compatible unit.` };
   }
   if (qc_qty + stability_qty + rnd_qty > quantity) {
     return { error: "QC + Stability + R&D quantity cannot exceed the received quantity.", field: "qc_qty" };
@@ -470,7 +470,7 @@ export async function createPurchaseLine(_prev: ActionState, formData: FormData)
     if (error.code === "23505") {
       return {
         error:
-          "Another purchase line for this item was saved at the same moment and took the next batch number — please try saving again.",
+          "Another purchase line for this item was saved at the same moment and took the next batch number. Please try saving again.",
       };
     }
     return { error: friendlyDbError(error) };
@@ -505,7 +505,7 @@ export async function deletePurchaseOrder(id: string, _prev: ActionState, _formD
     if (error.code === "23503") {
       return {
         error:
-          "Can't delete — one or more lines on this purchase order have QC, production, or inventory records on file. Only a purchase order with no downstream activity can be deleted.",
+          "Can't delete: lines on this order already have QC, production or stock records. Only an order without any can be deleted.",
       };
     }
     return { error: friendlyDbError(error) };
@@ -547,7 +547,7 @@ type LineWithPoStatus = {
 
 export async function updatePurchaseLine(lineId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
 
@@ -557,10 +557,10 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
     .eq("id", lineId)
     .maybeSingle();
   if (fetchError) return { error: friendlyDbError(fetchError) };
-  if (!current) return { error: "Purchase line not found." };
+  if (!current) return { error: "Purchase line not found. It may have been deleted; reload the page." };
   const line = current as unknown as LineWithPoStatus;
   if (line.purchase_orders?.status !== "draft") {
-    return { error: "Can't edit — this purchase order has been submitted. Reopen it first." };
+    return { error: "Can't edit: this purchase order has been submitted. Reopen it first." };
   }
   const unit = line.unit;
 
@@ -576,13 +576,13 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
   const stabilityQtyField = formData.get("stability_qty");
   const rndQtyField = formData.get("rnd_qty");
   if (qcQtyField !== null && String(qcQtyField).trim() === "") {
-    return { error: "QC quantity is required — enter 0 if this line needs no QC sample.", field: "qc_qty" };
+    return { error: "QC quantity is required. Enter 0 if this line needs no QC sample.", field: "qc_qty" };
   }
   if (stabilityQtyField !== null && String(stabilityQtyField).trim() === "") {
-    return { error: "Stability quantity is required — enter 0 if this line needs no stability sample.", field: "stability_qty" };
+    return { error: "Stability quantity is required. Enter 0 if this line needs no stability sample.", field: "stability_qty" };
   }
   if (rndQtyField !== null && String(rndQtyField).trim() === "") {
-    return { error: "R&D quantity is required — enter 0 if this line needs no R&D sample.", field: "rnd_qty" };
+    return { error: "R&D quantity is required. Enter 0 if this line needs no R&D sample.", field: "rnd_qty" };
   }
   if (unitPriceRaw === null || String(unitPriceRaw).trim() === "") {
     return { error: "Unit price is required.", field: "unit_price" };
@@ -616,7 +616,7 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
   const stability_qty = convertUnit(stabilityQtyRaw, sample_unit, unit);
   const rnd_qty = convertUnit(rndQtyRaw, sample_unit, unit);
   if (qc_qty === null || stability_qty === null || rnd_qty === null) {
-    return { error: `Sample unit "${sample_unit}" can't be converted to the line unit "${unit}" — pick a compatible unit.` };
+    return { error: `Sample unit "${sample_unit}" can't be converted to the line unit "${unit}". Pick a compatible unit.` };
   }
   if (qc_qty + stability_qty + rnd_qty > quantity) {
     return { error: "QC + Stability + R&D quantity cannot exceed the received quantity.", field: "qc_qty" };
@@ -647,7 +647,7 @@ export async function updatePurchaseLine(lineId: string, _prev: ActionState, for
 
 export async function deletePurchaseLine(lineId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
 
@@ -657,10 +657,10 @@ export async function deletePurchaseLine(lineId: string, _prev: ActionState, _fo
     .eq("id", lineId)
     .maybeSingle();
   if (fetchError) return { error: friendlyDbError(fetchError) };
-  if (!current) return { error: "Purchase line not found." };
+  if (!current) return { error: "Purchase line not found. It may have been deleted; reload the page." };
   const line = current as unknown as { purchase_order_id: string; purchase_orders: { status: string } | null };
   if (line.purchase_orders?.status !== "draft") {
-    return { error: "Can't delete — this purchase order has been submitted. Reopen it first." };
+    return { error: "Can't delete: this purchase order has been submitted. Reopen it first." };
   }
 
   // A draft line was never pushed to inventory_ledger (FB-0018 — pushing
@@ -672,7 +672,7 @@ export async function deletePurchaseLine(lineId: string, _prev: ActionState, _fo
   const { error } = await supabase.from("purchase_lines").delete().eq("id", lineId);
   if (error) {
     if (error.code === "23503") {
-      return { error: "Can't delete — this line has QC, production, or inventory records on file." };
+      return { error: "Can't delete: this line has QC, production, or inventory records on file." };
     }
     return { error: friendlyDbError(error) };
   }
@@ -694,7 +694,7 @@ export async function deletePurchaseLine(lineId: string, _prev: ActionState, _fo
 // the role check itself server-side as defense in depth.
 export async function submitPurchaseOrder(id: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "purchase")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
 
@@ -741,5 +741,5 @@ export async function reopenPurchaseOrder(id: string, _prev: ActionState, _formD
 
   revalidatePath(`/purchase/${id}`);
   revalidatePath("/purchase");
-  return { success: "Purchase order reopened for editing — inventory pushed by it has been reversed." };
+  return { success: "Purchase order reopened for editing. Inventory pushed by it has been reversed." };
 }

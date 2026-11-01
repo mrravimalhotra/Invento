@@ -44,7 +44,7 @@ type MfrDefPayload = {
 
 export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "mfr")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -78,11 +78,11 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
     };
   }
   if (recipeSheet.rows.length === 0) {
-    return { error: "The Recipe sheet has no data rows — nothing to import." };
+    return { error: "The Recipe sheet has no data rows. Nothing to import." };
   }
   if (recipeSheet.rows.length > MAX_UPLOAD_ROWS) {
     return {
-      error: `The Recipe sheet has ${recipeSheet.rows.length} data rows — the limit per upload is ${MAX_UPLOAD_ROWS}. Split it into smaller files and upload separately.`,
+      error: `The Recipe sheet has ${recipeSheet.rows.length} data rows. The limit per upload is ${MAX_UPLOAD_ROWS}. Split it into smaller files and upload separately.`,
     };
   }
 
@@ -114,7 +114,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   // section blank on the MFR screen itself.
   if (procedureSheet.rows.length > MAX_UPLOAD_ROWS) {
     return {
-      error: `The Manufacturing Procedure sheet has ${procedureSheet.rows.length} data rows — the limit per upload is ${MAX_UPLOAD_ROWS}. Split it into smaller files and upload separately.`,
+      error: `The Manufacturing Procedure sheet has ${procedureSheet.rows.length} data rows. The limit per upload is ${MAX_UPLOAD_ROWS}. Split it into smaller files and upload separately.`,
     };
   }
 
@@ -364,7 +364,7 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   });
 
   if (rowErrors.length > 0) {
-    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""}. Nothing was imported.`, rowErrors };
   }
 
   // No "every MFR needs at least one recipe line" check needed here (it
@@ -387,6 +387,6 @@ export async function bulkUploadMfr(_prev: BulkUploadState, formData: FormData):
   revalidatePath("/mfr");
   const count = data?.length ?? payload.length;
   return {
-    success: `Imported ${count} MFR definition${count === 1 ? "" : "s"} — each needs to be approved (on its own MFR page) before it can be used for production.`,
+    success: `Imported ${count} MFR definition${count === 1 ? "" : "s"}. Each needs to be approved (on its own MFR page) before it can be used for production.`,
   };
 }

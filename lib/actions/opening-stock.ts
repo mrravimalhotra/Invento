@@ -38,7 +38,7 @@ type Supa = Awaited<ReturnType<typeof createClient>>;
 // route and the typed-in route.
 async function openingGate(rawKind: string): Promise<{ error: string } | { kind: OpeningKind; supabase: Supa }> {
   const user = await getCurrentUser();
-  if (!user || user.roles.length === 0) return { error: "Not authorized." };
+  if (!user || user.roles.length === 0) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
   const kind = rawKind as OpeningKind;
   if (!OPENING_KINDS.some((k) => k.key === kind)) return { error: "Unknown opening stock type." };
   const supabase = await createClient();
@@ -85,7 +85,7 @@ export async function submitOpeningRows(_prev: OpeningUploadState, formData: For
   }
   if (!Array.isArray(parsed)) return { error: "Couldn't read the rows. Please try again." };
   if (parsed.length > MAX_OPENING_ROWS * 2) {
-    return { error: `Too many rows — the limit per load is ${MAX_OPENING_ROWS}.` };
+    return { error: `Too many rows: the limit per load is ${MAX_OPENING_ROWS}.` };
   }
   const rows: string[][] = [];
   const rowNumbers: number[] = [];
@@ -114,7 +114,7 @@ export type OpeningChoices =
 
 export async function loadOpeningChoices(rawKind: string): Promise<OpeningChoices> {
   const user = await getCurrentUser();
-  if (!user || user.roles.length === 0) return { error: "Not authorized." };
+  if (!user || user.roles.length === 0) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
   const kind = rawKind as OpeningKind;
   if (!OPENING_KINDS.some((k) => k.key === kind)) return { error: "Unknown opening stock type." };
   const supabase = await createClient();
@@ -247,7 +247,7 @@ export async function undoOpeningLoad(_prev: OpeningSimpleState, formData: FormD
   const user = await getCurrentUser();
   if (!user?.roles.includes("system_admin")) return { error: "Only the System Administrator can undo a load." };
   const id = String(formData.get("load_id") ?? "");
-  if (!id) return { error: "Load not found." };
+  if (!id) return { error: "Opening stock load not found. Reload the page." };
   const supabase = await createClient();
   const { error } = await supabase.rpc("undo_opening_load", { p_load_id: id });
   if (error) return { error: friendlyDbError(error, "Could not undo the load.") };

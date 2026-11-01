@@ -15,7 +15,7 @@ import { nextCodes, cell, loadSheetOrError, parseOptionalDate, type BulkUploadSt
 // ------------------------------------------------------------------
 export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: FormData): Promise<BulkUploadState> {
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "dead_stock")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "dead_stock")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const loaded = await loadSheetOrError(formData, DEAD_STOCK_COLUMNS, "dead-stock");
   if ("error" in loaded) return { error: loaded.error };
@@ -149,7 +149,7 @@ export async function bulkUploadDeadStock(_prev: BulkUploadState, formData: Form
   });
 
   if (rowErrors.length > 0) {
-    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""} — nothing was imported.`, rowErrors };
+    return { error: `Found ${rowErrors.length} problem${rowErrors.length > 1 ? "s" : ""}. Nothing was imported.`, rowErrors };
   }
 
   const assetCodes = await nextCodes(supabase, "get_next_dead_stock_codes", {}, parsed.length, "asset");

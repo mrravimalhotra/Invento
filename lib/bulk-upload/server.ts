@@ -119,11 +119,11 @@ export async function loadSheetOrError(formData: FormData, columns: ColumnDef[],
   }
 
   if (sheet.rows.length === 0) {
-    return { error: "That file has no data rows — nothing to import." } as const;
+    return { error: "That file has no data rows. Nothing to import." } as const;
   }
   if (sheet.rows.length > MAX_UPLOAD_ROWS) {
     return {
-      error: `That file has ${sheet.rows.length} data rows — the limit per upload is ${MAX_UPLOAD_ROWS}. Split it into smaller files and upload separately.`,
+      error: `That file has ${sheet.rows.length} data rows. The limit per upload is ${MAX_UPLOAD_ROWS}. Split it into smaller files and upload separately.`,
     } as const;
   }
 

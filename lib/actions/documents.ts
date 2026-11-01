@@ -26,7 +26,7 @@ export async function createDocument(_prev: ActionState, formData: FormData): Pr
   if (Number.isNaN(revisionNumber)) return { error: "Revision number must be a number." };
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], "documents")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], "documents")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("documents").insert({

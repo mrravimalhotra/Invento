@@ -25,7 +25,7 @@ async function saveTemplate(
   if ("error" in linesOrError) return linesOrError;
 
   const user = await getCurrentUser();
-  if (!canWrite(user?.roles ?? [], kind === "item" ? "items" : "mfr")) return { error: "Not authorized." };
+  if (!canWrite(user?.roles ?? [], kind === "item" ? "items" : "mfr")) return { error: "Your role can't do this. Ask your System Administrator if you need access." };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("upsert_coa_template", {
