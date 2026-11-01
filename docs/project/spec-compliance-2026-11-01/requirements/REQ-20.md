@@ -40,7 +40,7 @@ insert into public.quality_checks (..., is_retest, stability_reserve_used, stock
 - Stock check uses the stability reserve held outside stock: stock = quantity − qc − stability − R&D samples
   (e.g. 0112:L64, 0120:L53), so a reserve draw does not move On hand and a stock draw does.
 
-App layer: `lib/actions/qc.ts:L435-L476` `startRetest` requires a sample qty and unit (L441-L444), checks the
+App layer: `lib/actions/qc.ts:L434-L476` `startRetest` requires a sample qty and unit (L441-L444), checks the
 retest count (L448-L451), then calls `start_fp_retest` or `start_retest`. Cards show reserve and stock left
 (`app/(dashboard)/qc/due-for-retest.tsx:L59`, `fp-due-for-retest.tsx:L57`, `production-due-for-retest.tsx:L44`).
 
@@ -60,7 +60,7 @@ and to mark the last retest (`qc.ts:L263-L269`, `qc/[id]/page.tsx:L93-L98`).
 **Paths walked:**
 - Purchase RM retest: card → `startRetestQualityCheck` (qc.ts:L410) → `startRetest` → `start_retest`, reserve
   first, stock rest with ledger pull. ✓
-- Production RM-FP retest: `startProductionRetestQualityCheck` (qc.ts:L553-L559) → same RPC with
+- Production RM-FP retest: `startProductionRetestQualityCheck` (qc.ts:L546-L552) → same RPC with
   `p_production_batch_id`; reserve from `production_issue_batches.stability_qty`. ✓ (A voided batch is refused by
   `trg_00_qc_production_batch_active`, 0127:L275-L278.)
 - FP retest: `startFpRetestQualityCheck` (qc.ts:L420) → `start_fp_retest`. ✓ (tested: fr120 L77-L78 reserve only,
