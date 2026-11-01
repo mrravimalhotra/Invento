@@ -5,3 +5,9 @@ Read the latest trg_fn_qc_enforce_review_stages (0126; no later redefinition): R
 
 ## REQ-14 — confirmed (medium)
 Round 2 checks only that Round 1 results exist and that reviewer_results has the same length and shape; not the test/specification text, not that anything changed. `coa_insert` checks only the role; the only coa_records insert trigger checks current approval. As qc_reviewer: approval with reviewer_results naming a different test — allowed. As quality_checker: coa_records insert with made-up result_lines for an approved record — allowed. The "certificate uses reviewer_results ?? checker_results" rule lives only in lib/actions/coa.ts:169-180.
+
+## REQ-06 — confirmed (medium)
+packaging_issues has three triggers (pull, transform-and-issue, batch balance) and policies select/insert (roles system_admin, inventory_manager, mfr_manager); no migration up to 0127 checks batch status, and fp_batch_block_reason returns null for any batch that is not approved. On a throwaway database: as inventory_manager, create_packaging_issue on a batch in complete_awaiting_qc — allowed; create_production_issues on a rejected batch — allowed; as mfr_manager, a direct INSERT and create_packaging_issues (R&D) on the rejected batch — allowed. Only the app blocks it (fp_batch_packing_options view; lib/actions/packaging.ts:L174 resolveFpBatch).
+
+## REQ-07 — confirmed (medium)
+packaging_issue_items_insert checks only the role; its triggers (unit, stock pull) never look at the parent's voided_at. Reproduced: after voiding PKG-1 (jars 38 → 48), an mfr_manager inserted 7 jars onto the voided PKG-1 — allowed, jars 48 → 41; a second void was refused ("already void"), so the 7 jars are never put back. A header-only INSERT into packaging_issues by inventory_manager was also allowed. The app never writes these tables directly; reachable only through direct API calls by the three write roles.
