@@ -18,7 +18,7 @@ Older history: `claude/deployment-archive.md` (search it, don't read it whole). 
 | GitHub `main` (live on Vercel) | `4c95666` — P8-01 equipment calibration (migration 0125), after `402266c` — migration 0124 function access hardening, after `0eb9369` — migration 0123 approved MFR cannot be deleted, after `2fb277b` — unit tests, after `3444733` — migration 0122 Stock Integrity Check S9 net receipt, after `f583e06` — live database checks (documents), after `b5ea6d0` — migration 0121 pipeline check, after `811527a` — Git workflow document, after `0602487` — migrations applied by the Supabase GitHub integration (no migration), after `dff89f5` — project documents completed (no migration), after `b54da87` — read-only SQL checks under `scripts/sql` (no migration), after `de1c60f` — User Guide and Process Map refresh (no migration), after `f6a87d7` — project documents under `docs/project` (no migration), after `93de17e` — finished product retest, same cycle as raw material (migration 0120), after `b9edc35` — live walk fixes (no migration), after `9ca548a` — Legacy tag fix (no migration), after `8d2c7a3` — QC results by round, mandatory reasons, proposed rejection, void and decision history (migration 0119; three commits, last is the User Guide PDF), after `91c41ab` — Item Master COA template column (no migration), after `72af8e4` — Opening Stock Loads table shows who loaded (no migration), after `e9dba65` — quick wins (sidebar prefetch off, more failed-read banners, Edit invoice details on a new order; no migration), after `445fe1c` — Opening Stock rows can be typed in on the page (no migration), after `20fb5c0` — Stock Integrity Check explains each difference (migration 0118), after `1823c89` — guide and process map refresh, both on the User Guide page (no migration; Ravi pushed 12 Oct 2026, content identical to `guide-group13`), after `7900604` — accounts group (sign-in log, vendor Active tick, editable invoice details; migration 0117), after `d4dd1b4` — limits group |
 | Latest migration run in Supabase | `0125_equipment_calibration_from_dates.sql` | Applied by the Supabase GitHub integration on push to `main`, 18 Oct 2026; Claude checked `schema_migrations` (125 rows, newest 0125), the four checks, the trigger and the default through the Supabase connector |
 | Pending (delivered, not yet applied) | Nothing | — |
-| Next migration number | `0129` | 2 Nov 2026 (0128 delivered) |
+| Next migration number | `0129` | 2 Nov 2026 (0128 is live; Claude checked schema_migrations: 128 rows) |
 
 ## How deliveries work (and how to verify)
 
@@ -41,7 +41,7 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
-| 2026-11-02 | this commit | QC two-person guards: database records who decided each round and refuses one person both rounds or an already-decided new record (migration 0128; known issues Pass 130, live check E98) | 0128 | ✅ | tp128 21/21 | Pushed by Claude |
+| 2026-11-02 | `d64f26c` | QC two-person guards: database records who decided each round and refuses one person both rounds or an already-decided new record (migration 0128; known issues Pass 130, live check E98) | 0128 | ✅ | tp128 21/21 | Pushed by Claude |
 | 2026-11-01 | `f8e2d38` | P6-01 code review: ten fixes (migration 0127: QC void history, rejected material stays out, Stock Statement nets both ways, unpack sign, per-batch RM yield reversal, QC guard on voided batches; batch page shows voided runs; one role rule) (known issues Pass 127, live check E97) | 0127 | ✅ | vr127 21/21 | Pushed by Claude |
 | 2026-11-01 | `a94fcfa` | P6-01 void a packaging issue: migration 0126 (`void_packaging_issue`, QC status voided, item_position both directions), Status column with Void and red box on Packaging (known issues Pass 126, live check E96) | 0126 | ✅ | vp126 37/37 | Pushed by Claude; migration applied by the Supabase GitHub integration |
 | 2026-11-01 | `465fb4d`, `3c2cb90` | Writing review: clearer app messages (dashes, next steps, shorter); User Guide plain-language pass and PDF (known issues Pass 125, live check E95) | None | ✅ | n/a | Pushed by Claude; no database change |
@@ -78,7 +78,7 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 | 2026-10-18 | `4c95666` | P8-01 equipment calibration (Ravi approved the mockup; Next due required): status computed from Next due on the list, Excel, record page and a Dashboard card; Needs calibration / Not applicable; bulk upload follows; suite eq125, 4 unit tests | `0125_equipment_calibration_from_dates` | ✅ | ✅ | Pushed by Claude; applied by the Supabase GitHub integration |
 | `0126_void_packaging_issue` | `a94fcfa` | 2026-11-01 | ✅ Live | P6-01: void a packaging issue (opposite ledger rows, bulk and materials back, RM-FP batch out of stock, QC status voided). Suite vp126 37/37 |
 | `0127_void_review_fixes` | `f8e2d38` | 2026-11-01 | ✅ Live | Code review fixes for 0126 (QC void history, rejected material, Stock Statement both ways, unpack sign, per-batch RM yield reversal, QC guard). Suite vr127 21/21 |
-| `0128_qc_two_person_guards` | this commit | 2026-11-02 | ⏳ Pushed | QC two-person guards (REQ-16, REQ-13 insert path). Suite tp128 21/21 |
+| `0128_qc_two_person_guards` | `d64f26c` | 2026-11-02 | ✅ Live | QC two-person guards (REQ-16, REQ-13 insert path). Suite tp128 21/21 |
 | 2026-10-18 | `7cf1989` | Feedback widget: the page's list refreshes after every submitted note, not only the first (known issues Pass 95) | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-18 | `3356f25` | Code quality cleanup, no behaviour change (Ravi: go): lint ignores `_` parameters, unused code removed (`lib/supabase/client.ts`, `fpEligibleForLabel`, `ITEM_CATEGORIES`, a stale suppression); known issues Pass 94 | None | ✅ | n/a | Pushed by Claude; no database change |
 | 2026-10-18 | `402266c` | Migration 0124 (Ravi: lock only what no screen uses): trigger functions closed to direct calls, `can_manage_coa_template`, `check_sufficient_stock`, `stability_reserve_left` database-only, search_path fixed on every public function; suite sh124; sa113 updated | `0124_function_access_hardening` | ✅ | ✅ | Pushed by Claude; applied by the Supabase GitHub integration |
@@ -175,7 +175,7 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 | 2026-09-29 | `7ddd34c` | Purchase Register shows submitted, active lines only; Unit column added (screen + PDF); blank Re-Test Date column removed (ACC-35; Ravi: Option A, exclude drafts) | — | ✅ | n/a | Code only. tsc/eslint/build clean. File service returned 500 on SendUserFile; delivered via device_commit_files from the outputs folder. Ravi screenshot 29 Sept: push `112def4..7ddd34c`. |
 
 
-## Migration register (all 123 live; 0001–0081 are in `claude/deployment-archive.md`)
+## Migration register (all 124 live; 0001–0081 are in `claude/deployment-archive.md`)
 
 | Migration | Added in commit | Date | Supabase | Evidence |
 |---|---|---|---|---|
