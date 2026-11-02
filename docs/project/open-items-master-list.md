@@ -239,6 +239,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E95 | Writing clean-up (Pass 125, no SQL) | User Guide reads clearly (Purchase, QC sections); a refused action shows "Your role can't do this. Ask your System Administrator…". | Open |
 | E96 | P6-01 void a packaging issue (Pass 126, migration 0126) | Packaging → Void on a test Store issue → reason → Yes, void: row shows Void with name and reason; bulk left and material stock go back up; Stock Integrity Check stays green. | Open |
 | E97 | P6-01 review fixes (Pass 127, migration 0127) | After a test void: Stock Statement for today shows no Packaging and no Other in for the material; the batch page lists the issue as Void. | Open |
+| E98 | QC two-person guards (Pass 130, migration 0128) | A normal QC Round 1 and Round 2 by two different people save as before and the record shows both names. | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 

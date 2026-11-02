@@ -873,3 +873,12 @@ Ravi ran `/code-review high` on the P6-01 commit (`a94fcfa`) and asked to fix al
 - Confirmed (all need a signed-in user with the role calling the database directly; screens enforce the rules): **high** REQ-16 a user with both QC roles can approve alone by sending checker_by null; **medium** REQ-13 a Quality Checker can insert a QC record already Approved, or approve with invented results; REQ-14 reviewer results and certificates not tied to QC's results in the database; REQ-06 packaging on unapproved batches; REQ-07 material added to a voided issue never returned; REQ-03 voided issue still shown in a backward trace, pre-voided rows; REQ-17/18 Round 2 expiry and retest-period rules, edits after approval and the opening-stock loader not checked by the database.
 - Low and document findings listed in the report (confirm box wording since P6-01, status names in four places, send-back without confirmation, old repack/unpack issues cannot be voided). For Ravi to decide which to fix.
 - Skills installed: `spec-to-code-compliance`, `differential-review`, `variant-analysis`, `supply-chain-risk-auditor` (Trail of Bits).
+
+## Pass 130 — QC two-person gaps closed (2 Nov 2026, migration 0128)
+
+- [x] Ravi: "close the two two-person gaps" (from the spec-to-code compliance review, REQ-16 and REQ-13).
+- **Approving alone:** for direct writes from the app's side, the database now records who made Round 1 (checker_by/at) and Round 2 (reviewed_by/at) itself, whatever the caller sends; Round 1's decider is kept through Round 2; the different-person rule is checked against the recorded Round 1 decider; and who decided can never be changed afterwards. System Admin stays exempt from the different-person rule, as decided.
+- **Creating an already-decided record:** a QC record created directly from the app's side must start as Awaiting QC with no decision, reason, results or retest period. A proposed expiry date is allowed, because Submit to QC pre-fills the batch's expiry for Round 2 (the existing suite a0085 caught this before delivery).
+- The database's own functions (opening-stock loads, retests, the packaging void) are unaffected. The screens already send exactly what the database records, so nothing on screen changes.
+- Checks: 49 database suites (new `tp128`, 21 checks), type-check, 56 unit tests.
+- Live check (E98): none needed on screen beyond a normal QC Round 1 and Round 2 by two people (they save as before; the record shows both names).
