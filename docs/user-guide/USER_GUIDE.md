@@ -2,7 +2,7 @@
 
 **A complete guide to Invento, Atharva's system for inventory, quality control and manufacturing.**
 
-*Version: 1 November 2026 · This guide is updated whenever the app changes in a way that affects how you use it. See "How this guide stays current" at the end.*
+*Version: 3 November 2026 · This guide is updated whenever the app changes in a way that affects how you use it. See "How this guide stays current" at the end.*
 
 ## Table of contents
 
@@ -459,7 +459,7 @@ The ledger's Event column shows **Stock In** when stock is added (receipts, batc
 3. Submit. The batch gets an Assign Record (AR) with an **Analytical Report No.** (for example ARRM-0001/26 for raw material, ARFP-0001/26 for finished product), and its status becomes Awaiting QC, ready for Round 1.
 
 **How to review and approve or reject a batch**
-1. **Round 1 (Quality Checker):** Open the AR. With the batch still "Submitted," you'll see the Round 1 form.
+1. **Round 1 (Quality Checker):** Open the AR. With the batch still **Awaiting QC**, you'll see the Round 1 form.
    - For a raw material bought from a vendor and for a finished product, the form lists the tests on the item's (or the MFR's) **COA template**. Type the **result** of every test. If the item has no COA template yet, the page says so and links to where it is added; until then you cannot approve (you can still reject).
    - Choose **Approved** or **Rejected** and give a **reason** (at least 3 characters). A reason is needed for either decision and is kept for audit.
    - If **Approved**, the status becomes **Round 1 approved — awaiting review** and the AR moves to the QC Reviewer's queue. Round 1's decision and results are then read-only.
@@ -482,7 +482,8 @@ Only a fully Approved batch (both rounds, in date and not overdue for retest) ca
 
 **Good to know**
 - More roles can assign QC (New AR) than can decide it. Only the Quality Checker and QC Reviewer can do the review rounds; a System Admin can stand in for either.
-- The same person can't approve both rounds on the same batch. If you did Round 1, you won't be able to do Round 2 on that same AR.
+- The same person can't approve both rounds on the same batch. If you did Round 1, you won't be able to do Round 2 on that same AR. The database records who made each round and enforces this on every route, not just this screen; it also refuses a QC record that is created already decided. Every new AR starts at Awaiting QC.
+- **Void status.** When a Production packaging issue is voided (see [Voiding an issue made by mistake](#packaging)), its RM-FP batch's QC record shows **Void** and can no longer be decided. The Decision history adds a line "Voided with its packaging issue".
 - A batch at Round 1 approved — awaiting review isn't usable yet; it needs Round 2. Treat a batch as clear only when it shows Approved.
 - A retest AR is marked with a small "Retest" badge so you can tell it apart from a batch's first-ever QC check.
 - **Two people, one record.** If two people decide the same record at the same moment, the first decision is saved. The second person sees "Someone else has just made this decision" and nothing of theirs is saved. Refresh the page to see the result.
@@ -603,7 +604,7 @@ This module stands alone: it doesn't read or change data in Purchase, QC or Manu
 4. Click **View** on a row to open its detail page: a full before-and-after comparison, with field names in words and people, items, vendors, batches and recipes shown by name.
 5. The list shows 200 changes at a time, newest first; use **Older** and **Newer** at the bottom to move through them.
 
-**QC decisions:** choose Table → **QC Decision History** to see each round's decision, reason and who made it, one row per step (Round 1, Round 2, proposed rejection, send back, void).
+**QC decisions:** choose Table → **QC Decision History** to see each round's decision, reason and who made it, one row per step (Round 1, Round 2, proposed rejection, send back, void, and "Voided with its packaging issue" when a Production packaging issue was voided).
 
 **Sign-ins:** choose Table → **User Account** to see who signed in and out, failed sign-in attempts (the e-mail typed, never the password) and passwords changed by the user. A run of failed attempts on one account is worth a look. After 20 failed attempts for one e-mail in an hour (or 200 in all), the log adds one line saying more were not recorded.
 
@@ -719,7 +720,7 @@ Packaging uses the same stock the Inventory Ledger tracks: an issue here shows t
 
 **Good to know**
 - You can't issue more than a batch has available; the form stops you before stock goes negative. When a batch or packaging material is short, a red "Not enough stock for …" message names the line and shows what's available against what you asked for. The quantity box turns red, and Add line and Save stay greyed out until it's fixed.
-- There is no repack or unpack: every issue is a pack.
+- There is no repack or unpack: every issue is a pack. A mistaken issue is voided (above), not edited.
 - **Retest blocks packing.** A finished product batch cannot be packed while it is expired, past its retest date, or while a retest of it is open on the Quality Control page. The form says why. When the retest is approved the batch can be packed again; a rejected retest takes the remaining bulk out of stock (packs already made stay). Samples taken for a retest come off the bulk, so they reduce what is left to pack.
 - The Packaging list has a Packing Register PDF for printing.
 
