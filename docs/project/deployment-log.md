@@ -41,6 +41,7 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
+| 2026-11-03 | `89d0643` | User Guide (3 Nov 2026) and Process Map updated for the packaging void, the QC Void status and the database two-person rule; both PDFs and the in-app text rebuilt (known issues Pass 131) | — | ✅ | — | Pushed by Claude |
 | 2026-11-02 | `d64f26c` | QC two-person guards: database records who decided each round and refuses one person both rounds or an already-decided new record (migration 0128; known issues Pass 130, live check E98) | 0128 | ✅ | tp128 21/21 | Pushed by Claude |
 | 2026-11-01 | `f8e2d38` | P6-01 code review: ten fixes (migration 0127: QC void history, rejected material stays out, Stock Statement nets both ways, unpack sign, per-batch RM yield reversal, QC guard on voided batches; batch page shows voided runs; one role rule) (known issues Pass 127, live check E97) | 0127 | ✅ | vr127 21/21 | Pushed by Claude |
 | 2026-11-01 | `a94fcfa` | P6-01 void a packaging issue: migration 0126 (`void_packaging_issue`, QC status voided, item_position both directions), Status column with Void and red box on Packaging (known issues Pass 126, live check E96) | 0126 | ✅ | vp126 37/37 | Pushed by Claude; migration applied by the Supabase GitHub integration |
