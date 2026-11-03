@@ -13,6 +13,41 @@ Ravi decided these on 18 Oct 2026. Each is built after its mockup is approved (P
 | SCAN-P6-01 | A packaging issue made by mistake can never be undone | Inventory Manager or System Admin may void with a reason at any time; bulk, material and packed count return through new ledger rows; issue shows Void. No Store/R&D returns yet. **Built 1 Nov 2026 (migration 0126, Pass 126).** |
 | SCAN-P5-04 | A finished product batch cannot be corrected after Complete, nor closed when it fails | Manager or System Admin may send a Complete - Awaiting QC batch back to In Process (before QC starts); an In Process batch may be closed as failed (raw material stays used, no yield, status Closed). Both audited. |
 
+## 1a. Functional priorities (3 Nov 2026)
+
+Open functional items, ranked by impact (go-live and infrastructure work excluded; see section 5). Details are in the sections and files named.
+
+| Rank | Item | What is missing | Where |
+|---|---|---|---|
+| 1 | SCAN-P5-04 | A finished product batch cannot be sent back after Complete, nor closed as failed | Section 1 (decided, needs mockup) |
+| 2 | SCAN-P3-07 / B24 | No stock adjustment or physical count; no write-off for finished product, packed product or RM-FP batches; a wrong wastage cannot be corrected | Section 3.2 |
+| 3 | SCAN-P4-09 | A certificate cannot be voided or replaced; a second certificate for the same QC record is accepted | Section 1 (mockup shown, parked by Ravi) |
+| 4 | SCAN-P5-01 | The creator of an MFR can approve it (no second person) | Section 3.2 |
+| 5 | SCAN-P6-04 | RM-FP (production raw material) can be approved with no sample and an unrelated expiry | Section 3.2 |
+| 6 | SCAN-P9-03 / P9-01 / P9-02 | No signed batch record or release checklist; no deviation / OOS / CAPA / change control record; vendors have no approval status, receipts no supplier lot | Section 3.2 |
+| 7 | Spec compliance (1 Nov) | Rules enforced only on screen; need a direct API call by a role holder (see 1b) | `spec-compliance-2026-11-01/REPORT.md` |
+| 8 | B45, B44, B25 | Invoice vs received date on slips and labels; FP stability reminders; labels for RM-FP batches | Section 3.1 |
+| 9 | Small glitches | Listed in 1b | – |
+
+## 1b. Spec-to-code compliance findings still open (review of 1 Nov 2026)
+
+Confirmed on a throwaway database; all need a signed-in user with the role calling the database directly (the screens enforce the rules). REQ-16 and the REQ-13 insert path were closed by migration 0128 (2 Nov 2026).
+
+| # | Severity | Finding |
+|---|---|---|
+| REQ-13 | Medium | Round 1 can be approved with invented results or for an item with no COA template (database checks only the shape of the results) |
+| REQ-14 | Medium | Reviewer results not tied to Round 1's tests; a certificate's results can differ from QC's |
+| REQ-06 | Medium | A packaging issue can be made from a batch that is not approved |
+| REQ-07 | Medium | Material can be added to a voided packaging issue and is never returned; a header-only issue can be inserted |
+| REQ-03 | Medium | A packaging row can be inserted already marked Void; tracing back from a voided RM-FP batch still shows its voided issue |
+| REQ-17 | Medium | Round 2 expiry and retest-period rules (required, not in the past, at most 180 days, none on the last retest) not checked by the database |
+| REQ-18 | Medium | A retest can extend the expiry; period or expiry can be edited after approval; the opening-stock loader accepts a retest date after the expiry |
+| REQ-12 | Low | Status names not shared in four places: Batch Trace export, QC card on the batch page, Dashboard QC chart, User Guide line 462 |
+| REQ-15 | Low | "Send back to the Quality Checker" saves on one click (the document says it asks for confirmation) |
+| REQ-05 | Low | Old repack / unpack issues (before 29 Sept) cannot be voided |
+| REQ-09 | Low | Material beyond what is held in batches is pulled with no batch on its ledger row |
+| L1 (security review) | Low | The packaging void reason has no length limit |
+
 ## 2. Live checks waiting on Ravi (screen checks)
 
 62 checks. The data side of many was confirmed read-only on 18 Oct (see the notes in the master list).
