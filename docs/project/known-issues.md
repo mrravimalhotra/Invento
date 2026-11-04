@@ -889,3 +889,8 @@ Ravi ran `/code-review high` on the P6-01 commit (`a94fcfa`) and asked to fix al
 - **User Guide** (`docs/user-guide/USER_GUIDE.md`, version 3 Nov 2026): Round 1 now says the batch is "Awaiting QC" (it said "Submitted"); QC Good to know adds that the database records who made each round, refuses one person both rounds and refuses a record created already decided; new **Void status** note for an RM-FP QC record whose Production packaging issue was voided; the Audit Log line lists "Voided with its packaging issue"; Packaging says a mistaken issue is voided, not edited. `public/user-guide.pdf` and the in-app text (`guide-html.ts`) rebuilt.
 - **Process Map** (`public/process-map.html`, updated 3 Nov 2026, migrations up to 0128): section 6 gains a "Voiding a packaging issue" box; Statuses add "Packaging issue: Issued → Void" and "QC record of an RM-FP batch → Void"; Rules add the database-enforced two-person rule and "Voids put stock back, never delete"; go-live question GL-31 records that the packaging void is built (finished product batch void still open). `public/process-map.pdf` rebuilt (25 pages).
 - In the app: Overview → User Guide (text, PDF) and its Process Map card (`/process-map.html`, `/process-map.pdf`).
+
+### Session end, 4 Nov 2026
+
+- Handoff (`handoff-2026-10-24.md`), project index and deployment log brought to current state (`4b8266d`). The same handoff, with the starter prompt for the next Claude Code session, is in Claude Docs: https://claude.ai/artifact/1YPnURC4KHhM7wU39xRhWr
+- Next: migration 0129, Pass 132, live check E99. Open items: pending-items sections 1a and 1b.

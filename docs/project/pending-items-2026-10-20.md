@@ -42,7 +42,7 @@ Confirmed on a throwaway database; all need a signed-in user with the role calli
 | REQ-03 | Medium | A packaging row can be inserted already marked Void; tracing back from a voided RM-FP batch still shows its voided issue |
 | REQ-17 | Medium | Round 2 expiry and retest-period rules (required, not in the past, at most 180 days, none on the last retest) not checked by the database |
 | REQ-18 | Medium | A retest can extend the expiry; period or expiry can be edited after approval; the opening-stock loader accepts a retest date after the expiry |
-| REQ-12 | Low | Status names not shared in four places: Batch Trace export, QC card on the batch page, Dashboard QC chart, User Guide line 462 |
+| REQ-12 | Low | Status names not shared in four places: Batch Trace export, QC card on the batch page, Dashboard QC chart (the User Guide line was fixed 3 Nov 2026, Pass 131) |
 | REQ-15 | Low | "Send back to the Quality Checker" saves on one click (the document says it asks for confirmation) |
 | REQ-05 | Low | Old repack / unpack issues (before 29 Sept) cannot be voided |
 | REQ-09 | Low | Material beyond what is held in batches is pulled with no batch on its ledger row |
