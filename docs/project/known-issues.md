@@ -904,3 +904,10 @@ Ravi ran `/code-review high` on the P6-01 commit (`a94fcfa`) and asked to fix al
 - **Phone header:** the Hide legacy data box ran off the right edge and squeezed the title; `PageHeader` now wraps (all pages), and the box's label stays on one line.
 - Checks: type-check, lint, 56 unit tests, production build; browser check at 390 px and 1100 px (no sideways scroll; counts 2 → 1 and 2 → 0 when the box is ticked). User Guide (17 Nov) line on My tasks updated.
 - Live check (E99): on a phone, open the Dashboard: the Hide legacy data box sits under the title; tick it and the My tasks counts drop to non-legacy records.
+
+## Pass 133 — Dashboard subtitle matches what it shows (17 Nov 2026, no migration)
+
+- [x] Ravi asked whether "What needs attention today, and the last 30 days at a glance" is correct; chose "Reword".
+- Only POs (30d) and three charts (inventory movement, purchase value, finished batches) cover the last 30 days; the other summary cards and "QC by status" are all-time totals.
+- The subtitle now reads "What needs attention today, current totals, and the last 30 days of activity."
+- Checks: type-check, 56 unit tests. Live check: none beyond reading the Dashboard subtitle.

@@ -121,7 +121,7 @@ export function DashboardView({ data, tasks }: { data: DashboardData; tasks?: Re
     <div>
       <PageHeader
         title="Dashboard"
-        description="What needs attention today, and the last 30 days at a glance."
+        description="What needs attention today, current totals, and the last 30 days of activity."
         action={<HideLegacyToggle />}
       />
       {tasks}
