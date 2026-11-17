@@ -15,7 +15,7 @@ Older history: `claude/deployment-archive.md` (search it, don't read it whole). 
 
 | | Value | Verified |
 |---|---|---|
-| GitHub `main` (live on Vercel) | `296fb80` — Dashboard My tasks fix (Pass 132), after `d64f26c` — QC two-person guards (migration 0128) | 17 Nov 2026: branch and `main` at the same commit (`git ls-remote`) |
+| GitHub `main` (live on Vercel) | `6cb4452` — Dashboard subtitle (Pass 133), after `296fb80` — Dashboard My tasks fix (Pass 132), after `d64f26c` — QC two-person guards (migration 0128) | 17 Nov 2026: branch and `main` at the same commit (`git ls-remote`) |
 | Latest migration run in Supabase | `0128_qc_two_person_guards.sql` | Applied by the Supabase GitHub integration on push to `main`, 2 Nov 2026; Claude checked `schema_migrations` read-only (128 rows) |
 | Pending (delivered, not yet applied) | Nothing | — |
 | Next migration number | `0129` | 2 Nov 2026 (0128 is live; Claude checked schema_migrations: 128 rows) |
@@ -41,6 +41,7 @@ SQL run by hand in the SQL Editor); the rows below up to `dff89f5` were delivere
 
 | Date | GitHub commit | What | Migration | Code pushed | Migration run | Notes |
 |---|---|---|---|---|---|---|
+| 2026-11-17 | `6cb4452` | Dashboard subtitle reworded to match what it shows (known issues Pass 133) | — | ✅ | — | Pushed by Claude |
 | 2026-11-17 | `296fb80` | Dashboard My tasks honours Hide legacy data, skips stale drafts; page header wraps on phones (known issues Pass 132, live check E99) | — | ✅ | — | Pushed by Claude |
 | 2026-11-03 | `89d0643` | User Guide (3 Nov 2026) and Process Map updated for the packaging void, the QC Void status and the database two-person rule; both PDFs and the in-app text rebuilt (known issues Pass 131) | — | ✅ | — | Pushed by Claude |
 | 2026-11-02 | `d64f26c` | QC two-person guards: database records who decided each round and refuses one person both rounds or an already-decided new record (migration 0128; known issues Pass 130, live check E98) | 0128 | ✅ | tp128 21/21 | Pushed by Claude |
