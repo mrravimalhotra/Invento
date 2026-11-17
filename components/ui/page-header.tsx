@@ -14,13 +14,13 @@ export function PageHeader({
   back?: { href: string; label: string };
 }) {
   return (
-    <div className="mb-6 flex items-start justify-between gap-4">
-      <div>
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+      <div className="min-w-0 flex-1 basis-64">
         {back && <BackLink href={back.href} label={back.label} />}
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted max-w-2xl">{description}</p>}
       </div>
-      <div className="flex shrink-0 items-start gap-3">
+      <div className="flex min-w-0 max-w-full flex-wrap items-start gap-3">
         <HelpLink />
         {action}
       </div>

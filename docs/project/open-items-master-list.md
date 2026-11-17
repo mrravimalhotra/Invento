@@ -240,6 +240,7 @@ Earlier note (29 Sept 2026): everything else in this section is finished. Part A
 | E96 | P6-01 void a packaging issue (Pass 126, migration 0126) | Packaging → Void on a test Store issue → reason → Yes, void: row shows Void with name and reason; bulk left and material stock go back up; Stock Integrity Check stays green. | Open |
 | E97 | P6-01 review fixes (Pass 127, migration 0127) | After a test void: Stock Statement for today shows no Packaging and no Other in for the material; the batch page lists the issue as Void. | Open |
 | E98 | QC two-person guards (Pass 130, migration 0128) | A normal QC Round 1 and Round 2 by two different people save as before and the record shows both names. | Open |
+| E99 | Dashboard My tasks: Hide legacy data, stale drafts, phone header (Pass 132) | On a phone, the Hide legacy data box sits under the Dashboard title with nothing running off the screen; ticking it makes the My tasks counts leave out LEG- records. | Open |
 
 ### F. Scan findings (full-app scan, started 10 Oct 2026; added at the end of each phase)
 

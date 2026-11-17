@@ -1,10 +1,18 @@
+"use client";
+
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { ROLE_LABELS, type Role } from "@/lib/constants/roles";
 import { tasksFor, type TaskKey } from "@/lib/my-tasks";
+import { useHideLegacy } from "@/lib/hooks/use-hide-legacy";
+import type { TaskCount } from "./my-tasks";
 
 // UX-04: first card on the Dashboard — what waits for this user, by role.
-export function MyTasksCard({ roles, counts }: { roles: readonly Role[]; counts: Partial<Record<TaskKey, number>> }) {
+// 17 Nov 2026: honours "Hide legacy data" like the rest of the Dashboard.
+export function MyTasksCard({ roles, counts: pairs }: { roles: readonly Role[]; counts: Partial<Record<TaskKey, TaskCount>> }) {
+  const [hideLegacy] = useHideLegacy();
+  const counts: Partial<Record<TaskKey, number>> = {};
+  for (const [k, c] of Object.entries(pairs) as [TaskKey, TaskCount][]) counts[k] = hideLegacy ? c.nonLegacy : c.all;
   const tasks = tasksFor(roles).filter((t) => counts[t.key] !== undefined);
   if (tasks.length === 0) return null;
   const nothing = tasks.every((t) => counts[t.key] === 0);

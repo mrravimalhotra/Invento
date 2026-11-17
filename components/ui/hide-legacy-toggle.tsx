@@ -25,7 +25,7 @@ export function HideLegacyToggle() {
         checked={hideLegacy}
         onChange={(e) => setHideLegacy(e.target.checked)}
       />
-      Hide legacy data
+      <span className="whitespace-nowrap">Hide legacy data</span>
       <span className="text-xs text-muted">(lists, dropdowns and this Dashboard; Reports always show everything)</span>
     </label>
   );

@@ -894,3 +894,13 @@ Ravi ran `/code-review high` on the P6-01 commit (`a94fcfa`) and asked to fix al
 
 - Handoff (`handoff-2026-10-24.md`), project index and deployment log brought to current state (`4b8266d`). The same handoff, with the starter prompt for the next Claude Code session, is in Claude Docs: https://claude.ai/artifact/1YPnURC4KHhM7wU39xRhWr
 - Next: migration 0129, Pass 132, live check E99. Open items: pending-items sections 1a and 1b.
+
+## Pass 132 — Dashboard My tasks: Hide legacy data, stale drafts, phone header (17 Nov 2026, no migration)
+
+- [x] Ravi sent a phone screenshot of the Dashboard and asked whether the message is correct; chose "Fix all three".
+- The wording of each My tasks line matches what it counts. The live numbers could not be checked: the Supabase connector is signed in to another organisation again (projects "syllabi" and "PuneBookFestival"), so `execute_sql` was refused.
+- **Hide legacy data:** the box says it applies to "this Dashboard", but My tasks ignored it. Counts are now pairs (all / without LEG- records, the QC list's rule) and the card picks one in the browser.
+- **Stale drafts:** "Drafts to create or cancel" could count a draft past its 30 minutes; the Dashboard now runs `expire_stale_fp_drafts()` first, as the Finished Product pages do.
+- **Phone header:** the Hide legacy data box ran off the right edge and squeezed the title; `PageHeader` now wraps (all pages), and the box's label stays on one line.
+- Checks: type-check, lint, 56 unit tests, production build; browser check at 390 px and 1100 px (no sideways scroll; counts 2 → 1 and 2 → 0 when the box is ticked). User Guide (17 Nov) line on My tasks updated.
+- Live check (E99): on a phone, open the Dashboard: the Hide legacy data box sits under the title; tick it and the My tasks counts drop to non-legacy records.

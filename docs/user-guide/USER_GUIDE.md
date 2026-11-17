@@ -2,7 +2,7 @@
 
 **A complete guide to Invento, Atharva's system for inventory, quality control and manufacturing.**
 
-*Version: 3 November 2026 · This guide is updated whenever the app changes in a way that affects how you use it. See "How this guide stays current" at the end.*
+*Version: 17 November 2026 · This guide is updated whenever the app changes in a way that affects how you use it. See "How this guide stays current" at the end.*
 
 ## Table of contents
 
@@ -158,7 +158,7 @@ A handful of things are open to **any** signed-in user regardless of role, becau
 
 **How to check what needs your attention today**
 1. Open Invento. You land on the Dashboard.
-2. The first card, **My tasks**, shows how many records wait for you, from your roles (for example QC records waiting for Round 1, or batches to complete). Click a line to open its screen.
+2. The first card, **My tasks**, shows how many records wait for you, from your roles (for example QC records waiting for Round 1, or batches to complete). Click a line to open its screen. With **Hide legacy data** ticked, the counts leave out legacy (LEG-) records, like the rest of the Dashboard.
 3. If anything needs action, warning cards follow: **Low stock** (raw materials whose usable quantity has dropped below their reorder threshold), **Finished product batches in progress** (batches started but not yet completed), **Retest overdue or due in the next 90 days**, and **Expired or expiring in the next 90 days**. A card only appears when there's something to flag.
 4. Below them is the row of summary cards (Raw materials, Vendors, MFR definitions, Finished batches, POs in the last 30 days, Pending QC). Click any card to jump straight to that module.
 5. Click any item in the warning cards to go straight to the relevant screen (Item Master, Finished Product or Quality Control).
